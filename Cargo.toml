@@ -1,0 +1,18 @@
+[package]
+name = "vulkan_rust"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4"
+env_logger = "0.9"
+ash = "0.33"
+ash-window = "0.7"
+cgmath = "0.18"
+image = "0.23"
+tobj = "3.2"
+ahash = "0.7.6"
+winit = "0.25"
