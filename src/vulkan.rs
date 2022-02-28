@@ -57,7 +57,6 @@ pub struct VulkanApp {
     color_texture: Texture,
     depth_format: vk::Format,
     depth_texture: Texture,
-    texture: Texture,
     model_index_count: usize,
     vertex_buffer: vk::Buffer,
     vertex_buffer_memory: vk::DeviceMemory,
@@ -160,9 +159,9 @@ impl VulkanApp {
             properties,
         );
 
-        let texture = Self::create_texture_image(&vk_context, command_pool, graphics_queue);
+        let (vertices, indices) = Self::cube_model();
+        Self::voronoi_model();
 
-        let (vertices, indices) = Self::load_model();
         let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_buffer(
             &vk_context,
             transient_command_pool,
@@ -184,7 +183,6 @@ impl VulkanApp {
             descriptor_pool,
             descriptor_set_layout,
             &uniform_buffers,
-            texture,
         );
 
         let command_buffers = Self::create_and_register_command_buffers(
@@ -230,7 +228,6 @@ impl VulkanApp {
             color_texture,
             depth_format,
             depth_texture,
-            texture,
             model_index_count: indices.len(),
             vertex_buffer,
             vertex_buffer_memory,
@@ -353,7 +350,6 @@ impl Drop for VulkanApp {
             device.destroy_buffer(self.index_buffer, None);
             device.destroy_buffer(self.vertex_buffer, None);
             device.free_memory(self.vertex_buffer_memory, None);
-            self.texture.destroy(device);
             device.destroy_command_pool(self.transient_command_pool, None);
             device.destroy_command_pool(self.command_pool, None);
         }

@@ -15,7 +15,7 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
-        .with_title("Vulkan tutorial with Ash")
+        .with_title("Vulkan Renderer")
         .with_inner_size(PhysicalSize::new(WIDTH, HEIGHT))
         .build(&event_loop)
         .unwrap();

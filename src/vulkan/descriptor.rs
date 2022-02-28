@@ -52,8 +52,7 @@ impl VulkanApp{
         device: &Device,
         pool: vk::DescriptorPool,
         layout: vk::DescriptorSetLayout,
-        uniform_buffers: &[vk::Buffer],
-        texture: Texture,
+        uniform_buffers: &[vk::Buffer]
     ) -> Vec<vk::DescriptorSet> {
         let layouts = (0..uniform_buffers.len())
             .map(|_| layout)
@@ -75,13 +74,6 @@ impl VulkanApp{
                     .build();
                 let buffer_infos = [buffer_info];
 
-                let image_info = vk::DescriptorImageInfo::builder()
-                    .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-                    .image_view(texture.view)
-                    .sampler(texture.sampler.unwrap())
-                    .build();
-                let image_infos = [image_info];
-
                 let ubo_descriptor_write = vk::WriteDescriptorSet::builder()
                     .dst_set(*set)
                     .dst_binding(0)
@@ -89,15 +81,8 @@ impl VulkanApp{
                     .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                     .buffer_info(&buffer_infos)
                     .build();
-                let sampler_descriptor_write = vk::WriteDescriptorSet::builder()
-                    .dst_set(*set)
-                    .dst_binding(1)
-                    .dst_array_element(0)
-                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                    .image_info(&image_infos)
-                    .build();
 
-                let descriptor_writes = [ubo_descriptor_write, sampler_descriptor_write];
+                let descriptor_writes = [ubo_descriptor_write];
 
                 unsafe { device.update_descriptor_sets(&descriptor_writes, &[]) }
             });

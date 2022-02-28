@@ -3,13 +3,15 @@ use crate::vulkan::fs;
 use super::VulkanApp;
 use ash::vk; 
 
+use cgmath::num_traits::ToPrimitive;
+use delaunator::*;
+
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub struct Vertex {
     pos: [f32; 3],
     color: [f32; 3],
-    coords: [f32; 2],
 }
 
 impl Vertex {
@@ -46,41 +48,55 @@ impl Vertex {
 
 impl VulkanApp{
 
-    pub fn load_model() -> (Vec<Vertex>, Vec<u32>) {
-        log::debug!("Loading model.");
-        let mut cursor = fs::load("models/chalet.obj");
-        let (models, _) = tobj::load_obj_buf(
-            &mut cursor,
-            &tobj::LoadOptions {
-                single_index: true,
-                triangulate: true,
-                ..Default::default()
+    pub fn cube_model() -> (Vec<Vertex>, Vec<u32>){
+        let vertices: Vec<Vertex> = vec![
+            Vertex {
+                pos: [0.0, 0.0, 0.0],
+                color: [1.0, 0.0, 0.0],
             },
-            |_| Ok((vec![], ahash::AHashMap::new())),
-        )
-        .unwrap();
+            Vertex {
+                pos: [1.0, 0.0, 0.0],
+                color: [0.0, 1.0, 0.0],
+            },
+            Vertex {
+                pos: [0.0, 1.0, 0.0],
+                color: [0.0, 0.0, 1.0],
+            },
+            Vertex {
+                pos: [1.0, 1.0, 0.0],
+                color: [1.0, 1.0, 0.0],
+            }
+        ];
 
-        let mesh = &models[0].mesh;
-        let positions = mesh.positions.as_slice();
-        let coords = mesh.texcoords.as_slice();
-        let vertex_count = mesh.positions.len() / 3;
+        let indices: Vec<u32> = vec![0, 1, 2, 3, 2, 1];
+        (vertices, indices)
+    }
 
-        let mut vertices = Vec::with_capacity(vertex_count);
-        for i in 0..vertex_count {
-            let x = positions[i * 3];
-            let y = positions[i * 3 + 1];
-            let z = positions[i * 3 + 2];
-            let u = coords[i * 2];
-            let v = coords[i * 2 + 1];
+    pub fn voronoi_model() -> (Vec<Vertex>, Vec<u32>) {
+        let points = vec![
+            Point { x: 0., y: 0. },
+            Point { x: 1., y: 0. },
+            Point { x: 1., y: 1. },
+            Point { x: 0., y: 1. },
+        ];
+        
+        let result = triangulate(&points);
+        
+        println!("{:?}", result.triangles); // [0, 2, 1, 0, 3, 2]
 
-            let vertex = Vertex {
-                pos: [x, y, z],
-                color: [1.0, 1.0, 1.0],
-                coords: [u, v],
-            };
-            vertices.push(vertex);
+        let mut vertices: Vec<Vertex> = Vec::with_capacity(points.capacity());
+        for ele in points {
+            vertices.push(Vertex{
+                pos: [ele.x as f32, ele.y as f32, 0.0],
+                color:  [1.0, 1.0, 1.0],
+            });
         }
 
-        (vertices, mesh.indices.clone())
+        let mut indicies: Vec<u32> = Vec::with_capacity(result.triangles.capacity());
+        for ele in result.triangles {
+            indicies.push(ele as u32);
+        }
+
+        (vertices, indicies)
     }
 }
