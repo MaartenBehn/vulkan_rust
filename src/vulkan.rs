@@ -159,8 +159,8 @@ impl VulkanApp {
             properties,
         );
 
-        let (vertices, indices) = Self::cube_model();
-        Self::voronoi_model();
+        let (vertices, indices) = Self::voronoi_sphere_model();
+        
 
         let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_buffer(
             &vk_context,
@@ -243,7 +243,6 @@ impl VulkanApp {
     }
 
 
-    
 
     pub fn draw_frame(&mut self) -> bool {
         log::trace!("Drawing frame.");
@@ -324,10 +323,8 @@ impl VulkanApp {
                 _ => {}
             }
         }
-
         false
     }
-
 }
 
 impl Drop for VulkanApp {
