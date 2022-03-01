@@ -14,7 +14,7 @@ use game_loop::winit::window::{Window, WindowBuilder};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const MAX_FPS: u32 = 60;
+const MAX_FPS: u32 = 30;
 const MIN_FPS: u32 = 30;
 
 fn main() {

@@ -74,7 +74,7 @@ impl VulkanApp{
 
         let mut rng = rand::thread_rng();
 
-        let mut points: Vec<spherical_voronoi::Point> = Vec::with_capacity(17);
+        let mut points: Vec<spherical_voronoi::Point> = Vec::with_capacity(20);
         for i in 0..points.capacity() {
             points.push(spherical_voronoi::Point::from(UnitSphere.sample(&mut rng)));
         }

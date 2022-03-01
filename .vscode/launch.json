@@ -19,6 +19,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [],
+            "externalConsole": true,
             "preLaunchTask": "build_release",
         },
         {
