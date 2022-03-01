@@ -41,7 +41,6 @@ fn main() {
     });
 }
 
-
 struct Game {
     is_left_clicked: Option<bool>,
     cursor_position: Option<[i32; 2]>,
