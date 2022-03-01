@@ -14,7 +14,7 @@ use game_loop::winit::window::{Window, WindowBuilder};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const MAX_FPS: u32 = 30;
+const MAX_UPS: u32 = 30;
 const MIN_FPS: u32 = 30;
 
 fn main() {
@@ -30,7 +30,7 @@ fn main() {
     let app = vulkan::VulkanApp::new(&window, WIDTH, HEIGHT);
 
     let game = Game::new(app);
-    game_loop(event_loop, window,  game,MAX_FPS, 1.0 / MIN_FPS as f64, |g| {
+    game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
         println!("frame time: {:?}, pFPS: {:?}", g.last_frame_time(), 1.0 / g.last_frame_time())
 

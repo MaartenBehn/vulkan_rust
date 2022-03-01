@@ -11,6 +11,15 @@
             "preLaunchTask": "build",
         },
         {
+            "name": "Release",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/release/vulkan_rust",
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_release",
+        },
+        {
             "name": "Release Win",
             "type": "cppvsdbg",
             "request": "launch",
