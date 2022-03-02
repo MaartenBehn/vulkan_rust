@@ -1,4 +1,4 @@
-use std::{mem::size_of, ops::RangeBounds};
+use std::{mem::size_of};
 use super::VulkanApp;
 use ash::vk; 
 use rand_distr::{UnitSphere, Distribution};
@@ -75,7 +75,7 @@ impl VulkanApp{
         let mut rng = rand::thread_rng();
 
         let mut points: Vec<spherical_voronoi::Point> = Vec::with_capacity(20);
-        for i in 0..points.capacity() {
+        for _ in 0..points.capacity() {
             points.push(spherical_voronoi::Point::from(UnitSphere.sample(&mut rng)));
         }
 

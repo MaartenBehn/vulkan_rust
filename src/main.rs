@@ -4,9 +4,8 @@ use vulkan::VulkanApp;
 use winit::{
     dpi::PhysicalSize,
     event::{ElementState, MouseButton, MouseScrollDelta},
-    event_loop::{ControlFlow},
 };
-use game_loop::{game_loop, GameLoop, Time};
+use game_loop::{game_loop};
 
 use game_loop::winit::event::{Event, WindowEvent};
 use game_loop::winit::event_loop::EventLoop;
@@ -32,7 +31,7 @@ fn main() {
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
-        println!("frame time: {:?}, pFPS: {:?}", g.last_frame_time(), 1.0 / g.last_frame_time())
+        println!("FPS: {:?}", 1.0 / g.last_frame_time())
 
     }, |g| {
         g.game.render(&g.window);

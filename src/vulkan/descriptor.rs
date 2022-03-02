@@ -1,4 +1,4 @@
-use super::{VulkanApp, texture::Texture, buffer::UniformBufferObject};
+use super::{VulkanApp, buffer::UniformBufferObject};
 
 use ash::{vk, Device};
 use std::mem::size_of;
