@@ -42,6 +42,10 @@ impl VulkanApp{
                 .unwrap()[0]
         };
 
+        unsafe {
+            device.destroy_shader_module(comp_shader_module, None);
+        };
+
         (pipeline, layout)
     }
 

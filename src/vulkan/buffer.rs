@@ -199,45 +199,4 @@ impl VulkanApp{
             unsafe { device.cmd_copy_buffer(buffer, src, dst, &regions) };
         });
     }
-
-    pub fn update_uniform_buffers(&mut self, current_image: u32) {
-        /* 
-        if self.is_left_clicked && self.cursor_delta.is_some() {
-            let delta = self.cursor_delta.take().unwrap();
-            let x_ratio = delta[0] as f32 / self.swapchain_properties.extent.width as f32;
-            let y_ratio = delta[1] as f32 / self.swapchain_properties.extent.height as f32;
-            let theta = x_ratio * 180.0_f32.to_radians();
-            let phi = y_ratio * 90.0_f32.to_radians();
-            self.camera.rotate(theta, phi);
-        }
-        if let Some(wheel_delta) = self.wheel_delta {
-            self.camera.forward(wheel_delta * 0.3);
-        }
-
-        let aspect = self.swapchain_properties.extent.width as f32
-            / self.swapchain_properties.extent.height as f32;
-        let ubo = UniformBufferObject {
-            model: Matrix4::from_angle_x(Deg(270.0)),
-            view: Matrix4::look_at_rh(
-                self.camera.position(),
-                Point3::new(0.0, 0.0, 0.0),
-                Vector3::new(0.0, 1.0, 0.0),
-            ),
-            proj: math::perspective(Deg(45.0), aspect, 0.1, 10.0),
-        };
-        let ubos = [ubo];
-
-        let buffer_mem = self.uniform_buffer_memories[current_image as usize];
-        let size = size_of::<UniformBufferObject>() as vk::DeviceSize;
-        unsafe {
-            let device = self.vk_context.device();
-            let data_ptr = device
-                .map_memory(buffer_mem, 0, size, vk::MemoryMapFlags::empty())
-                .unwrap();
-            let mut align = ash::util::Align::new(data_ptr, align_of::<f32>() as _, size);
-            align.copy_from_slice(&ubos);
-            device.unmap_memory(buffer_mem);
-        }
-        */
-    }
 }

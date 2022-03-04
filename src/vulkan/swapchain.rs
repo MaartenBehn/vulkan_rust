@@ -352,11 +352,9 @@ impl VulkanApp{
             device.destroy_pipeline(self.pipeline, None);
             device.destroy_pipeline_layout(self.pipeline_layout, None);
             device.destroy_render_pass(self.render_pass, None);
-            /*
-            self.swapchain_image_views
+            self.image_views
                 .iter()
                 .for_each(|v| device.destroy_image_view(*v, None));
-            */
             self.swapchain.destroy_swapchain(self.swapchain_khr, None);
         }
     }

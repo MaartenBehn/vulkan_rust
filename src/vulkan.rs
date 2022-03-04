@@ -22,7 +22,7 @@ use std::mem;
 
 use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, texture::Texture, camera::Camera}};
 
-use ash::extensions::khr::{Surface, Swapchain};
+use ash::{extensions::khr::{Surface, Swapchain}, vk::ImageView};
 use ash::{vk, Entry};
 use winit::window::Window;
 
@@ -46,6 +46,7 @@ pub struct VulkanApp {
     swapchain: Swapchain,
     swapchain_khr: vk::SwapchainKHR,
     swapchain_properties: SwapchainProperties,
+    image_views: Vec<ImageView>,
     render_pass: vk::RenderPass,
     descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
@@ -97,7 +98,7 @@ impl VulkanApp {
             Self::create_swapchain_and_images(&vk_context, queue_families_indices, [with, height]);
 
         info!("swapchain_image_views");
-        let swapchain_image_views =
+        let image_views =
             Self::create_swapchain_image_views(vk_context.device(), &images, properties);
 
         
@@ -107,7 +108,7 @@ impl VulkanApp {
         info!("swapchain_framebuffers");
         let swapchain_framebuffers = Self::create_framebuffers(
             vk_context.device(),
-            &swapchain_image_views,
+            &image_views,
             render_pass,
             properties,
         );
@@ -127,7 +128,7 @@ impl VulkanApp {
             vk_context.device(),
             descriptor_pool,
             descriptor_set_layout,
-            swapchain_image_views,
+            &image_views,
         );
 
         info!("pipeline");
@@ -182,6 +183,7 @@ impl VulkanApp {
             swapchain,
             swapchain_khr,
             swapchain_properties: properties,
+            image_views,
             render_pass,
             descriptor_set_layout,
             pipeline_layout: layout,

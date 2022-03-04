@@ -50,7 +50,7 @@ impl VulkanApp{
         device: &Device,
         pool: vk::DescriptorPool,
         layout: vk::DescriptorSetLayout,
-        image_views: Vec<ImageView>
+        image_views: &Vec<ImageView>
     ) -> Vec<vk::DescriptorSet> {
 
         let layouts = (0..image_views.len())
