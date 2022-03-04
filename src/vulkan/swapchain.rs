@@ -252,6 +252,7 @@ impl VulkanApp{
     /// the window is maximized. This is because a width or height of 0
     /// is not legal.
     pub fn recreate_swapchain(&mut self) {
+        /* 
         log::debug!("Recreating swapchain.");
 
         self.wait_gpu_idle();
@@ -273,7 +274,7 @@ impl VulkanApp{
 
         let render_pass =
             Self::create_render_pass(device, properties, self.msaa_samples, self.depth_format);
-        let (pipeline, layout) = Self::create_pipeline(
+        let (pipeline, layout) = Self::create_graphic_pipeline(
             device,
             properties,
             self.msaa_samples,
@@ -306,7 +307,9 @@ impl VulkanApp{
             render_pass,
             properties,
         );
+        */
 
+        /*
         let command_buffers = Self::create_and_register_command_buffers(
             device,
             self.command_pool,
@@ -320,7 +323,9 @@ impl VulkanApp{
             &self.descriptor_sets,
             pipeline,
         );
+        */
 
+        /*
         self.swapchain = swapchain;
         self.swapchain_khr = swapchain_khr;
         self.swapchain_properties = properties;
@@ -332,15 +337,14 @@ impl VulkanApp{
         self.color_texture = color_texture;
         self.depth_texture = depth_texture;
         self.swapchain_framebuffers = swapchain_framebuffers;
-        self.command_buffers = command_buffers;
+        //self.command_buffers = command_buffers;
+        */
     }
 
     /// Clean up the swapchain and all resources that depends on it.
     pub fn cleanup_swapchain(&mut self) {
         let device = self.vk_context.device();
         unsafe {
-            self.depth_texture.destroy(device);
-            self.color_texture.destroy(device);
             self.swapchain_framebuffers
                 .iter()
                 .for_each(|f| device.destroy_framebuffer(*f, None));
@@ -348,9 +352,11 @@ impl VulkanApp{
             device.destroy_pipeline(self.pipeline, None);
             device.destroy_pipeline_layout(self.pipeline_layout, None);
             device.destroy_render_pass(self.render_pass, None);
+            /*
             self.swapchain_image_views
                 .iter()
                 .for_each(|v| device.destroy_image_view(*v, None));
+            */
             self.swapchain.destroy_swapchain(self.swapchain_khr, None);
         }
     }

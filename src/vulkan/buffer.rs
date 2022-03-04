@@ -201,6 +201,7 @@ impl VulkanApp{
     }
 
     pub fn update_uniform_buffers(&mut self, current_image: u32) {
+        /* 
         if self.is_left_clicked && self.cursor_delta.is_some() {
             let delta = self.cursor_delta.take().unwrap();
             let x_ratio = delta[0] as f32 / self.swapchain_properties.extent.width as f32;
@@ -237,5 +238,6 @@ impl VulkanApp{
             align.copy_from_slice(&ubos);
             device.unmap_memory(buffer_mem);
         }
+        */
     }
 }

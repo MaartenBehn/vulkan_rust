@@ -106,7 +106,7 @@ impl VulkanApp{
         for (index, family) in props.iter().filter(|f| f.queue_count > 0).enumerate() {
             let index = index as u32;
 
-            if family.queue_flags.contains(vk::QueueFlags::GRAPHICS) && graphics.is_none() {
+            if family.queue_flags.contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE) && graphics.is_none() {
                 graphics = Some(index);
             }
 

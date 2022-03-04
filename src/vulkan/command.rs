@@ -1,6 +1,6 @@
-use super::{VulkanApp, swapchain::SwapchainProperties, device::*};
+use super::{VulkanApp, swapchain::SwapchainProperties, device::*, MAX_FRAMES_IN_FLIGHT};
 
-use ash::{vk, Device, };
+use ash::{vk::{self, Image, RenderPass, Framebuffer}, Device, };
 
 impl VulkanApp{
 
@@ -21,7 +21,6 @@ impl VulkanApp{
         }
     }
 
-    
     /// Create a one time use command buffer and pass it to `executor`.
     pub fn execute_one_time_commands<F: FnOnce(vk::CommandBuffer)>(
         device: &Device,
@@ -102,20 +101,18 @@ impl VulkanApp{
     pub fn create_and_register_command_buffers(
         device: &Device,
         pool: vk::CommandPool,
-        framebuffers: &[vk::Framebuffer],
-        render_pass: vk::RenderPass,
-        swapchain_properties: SwapchainProperties,
-        vertex_buffer: vk::Buffer,
-        index_buffer: vk::Buffer,
-        index_count: usize,
         pipeline_layout: vk::PipelineLayout,
         descriptor_sets: &[vk::DescriptorSet],
-        graphics_pipeline: vk::Pipeline,
+        compute_pipeline: vk::Pipeline,
+        images: &Vec<Image>,
+        render_pass: RenderPass,
+        framebuffers: &Vec<Framebuffer>,
+        properties: SwapchainProperties
     ) -> Vec<vk::CommandBuffer> {
         let allocate_info = vk::CommandBufferAllocateInfo::builder()
             .command_pool(pool)
             .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(framebuffers.len() as _)
+            .command_buffer_count(MAX_FRAMES_IN_FLIGHT + 1)
             .build();
 
         let buffers = unsafe { device.allocate_command_buffers(&allocate_info).unwrap() };
@@ -127,8 +124,8 @@ impl VulkanApp{
             // begin command buffer
             {
                 let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-                    .flags(vk::CommandBufferUsageFlags::SIMULTANEOUS_USE)
-                    // .inheritance_info() null since it's a primary command buffer
+                    //.flags(vk::CommandBufferUsageFlags::)
+                    //.inheritance_info() null since it's a primary command buffer
                     .build();
                 unsafe {
                     device
@@ -137,29 +134,44 @@ impl VulkanApp{
                 };
             }
 
-            // begin render pass
-            {
-                let clear_values = [
-                    vk::ClearValue {
-                        color: vk::ClearColorValue {
-                            float32: [0.0, 0.0, 0.0, 1.0],
-                        },
-                    },
-                    vk::ClearValue {
-                        depth_stencil: vk::ClearDepthStencilValue {
-                            depth: 1.0,
-                            stencil: 0,
-                        },
-                    },
-                ];
+            // Bind pipeline
+            unsafe {
+                device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::COMPUTE, compute_pipeline)
+            };
+
+            // Bind descriptor set
+            unsafe {
+                let null = [];
+                device.cmd_bind_descriptor_sets(
+                    buffer,
+                    vk::PipelineBindPoint::COMPUTE,
+                    pipeline_layout,
+                    0,
+                    &descriptor_sets[i..=i],
+                    &null,
+                )
+            };
+
+            Self::transition_image_layout_with_command_buffer(
+                device,
+                images[i],
+                properties.format.format,
+                vk::ImageLayout::PRESENT_SRC_KHR,
+                vk::ImageLayout::GENERAL,
+                buffer,
+            );
+
+            unsafe { device.cmd_dispatch(buffer, 800, 600, 1) };
+
+             // begin render pass
+             {
                 let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
                     .render_pass(render_pass)
                     .framebuffer(framebuffer)
                     .render_area(vk::Rect2D {
                         offset: vk::Offset2D { x: 0, y: 0 },
-                        extent: swapchain_properties.extent,
+                        extent: properties.extent,
                     })
-                    .clear_values(&clear_values)
                     .build();
 
                 unsafe {
@@ -171,38 +183,9 @@ impl VulkanApp{
                 };
             }
 
-            // Bind pipeline
-            unsafe {
-                device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipeline)
-            };
-
-            // Bind vertex buffer
-            let vertex_buffers = [vertex_buffer];
-            let offsets = [0];
-            unsafe { device.cmd_bind_vertex_buffers(buffer, 0, &vertex_buffers, &offsets) };
-
-            // Bind index buffer
-            unsafe { device.cmd_bind_index_buffer(buffer, index_buffer, 0, vk::IndexType::UINT32) };
-
-            // Bind descriptor set
-            unsafe {
-                let null = [];
-                device.cmd_bind_descriptor_sets(
-                    buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    pipeline_layout,
-                    0,
-                    &descriptor_sets[i..=i],
-                    &null,
-                )
-            };
-
-            // Draw
-            unsafe { device.cmd_draw_indexed(buffer, index_count as _, 1, 0, 0, 0) };
-
             // End render pass
             unsafe { device.cmd_end_render_pass(buffer) };
-
+            
             // End command buffer
             unsafe { device.end_command_buffer(buffer).unwrap() };
         });

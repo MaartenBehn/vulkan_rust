@@ -1,47 +1,45 @@
-use super::{VulkanApp, buffer::UniformBufferObject};
+use super::{VulkanApp, buffer::UniformBufferObject, MAX_FRAMES_IN_FLIGHT};
 
-use ash::{vk, Device};
+use ash::{vk::{self, ImageLayout, ImageView, DescriptorImageInfo, DescriptorSetLayoutBinding}, Device};
 use std::mem::size_of;
 
 impl VulkanApp{
 
-    pub fn create_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
-        let ubo_binding = UniformBufferObject::get_descriptor_set_layout_binding();
-        let sampler_binding = vk::DescriptorSetLayoutBinding::builder()
-            .binding(1)
+    pub fn create_descriptor_set_layout(device: &Device) -> (vk::DescriptorSetLayout, DescriptorSetLayoutBinding) {
+
+        let binding = vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
             .descriptor_count(1)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            // .immutable_samplers() null since we're not creating a sampler descriptor
             .build();
-        let bindings = [ubo_binding, sampler_binding];
+
+        let bindings = [binding];
 
         let layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
             .bindings(&bindings)
             .build();
 
-        unsafe {
-            device
+        let layout = unsafe {
+             device
                 .create_descriptor_set_layout(&layout_info, None)
-                .unwrap()
-        }
+                .unwrap()};
+        (layout, binding)
     }
 
     /// Create a descriptor pool to allocate the descriptor sets.
-    pub fn create_descriptor_pool(device: &Device, size: u32) -> vk::DescriptorPool {
-        let ubo_pool_size = vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: size,
+    pub fn create_descriptor_pool(device: &Device) -> vk::DescriptorPool {
+        let pool_size = vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::STORAGE_IMAGE,
+            descriptor_count: MAX_FRAMES_IN_FLIGHT + 1,
         };
-        let sampler_pool_size = vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count: size,
-        };
-
-        let pool_sizes = [ubo_pool_size, sampler_pool_size];
+        
+        let pool_sizes = [pool_size];
 
         let pool_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets(size)
+            .max_sets(MAX_FRAMES_IN_FLIGHT + 1)
             .build();
 
         unsafe { device.create_descriptor_pool(&pool_info, None).unwrap() }
@@ -52,9 +50,10 @@ impl VulkanApp{
         device: &Device,
         pool: vk::DescriptorPool,
         layout: vk::DescriptorSetLayout,
-        uniform_buffers: &[vk::Buffer]
+        image_views: Vec<ImageView>
     ) -> Vec<vk::DescriptorSet> {
-        let layouts = (0..uniform_buffers.len())
+
+        let layouts = (0..image_views.len())
             .map(|_| layout)
             .collect::<Vec<_>>();
         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
@@ -65,24 +64,24 @@ impl VulkanApp{
 
         descriptor_sets
             .iter()
-            .zip(uniform_buffers.iter())
-            .for_each(|(set, buffer)| {
-                let buffer_info = vk::DescriptorBufferInfo::builder()
-                    .buffer(*buffer)
-                    .offset(0)
-                    .range(size_of::<UniformBufferObject>() as vk::DeviceSize)
+            .zip(image_views.iter())
+            .for_each(|(set, image_view)| {
+                let image_info = vk::DescriptorImageInfo::builder()
+                    .image_view(*image_view)
+                    .image_layout(ImageLayout::GENERAL)
                     .build();
-                let buffer_infos = [buffer_info];
 
-                let ubo_descriptor_write = vk::WriteDescriptorSet::builder()
+                let image_infos = [image_info];
+
+                let descriptor_write = vk::WriteDescriptorSet::builder()
                     .dst_set(*set)
                     .dst_binding(0)
                     .dst_array_element(0)
-                    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-                    .buffer_info(&buffer_infos)
+                    .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                    .image_info(&image_infos)
                     .build();
 
-                let descriptor_writes = [ubo_descriptor_write];
+                let descriptor_writes = [descriptor_write];
 
                 unsafe { device.update_descriptor_sets(&descriptor_writes, &[]) }
             });

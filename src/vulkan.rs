@@ -18,6 +18,8 @@ mod command;
 mod sync;
 mod vertex;
 
+use std::mem;
+
 use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, texture::Texture, camera::Camera}};
 
 use ash::extensions::khr::{Surface, Swapchain};
@@ -44,26 +46,12 @@ pub struct VulkanApp {
     swapchain: Swapchain,
     swapchain_khr: vk::SwapchainKHR,
     swapchain_properties: SwapchainProperties,
-    images: Vec<vk::Image>,
-    swapchain_image_views: Vec<vk::ImageView>,
     render_pass: vk::RenderPass,
     descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     swapchain_framebuffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
-    transient_command_pool: vk::CommandPool,
-    msaa_samples: vk::SampleCountFlags,
-    color_texture: Texture,
-    depth_format: vk::Format,
-    depth_texture: Texture,
-    model_index_count: usize,
-    vertex_buffer: vk::Buffer,
-    vertex_buffer_memory: vk::DeviceMemory,
-    index_buffer: vk::Buffer,
-    index_buffer_memory: vk::DeviceMemory,
-    uniform_buffers: Vec<vk::Buffer>,
-    uniform_buffer_memories: Vec<vk::DeviceMemory>,
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
     command_buffers: Vec<vk::CommandBuffer>,
@@ -83,8 +71,7 @@ impl VulkanApp {
 
         let debug_report_callback = setup_debug_messenger(&entry, &instance);
 
-        let (physical_device, queue_families_indices) =
-            Self::pick_physical_device(&instance, &surface, surface_khr);
+        let (physical_device, queue_families_indices) = Self::pick_physical_device(&instance, &surface, surface_khr);
 
         let (device, graphics_queue, present_queue) =
         Self::create_logical_device_with_graphics_queue(
@@ -103,102 +90,83 @@ impl VulkanApp {
             device,
         );
 
+        info!("Context done");
+
+        info!("swapchain");
         let (swapchain, swapchain_khr, properties, images) =
             Self::create_swapchain_and_images(&vk_context, queue_families_indices, [with, height]);
+
+        info!("swapchain_image_views");
         let swapchain_image_views =
             Self::create_swapchain_image_views(vk_context.device(), &images, properties);
 
-        let msaa_samples = vk_context.get_max_usable_sample_count();
-        let depth_format = Self::find_depth_format(&vk_context);
+        
+        info!("render_pass");
+        let render_pass = Self::create_render_pass(vk_context.device(), properties);
 
-        let render_pass =
-            Self::create_render_pass(vk_context.device(), properties, msaa_samples, depth_format);
-        let descriptor_set_layout = Self::create_descriptor_set_layout(vk_context.device());
-        let (pipeline, layout) = Self::create_pipeline(
-            vk_context.device(),
-            properties,
-            msaa_samples,
-            render_pass,
-            descriptor_set_layout,
-        );
-
-        let command_pool = Self::create_command_pool(
-            vk_context.device(),
-            queue_families_indices,
-            vk::CommandPoolCreateFlags::empty(),
-        );
-        let transient_command_pool = Self::create_command_pool(
-            vk_context.device(),
-            queue_families_indices,
-            vk::CommandPoolCreateFlags::TRANSIENT,
-        );
-
-        let color_texture = Self::create_color_texture(
-            &vk_context,
-            command_pool,
-            graphics_queue,
-            properties,
-            msaa_samples,
-        );
-
-        let depth_texture = Self::create_depth_texture(
-            &vk_context,
-            command_pool,
-            graphics_queue,
-            depth_format,
-            properties.extent,
-            msaa_samples,
-        );
-
+        info!("swapchain_framebuffers");
         let swapchain_framebuffers = Self::create_framebuffers(
             vk_context.device(),
             &swapchain_image_views,
-            color_texture,
-            depth_texture,
             render_pass,
             properties,
         );
 
-        let (vertices, indices) = Self::voronoi_sphere_model();
+        info!("in_flight_frames");
+        let in_flight_frames = Self::create_sync_objects(vk_context.device());
 
-        let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_buffer(
-            &vk_context,
-            transient_command_pool,
-            graphics_queue,
-            &vertices,
-        );
-        let (index_buffer, index_buffer_memory) = Self::create_index_buffer(
-            &vk_context,
-            transient_command_pool,
-            graphics_queue,
-            &indices,
-        );
-        let (uniform_buffers, uniform_buffer_memories) =
-            Self::create_uniform_buffers(&vk_context, images.len());
 
-        let descriptor_pool = Self::create_descriptor_pool(vk_context.device(), images.len() as _);
+        info!("descriptor_pool");
+        let descriptor_pool = Self::create_descriptor_pool(vk_context.device());
+
+        info!("descriptor_set_layout");
+        let (descriptor_set_layout, descriptor_set_layout_binding) = Self::create_descriptor_set_layout(vk_context.device());
+
+        info!("descriptor_sets");
         let descriptor_sets = Self::create_descriptor_sets(
             vk_context.device(),
             descriptor_pool,
             descriptor_set_layout,
-            &uniform_buffers,
+            swapchain_image_views,
         );
 
+        info!("pipeline");
+        let (pipeline, layout) = Self::create_compute_pipeline(
+            vk_context.device(),
+            descriptor_set_layout,
+        );
+
+        info!("command_pool");
+        let command_pool = Self::create_command_pool(
+            vk_context.device(),
+            queue_families_indices,
+            vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+        );
+
+        info!("command_buffers");
         let command_buffers = Self::create_and_register_command_buffers(
             vk_context.device(),
             command_pool,
-            &swapchain_framebuffers,
-            render_pass,
-            properties,
-            vertex_buffer,
-            index_buffer,
-            indices.len(),
             layout,
             &descriptor_sets,
             pipeline,
+            &images,
+            render_pass,
+            &swapchain_framebuffers,
+            properties
         );
 
-        let in_flight_frames = Self::create_sync_objects(vk_context.device());
+        for image in images {
+            Self::transition_image_layout_one_time(
+                vk_context.device(),
+                command_pool,
+                graphics_queue,
+                image,
+                properties.format.format,
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::PRESENT_SRC_KHR,
+            );
+        }
 
         Self {
             resize_dimensions: None,
@@ -214,26 +182,12 @@ impl VulkanApp {
             swapchain,
             swapchain_khr,
             swapchain_properties: properties,
-            images,
-            swapchain_image_views,
             render_pass,
             descriptor_set_layout,
             pipeline_layout: layout,
             pipeline,
             swapchain_framebuffers,
             command_pool,
-            transient_command_pool,
-            msaa_samples,
-            color_texture,
-            depth_format,
-            depth_texture,
-            model_index_count: indices.len(),
-            vertex_buffer,
-            vertex_buffer_memory,
-            index_buffer,
-            index_buffer_memory,
-            uniform_buffers,
-            uniform_buffer_memories,
             descriptor_pool,
             descriptor_sets,
             command_buffers,
@@ -242,8 +196,8 @@ impl VulkanApp {
     }
 
 
-
     pub fn draw_frame(&mut self) -> bool {
+        
         let sync_objects = self.in_flight_frames.next().unwrap();
         let image_available_semaphore = sync_objects.image_available_semaphore;
         let render_finished_semaphore = sync_objects.render_finished_semaphore;
@@ -275,7 +229,7 @@ impl VulkanApp {
 
         unsafe { self.vk_context.device().reset_fences(&wait_fences).unwrap() };
 
-        self.update_uniform_buffers(image_index);
+        //self.update_uniform_buffers(image_index);
 
         let device = self.vk_context.device();
         let wait_semaphores = [image_available_semaphore];
@@ -283,7 +237,7 @@ impl VulkanApp {
 
         // Submit command buffer
         {
-            let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+            let wait_stages = [vk::PipelineStageFlags::COMPUTE_SHADER];
             let command_buffers = [self.command_buffers[image_index as usize]];
             let submit_info = vk::SubmitInfo::builder()
                 .wait_semaphores(&wait_semaphores)
@@ -335,17 +289,6 @@ impl Drop for VulkanApp {
         unsafe {
             device.destroy_descriptor_pool(self.descriptor_pool, None);
             device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
-            self.uniform_buffer_memories
-                .iter()
-                .for_each(|m| device.free_memory(*m, None));
-            self.uniform_buffers
-                .iter()
-                .for_each(|b| device.destroy_buffer(*b, None));
-            device.free_memory(self.index_buffer_memory, None);
-            device.destroy_buffer(self.index_buffer, None);
-            device.destroy_buffer(self.vertex_buffer, None);
-            device.free_memory(self.vertex_buffer_memory, None);
-            device.destroy_command_pool(self.transient_command_pool, None);
             device.destroy_command_pool(self.command_pool, None);
         }
     }

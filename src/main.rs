@@ -39,6 +39,7 @@ fn main() {
 
     let app = vulkan::VulkanApp::new(&window, WIDTH, HEIGHT);
 
+    
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
@@ -87,7 +88,6 @@ impl Game {
         }
         self.app.wheel_delta = self.wheel_delta;
 
-        
         self.is_left_clicked = None;
         self.cursor_position = None;
         self.last_position = self.app.cursor_position;
@@ -95,6 +95,7 @@ impl Game {
     }
 
     pub fn render(&mut self, window: &Window) {
+        /*
         if self.dirty_swapchain {
             let size = window.inner_size();
             if size.width > 0 && size.height > 0 {
@@ -103,6 +104,7 @@ impl Game {
                 return;
             }
         }
+        */
         self.dirty_swapchain = self.app.draw_frame();
     }
 
