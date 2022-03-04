@@ -1,3 +1,4 @@
 /target
 *vert.spv
 *frag.spv
+vulkan_rust.log

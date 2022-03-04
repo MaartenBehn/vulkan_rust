@@ -244,7 +244,6 @@ impl VulkanApp {
 
 
     pub fn draw_frame(&mut self) -> bool {
-        log::trace!("Drawing frame.");
         let sync_objects = self.in_flight_frames.next().unwrap();
         let image_available_semaphore = sync_objects.image_available_semaphore;
         let render_finished_semaphore = sync_objects.render_finished_semaphore;
@@ -328,7 +327,7 @@ impl VulkanApp {
 
 impl Drop for VulkanApp {
     fn drop(&mut self) {
-        log::debug!("Dropping application.");
+        debug!("Dropping application.");
         self.cleanup_swapchain();
 
         let device = self.vk_context.device();

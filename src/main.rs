@@ -1,5 +1,11 @@
 mod vulkan;
 
+#[macro_use] extern crate log;
+extern crate simplelog;
+
+use simplelog::*;
+use std::fs::File;
+
 use vulkan::VulkanApp;
 use winit::{
     dpi::PhysicalSize,
@@ -17,8 +23,13 @@ const MAX_UPS: u32 = 30;
 const MIN_FPS: u32 = 30;
 
 fn main() {
-    env_logger::init();
-
+    CombinedLogger::init(
+        vec![
+            TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
+            WriteLogger::new(LevelFilter::Trace, Config::default(), File::create("vulkan_rust.log").unwrap()),
+        ]
+    ).unwrap();
+    
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Vulkan Renderer")
@@ -31,7 +42,7 @@ fn main() {
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
-        //println!("FPS: {:?}", 1.0 / g.last_frame_time())
+        trace!("FPS: {:?}", 1.0 / g.last_frame_time())
 
     }, |g| {
         g.game.render(&g.window);

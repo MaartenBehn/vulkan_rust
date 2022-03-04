@@ -9,6 +9,10 @@
             "args": [],
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "build",
+            "env": {
+                "RUST_LOG": "debug",
+                "RUST_LOG_STYLE": "always"
+              }
         },
         {
             "name": "Release",

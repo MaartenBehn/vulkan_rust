@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [{
         "label": "build",
-        "command": "set RUST_LOG=debug \n cargo build",
+        "command": "cargo build",
         "type": "shell"
     },
     {
