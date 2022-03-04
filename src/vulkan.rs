@@ -87,11 +87,11 @@ impl VulkanApp {
             Self::pick_physical_device(&instance, &surface, surface_khr);
 
         let (device, graphics_queue, present_queue) =
-            Self::create_logical_device_with_graphics_queue(
-                &instance,
-                physical_device,
-                queue_families_indices,
-            );
+        Self::create_logical_device_with_graphics_queue(
+            &instance,
+            physical_device,
+            queue_families_indices,
+        );
 
         let vk_context = VkContext::new(
             entry,
@@ -160,7 +160,6 @@ impl VulkanApp {
         );
 
         let (vertices, indices) = Self::voronoi_sphere_model();
-        
 
         let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_buffer(
             &vk_context,

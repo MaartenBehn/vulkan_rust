@@ -31,7 +31,7 @@ fn main() {
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
-        println!("FPS: {:?}", 1.0 / g.last_frame_time())
+        //println!("FPS: {:?}", 1.0 / g.last_frame_time())
 
     }, |g| {
         g.game.render(&g.window);
