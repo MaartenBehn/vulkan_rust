@@ -109,8 +109,8 @@ impl VulkanApp{
 
     pub fn transition_image_layout_one_time (
         device: &Device,
-        command_pool: vk::CommandPool,
-        transition_queue: vk::Queue,
+        command_pool: &vk::CommandPool,
+        transition_queue: &vk::Queue,
         image: vk::Image,
         format: vk::Format,
         old_layout: vk::ImageLayout,

@@ -243,6 +243,7 @@ impl VulkanApp{
         unsafe { device.create_image_view(&create_info, None).unwrap() }
     }
 
+    /* 
     /// Recreates the swapchain.
     ///
     /// If the window has been resized, then the new size is used
@@ -251,6 +252,7 @@ impl VulkanApp{
     /// If the window has been minimized, then the functions block until
     /// the window is maximized. This is because a width or height of 0
     /// is not legal.
+    
     pub fn recreate_swapchain(&mut self) {
         
         log::debug!("Recreating swapchain.");
@@ -260,10 +262,10 @@ impl VulkanApp{
         self.cleanup_swapchain();
 
         let device = self.vk_context.device();
-        let command_pool = self.command_pool;
-        let descriptor_pool = self.descriptor_pool;
-        let descriptor_set_layout = self.descriptor_set_layout;
-        let descriptor_sets = &self.descriptor_sets;
+
+        let command_pool = &self.command_pool;
+        let graphics_queue = &self.graphics_queue;
+
 
         let dimensions = self.resize_dimensions.unwrap_or([
             self.properties.extent.width,
@@ -278,25 +280,40 @@ impl VulkanApp{
 
         let render_pass = Self::create_render_pass(device, properties);
 
-        info!("Creating compute_pipeline");
-        let (pipeline, layout) = Self::create_compute_pipeline(
-            device,
-            descriptor_set_layout,
-        );
-
         let framebuffers = Self::create_framebuffers(
             device,
             &image_views,
             render_pass,
             properties,
         );
+
+        info!("descriptor_pool");
+        let descriptor_pool = Self::create_descriptor_pool(device);
+
+        info!("descriptor_set_layout");
+        let descriptor_set_layout = Self::create_descriptor_set_layout(device);
+
+        info!("descriptor_sets");
+        let descriptor_sets = Self::create_descriptor_sets(
+            device,
+            descriptor_pool,
+            &descriptor_set_layout,
+            &image_views,
+        );
+
+        info!("Creating compute_pipeline");
+        let (pipeline, layout) = Self::create_compute_pipeline(
+            device,
+            &descriptor_set_layout,
+        );
+
         
         info!("Creating command_buffers");
         let command_buffers = Self::create_and_register_command_buffers(
             device,
             command_pool,
             layout,
-            descriptor_sets,
+            &descriptor_sets,
             pipeline,
             &images,
             render_pass,
@@ -304,37 +321,41 @@ impl VulkanApp{
             properties
         );
 
+
+        for image in images {
+            Self::transition_image_layout_one_time(
+                device,
+                command_pool,
+                graphics_queue,
+                image,
+                properties.format.format,
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::PRESENT_SRC_KHR,
+            );
+        }
+
         info!("Recreating done");
 
         self.swapchain = swapchain;
         self.swapchain_khr = swapchain_khr;
         self.properties = properties;
         self.image_views = image_views;
+
+        self.descriptor_pool = descriptor_pool;
+        self.descriptor_set_layout = descriptor_set_layout;
+
         self.render_pass = render_pass;
         self.pipeline = pipeline;
         self.pipeline_layout = layout;
         self.framebuffers = framebuffers;
         self.command_buffers = command_buffers;
-        self.descriptor_pool = descriptor_pool;
-        self.command_pool = command_pool;
-    }
 
-    /// Clean up the swapchain and all resources that depends on it.
-    pub fn cleanup_swapchain(&mut self) {
-        let device = self.vk_context.device();
-        unsafe {
-            self.framebuffers
-                .iter()
-                .for_each(|f| device.destroy_framebuffer(*f, None));
-            device.free_command_buffers(self.command_pool, &self.command_buffers);
-            device.destroy_pipeline(self.pipeline, None);
-            device.destroy_pipeline_layout(self.pipeline_layout, None);
-            device.destroy_render_pass(self.render_pass, None);
-            self.image_views
-                .iter()
-                .for_each(|v| device.destroy_image_view(*v, None));
-            self.swapchain.destroy_swapchain(self.swapchain_khr, None);
-        }
+
     }
+    */
+
+
+    // Clean up the swapchain and all resources that depends on it.
+
     
 }

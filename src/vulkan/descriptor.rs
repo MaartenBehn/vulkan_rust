@@ -1,10 +1,10 @@
 use super::{VulkanApp, MAX_FRAMES_IN_FLIGHT};
 
-use ash::{vk::{self, ImageLayout, ImageView, DescriptorSetLayoutBinding}, Device};
+use ash::{vk::{self, ImageLayout, ImageView}, Device};
 
 impl VulkanApp{
 
-    pub fn create_descriptor_set_layout(device: &Device) -> (vk::DescriptorSetLayout, DescriptorSetLayoutBinding) {
+    pub fn create_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
 
         let binding = vk::DescriptorSetLayoutBinding::builder()
             .binding(0)
@@ -24,7 +24,7 @@ impl VulkanApp{
              device
                 .create_descriptor_set_layout(&layout_info, None)
                 .unwrap()};
-        (layout, binding)
+        layout
     }
 
     /// Create a descriptor pool to allocate the descriptor sets.
@@ -48,12 +48,12 @@ impl VulkanApp{
     pub fn create_descriptor_sets(
         device: &Device,
         pool: vk::DescriptorPool,
-        layout: vk::DescriptorSetLayout,
+        layout: &vk::DescriptorSetLayout,
         image_views: &Vec<ImageView>
     ) -> Vec<vk::DescriptorSet> {
 
         let layouts = (0..image_views.len())
-            .map(|_| layout)
+            .map(|_| layout.clone())
             .collect::<Vec<_>>();
         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(pool)

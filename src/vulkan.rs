@@ -15,9 +15,11 @@ mod framebuffers;
 mod command;
 mod sync;
 
-use crate::{vulkan::{context::VkContext, debug::*, swapchain::*,}};
 
-use ash::{extensions::khr::{Surface, Swapchain}, vk::ImageView};
+use crate::{vulkan::{context::VkContext, debug::*, swapchain::*}};
+
+use ash::{extensions::khr::{Surface, Swapchain}, vk::{ImageView, CommandPool, Queue}};
+
 use ash::{vk, Entry};
 use winit::window::Window;
 
@@ -26,31 +28,69 @@ use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
 
 const MAX_FRAMES_IN_FLIGHT: u32 = 2;
 
-pub struct VulkanApp {
-    resize_dimensions: Option<[u32; 2]>,
 
-    pub vk_context: VkContext,
+/*
+pub const UNKNOWN: Self = Self(0);
+pub const INSTANCE: Self = Self(1);
+pub const PHYSICAL_DEVICE: Self = Self(2);
+pub const DEVICE: Self = Self(3);
+pub const QUEUE: Self = Self(4);
+pub const SEMAPHORE: Self = Self(5);
+pub const COMMAND_BUFFER: Self = Self(6);
+pub const FENCE: Self = Self(7);
+pub const DEVICE_MEMORY: Self = Self(8);
+pub const BUFFER: Self = Self(9);
+pub const IMAGE: Self = Self(10);
+pub const EVENT: Self = Self(11);
+pub const QUERY_POOL: Self = Self(12);
+pub const BUFFER_VIEW: Self = Self(13);
+pub const IMAGE_VIEW: Self = Self(14);
+pub const SHADER_MODULE: Self = Self(15);
+pub const PIPELINE_CACHE: Self = Self(16);
+pub const PIPELINE_LAYOUT: Self = Self(17);
+pub const RENDER_PASS: Self = Self(18);
+pub const PIPELINE: Self = Self(19);
+pub const DESCRIPTOR_SET_LAYOUT: Self = Self(20);
+pub const SAMPLER: Self = Self(21);
+pub const DESCRIPTOR_POOL: Self = Self(22);
+pub const DESCRIPTOR_SET: Self = Self(23);
+pub const FRAMEBUFFER: Self = Self(24);
+pub const COMMAND_POOL: Self = Self(25);
+
+*/
+
+pub struct VulkanApp {
+    vk_context: VkContext,
+    setup: Vulkan_Setup,
+    size_dependent: Size_Dependent,
+}
+
+pub struct Vulkan_Setup {
     queue_families_indices: QueueFamiliesIndices,
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
+    command_pool: vk::CommandPool,
+    in_flight_frames: InFlightFrames,
+}
+
+pub struct Size_Dependent {
+    dimensions: [u32; 2],
     swapchain: Swapchain,
     swapchain_khr: vk::SwapchainKHR,
     properties: SwapchainProperties,
     image_views: Vec<ImageView>,
     render_pass: vk::RenderPass,
-    descriptor_set_layout: vk::DescriptorSetLayout,
-    pipeline_layout: vk::PipelineLayout,
-    pipeline: vk::Pipeline,
-    framebuffers: Vec<vk::Framebuffer>,
-    command_pool: vk::CommandPool,
     descriptor_pool: vk::DescriptorPool,
+    descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_sets: Vec<vk::DescriptorSet>,
+    pipeline: vk::Pipeline,
+    pipeline_layout: vk::PipelineLayout,
+    framebuffers: Vec<vk::Framebuffer>,
     command_buffers: Vec<vk::CommandBuffer>,
-    in_flight_frames: InFlightFrames,
 }
 
 impl VulkanApp {
-    pub fn new(window: &Window, with: u32, height: u32) -> Self {
+    pub fn new(window: &Window, dimensions: [u32; 2]) -> Self {
         log::debug!("Creating application.");
 
         let entry = unsafe { Entry::new().expect("Failed to create entry.") };
@@ -81,11 +121,46 @@ impl VulkanApp {
             device,
         );
 
+        info!("in_flight_frames");
+        let in_flight_frames = Self::create_sync_objects(vk_context.device());
+
+        info!("command_pool");
+        let command_pool = Self::create_command_pool(
+            vk_context.device(),
+            queue_families_indices,
+            vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+        );
+
         info!("Context done");
 
-        info!("Creating Swapchain");
+
+        let setup = Vulkan_Setup{
+            queue_families_indices,
+            graphics_queue,
+            present_queue,
+            command_pool,
+            in_flight_frames
+        };
+
+        let size_dependent = Self::create_size_dependent(&vk_context, &setup, dimensions);
+        Self {
+            vk_context,
+            setup,
+            size_dependent,
+        }
+    }
+
+    fn create_size_dependent(
+        vk_context: &VkContext, 
+        setup: &Vulkan_Setup,
+        dimensions: [u32; 2]
+    ) -> Size_Dependent {
+
+        info!("Creating size dependent");
+
+        info!("swapchain");
         let (swapchain, swapchain_khr, properties, images) =
-            Self::create_swapchain_and_images(&vk_context, queue_families_indices, [with, height]);
+            Self::create_swapchain_and_images(&vk_context, setup.queue_families_indices, dimensions);
 
         info!("Creating swapchain_image_views");
         let image_views =
@@ -95,7 +170,9 @@ impl VulkanApp {
         info!("Creating render_pass");
         let render_pass = Self::create_render_pass(vk_context.device(), properties);
 
+
         info!("Creating framebuffers");
+
         let framebuffers = Self::create_framebuffers(
             vk_context.device(),
             &image_views,
@@ -103,42 +180,33 @@ impl VulkanApp {
             properties,
         );
 
-        info!("Creating sync_objects");
-        let in_flight_frames = Self::create_sync_objects(vk_context.device());
 
-
-        info!("Creating descriptor_pool");
+        info!("descriptor_pool");
         let descriptor_pool = Self::create_descriptor_pool(vk_context.device());
 
-        info!("Creating descriptor_set_layout");
-        let (descriptor_set_layout, descriptor_set_layout_binding) = Self::create_descriptor_set_layout(vk_context.device());
+        info!("descriptor_set_layout");
+        let descriptor_set_layout = Self::create_descriptor_set_layout(vk_context.device());
 
         info!("Creating descriptor_sets");
         let descriptor_sets = Self::create_descriptor_sets(
             vk_context.device(),
             descriptor_pool,
-            descriptor_set_layout,
+            &descriptor_set_layout,
             &image_views,
         );
 
-        info!("Creating compute_pipeline");
-        let (pipeline, layout) = Self::create_compute_pipeline(
-            vk_context.device(),
-            descriptor_set_layout,
-        );
 
-        info!("Creating command_pool");
-        let command_pool = Self::create_command_pool(
+        info!("pipeline");
+        let (pipeline, pipeline_layout) = Self::create_compute_pipeline(
             vk_context.device(),
-            queue_families_indices,
-            vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+            &descriptor_set_layout,
         );
 
         info!("Creating command_buffers");
         let command_buffers = Self::create_and_register_command_buffers(
             vk_context.device(),
-            command_pool,
-            layout,
+            &setup.command_pool,
+            pipeline_layout,
             &descriptor_sets,
             pipeline,
             &images,
@@ -147,12 +215,13 @@ impl VulkanApp {
             properties
         );
 
-        info!("Transforming images");
+
+        info!("images");
         for image in images {
             Self::transition_image_layout_one_time(
                 vk_context.device(),
-                command_pool,
-                graphics_queue,
+                &setup.command_pool,
+                &setup.graphics_queue,
                 image,
                 properties.format.format,
                 vk::ImageLayout::UNDEFINED,
@@ -160,34 +229,36 @@ impl VulkanApp {
             );
         }
 
-        info!("Vulkan setup done");
-        Self {
-            resize_dimensions: None,
-            vk_context,
-            queue_families_indices,
-            graphics_queue,
-            present_queue,
+
+        info!("Creating size dependent done");
+
+        Size_Dependent{
+            dimensions,
             swapchain,
             swapchain_khr,
             properties,
             image_views,
             render_pass,
-            descriptor_set_layout,
-            pipeline_layout: layout,
-            pipeline,
-            framebuffers,
-            command_pool,
             descriptor_pool,
+            descriptor_set_layout,
             descriptor_sets,
+            pipeline,
+            pipeline_layout,
+            framebuffers,
             command_buffers,
-            in_flight_frames,
         }
+    }
+
+    pub fn recreate_size_dependent(&mut self, size: [u32; 2]){
+        self.wait_gpu_idle();
+        self.cleanup_size_dependent();
+        self.size_dependent = Self::create_size_dependent(&self.vk_context, &self.setup, size);
     }
 
 
     pub fn draw_frame(&mut self) -> bool {
         
-        let sync_objects = self.in_flight_frames.next().unwrap();
+        let sync_objects = self.setup.in_flight_frames.next().unwrap();
         let image_available_semaphore = sync_objects.image_available_semaphore;
         let render_finished_semaphore = sync_objects.render_finished_semaphore;
         let in_flight_fence = sync_objects.fence;
@@ -201,8 +272,8 @@ impl VulkanApp {
         };
 
         let result = unsafe {
-            self.swapchain.acquire_next_image(
-                self.swapchain_khr,
+            self.size_dependent.swapchain.acquire_next_image(
+                self.size_dependent.swapchain_khr,
                 std::u64::MAX,
                 image_available_semaphore,
                 vk::Fence::null(),
@@ -227,7 +298,7 @@ impl VulkanApp {
         // Submit command buffer
         {
             let wait_stages = [vk::PipelineStageFlags::COMPUTE_SHADER];
-            let command_buffers = [self.command_buffers[image_index as usize]];
+            let command_buffers = [self.size_dependent.command_buffers[image_index as usize]];
             let submit_info = vk::SubmitInfo::builder()
                 .wait_semaphores(&wait_semaphores)
                 .wait_dst_stage_mask(&wait_stages)
@@ -237,12 +308,12 @@ impl VulkanApp {
             let submit_infos = [submit_info];
             unsafe {
                 device
-                    .queue_submit(self.graphics_queue, &submit_infos, in_flight_fence)
+                    .queue_submit(self.setup.graphics_queue, &submit_infos, in_flight_fence)
                     .unwrap()
             };
         }
 
-        let swapchains = [self.swapchain_khr];
+        let swapchains = [self.size_dependent.swapchain_khr];
         let images_indices = [image_index];
 
         {
@@ -253,8 +324,8 @@ impl VulkanApp {
                 // .results() null since we only have one swapchain
                 .build();
             let result = unsafe {
-                self.swapchain
-                    .queue_present(self.present_queue, &present_info)
+                self.size_dependent.swapchain
+                    .queue_present(self.setup.present_queue, &present_info)
             };
             match result {
                 Ok(true) | Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
@@ -266,19 +337,35 @@ impl VulkanApp {
         }
         false
     }
+
+    pub fn cleanup_size_dependent(&mut self) {
+        let size_dependent = &self.size_dependent;
+        let device = self.vk_context.device();
+        unsafe {
+            size_dependent.framebuffers.iter().for_each(|f| device.destroy_framebuffer(*f, None));
+            device.free_command_buffers(self.setup.command_pool, &size_dependent.command_buffers);
+            device.destroy_pipeline(size_dependent.pipeline, None);
+            device.destroy_pipeline_layout(size_dependent.pipeline_layout, None);
+            device.destroy_render_pass(size_dependent.render_pass, None);
+
+            device.destroy_descriptor_pool(size_dependent.descriptor_pool, None);
+            device.destroy_descriptor_set_layout(size_dependent.descriptor_set_layout, None);
+
+            size_dependent.image_views.iter().for_each(|v| device.destroy_image_view(*v, None));
+            size_dependent.swapchain.destroy_swapchain(size_dependent.swapchain_khr, None);
+        }
+    }
 }
 
 impl Drop for VulkanApp {
     fn drop(&mut self) {
         debug!("Dropping application.");
-        self.cleanup_swapchain();
+        self.cleanup_size_dependent();
 
         let device = self.vk_context.device();
-        self.in_flight_frames.destroy(device);
+        self.setup.in_flight_frames.destroy(device);
         unsafe {
-            device.destroy_descriptor_pool(self.descriptor_pool, None);
-            device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
-            device.destroy_command_pool(self.command_pool, None);
+            device.destroy_command_pool(self.setup.command_pool, None);
         }
     }
 }

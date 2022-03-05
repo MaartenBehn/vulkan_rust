@@ -7,9 +7,7 @@ use simplelog::*;
 use std::fs::File;
 
 use vulkan::VulkanApp;
-use winit::{
-    dpi::PhysicalSize,
-};
+use winit::dpi::PhysicalSize;
 use game_loop::game_loop;
 
 use game_loop::winit::event::{Event, WindowEvent};
@@ -36,7 +34,7 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let app = vulkan::VulkanApp::new(&window, WIDTH, HEIGHT);
+    let app = vulkan::VulkanApp::new(&window, [WIDTH, HEIGHT]);
 
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
@@ -63,7 +61,7 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-         
+
     }
 
     pub fn render(&mut self, window: &Window) {
@@ -71,12 +69,11 @@ impl Game {
         if self.dirty_swapchain {
             let size = window.inner_size();
             if size.width > 0 && size.height > 0 {
-                self.app.recreate_swapchain();
+                self.app.recreate_size_dependent([size.width, size.height]);
             } else {
                 return;
             }
         }
-        
         self.dirty_swapchain = self.app.draw_frame();
     }
 

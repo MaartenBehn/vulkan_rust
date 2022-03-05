@@ -1,4 +1,5 @@
-use super::VulkanApp;
+use super::{VulkanApp};
+
 
 use std::ffi::CString;
 use ash::{Device, vk};
@@ -7,7 +8,7 @@ impl VulkanApp{
 
     pub fn create_compute_pipeline(
         device: &Device,
-        descriptor_set_layout: vk::DescriptorSetLayout,
+        descriptor_set_layout: &vk::DescriptorSetLayout,
     ) -> (vk::Pipeline, vk::PipelineLayout){
         
         let comp_source = Self::read_shader_from_file("shaders/apollonain.comp.spv");
@@ -21,7 +22,7 @@ impl VulkanApp{
             .build();
 
         let layout = {
-            let layouts = [descriptor_set_layout];
+            let layouts = [descriptor_set_layout.clone()];
             let layout_info = vk::PipelineLayoutCreateInfo::builder()
                 .set_layouts(&layouts)
                 // .push_constant_ranges

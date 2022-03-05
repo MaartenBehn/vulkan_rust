@@ -24,14 +24,14 @@ impl VulkanApp{
     /// Create a one time use command buffer and pass it to `executor`.
     pub fn execute_one_time_commands<F: FnOnce(vk::CommandBuffer)>(
         device: &Device,
-        command_pool: vk::CommandPool,
-        queue: vk::Queue,
+        command_pool: &vk::CommandPool,
+        queue: &vk::Queue,
         executor: F,
     ) {
         let command_buffer = {
             let alloc_info = vk::CommandBufferAllocateInfo::builder()
                 .level(vk::CommandBufferLevel::PRIMARY)
-                .command_pool(command_pool)
+                .command_pool(command_pool.clone())
                 .command_buffer_count(1)
                 .build();
 
@@ -65,14 +65,14 @@ impl VulkanApp{
             let submit_infos = [submit_info];
             unsafe {
                 device
-                    .queue_submit(queue, &submit_infos, vk::Fence::null())
+                    .queue_submit(queue.clone(), &submit_infos, vk::Fence::null())
                     .unwrap();
-                device.queue_wait_idle(queue).unwrap();
+                device.queue_wait_idle(queue.clone()).unwrap();
             };
         }
 
         // Free
-        unsafe { device.free_command_buffers(command_pool, &command_buffers) };
+        unsafe { device.free_command_buffers(command_pool.clone(), &command_buffers) };
     }
 
     /// Find a memory type in `mem_properties` that is suitable
@@ -100,7 +100,7 @@ impl VulkanApp{
 
     pub fn create_and_register_command_buffers(
         device: &Device,
-        pool: vk::CommandPool,
+        pool: &vk::CommandPool,
         pipeline_layout: vk::PipelineLayout,
         descriptor_sets: &[vk::DescriptorSet],
         compute_pipeline: vk::Pipeline,
@@ -110,7 +110,7 @@ impl VulkanApp{
         properties: SwapchainProperties
     ) -> Vec<vk::CommandBuffer> {
         let allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_pool(pool)
+            .command_pool(pool.clone())
             .level(vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(MAX_FRAMES_IN_FLIGHT + 1)
             .build();
@@ -119,7 +119,7 @@ impl VulkanApp{
 
         buffers.iter().enumerate().for_each(|(i, buffer)| {
             let buffer = *buffer;
-            let framebuffer = framebuffers[i];
+            let framebuffer = framebuffers[i].clone();
 
             // begin command buffer
             {
@@ -137,7 +137,7 @@ impl VulkanApp{
             info!("cmd_bind_pipeline");
             // Bind pipeline
             unsafe {
-                device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::COMPUTE, compute_pipeline)
+                device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::COMPUTE, compute_pipeline.clone())
             };
 
             info!("cmd_bind_descriptor_sets");
@@ -147,7 +147,7 @@ impl VulkanApp{
                 device.cmd_bind_descriptor_sets(
                     buffer,
                     vk::PipelineBindPoint::COMPUTE,
-                    pipeline_layout,
+                    pipeline_layout.clone(),
                     0,
                     &descriptor_sets[i..=i],
                     &null,
@@ -164,14 +164,13 @@ impl VulkanApp{
                 buffer,
             );
 
-            info!("cmd_dispatch");
             unsafe { device.cmd_dispatch(buffer, (properties.extent.width / 32) + 1, (properties.extent.height / 32) + 1, 1) };
 
             info!("begin render pass");
              // begin render pass
              {
                 let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-                    .render_pass(render_pass)
+                    .render_pass(render_pass.clone())
                     .framebuffer(framebuffer)
                     .render_area(vk::Rect2D {
                         offset: vk::Offset2D { x: 0, y: 0 },

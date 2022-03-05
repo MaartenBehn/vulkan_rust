@@ -47,8 +47,7 @@ impl VulkanApp{
             CStr::from_ptr(props.device_name.as_ptr()),
             props.api_version,
             subgroup.subgroup_size,
-        );
-        }
+        )};
 
         let (graphics, present) = Self::find_queue_families(instance, surface, surface_khr, device);
         let queue_families_indices = QueueFamiliesIndices {
