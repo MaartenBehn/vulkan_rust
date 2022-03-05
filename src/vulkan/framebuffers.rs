@@ -1,4 +1,4 @@
-use super::{VulkanApp, texture::Texture, swapchain::SwapchainProperties};
+use super::{VulkanApp, swapchain::SwapchainProperties};
 
 use ash::{vk, Device};
 

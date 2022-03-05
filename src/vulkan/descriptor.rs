@@ -1,7 +1,6 @@
-use super::{VulkanApp, buffer::UniformBufferObject, MAX_FRAMES_IN_FLIGHT};
+use super::{VulkanApp, MAX_FRAMES_IN_FLIGHT};
 
-use ash::{vk::{self, ImageLayout, ImageView, DescriptorImageInfo, DescriptorSetLayoutBinding}, Device};
-use std::mem::size_of;
+use ash::{vk::{self, ImageLayout, ImageView, DescriptorSetLayoutBinding}, Device};
 
 impl VulkanApp{
 

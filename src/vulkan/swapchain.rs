@@ -252,7 +252,7 @@ impl VulkanApp{
     /// the window is maximized. This is because a width or height of 0
     /// is not legal.
     pub fn recreate_swapchain(&mut self) {
-        /* 
+        
         log::debug!("Recreating swapchain.");
 
         self.wait_gpu_idle();
@@ -260,92 +260,68 @@ impl VulkanApp{
         self.cleanup_swapchain();
 
         let device = self.vk_context.device();
+        let command_pool = self.command_pool;
+        let descriptor_pool = self.descriptor_pool;
+        let descriptor_set_layout = self.descriptor_set_layout;
+        let descriptor_sets = &self.descriptor_sets;
 
         let dimensions = self.resize_dimensions.unwrap_or([
-            self.swapchain_properties.extent.width,
-            self.swapchain_properties.extent.height,
+            self.properties.extent.width,
+            self.properties.extent.height,
         ]);
         let (swapchain, swapchain_khr, properties, images) = Self::create_swapchain_and_images(
             &self.vk_context,
             self.queue_families_indices,
             dimensions,
         );
-        let swapchain_image_views = Self::create_swapchain_image_views(device, &images, properties);
+        let image_views = Self::create_swapchain_image_views(device, &images, properties);
 
-        let render_pass =
-            Self::create_render_pass(device, properties, self.msaa_samples, self.depth_format);
-        let (pipeline, layout) = Self::create_graphic_pipeline(
+        let render_pass = Self::create_render_pass(device, properties);
+
+        info!("Creating compute_pipeline");
+        let (pipeline, layout) = Self::create_compute_pipeline(
             device,
-            properties,
-            self.msaa_samples,
-            render_pass,
-            self.descriptor_set_layout,
+            descriptor_set_layout,
         );
 
-        let color_texture = Self::create_color_texture(
-            &self.vk_context,
-            self.command_pool,
-            self.graphics_queue,
-            properties,
-            self.msaa_samples,
-        );
-
-        let depth_texture = Self::create_depth_texture(
-            &self.vk_context,
-            self.command_pool,
-            self.graphics_queue,
-            self.depth_format,
-            properties.extent,
-            self.msaa_samples,
-        );
-
-        let swapchain_framebuffers = Self::create_framebuffers(
+        let framebuffers = Self::create_framebuffers(
             device,
-            &swapchain_image_views,
-            color_texture,
-            depth_texture,
+            &image_views,
             render_pass,
             properties,
         );
-        */
-
-        /*
+        
+        info!("Creating command_buffers");
         let command_buffers = Self::create_and_register_command_buffers(
             device,
-            self.command_pool,
-            &swapchain_framebuffers,
-            render_pass,
-            properties,
-            self.vertex_buffer,
-            self.index_buffer,
-            self.model_index_count,
+            command_pool,
             layout,
-            &self.descriptor_sets,
+            descriptor_sets,
             pipeline,
+            &images,
+            render_pass,
+            &framebuffers,
+            properties
         );
-        */
 
-        /*
         self.swapchain = swapchain;
         self.swapchain_khr = swapchain_khr;
-        self.swapchain_properties = properties;
-        self.images = images;
-        self.swapchain_image_views = swapchain_image_views;
+        self.properties = properties;
+        self.image_views = image_views;
         self.render_pass = render_pass;
         self.pipeline = pipeline;
         self.pipeline_layout = layout;
-        self.color_texture = color_texture;
-        self.depth_texture = depth_texture;
-        self.swapchain_framebuffers = swapchain_framebuffers;
-        //self.command_buffers = command_buffers;
-        */
+        self.framebuffers = framebuffers;
+        self.command_buffers = command_buffers;
+        self.descriptor_pool = descriptor_pool;
+        self.command_pool = command_pool;
     }
 
     /// Clean up the swapchain and all resources that depends on it.
     pub fn cleanup_swapchain(&mut self) {
         let device = self.vk_context.device();
         unsafe {
-            self.swapchain_framebuffers
+            self.framebuffers
                 .iter()
                 .for_each(|f| device.destroy_framebuffer(*f, None));
             device.free_command_buffers(self.command_pool, &self.command_buffers);

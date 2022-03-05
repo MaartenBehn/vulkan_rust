@@ -4,7 +4,6 @@ mod swapchain;
 mod context;
 mod render_pass;
 mod texture;
-mod camera;
 mod fs;
 mod math;
 mod debug;
@@ -13,14 +12,10 @@ mod pipeline;
 mod image;
 mod shader;
 mod framebuffers;
-mod buffer;
 mod command;
 mod sync;
-mod vertex;
 
-use std::mem;
-
-use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, texture::Texture, camera::Camera}};
+use crate::{vulkan::{context::VkContext, debug::*, swapchain::*,}};
 
 use ash::{extensions::khr::{Surface, Swapchain}, vk::ImageView};
 use ash::{vk, Entry};
@@ -28,30 +23,25 @@ use winit::window::Window;
 
 use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
 
+
 const MAX_FRAMES_IN_FLIGHT: u32 = 2;
 
 pub struct VulkanApp {
     resize_dimensions: Option<[u32; 2]>,
 
-    camera: Camera,
-    pub is_left_clicked: bool,
-    pub cursor_position: [i32; 2],
-    pub cursor_delta: Option<[i32; 2]>,
-    pub wheel_delta: Option<f32>,
-
-    vk_context: VkContext,
+    pub vk_context: VkContext,
     queue_families_indices: QueueFamiliesIndices,
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
     swapchain: Swapchain,
     swapchain_khr: vk::SwapchainKHR,
-    swapchain_properties: SwapchainProperties,
+    properties: SwapchainProperties,
     image_views: Vec<ImageView>,
     render_pass: vk::RenderPass,
     descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
-    swapchain_framebuffers: Vec<vk::Framebuffer>,
+    framebuffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
@@ -63,7 +53,7 @@ impl VulkanApp {
     pub fn new(window: &Window, with: u32, height: u32) -> Self {
         log::debug!("Creating application.");
 
-        let entry = unsafe { Entry::new().expect("Failed to create entry.") };
+        let entry = unsafe { Entry::load().unwrap() };
         let instance = Self::create_instance(&entry, window);
 
         let surface = Surface::new(&entry, &instance);
@@ -93,37 +83,37 @@ impl VulkanApp {
 
         info!("Context done");
 
-        info!("swapchain");
+        info!("Creating Swapchain");
         let (swapchain, swapchain_khr, properties, images) =
             Self::create_swapchain_and_images(&vk_context, queue_families_indices, [with, height]);
 
-        info!("swapchain_image_views");
+        info!("Creating swapchain_image_views");
         let image_views =
             Self::create_swapchain_image_views(vk_context.device(), &images, properties);
 
         
-        info!("render_pass");
+        info!("Creating render_pass");
         let render_pass = Self::create_render_pass(vk_context.device(), properties);
 
-        info!("swapchain_framebuffers");
-        let swapchain_framebuffers = Self::create_framebuffers(
+        info!("Creating framebuffers");
+        let framebuffers = Self::create_framebuffers(
             vk_context.device(),
             &image_views,
             render_pass,
             properties,
         );
 
-        info!("in_flight_frames");
+        info!("Creating sync_objects");
         let in_flight_frames = Self::create_sync_objects(vk_context.device());
 
 
-        info!("descriptor_pool");
+        info!("Creating descriptor_pool");
         let descriptor_pool = Self::create_descriptor_pool(vk_context.device());
 
-        info!("descriptor_set_layout");
+        info!("Creating descriptor_set_layout");
         let (descriptor_set_layout, descriptor_set_layout_binding) = Self::create_descriptor_set_layout(vk_context.device());
 
-        info!("descriptor_sets");
+        info!("Creating descriptor_sets");
         let descriptor_sets = Self::create_descriptor_sets(
             vk_context.device(),
             descriptor_pool,
@@ -131,20 +121,20 @@ impl VulkanApp {
             &image_views,
         );
 
-        info!("pipeline");
+        info!("Creating compute_pipeline");
         let (pipeline, layout) = Self::create_compute_pipeline(
             vk_context.device(),
             descriptor_set_layout,
         );
 
-        info!("command_pool");
+        info!("Creating command_pool");
         let command_pool = Self::create_command_pool(
             vk_context.device(),
             queue_families_indices,
             vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         );
 
-        info!("command_buffers");
+        info!("Creating command_buffers");
         let command_buffers = Self::create_and_register_command_buffers(
             vk_context.device(),
             command_pool,
@@ -153,10 +143,11 @@ impl VulkanApp {
             pipeline,
             &images,
             render_pass,
-            &swapchain_framebuffers,
+            &framebuffers,
             properties
         );
 
+        info!("Transforming images");
         for image in images {
             Self::transition_image_layout_one_time(
                 vk_context.device(),
@@ -169,26 +160,22 @@ impl VulkanApp {
             );
         }
 
+        info!("Vulkan setup done");
         Self {
             resize_dimensions: None,
-            camera: Default::default(),
-            is_left_clicked: false,
-            cursor_position: [0, 0],
-            cursor_delta: None,
-            wheel_delta: None,
             vk_context,
             queue_families_indices,
             graphics_queue,
             present_queue,
             swapchain,
             swapchain_khr,
-            swapchain_properties: properties,
+            properties,
             image_views,
             render_pass,
             descriptor_set_layout,
             pipeline_layout: layout,
             pipeline,
-            swapchain_framebuffers,
+            framebuffers,
             command_pool,
             descriptor_pool,
             descriptor_sets,

@@ -36,6 +36,6 @@ impl VulkanApp{
             instance_create_info = instance_create_info.enabled_layer_names(&layer_names_ptrs);
         }
 
-        unsafe { entry.create_instance(&instance_create_info, None).unwrap() }
+        unsafe { entry.create_instance( &instance_create_info, None).unwrap() }
     }
 }

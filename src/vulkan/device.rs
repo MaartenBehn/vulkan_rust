@@ -33,9 +33,22 @@ impl VulkanApp{
             .expect("No suitable physical device.");
 
         let props = unsafe { instance.get_physical_device_properties(device) };
-        log::debug!("Selected physical device: {:?}", unsafe {
-            CStr::from_ptr(props.device_name.as_ptr())
-        });
+
+        let mut subgroup = vk::PhysicalDeviceSubgroupProperties::builder()
+            .build();
+        let mut props2 = vk::PhysicalDeviceProperties2::builder()
+            .push_next(&mut subgroup)
+            .build();
+
+        unsafe { instance.get_physical_device_properties2(device, &mut props2) };
+        
+        unsafe { 
+            log::debug!("Selected physical device: {:?}\n\tVersion: {:?}\n\tSubgroup: {:?}", 
+            CStr::from_ptr(props.device_name.as_ptr()),
+            props.api_version,
+            subgroup.subgroup_size,
+        );
+        }
 
         let (graphics, present) = Self::find_queue_families(instance, surface, surface_khr, device);
         let queue_families_indices = QueueFamiliesIndices {

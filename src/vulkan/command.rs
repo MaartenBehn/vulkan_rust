@@ -161,7 +161,7 @@ impl VulkanApp{
                 buffer,
             );
 
-            unsafe { device.cmd_dispatch(buffer, 800, 600, 1) };
+            unsafe { device.cmd_dispatch(buffer, (properties.extent.width / 32) + 1, (properties.extent.height / 32) + 1, 1) };
 
              // begin render pass
              {
