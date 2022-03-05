@@ -53,7 +53,7 @@ impl VulkanApp {
     pub fn new(window: &Window, with: u32, height: u32) -> Self {
         log::debug!("Creating application.");
 
-        let entry = unsafe { Entry::load().unwrap() };
+        let entry = unsafe { Entry::new().expect("Failed to create entry.") };
         let instance = Self::create_instance(&entry, window);
 
         let surface = Surface::new(&entry, &instance);

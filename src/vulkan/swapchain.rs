@@ -304,6 +304,8 @@ impl VulkanApp{
             properties
         );
 
+        info!("Recreating done");
+
         self.swapchain = swapchain;
         self.swapchain_khr = swapchain_khr;
         self.properties = properties;

@@ -134,11 +134,13 @@ impl VulkanApp{
                 };
             }
 
+            info!("cmd_bind_pipeline");
             // Bind pipeline
             unsafe {
                 device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::COMPUTE, compute_pipeline)
             };
 
+            info!("cmd_bind_descriptor_sets");
             // Bind descriptor set
             unsafe {
                 let null = [];
@@ -152,6 +154,7 @@ impl VulkanApp{
                 )
             };
 
+            info!("transition_image_layout_with_command_buffer");
             Self::transition_image_layout_with_command_buffer(
                 device,
                 images[i],
@@ -161,8 +164,10 @@ impl VulkanApp{
                 buffer,
             );
 
+            info!("cmd_dispatch");
             unsafe { device.cmd_dispatch(buffer, (properties.extent.width / 32) + 1, (properties.extent.height / 32) + 1, 1) };
 
+            info!("begin render pass");
              // begin render pass
              {
                 let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
@@ -183,6 +188,7 @@ impl VulkanApp{
                 };
             }
 
+            info!("cmd_end_render_pass");
             // End render pass
             unsafe { device.cmd_end_render_pass(buffer) };
             
