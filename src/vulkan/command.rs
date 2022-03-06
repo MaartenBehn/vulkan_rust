@@ -1,4 +1,4 @@
-use super::{VulkanApp, swapchain::SwapchainProperties, device::*, MAX_FRAMES_IN_FLIGHT};
+use super::{VulkanApp, swapchain::SwapchainProperties, device::*, FRAMES_IN_FLIGHT};
 
 use ash::{vk::{self, Image, RenderPass, Framebuffer}, Device, };
 
@@ -112,7 +112,7 @@ impl VulkanApp{
         let allocate_info = vk::CommandBufferAllocateInfo::builder()
             .command_pool(pool.clone())
             .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(MAX_FRAMES_IN_FLIGHT + 1)
+            .command_buffer_count(FRAMES_IN_FLIGHT + 1)
             .build();
 
         let buffers = unsafe { device.allocate_command_buffers(&allocate_info).unwrap() };

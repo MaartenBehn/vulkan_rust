@@ -26,7 +26,7 @@ use winit::window::Window;
 use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
 
 
-const MAX_FRAMES_IN_FLIGHT: u32 = 2;
+const FRAMES_IN_FLIGHT: u32 = 2;
 
 
 /*

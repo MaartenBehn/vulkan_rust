@@ -1,3 +1,7 @@
+use std::cmp::{max, min};
+
+use crate::vulkan::FRAMES_IN_FLIGHT;
+
 use super::{VulkanApp, context::*, device::QueueFamiliesIndices};
 
 use ash::extensions::khr::{Surface, Swapchain};
@@ -147,9 +151,13 @@ impl VulkanApp{
         let extent = properties.extent;
         let image_count = {
             let max = details.capabilities.max_image_count;
-            let mut preferred = details.capabilities.min_image_count + 1;
-            if max > 0 && preferred > max {
-                preferred = max;
+            let min = details.capabilities.min_image_count + 1;
+            let preferred = FRAMES_IN_FLIGHT +1;
+            if max < preferred {
+                error!("The Device dosen't support enough images. max = {:?}", max)
+            }
+            if min > preferred {
+                error!("The Device dosen't needs more images. min = {:?}", min)
             }
             preferred
         };

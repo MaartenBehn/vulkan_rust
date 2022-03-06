@@ -1,4 +1,4 @@
-use super::{VulkanApp, MAX_FRAMES_IN_FLIGHT};
+use super::{VulkanApp, FRAMES_IN_FLIGHT};
 
 use ash::{vk::{self, ImageLayout, ImageView}, Device};
 
@@ -31,14 +31,14 @@ impl VulkanApp{
     pub fn create_descriptor_pool(device: &Device) -> vk::DescriptorPool {
         let pool_size = vk::DescriptorPoolSize {
             ty: vk::DescriptorType::STORAGE_IMAGE,
-            descriptor_count: MAX_FRAMES_IN_FLIGHT + 1,
+            descriptor_count: FRAMES_IN_FLIGHT + 1,
         };
         
         let pool_sizes = [pool_size];
 
         let pool_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets(MAX_FRAMES_IN_FLIGHT + 1)
+            .max_sets(FRAMES_IN_FLIGHT + 1)
             .build();
 
         unsafe { device.create_descriptor_pool(&pool_info, None).unwrap() }
