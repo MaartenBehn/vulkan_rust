@@ -16,11 +16,15 @@ mod command;
 mod sync;
 
 
+use std::error::Error;
+
 use crate::{vulkan::{context::VkContext, debug::*, swapchain::*}};
 
-use ash::{extensions::khr::{Surface, Swapchain}, vk::{ImageView, CommandPool, Queue}};
+use ash::{extensions::khr::{Surface, Swapchain}, vk::{ImageView, CommandPool, Queue, CommandBuffer, Extent2D}, Device};
 
 use ash::{vk, Entry};
+use imgui::*;
+use imgui_rs_vulkan_renderer::*;
 use winit::window::Window;
 
 use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
@@ -56,7 +60,6 @@ pub const DESCRIPTOR_POOL: Self = Self(22);
 pub const DESCRIPTOR_SET: Self = Self(23);
 pub const FRAMEBUFFER: Self = Self(24);
 pub const COMMAND_POOL: Self = Self(25);
-
 */
 
 pub struct VulkanApp {
@@ -86,14 +89,18 @@ pub struct Size_Dependent {
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
     framebuffers: Vec<vk::Framebuffer>,
-    command_buffers: Vec<vk::CommandBuffer>,
+    command_buffers: Vec<CommandBuffer>,
+
+    extent: Extent2D,
+    renderer: Renderer,
+    imgui_command_buffer: CommandBuffer
 }
 
 impl VulkanApp {
     pub fn new(window: &Window, dimensions: [u32; 2]) -> Self {
         log::debug!("Creating application.");
 
-        let entry = unsafe { Entry::new().expect("Failed to create entry.") };
+        let entry = unsafe { Entry::load().unwrap() };
         let instance = Self::create_instance(&entry, window);
 
         let surface = Surface::new(&entry, &instance);
@@ -131,6 +138,31 @@ impl VulkanApp {
             vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         );
 
+        // TODO: imgui
+        let mut platform = WinitPlatform::init(&mut imgui);
+
+        let hidpi_factor = platform.hidpi_factor();
+        let font_size = (13.0 * hidpi_factor) as f32;
+        imgui.fonts().add_font(&[
+            FontSource::DefaultFontData {
+                config: Some(FontConfig {
+                    size_pixels: font_size,
+                    ..FontConfig::default()
+                }),
+            },
+            FontSource::TtfData {
+                data: include_bytes!("../../assets/fonts/mplus-1p-regular.ttf"),
+                size_pixels: font_size,
+                config: Some(FontConfig {
+                    rasterizer_multiply: 1.75,
+                    glyph_ranges: FontGlyphRanges::japanese(),
+                    ..FontConfig::default()
+                }),
+            },
+        ]);
+        imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
+        platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
+
         info!("Context done");
 
 
@@ -159,7 +191,7 @@ impl VulkanApp {
         info!("Creating size dependent");
 
         info!("swapchain");
-        let (swapchain, swapchain_khr, properties, images) =
+        let (swapchain, swapchain_khr, properties, images, extent) =
             Self::create_swapchain_and_images(&vk_context, setup.queue_families_indices, dimensions);
 
         info!("Creating swapchain_image_views");
@@ -215,6 +247,33 @@ impl VulkanApp {
             properties
         );
 
+        let mut imgui = Context::create();
+        imgui.set_ini_filename(None);
+
+        let renderer = Renderer::with_default_allocator(
+            &vk_context.instance(),
+            vk_context.physical_device(),
+            vk_context.device().clone(),
+            setup.graphics_queue,
+            setup.command_pool,
+            render_pass,
+            &mut imgui,
+            Some(Options {
+                in_flight_frames: MAX_FRAMES_IN_FLIGHT as usize,
+                ..Default::default()
+            }),
+        ).unwrap();
+
+        let imgui_command_buffer = {
+            let allocate_info = vk::CommandBufferAllocateInfo::builder()
+                .command_pool(setup.command_pool)
+                .level(vk::CommandBufferLevel::PRIMARY)
+                .command_buffer_count(1);
+
+            unsafe {
+                vk_context.device().allocate_command_buffers(&allocate_info).unwrap()[0]
+            }
+        };
 
         info!("images");
         for image in images {
@@ -228,6 +287,7 @@ impl VulkanApp {
                 vk::ImageLayout::PRESENT_SRC_KHR,
             );
         }
+       
 
 
         info!("Creating size dependent done");
@@ -246,6 +306,10 @@ impl VulkanApp {
             pipeline_layout,
             framebuffers,
             command_buffers,
+
+            extent,
+            renderer,
+            imgui_command_buffer,
         }
     }
 
@@ -254,7 +318,6 @@ impl VulkanApp {
         self.cleanup_size_dependent();
         self.size_dependent = Self::create_size_dependent(&self.vk_context, &self.setup, size);
     }
-
 
     pub fn draw_frame(&mut self) -> bool {
         
@@ -313,6 +376,28 @@ impl VulkanApp {
             };
         }
 
+        // Generate UI
+        platform
+            .prepare_frame(imgui.io_mut(), &window)
+            .expect("Failed to prepare frame");
+        let mut ui = imgui.frame();
+        ui_builder(&mut run, &mut ui, &mut app);
+        platform.prepare_render(&ui, &window);
+        let draw_data = ui.render();
+
+        // Re-record commands to draw geometry
+        Self::record_command_buffers(
+            self.vk_context.device(),
+            self.setup.command_pool,
+            self.size_dependent.imgui_command_buffer,
+            self.size_dependent.framebuffers[image_index as usize],
+            self.size_dependent.render_pass,
+            self.size_dependent.extent,
+            &mut self.size_dependent.renderer,
+            &draw_data,
+        )
+        .expect("Failed to record command buffer");
+
         let swapchains = [self.size_dependent.swapchain_khr];
         let images_indices = [image_index];
 
@@ -336,6 +421,52 @@ impl VulkanApp {
             }
         }
         false
+    }
+
+    fn record_command_buffers(
+        device: &Device,
+        command_pool: vk::CommandPool,
+        command_buffer: vk::CommandBuffer,
+        framebuffer: vk::Framebuffer,
+        render_pass: vk::RenderPass,
+        extent: vk::Extent2D,
+        renderer: &mut Renderer,
+        draw_data: &DrawData,
+    ) -> Result<(), Box<dyn Error>> {
+        unsafe { device.reset_command_pool(command_pool, vk::CommandPoolResetFlags::empty())? };
+    
+        let command_buffer_begin_info =
+            vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::SIMULTANEOUS_USE);
+        unsafe { device.begin_command_buffer(command_buffer, &command_buffer_begin_info)? };
+    
+        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            .render_pass(render_pass)
+            .framebuffer(framebuffer)
+            .render_area(vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent,
+            })
+            .clear_values(&[vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [1.0, 1.0, 1.0, 1.0],
+                },
+            }]);
+    
+        unsafe {
+            device.cmd_begin_render_pass(
+                command_buffer,
+                &render_pass_begin_info,
+                vk::SubpassContents::INLINE,
+            )
+        };
+    
+        renderer.cmd_draw(command_buffer, draw_data)?;
+    
+        unsafe { device.cmd_end_render_pass(command_buffer) };
+    
+        unsafe { device.end_command_buffer(command_buffer)? };
+    
+        Ok(())
     }
 
     pub fn cleanup_size_dependent(&mut self) {

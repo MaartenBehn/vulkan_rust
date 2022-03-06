@@ -5,6 +5,7 @@ use crate::vulkan::FRAMES_IN_FLIGHT;
 use super::{VulkanApp, context::*, device::QueueFamiliesIndices};
 
 use ash::extensions::khr::{Surface, Swapchain};
+use ash::vk::Extent2D;
 use ash::{vk, Device};
 
 pub struct SwapchainSupportDetails {
@@ -138,6 +139,7 @@ impl VulkanApp{
         vk::SwapchainKHR,
         SwapchainProperties,
         Vec<vk::Image>,
+        Extent2D,
     ) {
         let details = SwapchainSupportDetails::new(
             vk_context.physical_device(),
@@ -205,7 +207,8 @@ impl VulkanApp{
         let swapchain = Swapchain::new(vk_context.instance(), vk_context.device());
         let swapchain_khr = unsafe { swapchain.create_swapchain(&create_info, None).unwrap() };
         let images = unsafe { swapchain.get_swapchain_images(swapchain_khr).unwrap() };
-        (swapchain, swapchain_khr, properties, images)
+
+        (swapchain, swapchain_khr, properties, images, extent)
     }
 
     /// Create one image view for each image of the swapchain.
