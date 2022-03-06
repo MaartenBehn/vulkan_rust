@@ -91,9 +91,7 @@ pub struct Size_Dependent {
     framebuffers: Vec<vk::Framebuffer>,
     command_buffers: Vec<CommandBuffer>,
 
-    extent: Extent2D,
     renderer: Renderer,
-    imgui_command_buffer: CommandBuffer
 }
 
 impl VulkanApp {
@@ -137,7 +135,7 @@ impl VulkanApp {
             queue_families_indices,
             vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         );
-
+         
         // TODO: imgui
         let mut platform = WinitPlatform::init(&mut imgui);
 
@@ -162,9 +160,8 @@ impl VulkanApp {
         ]);
         imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
         platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
-
+        
         info!("Context done");
-
 
         let setup = Vulkan_Setup{
             queue_families_indices,
@@ -259,21 +256,10 @@ impl VulkanApp {
             render_pass,
             &mut imgui,
             Some(Options {
-                in_flight_frames: MAX_FRAMES_IN_FLIGHT as usize,
+                in_flight_frames: FRAMES_IN_FLIGHT as usize,
                 ..Default::default()
             }),
         ).unwrap();
-
-        let imgui_command_buffer = {
-            let allocate_info = vk::CommandBufferAllocateInfo::builder()
-                .command_pool(setup.command_pool)
-                .level(vk::CommandBufferLevel::PRIMARY)
-                .command_buffer_count(1);
-
-            unsafe {
-                vk_context.device().allocate_command_buffers(&allocate_info).unwrap()[0]
-            }
-        };
 
         info!("images");
         for image in images {
