@@ -586,6 +586,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "imgui-winit-support"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30d8cb426a6ee9f1be8e379b18b9085585887056fcfbc2d66bddb2c355944624"
+dependencies = [
+ "imgui",
+ "winit",
+]
+
+[[package]]
 name = "inflate"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1302,6 +1312,7 @@ dependencies = [
  "image",
  "imgui",
  "imgui-rs-vulkan-renderer",
+ "imgui-winit-support",
  "log",
  "simplelog",
  "winit",

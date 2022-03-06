@@ -43,7 +43,7 @@ fn main() {
     }, |g| {
         g.game.render(&g.window);
     }, | g, event| {
-        if !g.game.window(event) { g.exit(); }
+        if !g.game.window(event, &g.window) { g.exit(); }
     });
 }
 
@@ -66,18 +66,21 @@ impl Game {
 
     pub fn render(&mut self, window: &Window) {
         
+        
         if self.dirty_swapchain {
             let size = window.inner_size();
             if size.width > 0 && size.height > 0 {
-                self.app.recreate_size_dependent([size.width, size.height]);
+                self.app.recreate_size_dependent([size.width, size.height], window);
             } else {
                 return;
             }
         }
-        self.dirty_swapchain = self.app.draw_frame();
+        self.dirty_swapchain = self.app.draw_frame(window);
     }
 
-    pub fn window(&mut self, event: Event<()>) -> bool {
+    pub fn window(&mut self, event: Event<()>, window: &Window) -> bool {
+        self.app.setup.platform.handle_event(self.app.setup.imgui.io_mut(), window, &event);
+
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => return false,

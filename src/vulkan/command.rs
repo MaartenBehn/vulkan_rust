@@ -1,6 +1,8 @@
 use super::{VulkanApp, swapchain::SwapchainProperties, device::*, FRAMES_IN_FLIGHT};
 
-use ash::{vk::{self, Image, RenderPass, Framebuffer}, Device, };
+use ash::{vk::{self, Image, RenderPass, Framebuffer, CommandBuffer}, Device, };
+use imgui::DrawData;
+use imgui_rs_vulkan_renderer::Renderer;
 
 impl VulkanApp{
 
@@ -101,13 +103,6 @@ impl VulkanApp{
     pub fn create_and_register_command_buffers(
         device: &Device,
         pool: &vk::CommandPool,
-        pipeline_layout: vk::PipelineLayout,
-        descriptor_sets: &[vk::DescriptorSet],
-        compute_pipeline: vk::Pipeline,
-        images: &Vec<Image>,
-        render_pass: RenderPass,
-        framebuffers: &Vec<Framebuffer>,
-        properties: SwapchainProperties
     ) -> Vec<vk::CommandBuffer> {
         let allocate_info = vk::CommandBufferAllocateInfo::builder()
             .command_pool(pool.clone())
@@ -117,84 +112,94 @@ impl VulkanApp{
 
         let buffers = unsafe { device.allocate_command_buffers(&allocate_info).unwrap() };
 
-        buffers.iter().enumerate().for_each(|(i, buffer)| {
-            let buffer = *buffer;
-            let framebuffer = framebuffers[i].clone();
+        buffers
+    }
 
-            // begin command buffer
-            {
-                let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-                    //.flags(vk::CommandBufferUsageFlags::)
-                    //.inheritance_info() null since it's a primary command buffer
-                    .build();
-                unsafe {
-                    device
-                        .begin_command_buffer(buffer, &command_buffer_begin_info)
-                        .unwrap()
-                };
-            }
+    pub fn updating_command_buffer(
+        i: usize,
+        buffer: &CommandBuffer,  
+        device: &Device,
+        pipeline_layout: vk::PipelineLayout,
+        descriptor_sets: &[vk::DescriptorSet],
+        compute_pipeline: vk::Pipeline,
+        images: &Vec<Image>,
+        render_pass: RenderPass,
+        framebuffers: &Vec<Framebuffer>,
+        properties: SwapchainProperties,
+        renderer: &mut Renderer,
+        draw_data: &DrawData,     
+    ){
+        let buffer = *buffer;
+        let framebuffer = framebuffers[i].clone();
 
-            info!("cmd_bind_pipeline");
-            // Bind pipeline
+        // begin command buffer
+        {
+            let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+                //.flags(vk::CommandBufferUsageFlags::)
+                //.inheritance_info() null since it's a primary command buffer
+                .build();
             unsafe {
-                device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::COMPUTE, compute_pipeline.clone())
+                device
+                    .begin_command_buffer(buffer, &command_buffer_begin_info)
+                    .unwrap()
             };
+        }
 
-            info!("cmd_bind_descriptor_sets");
-            // Bind descriptor set
+        // Bind pipeline
+        unsafe {
+            device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::COMPUTE, compute_pipeline.clone())
+        };
+
+        // Bind descriptor set
+        unsafe {
+            let null = [];
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::COMPUTE,
+                pipeline_layout.clone(),
+                0,
+                &descriptor_sets[i..=i],
+                &null,
+            )
+        };
+
+        Self::transition_image_layout_with_command_buffer(
+            device,
+            images[i],
+            properties.format.format,
+            vk::ImageLayout::PRESENT_SRC_KHR,
+            vk::ImageLayout::GENERAL,
+            buffer,
+        );
+
+        unsafe { device.cmd_dispatch(buffer, (properties.extent.width / 32) + 1, (properties.extent.height / 32) + 1, 1) };
+
+            // begin render pass
+            {
+            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(render_pass.clone())
+                .framebuffer(framebuffer)
+                .render_area(vk::Rect2D {
+                    offset: vk::Offset2D { x: 0, y: 0 },
+                    extent: properties.extent,
+                })
+                .build();
+
             unsafe {
-                let null = [];
-                device.cmd_bind_descriptor_sets(
+                device.cmd_begin_render_pass(
                     buffer,
-                    vk::PipelineBindPoint::COMPUTE,
-                    pipeline_layout.clone(),
-                    0,
-                    &descriptor_sets[i..=i],
-                    &null,
+                    &render_pass_begin_info,
+                    vk::SubpassContents::INLINE,
                 )
             };
+        }
 
-            info!("transition_image_layout_with_command_buffer");
-            Self::transition_image_layout_with_command_buffer(
-                device,
-                images[i],
-                properties.format.format,
-                vk::ImageLayout::PRESENT_SRC_KHR,
-                vk::ImageLayout::GENERAL,
-                buffer,
-            );
+        renderer.cmd_draw(buffer, draw_data).expect("Imgui render failed");
 
-            unsafe { device.cmd_dispatch(buffer, (properties.extent.width / 32) + 1, (properties.extent.height / 32) + 1, 1) };
-
-            info!("begin render pass");
-             // begin render pass
-             {
-                let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-                    .render_pass(render_pass.clone())
-                    .framebuffer(framebuffer)
-                    .render_area(vk::Rect2D {
-                        offset: vk::Offset2D { x: 0, y: 0 },
-                        extent: properties.extent,
-                    })
-                    .build();
-
-                unsafe {
-                    device.cmd_begin_render_pass(
-                        buffer,
-                        &render_pass_begin_info,
-                        vk::SubpassContents::INLINE,
-                    )
-                };
-            }
-
-            info!("cmd_end_render_pass");
-            // End render pass
-            unsafe { device.cmd_end_render_pass(buffer) };
-            
-            // End command buffer
-            unsafe { device.end_command_buffer(buffer).unwrap() };
-        });
-
-        buffers
+        // End render pass
+        unsafe { device.cmd_end_render_pass(buffer) };
+        
+        // End command buffer
+        unsafe { device.end_command_buffer(buffer).unwrap() };
     }
 }

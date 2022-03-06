@@ -25,6 +25,7 @@ use ash::{extensions::khr::{Surface, Swapchain}, vk::{ImageView, CommandPool, Qu
 use ash::{vk, Entry};
 use imgui::*;
 use imgui_rs_vulkan_renderer::*;
+use imgui_winit_support::{WinitPlatform, HiDpiMode};
 use winit::window::Window;
 
 use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
@@ -64,7 +65,7 @@ pub const COMMAND_POOL: Self = Self(25);
 
 pub struct VulkanApp {
     vk_context: VkContext,
-    setup: Vulkan_Setup,
+    pub setup: Vulkan_Setup,
     size_dependent: Size_Dependent,
 }
 
@@ -74,6 +75,9 @@ pub struct Vulkan_Setup {
     present_queue: vk::Queue,
     command_pool: vk::CommandPool,
     in_flight_frames: InFlightFrames,
+
+    pub imgui: Context,
+    pub platform: WinitPlatform
 }
 
 pub struct Size_Dependent {
@@ -90,6 +94,7 @@ pub struct Size_Dependent {
     pipeline_layout: vk::PipelineLayout,
     framebuffers: Vec<vk::Framebuffer>,
     command_buffers: Vec<CommandBuffer>,
+    images: Vec<ash::vk::Image>,
 
     renderer: Renderer,
 }
@@ -135,6 +140,9 @@ impl VulkanApp {
             queue_families_indices,
             vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         );
+
+        let mut imgui = Context::create();
+        imgui.set_ini_filename(None);
          
         // TODO: imgui
         let mut platform = WinitPlatform::init(&mut imgui);
@@ -149,7 +157,7 @@ impl VulkanApp {
                 }),
             },
             FontSource::TtfData {
-                data: include_bytes!("../../assets/fonts/mplus-1p-regular.ttf"),
+                data: include_bytes!("../assets/fonts/mplus-1p-regular.ttf"),
                 size_pixels: font_size,
                 config: Some(FontConfig {
                     rasterizer_multiply: 1.75,
@@ -160,18 +168,26 @@ impl VulkanApp {
         ]);
         imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
         platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
+
+         // Generate UI
+         platform
+            .prepare_frame(imgui.io_mut(), &window)
+            .expect("Failed to prepare frame");
+        
         
         info!("Context done");
 
-        let setup = Vulkan_Setup{
+        let mut setup = Vulkan_Setup{
             queue_families_indices,
             graphics_queue,
             present_queue,
             command_pool,
-            in_flight_frames
+            in_flight_frames,
+            imgui,
+            platform,
         };
 
-        let size_dependent = Self::create_size_dependent(&vk_context, &setup, dimensions);
+        let size_dependent = Self::create_size_dependent(&vk_context, &mut setup, dimensions, window);
         Self {
             vk_context,
             setup,
@@ -181,8 +197,9 @@ impl VulkanApp {
 
     fn create_size_dependent(
         vk_context: &VkContext, 
-        setup: &Vulkan_Setup,
-        dimensions: [u32; 2]
+        setup: &mut Vulkan_Setup,
+        dimensions: [u32; 2],
+        window: &Window
     ) -> Size_Dependent {
 
         info!("Creating size dependent");
@@ -231,43 +248,32 @@ impl VulkanApp {
             &descriptor_set_layout,
         );
 
-        info!("Creating command_buffers");
-        let command_buffers = Self::create_and_register_command_buffers(
-            vk_context.device(),
-            &setup.command_pool,
-            pipeline_layout,
-            &descriptor_sets,
-            pipeline,
-            &images,
-            render_pass,
-            &framebuffers,
-            properties
-        );
-
-        let mut imgui = Context::create();
-        imgui.set_ini_filename(None);
-
-        let renderer = Renderer::with_default_allocator(
+        let mut renderer = Renderer::with_default_allocator(
             &vk_context.instance(),
             vk_context.physical_device(),
             vk_context.device().clone(),
             setup.graphics_queue,
             setup.command_pool,
             render_pass,
-            &mut imgui,
+            &mut setup.imgui,
             Some(Options {
                 in_flight_frames: FRAMES_IN_FLIGHT as usize,
                 ..Default::default()
             }),
         ).unwrap();
 
+        info!("Creating command_buffers");
+        let command_buffers = Self::create_and_register_command_buffers(
+            vk_context.device(),
+            &setup.command_pool);
+
         info!("images");
-        for image in images {
+        for image in &images {
             Self::transition_image_layout_one_time(
                 vk_context.device(),
                 &setup.command_pool,
                 &setup.graphics_queue,
-                image,
+                image.clone(),
                 properties.format.format,
                 vk::ImageLayout::UNDEFINED,
                 vk::ImageLayout::PRESENT_SRC_KHR,
@@ -292,26 +298,45 @@ impl VulkanApp {
             pipeline_layout,
             framebuffers,
             command_buffers,
+            images,
 
-            extent,
             renderer,
-            imgui_command_buffer,
         }
     }
 
-    pub fn recreate_size_dependent(&mut self, size: [u32; 2]){
+    pub fn recreate_size_dependent(&mut self, size: [u32; 2], window: &Window){
         self.wait_gpu_idle();
         self.cleanup_size_dependent();
-        self.size_dependent = Self::create_size_dependent(&self.vk_context, &self.setup, size);
+        self.size_dependent = Self::create_size_dependent(&self.vk_context, &mut self.setup, size, window);
     }
 
-    pub fn draw_frame(&mut self) -> bool {
+    pub fn draw_frame(&mut self, window: &Window) -> bool {
         
         let sync_objects = self.setup.in_flight_frames.next().unwrap();
         let image_available_semaphore = sync_objects.image_available_semaphore;
         let render_finished_semaphore = sync_objects.render_finished_semaphore;
         let in_flight_fence = sync_objects.fence;
         let wait_fences = [in_flight_fence];
+        let device = self.vk_context.device();
+
+        let ui = self.setup.imgui.frame();
+        imgui::Window::new("Hello world")
+            .size([300.0, 100.0], Condition::FirstUseEver)
+            .build(&ui, || {
+                ui.text_wrapped("Hello world!");
+
+                ui.button("This...is...imgui-rs!");
+                ui.separator();
+                let mouse_pos = ui.io().mouse_pos;
+                ui.text(format!(
+                    "Mouse Position: ({:.1},{:.1})",
+                    mouse_pos[0], mouse_pos[1]
+                ));
+            });
+
+
+        self.setup.platform.prepare_render(&ui, &window);
+        let draw_data = ui.render();
 
         unsafe {
             self.vk_context
@@ -338,16 +363,29 @@ impl VulkanApp {
 
         unsafe { self.vk_context.device().reset_fences(&wait_fences).unwrap() };
 
-        //self.update_uniform_buffers(image_index);
+        let command_buffer = self.size_dependent.command_buffers[image_index as usize];
 
-        let device = self.vk_context.device();
+        Self::updating_command_buffer(
+            image_index as usize,
+            &command_buffer,
+            device,
+            self.size_dependent.pipeline_layout,
+            &self.size_dependent.descriptor_sets,
+            self.size_dependent.pipeline,
+            &self.size_dependent.images,
+            self.size_dependent.render_pass,
+            &self.size_dependent.framebuffers,
+            self.size_dependent.properties,
+            &mut self.size_dependent.renderer,
+            draw_data
+        );
+
+        
         let wait_semaphores = [image_available_semaphore];
         let signal_semaphores = [render_finished_semaphore];
-
-        // Submit command buffer
         {
             let wait_stages = [vk::PipelineStageFlags::COMPUTE_SHADER];
-            let command_buffers = [self.size_dependent.command_buffers[image_index as usize]];
+            let command_buffers = [command_buffer];
             let submit_info = vk::SubmitInfo::builder()
                 .wait_semaphores(&wait_semaphores)
                 .wait_dst_stage_mask(&wait_stages)
@@ -362,27 +400,8 @@ impl VulkanApp {
             };
         }
 
-        // Generate UI
-        platform
-            .prepare_frame(imgui.io_mut(), &window)
-            .expect("Failed to prepare frame");
-        let mut ui = imgui.frame();
-        ui_builder(&mut run, &mut ui, &mut app);
-        platform.prepare_render(&ui, &window);
-        let draw_data = ui.render();
-
         // Re-record commands to draw geometry
-        Self::record_command_buffers(
-            self.vk_context.device(),
-            self.setup.command_pool,
-            self.size_dependent.imgui_command_buffer,
-            self.size_dependent.framebuffers[image_index as usize],
-            self.size_dependent.render_pass,
-            self.size_dependent.extent,
-            &mut self.size_dependent.renderer,
-            &draw_data,
-        )
-        .expect("Failed to record command buffer");
+
 
         let swapchains = [self.size_dependent.swapchain_khr];
         let images_indices = [image_index];
@@ -409,58 +428,12 @@ impl VulkanApp {
         false
     }
 
-    fn record_command_buffers(
-        device: &Device,
-        command_pool: vk::CommandPool,
-        command_buffer: vk::CommandBuffer,
-        framebuffer: vk::Framebuffer,
-        render_pass: vk::RenderPass,
-        extent: vk::Extent2D,
-        renderer: &mut Renderer,
-        draw_data: &DrawData,
-    ) -> Result<(), Box<dyn Error>> {
-        unsafe { device.reset_command_pool(command_pool, vk::CommandPoolResetFlags::empty())? };
-    
-        let command_buffer_begin_info =
-            vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::SIMULTANEOUS_USE);
-        unsafe { device.begin_command_buffer(command_buffer, &command_buffer_begin_info)? };
-    
-        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-            .render_pass(render_pass)
-            .framebuffer(framebuffer)
-            .render_area(vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent,
-            })
-            .clear_values(&[vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [1.0, 1.0, 1.0, 1.0],
-                },
-            }]);
-    
-        unsafe {
-            device.cmd_begin_render_pass(
-                command_buffer,
-                &render_pass_begin_info,
-                vk::SubpassContents::INLINE,
-            )
-        };
-    
-        renderer.cmd_draw(command_buffer, draw_data)?;
-    
-        unsafe { device.cmd_end_render_pass(command_buffer) };
-    
-        unsafe { device.end_command_buffer(command_buffer)? };
-    
-        Ok(())
-    }
-
     pub fn cleanup_size_dependent(&mut self) {
         let size_dependent = &self.size_dependent;
         let device = self.vk_context.device();
         unsafe {
             size_dependent.framebuffers.iter().for_each(|f| device.destroy_framebuffer(*f, None));
-            device.free_command_buffers(self.setup.command_pool, &size_dependent.command_buffers);
+            //device.free_command_buffers(self.setup.command_pool, &size_dependent.command_buffers);
             device.destroy_pipeline(size_dependent.pipeline, None);
             device.destroy_pipeline_layout(size_dependent.pipeline_layout, None);
             device.destroy_render_pass(size_dependent.render_pass, None);

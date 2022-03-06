@@ -18,3 +18,4 @@ winit = "0.26.1"
 game-loop = { version = "0.8.2", features = ["window"] }
 imgui = "0.8.2"
 imgui-rs-vulkan-renderer = "1.2.0"
+imgui-winit-support = { version = "^0.8", default-features = false, features = ["winit-26"] }
