@@ -138,7 +138,7 @@ impl VulkanApp {
         let command_pool = Self::create_command_pool(
             vk_context.device(),
             queue_families_indices,
-            vk::CommandPoolCreateFlags::TRANSIENT, //| vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+            vk::CommandPoolCreateFlags::TRANSIENT | vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         );
 
         let mut imgui = Context::create();
@@ -318,6 +318,7 @@ impl VulkanApp {
         let wait_fences = [in_flight_fence];
         let device = self.vk_context.device();
 
+        
         let ui = self.setup.imgui.frame();
         imgui::Window::new("Debug")
             .position([10.0, 10.0], Condition::Always)
@@ -334,6 +335,7 @@ impl VulkanApp {
 
         self.setup.platform.prepare_render(&ui, &window);
         let draw_data = ui.render();
+        
 
         unsafe {
             self.vk_context

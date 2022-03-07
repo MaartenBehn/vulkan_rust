@@ -133,7 +133,7 @@ impl VulkanApp{
         let buffer = *buffer;
         let framebuffer = framebuffers[i].clone();
 
-        unsafe { device.reset_command_pool(pool.clone(), vk::CommandPoolResetFlags::empty()).expect("command pool reset") };
+        //unsafe { device.reset_command_pool(pool.clone(), vk::CommandPoolResetFlags::empty()).expect("command pool reset") };
 
         // begin command buffer
         {
