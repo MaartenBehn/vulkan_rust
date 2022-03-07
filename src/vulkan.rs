@@ -241,14 +241,13 @@ impl VulkanApp {
             &image_views,
         );
 
-
         info!("pipeline");
         let (pipeline, pipeline_layout) = Self::create_compute_pipeline(
             vk_context.device(),
             &descriptor_set_layout,
         );
 
-        let mut renderer = Renderer::with_default_allocator(
+        let renderer = Renderer::with_default_allocator(
             &vk_context.instance(),
             vk_context.physical_device(),
             vk_context.device().clone(),
@@ -310,7 +309,7 @@ impl VulkanApp {
         self.size_dependent = Self::create_size_dependent(&self.vk_context, &mut self.setup, size, window);
     }
 
-    pub fn draw_frame(&mut self, window: &Window) -> bool {
+    pub fn draw_frame(&mut self, window: &Window, fps: f64) -> bool {
         
         let sync_objects = self.setup.in_flight_frames.next().unwrap();
         let image_available_semaphore = sync_objects.image_available_semaphore;
@@ -320,20 +319,18 @@ impl VulkanApp {
         let device = self.vk_context.device();
 
         let ui = self.setup.imgui.frame();
-        imgui::Window::new("Hello world")
-            .size([300.0, 100.0], Condition::FirstUseEver)
+        imgui::Window::new("Debug")
+            .position([10.0, 10.0], Condition::Always)
+            .size([200.0, 100.0], Condition::FirstUseEver)
             .build(&ui, || {
-                ui.text_wrapped("Hello world!");
+                ui.text_wrapped(format!("FPS: {:.1}", fps));
 
-                ui.button("This...is...imgui-rs!");
-                ui.separator();
                 let mouse_pos = ui.io().mouse_pos;
                 ui.text(format!(
                     "Mouse Position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
             });
-
 
         self.setup.platform.prepare_render(&ui, &window);
         let draw_data = ui.render();
@@ -369,6 +366,7 @@ impl VulkanApp {
             image_index as usize,
             &command_buffer,
             device,
+            &self.setup.command_pool,
             self.size_dependent.pipeline_layout,
             &self.size_dependent.descriptor_sets,
             self.size_dependent.pipeline,
@@ -433,7 +431,7 @@ impl VulkanApp {
         let device = self.vk_context.device();
         unsafe {
             size_dependent.framebuffers.iter().for_each(|f| device.destroy_framebuffer(*f, None));
-            //device.free_command_buffers(self.setup.command_pool, &size_dependent.command_buffers);
+            device.free_command_buffers(self.setup.command_pool, &size_dependent.command_buffers);
             device.destroy_pipeline(size_dependent.pipeline, None);
             device.destroy_pipeline_layout(size_dependent.pipeline_layout, None);
             device.destroy_render_pass(size_dependent.render_pass, None);

@@ -39,9 +39,9 @@ fn main() {
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
-        trace!("FPS: {:?}", 1.0 / g.last_frame_time())
     }, |g| {
-        g.game.render(&g.window);
+        let fps =  1.0 / g.last_frame_time();
+        g.game.render(&g.window, fps);
     }, | g, event| {
         if !g.game.window(event, &g.window) { g.exit(); }
     });
@@ -64,9 +64,7 @@ impl Game {
 
     }
 
-    pub fn render(&mut self, window: &Window) {
-        
-        
+    pub fn render(&mut self, window: &Window, fps: f64) {
         if self.dirty_swapchain {
             let size = window.inner_size();
             if size.width > 0 && size.height > 0 {
@@ -75,7 +73,7 @@ impl Game {
                 return;
             }
         }
-        self.dirty_swapchain = self.app.draw_frame(window);
+        self.dirty_swapchain = self.app.draw_frame(window, fps);
     }
 
     pub fn window(&mut self, event: Event<()>, window: &Window) -> bool {

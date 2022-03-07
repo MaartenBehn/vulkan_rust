@@ -119,6 +119,7 @@ impl VulkanApp{
         i: usize,
         buffer: &CommandBuffer,  
         device: &Device,
+        pool: &vk::CommandPool,
         pipeline_layout: vk::PipelineLayout,
         descriptor_sets: &[vk::DescriptorSet],
         compute_pipeline: vk::Pipeline,
@@ -131,6 +132,8 @@ impl VulkanApp{
     ){
         let buffer = *buffer;
         let framebuffer = framebuffers[i].clone();
+
+        unsafe { device.reset_command_pool(pool.clone(), vk::CommandPoolResetFlags::empty()).expect("command pool reset") };
 
         // begin command buffer
         {

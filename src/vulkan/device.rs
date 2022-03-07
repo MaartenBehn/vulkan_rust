@@ -43,10 +43,16 @@ impl VulkanApp{
         unsafe { instance.get_physical_device_properties2(device, &mut props2) };
         
         unsafe { 
-            log::debug!("Selected physical device: {:?}\n\tVersion: {:?}\n\tSubgroup: {:?}", 
+            log::debug!("Selected physical device: {:?}
+            \tVersion: {:?}
+            \tSubgroup: {:?}
+            \tCompute work invocaition: {:?}
+            \tCompute work size: {:?}", 
             CStr::from_ptr(props.device_name.as_ptr()),
             props.api_version,
             subgroup.subgroup_size,
+            props.limits.max_compute_work_group_invocations,
+            props.limits.max_compute_work_group_size,
         )};
 
         let (graphics, present) = Self::find_queue_families(instance, surface, surface_khr, device);
