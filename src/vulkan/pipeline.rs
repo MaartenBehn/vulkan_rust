@@ -11,7 +11,7 @@ impl VulkanApp{
         descriptor_set_layout: &vk::DescriptorSetLayout,
     ) -> (vk::Pipeline, vk::PipelineLayout){
         
-        let comp_source = Self::read_shader_from_file("shaders/apollonain.comp.spv");
+        let comp_source = Self::read_shader_from_file("shaders/mandelblub.comp.spv");
         let comp_shader_module = Self::create_shader_module(device, &comp_source);
 
         let entry_point_name = CString::new("main").unwrap();

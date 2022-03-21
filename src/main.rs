@@ -20,6 +20,8 @@ const MAX_UPS: u32 = 30;
 const MIN_FPS: u32 = 30;
 
 fn main() {
+
+    #[cfg(debug_assertions)]
     CombinedLogger::init(
         vec![
             TermLogger::new(LevelFilter::Trace, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),

@@ -14,13 +14,14 @@ mod shader;
 mod framebuffers;
 mod command;
 mod sync;
-
+mod buffer;
+mod camera;
 
 use std::error::Error;
 
-use crate::{vulkan::{context::VkContext, debug::*, swapchain::*}};
+use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, camera::Camera}};
 
-use ash::{extensions::khr::{Surface, Swapchain}, vk::{ImageView, CommandPool, Queue, CommandBuffer, Extent2D}, Device};
+use ash::{extensions::khr::{Surface, Swapchain}, vk::{ImageView, CommandPool, Queue, CommandBuffer, Extent2D, Buffer, DeviceMemory}, Device};
 
 use ash::{vk, Entry};
 use imgui::*;
@@ -75,6 +76,7 @@ pub struct Vulkan_Setup {
     present_queue: vk::Queue,
     command_pool: vk::CommandPool,
     in_flight_frames: InFlightFrames,
+    camera: Camera,
 
     pub imgui: Context,
     pub platform: WinitPlatform
@@ -95,6 +97,8 @@ pub struct Size_Dependent {
     framebuffers: Vec<vk::Framebuffer>,
     command_buffers: Vec<CommandBuffer>,
     images: Vec<ash::vk::Image>,
+    uniform_buffers: Vec<Buffer>,
+    uniform_buffer_memories: Vec<DeviceMemory>,
 
     renderer: Renderer,
 }
@@ -141,10 +145,12 @@ impl VulkanApp {
             vk::CommandPoolCreateFlags::TRANSIENT | vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         );
 
+        let camera: Camera = Default::default();
+
+        info!("imgui");
         let mut imgui = Context::create();
         imgui.set_ini_filename(None);
          
-        // TODO: imgui
         let mut platform = WinitPlatform::init(&mut imgui);
 
         let hidpi_factor = platform.hidpi_factor();
@@ -169,12 +175,10 @@ impl VulkanApp {
         imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
         platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
 
-         // Generate UI
-         platform
+        // Generate UI
+        platform
             .prepare_frame(imgui.io_mut(), &window)
             .expect("Failed to prepare frame");
-        
-        
         info!("Context done");
 
         let mut setup = Vulkan_Setup{
@@ -183,6 +187,7 @@ impl VulkanApp {
             present_queue,
             command_pool,
             in_flight_frames,
+            camera,
             imgui,
             platform,
         };
@@ -212,13 +217,10 @@ impl VulkanApp {
         let image_views =
             Self::create_swapchain_image_views(vk_context.device(), &images, properties);
 
-        
         info!("Creating render_pass");
         let render_pass = Self::create_render_pass(vk_context.device(), properties);
 
-
         info!("Creating framebuffers");
-
         let framebuffers = Self::create_framebuffers(
             vk_context.device(),
             &image_views,
@@ -226,6 +228,8 @@ impl VulkanApp {
             properties,
         );
 
+        let (uniform_buffers, uniform_buffer_memories) =
+            Self::create_uniform_buffers(&vk_context, images.len());
 
         info!("descriptor_pool");
         let descriptor_pool = Self::create_descriptor_pool(vk_context.device());
@@ -239,6 +243,7 @@ impl VulkanApp {
             descriptor_pool,
             &descriptor_set_layout,
             &image_views,
+            &uniform_buffers,
         );
 
         info!("pipeline");
@@ -247,6 +252,7 @@ impl VulkanApp {
             &descriptor_set_layout,
         );
 
+        info!("imgui renderer");
         let renderer = Renderer::with_default_allocator(
             &vk_context.instance(),
             vk_context.physical_device(),
@@ -278,11 +284,8 @@ impl VulkanApp {
                 vk::ImageLayout::PRESENT_SRC_KHR,
             );
         }
-       
-
 
         info!("Creating size dependent done");
-
         Size_Dependent{
             dimensions,
             swapchain,
@@ -298,6 +301,8 @@ impl VulkanApp {
             framebuffers,
             command_buffers,
             images,
+            uniform_buffers,
+            uniform_buffer_memories,
 
             renderer,
         }
@@ -318,7 +323,6 @@ impl VulkanApp {
         let wait_fences = [in_flight_fence];
         let device = self.vk_context.device();
 
-        
         let ui = self.setup.imgui.frame();
         imgui::Window::new("Debug")
             .position([10.0, 10.0], Condition::Always)
@@ -336,7 +340,6 @@ impl VulkanApp {
         self.setup.platform.prepare_render(&ui, &window);
         let draw_data = ui.render();
         
-
         unsafe {
             self.vk_context
                 .device()
@@ -361,6 +364,14 @@ impl VulkanApp {
         };
 
         unsafe { self.vk_context.device().reset_fences(&wait_fences).unwrap() };
+
+        Self::update_uniform_buffers(
+            &self.vk_context,
+            &self.size_dependent.properties,
+            &mut self.setup.camera,
+            &self.size_dependent.uniform_buffer_memories,
+            image_index
+        );
 
         let command_buffer = self.size_dependent.command_buffers[image_index as usize];
 
@@ -429,7 +440,7 @@ impl VulkanApp {
     }
 
     pub fn cleanup_size_dependent(&mut self) {
-        let size_dependent = &self.size_dependent;
+        let size_dependent = &mut self.size_dependent;
         let device = self.vk_context.device();
         unsafe {
             size_dependent.framebuffers.iter().for_each(|f| device.destroy_framebuffer(*f, None));
@@ -451,6 +462,10 @@ impl Drop for VulkanApp {
     fn drop(&mut self) {
         debug!("Dropping application.");
         self.cleanup_size_dependent();
+
+        drop(& self.size_dependent.renderer);
+        drop(& self.setup.imgui);
+        drop(& self.setup.platform);
 
         let device = self.vk_context.device();
         self.setup.in_flight_frames.destroy(device);
