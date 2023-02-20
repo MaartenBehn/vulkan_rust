@@ -14,8 +14,9 @@ impl VulkanApp{
             .application_version(vk::make_api_version(0, 0, 1, 0))
             .engine_name(engine_name.as_c_str())
             .engine_version(vk::make_api_version(0, 0, 1, 0))
-            .api_version(vk::make_api_version(0, 1, 0, 0))
+            .api_version(vk::make_api_version(0, 1, 1, 0))
             .build();
+        
 
         let extension_names = ash_window::enumerate_required_extensions(window).unwrap();
         let mut extension_names = extension_names

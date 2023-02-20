@@ -16,6 +16,7 @@ mod command;
 mod sync;
 mod buffer;
 mod camera;
+mod vertex;
 
 use std::error::Error;
 
@@ -32,7 +33,7 @@ use winit::window::Window;
 use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
 
 
-const FRAMES_IN_FLIGHT: u32 = 2;
+const FRAMES_IN_FLIGHT: u32 = 10;
 
 
 /*
