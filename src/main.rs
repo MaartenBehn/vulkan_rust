@@ -1,5 +1,4 @@
 mod vulkan;
-
 #[macro_use] extern crate log;
 extern crate simplelog;
 
@@ -9,7 +8,7 @@ use std::fs::File;
 use vulkan::VulkanApp;
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, MouseButton, MouseScrollDelta},
+    event::{ElementState, MouseButton, MouseScrollDelta, VirtualKeyCode},
 };
 use game_loop::{game_loop};
 
@@ -112,11 +111,7 @@ impl Game {
                 WindowEvent::CloseRequested => return false,
                 WindowEvent::Resized { .. } => self.dirty_swapchain = true,
                 // Accumulate input events
-                WindowEvent::MouseInput {
-                    button: MouseButton::Left,
-                    state,
-                    ..
-                } => {
+                WindowEvent::MouseInput {button: MouseButton::Left, state, .. } => {
                     if state == ElementState::Pressed {
                         self.is_left_clicked = Some(true);
                     } else {
@@ -127,11 +122,16 @@ impl Game {
                     let position: (i32, i32) = position.into();
                     self.cursor_position = Some([position.0, position.1]);
                 }
-                WindowEvent::MouseWheel {
-                    delta: MouseScrollDelta::LineDelta(_, v_lines),
-                    ..
-                } => {
+                WindowEvent::MouseWheel {delta: MouseScrollDelta::LineDelta(_, v_lines), .. } => {
                     self.wheel_delta = Some(v_lines/ 100.0);
+                }
+                WindowEvent::KeyboardInput { input, .. } => {
+                    if input.state == ElementState::Pressed {
+                        self.app.keys_pressed[input.virtual_keycode.unwrap() as usize] = true;
+                    }
+                    else if input.state == ElementState::Released {
+                        self.app.keys_pressed[input.virtual_keycode.unwrap() as usize] = false;
+                    }
                 }
                 _ => (),
             },

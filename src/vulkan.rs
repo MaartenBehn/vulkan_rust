@@ -17,12 +17,13 @@ mod buffer;
 mod command;
 mod sync;
 mod vertex;
+mod transform;
 
 use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, texture::Texture, camera::Camera}};
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{vk, Entry};
-use winit::window::Window;
+use winit::{window::Window, event::VirtualKeyCode};
 
 use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
 
@@ -36,6 +37,7 @@ pub struct VulkanApp {
     pub cursor_position: [i32; 2],
     pub cursor_delta: Option<[i32; 2]>,
     pub wheel_delta: Option<f32>,
+    pub keys_pressed: [bool; 255],
 
     vk_context: VkContext,
     queue_families_indices: QueueFamiliesIndices,
@@ -207,6 +209,7 @@ impl VulkanApp {
             cursor_position: [0, 0],
             cursor_delta: None,
             wheel_delta: None,
+            keys_pressed: [false; 255],
             vk_context,
             queue_families_indices,
             graphics_queue,

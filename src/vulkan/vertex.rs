@@ -49,19 +49,19 @@ impl VulkanApp{
     pub fn plane_model() -> (Vec<Vertex>, Vec<u32>){
         let vertices: Vec<Vertex> = vec![
             Vertex {
-                pos: [0.0, 0.0, 0.0],
+                pos: [10.0, 0.0, 10.0],
                 color: [1.0, 0.0, 0.0],
             },
             Vertex {
-                pos: [1.0, 0.0, 0.0],
+                pos: [10.0, 0.0, -10.0],
                 color: [0.0, 1.0, 0.0],
             },
             Vertex {
-                pos: [0.0, 1.0, 0.0],
+                pos: [-10.0, 0.0, 10.0],
                 color: [0.0, 0.0, 1.0],
             },
             Vertex {
-                pos: [1.0, 1.0, 0.0],
+                pos: [-10.0, 0.0, -10.0],
                 color: [1.0, 1.0, 0.0],
             }
         ];
