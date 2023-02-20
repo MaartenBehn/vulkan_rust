@@ -1,42 +1,39 @@
 use super::math::clamp;
 
-use cgmath::Point3;
+use cgmath::{vec3, Vector3, Matrix4, Deg};
 
 #[derive(Clone, Copy)]
 pub struct Camera {
-    theta: f32,
-    phi: f32,
-    r: f32,
-}
-
-impl Camera {
-    pub fn position(&self) -> Point3<f32> {
-        Point3::new(
-            self.r * self.phi.sin() * self.theta.sin(),
-            self.r * self.phi.cos(),
-            self.r * self.phi.sin() * self.theta.cos(),
-        )
-    }
+    pos: Vector3<f32>,
+    pitch: f32,
+    max_pitch: f32,
+    yaw: f32,
 }
 
 impl Camera {
     pub fn rotate(&mut self, theta: f32, phi: f32) {
-        self.theta += theta;
-        let phi = self.phi + phi;
-        self.phi = clamp(phi, 10.0_f32.to_radians(), 170.0_f32.to_radians());
+        self.yaw += theta;
+        self.pitch += phi;
     }
 
     pub fn forward(&mut self, r: f32) {
-        self.r -= r;
+       self.pos.z += r
+    }
+
+    pub fn matrix(&mut self) -> Matrix4<f32>{
+        return Matrix4::from_axis_angle(vec3(0.0, 1.0, 0.0),Deg(self.yaw)) * 
+                Matrix4::from_angle_x(Deg(self.pitch)) * 
+                Matrix4::from_translation(self.pos);
     }
 }
 
 impl Default for Camera {
     fn default() -> Self {
         Camera {
-            theta: 0.0_f32.to_radians(),
-            phi: 45.0_f32.to_radians(),
-            r: 3.0,
+            pos: Vector3 { x: 0.0, y: 0.0, z: -10.0 },
+            pitch: 10.0,
+            max_pitch: 85.0,
+            yaw: 0.0,
         }
     }
 }

@@ -1,7 +1,7 @@
 use super::{VulkanApp, context::VkContext, math, vertex::Vertex};
 
 use ash::{vk, Device};
-use cgmath::{Deg, Matrix4, Point3, Vector3};
+use cgmath::{Deg, Matrix4, Point3, Vector3, vec3};
 use std::mem::{align_of, size_of};
 
 #[derive(Clone, Copy)]
@@ -216,14 +216,18 @@ impl VulkanApp{
         let aspect = self.swapchain_properties.extent.width as f32
             / self.swapchain_properties.extent.height as f32;
         let ubo = UniformBufferObject {
-            model: Matrix4::from_angle_x(Deg(270.0)),
+            model: Matrix4::from_angle_x(Deg(0.0)),
+            view: self.camera.matrix(),
+            /*
             view: Matrix4::look_at_rh(
                 self.camera.position(),
                 Point3::new(0.0, 0.0, 0.0),
                 Vector3::new(0.0, 1.0, 0.0),
             ),
+            */
             proj: math::perspective(Deg(45.0), aspect, 0.1, 10.0),
         };
+
         let ubos = [ubo];
 
         let buffer_mem = self.uniform_buffer_memories[current_image as usize];

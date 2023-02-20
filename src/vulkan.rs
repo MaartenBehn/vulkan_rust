@@ -159,7 +159,7 @@ impl VulkanApp {
             properties,
         );
 
-        let (vertices, indices) = Self::voronoi_sphere_model();
+        let (vertices, indices) = Self::plane_model();
 
         let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_buffer(
             &vk_context,
