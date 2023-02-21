@@ -69,9 +69,9 @@ impl Transform {
             return;
         }
 
-		self.rotation_matrix = Matrix4::from_angle_x(Deg(self.rotation[0])) * 
+		self.rotation_matrix = Matrix4::from_angle_z(Deg(self.rotation[2])) * 
             Matrix4::from_angle_y(Deg(self.rotation[1])) * 
-            Matrix4::from_angle_z(Deg(self.rotation[2]));
+            Matrix4::from_angle_x(Deg(self.rotation[0]));
 
 		self.needs_rotation_matrix_update = false;
     }
@@ -82,7 +82,7 @@ impl Transform {
     }
 
     fn update_matrix(&mut self){
-        if !self.needs_matrix_update || !self.needs_rotation_matrix_update {
+        if !self.needs_matrix_update && !self.needs_rotation_matrix_update {
             return;
         }
 

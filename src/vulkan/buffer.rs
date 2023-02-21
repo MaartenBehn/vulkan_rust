@@ -2,7 +2,6 @@ use super::{VulkanApp, context::VkContext, math, vertex::Vertex};
 
 use ash::{vk, Device};
 use cgmath::{Deg, Matrix4, Point3, Vector3, vec3};
-use winit::event::VirtualKeyCode;
 use std::mem::{align_of, size_of};
 
 #[derive(Clone, Copy)]
@@ -202,34 +201,13 @@ impl VulkanApp{
     }
 
     pub fn update_uniform_buffers(&mut self, current_image: u32) {
-        if self.is_left_clicked && self.cursor_delta.is_some() {
-            let delta = self.cursor_delta.take().unwrap();
-            
-            self.camera.transform.rotate(Vector3{x: delta[1] as f32, y: delta[0] as f32, z: 0.0});
-        }
-
-        if self.keys_pressed[VirtualKeyCode::W as usize] {
-            self.camera.transform.move_relative(Vector3{x: 1.0, y: 0.0, z: 0.0});
-        }
-        if self.keys_pressed[VirtualKeyCode::S as usize] {
-            self.camera.transform.move_relative(Vector3{x: -1.0, y: 0.0, z: 0.0});
-        }
-        if self.keys_pressed[VirtualKeyCode::A as usize] {
-            self.camera.transform.move_relative(Vector3{x: 0.0, y: 1.0, z: 0.0});
-        }
-        if self.keys_pressed[VirtualKeyCode::D as usize] {
-            self.camera.transform.move_relative(Vector3{x: 0.0, y: -1.0, z: 0.0});
-        }
-
         let aspect = self.swapchain_properties.extent.width as f32
             / self.swapchain_properties.extent.height as f32;
         let ubo = UniformBufferObject {
             model: Matrix4::from_angle_x(Deg(0.0)),
-            view: self.camera.transform.get_matrix(),
+            view: self.camera.matrix(),
             proj: math::perspective(Deg(45.0), aspect, 0.1, 100.0),
         };
-
-        log::debug!("{:?}", self.camera.transform.get_matrix());
 
         let ubos = [ubo];
 

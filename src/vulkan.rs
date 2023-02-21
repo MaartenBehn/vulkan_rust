@@ -18,8 +18,10 @@ mod command;
 mod sync;
 mod vertex;
 mod transform;
+mod world;
+mod mesh;
 
-use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, texture::Texture, camera::Camera}};
+use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, texture::Texture, camera::Camera, mesh::Mesh}};
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{vk, Entry};
@@ -32,7 +34,7 @@ const MAX_FRAMES_IN_FLIGHT: u32 = 2;
 pub struct VulkanApp {
     resize_dimensions: Option<[u32; 2]>,
 
-    camera: Camera,
+    pub camera: Camera,
     pub is_left_clicked: bool,
     pub cursor_position: [i32; 2],
     pub cursor_delta: Option<[i32; 2]>,
@@ -161,19 +163,19 @@ impl VulkanApp {
             properties,
         );
 
-        let (vertices, indices) = Self::plane_model();
+        let mesh = Self::get_world_mesh();
 
         let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_buffer(
             &vk_context,
             transient_command_pool,
             graphics_queue,
-            &vertices,
+            &mesh.vertices,
         );
         let (index_buffer, index_buffer_memory) = Self::create_index_buffer(
             &vk_context,
             transient_command_pool,
             graphics_queue,
-            &indices,
+            &mesh.indices,
         );
         let (uniform_buffers, uniform_buffer_memories) =
             Self::create_uniform_buffers(&vk_context, images.len());
@@ -194,7 +196,7 @@ impl VulkanApp {
             properties,
             vertex_buffer,
             index_buffer,
-            indices.len(),
+            mesh.indices.len(),
             layout,
             &descriptor_sets,
             pipeline,
@@ -230,7 +232,7 @@ impl VulkanApp {
             color_texture,
             depth_format,
             depth_texture,
-            model_index_count: indices.len(),
+            model_index_count: mesh.indices.len(),
             vertex_buffer,
             vertex_buffer_memory,
             index_buffer,

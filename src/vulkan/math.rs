@@ -1,5 +1,5 @@
-use cgmath::prelude::*;
-use cgmath::{BaseFloat, Matrix4, Rad};
+use cgmath::{prelude::*, Vector2, Vector3, Vector4, BaseFloat, Matrix4, Rad, BaseNum};
+use extend::ext;
 
 /// Perspective matrix that is suitable for Vulkan.
 ///
@@ -49,5 +49,35 @@ pub fn clamp<T: PartialOrd>(value: T, min: T, max: T) -> T {
         min
     } else {
         value
+    }
+}
+
+
+#[ext]
+pub impl<S: BaseNum> Vector2<S> {
+    /// A Vector from a scalar.
+    #[inline]
+    fn from_scalar(s: S) -> Vector2<S> {
+        Vector2::new(s, s)
+    }
+}
+
+
+#[ext]
+pub impl<S: BaseNum> Vector3<S> {
+    /// A Vector from a scalar.
+    #[inline]
+    fn from_scalar(s: S) -> Vector3<S> {
+        Vector3::new(s, s, s)
+    }
+}
+
+
+#[ext]
+pub impl<S: BaseNum> Vector4<S> {
+    /// A Vector from a scalar.
+    #[inline]
+    fn from_scalar(s: S) -> Vector4<S> {
+        Vector4::new(s, s, s, s)
     }
 }

@@ -41,7 +41,7 @@ fn main() {
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
-        trace!("FPS: {:?}", 1.0 / g.last_frame_time())
+        trace!("FPS: {}", (1.0 / g.last_frame_time()) as u32)
 
     }, |g| {
         g.game.render(&g.window);
@@ -86,11 +86,12 @@ impl Game {
         }
         self.app.wheel_delta = self.wheel_delta;
 
-        
         self.is_left_clicked = None;
         self.cursor_position = None;
         self.last_position = self.app.cursor_position;
         self.wheel_delta = None;
+
+        self.app.camera.update(self.app.is_left_clicked, self.app.cursor_delta, self.app.keys_pressed);
     }
 
     pub fn render(&mut self, window: &Window) {
