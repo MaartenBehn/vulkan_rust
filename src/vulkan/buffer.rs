@@ -205,31 +205,31 @@ impl VulkanApp{
         if self.is_left_clicked && self.cursor_delta.is_some() {
             let delta = self.cursor_delta.take().unwrap();
             
-            self.camera.rotate(delta[1] as f32, delta[0] as f32);
+            self.camera.transform.rotate(Vector3{x: delta[1] as f32, y: delta[0] as f32, z: 0.0});
         }
 
         if self.keys_pressed[VirtualKeyCode::W as usize] {
-            self.camera.pos[0] += 1.0;
+            self.camera.transform.move_relative(Vector3{x: 1.0, y: 0.0, z: 0.0});
         }
         if self.keys_pressed[VirtualKeyCode::S as usize] {
-            self.camera.pos[0] -= 1.0;
+            self.camera.transform.move_relative(Vector3{x: -1.0, y: 0.0, z: 0.0});
         }
         if self.keys_pressed[VirtualKeyCode::A as usize] {
-            self.camera.pos[2] += 1.0;
+            self.camera.transform.move_relative(Vector3{x: 0.0, y: 1.0, z: 0.0});
         }
         if self.keys_pressed[VirtualKeyCode::D as usize] {
-            self.camera.pos[2] -= 1.0;
+            self.camera.transform.move_relative(Vector3{x: 0.0, y: -1.0, z: 0.0});
         }
-
-        
 
         let aspect = self.swapchain_properties.extent.width as f32
             / self.swapchain_properties.extent.height as f32;
         let ubo = UniformBufferObject {
             model: Matrix4::from_angle_x(Deg(0.0)),
-            view: self.camera.matrix(),
+            view: self.camera.transform.get_matrix(),
             proj: math::perspective(Deg(45.0), aspect, 0.1, 100.0),
         };
+
+        log::debug!("{:?}", self.camera.transform.get_matrix());
 
         let ubos = [ubo];
 

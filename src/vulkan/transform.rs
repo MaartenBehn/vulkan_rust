@@ -20,13 +20,15 @@ impl Transform {
         return self.position;
     }
 
-    pub fn set_position(&mut self, position: Vector3<f32>) {
+    pub fn set_position(&mut self, position: Vector3<f32>) -> Transform {
         self.position = position;
 
         self.needs_matrix_update = true;
+
+        *self
     }
 
-    pub fn move_relative(&mut self, dir:Vector3<f32>){
+    pub fn move_relative(&mut self, dir:Vector3<f32>) -> Transform{
         if self.rotation != vec3(0.0,0.0,0.0) {
             let rot_dir = self.get_rotation_matrix() * vec4(dir.x, dir.y, dir.z, 1.0);
             self.position.x += rot_dir.x;
@@ -38,22 +40,28 @@ impl Transform {
         }
 
         self.needs_matrix_update = true;
+
+        *self
     }
 
     pub fn get_rotation(&mut self) -> Vector3<f32> {
         return self.rotation;
     }
 
-    pub fn set_rotation(&mut self, rotation: Vector3<f32>) {
+    pub fn set_rotation(&mut self, rotation: Vector3<f32>) -> Transform {
         self.rotation = rotation;
 
         self.needs_rotation_matrix_update = true;
+
+        *self
     }
 
-    pub fn rotate(&mut self, rotation: Vector3<f32>) {
+    pub fn rotate(&mut self, rotation: Vector3<f32>) -> Transform {
         self.rotation += rotation;
 
         self.needs_rotation_matrix_update = true;
+
+        *self
     }
 
     fn update_rotation_matrix(&mut self){
@@ -68,13 +76,13 @@ impl Transform {
 		self.needs_rotation_matrix_update = false;
     }
 
-    pub fn get_rotation_matrix(&mut self) -> Matrix4<f32>{
+    pub fn get_rotation_matrix(&mut self) -> Matrix4<f32> {
         self.update_rotation_matrix();
         return self.rotation_matrix;
     }
 
     fn update_matrix(&mut self){
-        if !self.needs_matrix_update || self.needs_rotation_matrix_update {
+        if !self.needs_matrix_update || !self.needs_rotation_matrix_update {
             return;
         }
 
@@ -83,7 +91,7 @@ impl Transform {
         self.needs_matrix_update = false;
     }
 
-    pub fn get_matrix(&mut self) -> Matrix4<f32>{
+    pub fn get_matrix(&mut self) -> Matrix4<f32> {
         self.update_matrix();
         return self.matrix;
     }
