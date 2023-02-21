@@ -77,7 +77,7 @@ impl Camera {
 impl Default for Camera {
     fn default() -> Self {
         Camera {
-            transform: Transform::default().set_position(vec3(0.0, 1.0, 2.0)).set_rotation(vec3(0.0, 0.0, 0.0)),
+            transform: Transform::new().set_position(vec3(0.0, 1.0, 2.0)).set_rotation(vec3(0.0, 0.0, 0.0)),
             max_pitch: 85.0,
             rot_speed: Vector3::from_scalar(0.1),
             move_speed: Vector3 { x: 0.05, y: 0.05 , z: 0.1},

@@ -8,7 +8,7 @@ use std::fs::File;
 use vulkan::VulkanApp;
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, MouseButton, MouseScrollDelta, VirtualKeyCode},
+    event::{ElementState, MouseButton, MouseScrollDelta},
 };
 use game_loop::{game_loop};
 

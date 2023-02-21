@@ -16,6 +16,20 @@ pub struct Transform {
 }
 
 impl Transform {
+    pub fn new(position: Vector3<f32>, rotation: Vector3<f32>, scale: Vector3<f32>) -> Self {
+        Self {
+            position,
+            rotation,
+            scale,
+            
+            rotation_matrix: Matrix4::from_scale(1.0),
+            matrix: Matrix4::from_scale(1.0),
+
+            needs_rotation_matrix_update: true,
+            needs_matrix_update: true,
+        }
+    }
+
     pub fn get_position(&mut self) -> Vector3<f32> {
         return self.position;
     }
@@ -98,9 +112,10 @@ impl Transform {
 
 }
 
-impl Default for Transform{
+
+impl Default for Transform {
     fn default() -> Self {
-        Transform {
+        Self {
             position: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
             rotation: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
             scale: Vector3 { x: 1.0, y: 1.0, z: 1.0 },
