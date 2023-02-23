@@ -206,7 +206,7 @@ impl VulkanApp{
         let ubo = UniformBufferObject {
             model: Matrix4::from_angle_x(Deg(0.0)),
             view: self.camera.matrix(),
-            proj: math::perspective(Deg(45.0), aspect, 0.1, 100.0),
+            proj: math::perspective(Deg(45.0), aspect, 0.1, 10000.0),
         };
 
         let ubos = [ubo];

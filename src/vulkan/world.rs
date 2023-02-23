@@ -16,7 +16,7 @@ impl VulkanApp{
             ]);
         
         let mut worlds = vec![];
-        for i in 0..10{
+        for i in 0..100{
             let mut new_world = world.clone();
             new_world.transform.set_position(vec3(20.0 * i as f32, 0.0, 0.0));
             if i % 2 != 0{
