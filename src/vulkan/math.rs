@@ -81,3 +81,7 @@ pub impl<S: BaseNum> Vector4<S> {
         Vector4::new(s, s, s, s)
     }
 }
+
+
+
+

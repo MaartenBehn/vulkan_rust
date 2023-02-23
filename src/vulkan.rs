@@ -163,19 +163,19 @@ impl VulkanApp {
             properties,
         );
 
-        let mesh = Self::get_world_mesh();
+        let mut mesh = Self::get_world_mesh();
 
         let (vertex_buffer, vertex_buffer_memory) = Self::create_vertex_buffer(
             &vk_context,
             transient_command_pool,
             graphics_queue,
-            &mesh.vertices,
+            mesh.get_transformed_vertices(),
         );
         let (index_buffer, index_buffer_memory) = Self::create_index_buffer(
             &vk_context,
             transient_command_pool,
             graphics_queue,
-            &mesh.indices,
+            mesh.get_indices(),
         );
         let (uniform_buffers, uniform_buffer_memories) =
             Self::create_uniform_buffers(&vk_context, images.len());
@@ -196,7 +196,7 @@ impl VulkanApp {
             properties,
             vertex_buffer,
             index_buffer,
-            mesh.indices.len(),
+            mesh.get_indices().len(),
             layout,
             &descriptor_sets,
             pipeline,
@@ -232,7 +232,7 @@ impl VulkanApp {
             color_texture,
             depth_format,
             depth_texture,
-            model_index_count: mesh.indices.len(),
+            model_index_count: mesh.get_indices().len(),
             vertex_buffer,
             vertex_buffer_memory,
             index_buffer,

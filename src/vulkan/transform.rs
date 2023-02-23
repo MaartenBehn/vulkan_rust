@@ -78,6 +78,19 @@ impl Transform {
         *self
     }
 
+    pub fn get_rotation_matrix(&mut self) -> Matrix4<f32> {
+        self.update_rotation_matrix();
+        return self.rotation_matrix;
+    }
+
+    pub fn set_scale(&mut self, scale: Vector3<f32>){
+        self.scale = scale;
+    }
+
+    pub fn get_scale(&self) -> Vector3<f32> {
+        self.scale
+    }
+
     fn update_rotation_matrix(&mut self){
         if !self.needs_rotation_matrix_update {
             return;
@@ -90,17 +103,14 @@ impl Transform {
 		self.needs_rotation_matrix_update = false;
     }
 
-    pub fn get_rotation_matrix(&mut self) -> Matrix4<f32> {
-        self.update_rotation_matrix();
-        return self.rotation_matrix;
-    }
-
     fn update_matrix(&mut self){
         if !self.needs_matrix_update && !self.needs_rotation_matrix_update {
             return;
         }
 
-        self.matrix = Matrix4::from_translation(self.position) * self.get_rotation_matrix();
+        self.matrix = Matrix4::from_translation(self.position) * 
+            self.get_rotation_matrix() * 
+            Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
         
         self.needs_matrix_update = false;
     }
