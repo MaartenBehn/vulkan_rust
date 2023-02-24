@@ -376,7 +376,7 @@ impl VulkanApp {
 
         self.setup.platform.prepare_render(&ui, &window);
         let draw_data = self.setup.imgui.render();
-        
+
         unsafe {
             self.vk_context
                 .device()
@@ -408,6 +408,7 @@ impl VulkanApp {
             image_index as usize,
             &command_buffer,
             device,
+            &self.setup.command_pool,
             &self.size_dependent.swapchain_framebuffers,
             self.size_dependent.render_pass,
             self.size_dependent.swapchain_properties,

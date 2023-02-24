@@ -119,6 +119,7 @@ impl VulkanApp{
         i: usize,
         buffer: &CommandBuffer,  
         device: &Device,
+        pool: &vk::CommandPool,
         framebuffers: &[vk::Framebuffer],
         render_pass: vk::RenderPass,
         swapchain_properties: SwapchainProperties,
