@@ -1,4 +1,4 @@
-use super::{VulkanApp, MAX_FRAMES_IN_FLIGHT};
+use super::{VulkanApp, FRAMES_IN_FLIGHT};
 
 use ash::{vk, Device};
 
@@ -53,7 +53,7 @@ impl VulkanApp{
 
     pub fn create_sync_objects(device: &Device) -> InFlightFrames {
         let mut sync_objects_vec = Vec::new();
-        for _ in 0..MAX_FRAMES_IN_FLIGHT {
+        for _ in 0..FRAMES_IN_FLIGHT {
             let image_available_semaphore = {
                 let semaphore_info = vk::SemaphoreCreateInfo::builder().build();
                 unsafe { device.create_semaphore(&semaphore_info, None).unwrap() }

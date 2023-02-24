@@ -97,7 +97,7 @@ impl VulkanApp{
             .build();
 
         let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
-            .color_write_mask(vk::ColorComponentFlags::all())
+            .color_write_mask(vk::ColorComponentFlags::RGBA)
             .blend_enable(false)
             .src_color_blend_factor(vk::BlendFactor::ONE)
             .dst_color_blend_factor(vk::BlendFactor::ZERO)

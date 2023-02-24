@@ -1,6 +1,7 @@
 use super::{VulkanApp, swapchain::*, debug::*};
 
 use ash::extensions::khr::{Surface, Swapchain};
+use ash::vk::{AccelerationStructureKHR, AccelerationStructureBuildTypeKHR};
 use ash::{vk, Device, Instance};
 use std::ffi::CStr;
 
@@ -33,9 +34,27 @@ impl VulkanApp{
             .expect("No suitable physical device.");
 
         let props = unsafe { instance.get_physical_device_properties(device) };
-        log::debug!("Selected physical device: {:?}", unsafe {
-            CStr::from_ptr(props.device_name.as_ptr())
-        });
+
+        let mut subgroup = vk::PhysicalDeviceSubgroupProperties::builder()
+            .build();
+        let mut props2 = vk::PhysicalDeviceProperties2::builder()
+            .push_next(&mut subgroup)
+            .build();
+
+        unsafe { instance.get_physical_device_properties2(device, &mut props2) };
+        
+        unsafe { 
+            log::debug!("Selected physical device: {:?}
+            \tVersion: {:?}
+            \tSubgroup: {:?}
+            \tCompute work invocaition: {:?}
+            \tCompute work size: {:?}", 
+            CStr::from_ptr(props.device_name.as_ptr()),
+            props.api_version,
+            subgroup.subgroup_size,
+            props.limits.max_compute_work_group_invocations,
+            props.limits.max_compute_work_group_size,
+        )};
 
         let (graphics, present) = Self::find_queue_families(instance, surface, surface_khr, device);
         let queue_families_indices = QueueFamiliesIndices {
@@ -82,6 +101,7 @@ impl VulkanApp{
             });
 
             if !found {
+                log::info!("Required Extension: {:?} not found.", required);
                 return false;
             }
         }
@@ -106,7 +126,7 @@ impl VulkanApp{
         for (index, family) in props.iter().filter(|f| f.queue_count > 0).enumerate() {
             let index = index as u32;
 
-            if family.queue_flags.contains(vk::QueueFlags::GRAPHICS) && graphics.is_none() {
+            if family.queue_flags.contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE) && graphics.is_none() {
                 graphics = Some(index);
             }
 

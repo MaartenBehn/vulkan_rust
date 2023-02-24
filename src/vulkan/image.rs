@@ -64,7 +64,7 @@ impl VulkanApp{
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) {
-        Self::execute_one_time_commands(device, command_pool, transition_queue, |buffer| {
+        Self::execute_one_time_commands(device, &command_pool, &transition_queue, |buffer| {
             let (src_access_mask, dst_access_mask, src_stage, dst_stage) =
                 match (old_layout, new_layout) {
                     (vk::ImageLayout::UNDEFINED, vk::ImageLayout::TRANSFER_DST_OPTIMAL) => (
@@ -155,7 +155,7 @@ impl VulkanApp{
         image: vk::Image,
         extent: vk::Extent2D,
     ) {
-        Self::execute_one_time_commands(device, command_pool, transition_queue, |command_buffer| {
+        Self::execute_one_time_commands(device, &command_pool, &transition_queue, |command_buffer| {
             let region = vk::BufferImageCopy::builder()
                 .buffer_offset(0)
                 .buffer_row_length(0)
@@ -209,8 +209,8 @@ impl VulkanApp{
 
         Self::execute_one_time_commands(
             vk_context.device(),
-            command_pool,
-            transfer_queue,
+            &command_pool,
+            &transfer_queue,
             |buffer| {
                 let mut barrier = vk::ImageMemoryBarrier::builder()
                     .image(image)

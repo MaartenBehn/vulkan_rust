@@ -22,10 +22,12 @@ const MAX_UPS: u32 = 30;
 const MIN_FPS: u32 = 30;
 
 fn main() {
+
+    #[cfg(debug_assertions)]
     CombinedLogger::init(
         vec![
-            TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
-            WriteLogger::new(LevelFilter::Trace, Config::default(), File::create("vulkan_rust.log").unwrap()),
+            TermLogger::new(LevelFilter::Trace, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
+            WriteLogger::new(LevelFilter::Debug, Config::default(), File::create("vulkan_rust.log").unwrap()),
         ]
     ).unwrap();
     
@@ -36,17 +38,16 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let app = vulkan::VulkanApp::new(&window, WIDTH, HEIGHT);
+    let app = vulkan::VulkanApp::new(&window, [WIDTH, HEIGHT]);
 
     let game = Game::new(app);
     game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
         g.game.update();
-        trace!("FPS: {}", (1.0 / g.last_frame_time()) as u32)
-
     }, |g| {
-        g.game.render(&g.window);
+        let fps =  1.0 / g.last_frame_time();
+        g.game.render(&g.window, fps);
     }, | g, event| {
-        if !g.game.window(event) { g.exit(); }
+        if !g.game.window(event, &g.window) { g.exit(); }
     });
 }
 
@@ -91,36 +92,38 @@ impl Game {
         self.last_position = self.app.cursor_position;
         self.wheel_delta = None;
 
-        self.app.camera.update(self.app.is_left_clicked, self.app.cursor_delta, self.app.keys_pressed);
+        self.app.setup.camera.update(self.app.is_left_clicked, self.app.cursor_delta, self.app.keys_pressed);
     }
 
-    pub fn render(&mut self, window: &Window) {
+    pub fn render(&mut self, window: &Window, fps: f64) {
         if self.dirty_swapchain {
             let size = window.inner_size();
             if size.width > 0 && size.height > 0 {
-                self.app.recreate_swapchain();
+                self.app.recreate_size_dependent([size.width, size.height], window);
             } else {
                 return;
             }
         }
-        self.dirty_swapchain = self.app.draw_frame();
+        self.dirty_swapchain = self.app.draw_frame(window, fps);
     }
 
-    pub fn window(&mut self, event: Event<()>) -> bool {
+    pub fn window(&mut self, event: &Event<()>, window: &Window) -> bool {
+        self.app.setup.platform.handle_event(self.app.setup.imgui.io_mut(), window, &event);
+
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => return false,
                 WindowEvent::Resized { .. } => self.dirty_swapchain = true,
                 // Accumulate input events
                 WindowEvent::MouseInput {button: MouseButton::Left, state, .. } => {
-                    if state == ElementState::Pressed {
+                    if state == &ElementState::Pressed {
                         self.is_left_clicked = Some(true);
                     } else {
                         self.is_left_clicked = Some(false);
                     }
                 }
                 WindowEvent::CursorMoved { position, .. } => {
-                    let position: (i32, i32) = position.into();
+                    let position: (i32, i32) = (position.x as i32, position.y as i32);
                     self.cursor_position = Some([position.0, position.1]);
                 }
                 WindowEvent::MouseWheel {delta: MouseScrollDelta::LineDelta(_, v_lines), .. } => {

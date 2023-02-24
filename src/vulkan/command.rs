@@ -1,6 +1,8 @@
-use super::{VulkanApp, swapchain::SwapchainProperties, device::*};
+use super::{VulkanApp, swapchain::SwapchainProperties, device::*, FRAMES_IN_FLIGHT};
 
-use ash::{vk, Device, };
+use ash::{vk::{self, CommandBuffer}, Device, };
+use imgui::DrawData;
+use imgui_rs_vulkan_renderer::Renderer;
 
 impl VulkanApp{
 
@@ -21,18 +23,17 @@ impl VulkanApp{
         }
     }
 
-    
     /// Create a one time use command buffer and pass it to `executor`.
     pub fn execute_one_time_commands<F: FnOnce(vk::CommandBuffer)>(
         device: &Device,
-        command_pool: vk::CommandPool,
-        queue: vk::Queue,
+        command_pool: &vk::CommandPool,
+        queue: &vk::Queue,
         executor: F,
     ) {
         let command_buffer = {
             let alloc_info = vk::CommandBufferAllocateInfo::builder()
                 .level(vk::CommandBufferLevel::PRIMARY)
-                .command_pool(command_pool)
+                .command_pool(command_pool.clone())
                 .command_buffer_count(1)
                 .build();
 
@@ -66,14 +67,14 @@ impl VulkanApp{
             let submit_infos = [submit_info];
             unsafe {
                 device
-                    .queue_submit(queue, &submit_infos, vk::Fence::null())
+                    .queue_submit(queue.clone(), &submit_infos, vk::Fence::null())
                     .unwrap();
-                device.queue_wait_idle(queue).unwrap();
+                device.queue_wait_idle(queue.clone()).unwrap();
             };
         }
 
         // Free
-        unsafe { device.free_command_buffers(command_pool, &command_buffers) };
+        unsafe { device.free_command_buffers(command_pool.clone(), &command_buffers) };
     }
 
     /// Find a memory type in `mem_properties` that is suitable
@@ -101,7 +102,23 @@ impl VulkanApp{
 
     pub fn create_and_register_command_buffers(
         device: &Device,
-        pool: vk::CommandPool,
+        pool: &vk::CommandPool,
+    ) -> Vec<vk::CommandBuffer> {
+        let allocate_info = vk::CommandBufferAllocateInfo::builder()
+            .command_pool(*pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(FRAMES_IN_FLIGHT + 1)
+            .build();
+
+        let buffers = unsafe { device.allocate_command_buffers(&allocate_info).unwrap() };
+
+        buffers
+    }
+
+    pub fn updating_command_buffer(
+        i: usize,
+        buffer: &CommandBuffer,  
+        device: &Device,
         framebuffers: &[vk::Framebuffer],
         render_pass: vk::RenderPass,
         swapchain_properties: SwapchainProperties,
@@ -111,102 +128,97 @@ impl VulkanApp{
         pipeline_layout: vk::PipelineLayout,
         descriptor_sets: &[vk::DescriptorSet],
         graphics_pipeline: vk::Pipeline,
-    ) -> Vec<vk::CommandBuffer> {
-        let allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_pool(pool)
-            .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(framebuffers.len() as _)
-            .build();
+        renderer: &mut Renderer,
+        draw_data: &DrawData,
+    ){
+        let buffer = *buffer;
+        let framebuffer = framebuffers[i].clone();
 
-        let buffers = unsafe { device.allocate_command_buffers(&allocate_info).unwrap() };
+        //unsafe { device.reset_command_pool(pool.clone(), vk::CommandPoolResetFlags::empty()).expect("command pool reset") };
 
-        buffers.iter().enumerate().for_each(|(i, buffer)| {
-            let buffer = *buffer;
-            let framebuffer = framebuffers[i];
-
-            // begin command buffer
-            {
-                let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-                    .flags(vk::CommandBufferUsageFlags::SIMULTANEOUS_USE)
-                    // .inheritance_info() null since it's a primary command buffer
-                    .build();
-                unsafe {
-                    device
-                        .begin_command_buffer(buffer, &command_buffer_begin_info)
-                        .unwrap()
-                };
-            }
-
-            // begin render pass
-            {
-                let clear_values = [
-                    vk::ClearValue {
-                        color: vk::ClearColorValue {
-                            float32: [0.0, 0.0, 0.0, 1.0],
-                        },
-                    },
-                    vk::ClearValue {
-                        depth_stencil: vk::ClearDepthStencilValue {
-                            depth: 1.0,
-                            stencil: 0,
-                        },
-                    },
-                ];
-                let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-                    .render_pass(render_pass)
-                    .framebuffer(framebuffer)
-                    .render_area(vk::Rect2D {
-                        offset: vk::Offset2D { x: 0, y: 0 },
-                        extent: swapchain_properties.extent,
-                    })
-                    .clear_values(&clear_values)
-                    .build();
-
-                unsafe {
-                    device.cmd_begin_render_pass(
-                        buffer,
-                        &render_pass_begin_info,
-                        vk::SubpassContents::INLINE,
-                    )
-                };
-            }
-
-            // Bind pipeline
+        // begin command buffer
+        {
+            let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+                //.flags(vk::CommandBufferUsageFlags::)
+                //.inheritance_info() null since it's a primary command buffer
+                .build();
             unsafe {
-                device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipeline)
+                device
+                    .begin_command_buffer(buffer, &command_buffer_begin_info)
+                    .unwrap()
             };
+        }
 
-            // Bind vertex buffer
-            let vertex_buffers = [vertex_buffer];
-            let offsets = [0];
-            unsafe { device.cmd_bind_vertex_buffers(buffer, 0, &vertex_buffers, &offsets) };
+        // begin render pass
+        {
+            let clear_values = [
+                vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 1.0],
+                    },
+                },
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 1.0,
+                        stencil: 0,
+                    },
+                },
+            ];
+            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(render_pass)
+                .framebuffer(framebuffer)
+                .render_area(vk::Rect2D {
+                    offset: vk::Offset2D { x: 0, y: 0 },
+                    extent: swapchain_properties.extent,
+                })
+                .clear_values(&clear_values)
+                .build();
 
-            // Bind index buffer
-            unsafe { device.cmd_bind_index_buffer(buffer, index_buffer, 0, vk::IndexType::UINT32) };
-
-            // Bind descriptor set
             unsafe {
-                let null = [];
-                device.cmd_bind_descriptor_sets(
+                device.cmd_begin_render_pass(
                     buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    pipeline_layout,
-                    0,
-                    &descriptor_sets[i..=i],
-                    &null,
+                    &render_pass_begin_info,
+                    vk::SubpassContents::INLINE,
                 )
             };
+        }
 
-            // Draw
-            unsafe { device.cmd_draw_indexed(buffer, index_count as _, 1, 0, 0, 0) };
+        // Bind pipeline
+        unsafe {
+            device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipeline)
+        };
 
-            // End render pass
-            unsafe { device.cmd_end_render_pass(buffer) };
+        // Bind vertex buffer
+        let vertex_buffers = [vertex_buffer];
+        let offsets = [0];
+        unsafe { device.cmd_bind_vertex_buffers(buffer, 0, &vertex_buffers, &offsets) };
 
-            // End command buffer
-            unsafe { device.end_command_buffer(buffer).unwrap() };
-        });
+        // Bind index buffer
+        unsafe { device.cmd_bind_index_buffer(buffer, index_buffer, 0, vk::IndexType::UINT32) };
 
-        buffers
+        // Bind descriptor set
+        unsafe {
+            let null = [];
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                pipeline_layout,
+                0,
+                &descriptor_sets[i..=i],
+                &null,
+            )
+        };
+
+        // Draw
+        unsafe { device.cmd_draw_indexed(buffer, index_count as _, 1, 0, 0, 0) };
+
+        renderer.cmd_draw(buffer, draw_data).expect("Imgui render failed");
+
+        // End render pass
+        unsafe { device.cmd_end_render_pass(buffer) };
+
+        // End command buffer
+        unsafe { device.end_command_buffer(buffer).unwrap() };
+
     }
 }

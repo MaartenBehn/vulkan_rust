@@ -1,8 +1,8 @@
-use super::{VulkanApp, context::VkContext, math, vertex::Vertex};
+use super::{VulkanApp, context::VkContext, math, vertex::Vertex, camera::Camera};
 
-use ash::{vk, Device};
+use ash::{vk::{self, Extent2D, DeviceMemory}, Device};
 use cgmath::{Deg, Matrix4, Point3, Vector3, vec3};
-use std::mem::{align_of, size_of};
+use std::{mem::{align_of, size_of}};
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
@@ -11,6 +11,7 @@ pub struct UniformBufferObject {
     view: Matrix4<f32>,
     proj: Matrix4<f32>,
 }
+
 
 impl UniformBufferObject {
     pub fn get_descriptor_set_layout_binding() -> vk::DescriptorSetLayoutBinding {
@@ -188,7 +189,7 @@ impl VulkanApp{
         dst: vk::Buffer,
         size: vk::DeviceSize,
     ) {
-        Self::execute_one_time_commands(&device, command_pool, transfer_queue, |buffer| {
+        Self::execute_one_time_commands(&device, &command_pool, &transfer_queue, |buffer| {
             let region = vk::BufferCopy {
                 src_offset: 0,
                 dst_offset: 0,
@@ -200,21 +201,25 @@ impl VulkanApp{
         });
     }
 
-    pub fn update_uniform_buffers(&mut self, current_image: u32) {
-        let aspect = self.swapchain_properties.extent.width as f32
-            / self.swapchain_properties.extent.height as f32;
+    pub fn update_uniform_buffers(
+        current_image: u32, 
+        extent: &Extent2D, 
+        camera: &mut Camera, 
+        uniform_buffer_memories: &Vec<vk::DeviceMemory>,
+        device: &Device)
+    {
+        let aspect = extent.width as f32 / extent.height as f32;
         let ubo = UniformBufferObject {
             model: Matrix4::from_angle_x(Deg(0.0)),
-            view: self.camera.matrix(),
+            view: camera.matrix(),
             proj: math::perspective(Deg(45.0), aspect, 0.1, 10000.0),
         };
 
         let ubos = [ubo];
 
-        let buffer_mem = self.uniform_buffer_memories[current_image as usize];
+        let buffer_mem = uniform_buffer_memories[current_image as usize];
         let size = size_of::<UniformBufferObject>() as vk::DeviceSize;
         unsafe {
-            let device = self.vk_context.device();
             let data_ptr = device
                 .map_memory(buffer_mem, 0, size, vk::MemoryMapFlags::empty())
                 .unwrap();
