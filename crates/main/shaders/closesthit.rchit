@@ -80,7 +80,7 @@ void main() {
     float factor = max(0.3, dot_prod);
     vec3 finalColor = color * lightColor;
 
-    bool reflective = geometryInfo.metallicFactor > 0 && dot(-gl_WorldRayDirectionEXT, normal) > 0;
+    bool reflective = geometryInfo.metallicFactor > 0;
 
     vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 

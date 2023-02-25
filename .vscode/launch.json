@@ -5,16 +5,20 @@
             "name": "Debug",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceRoot}/target/debug/rt_reflections",
+            "program": "${workspaceRoot}/target/debug/main",
             "args": [],
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "build",
+            "env": {
+                "RUST_LOG": "debug",
+                "RUST_LOG_STYLE": "always"
+              }
         },
         {
             "name": "Release",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceRoot}/target/release/rt_reflections",
+            "program": "${workspaceRoot}/target/release/main",
             "args": [],
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "build_release",

@@ -15,10 +15,10 @@ use gui::{
     imgui_rs_vulkan_renderer::Renderer,
     GuiContext,
 };
-use simple_logger::SimpleLogger;
+use simplelog::*;
 use std::{
     marker::PhantomData,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, fs::File,
 };
 use vulkan::*;
 use winit::{
@@ -124,11 +124,30 @@ pub fn run<A: App + 'static>(
     height: u32,
     enable_raytracing: bool,
 ) -> Result<()> {
-    SimpleLogger::default().env().init()?;
+    
+    #[cfg(debug_assertions)]
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            LevelFilter::Trace,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Trace,
+            Config::default(),
+            File::create("vulkan_rust.log").unwrap(),
+        ),
+    ])
+    .unwrap();
+    
     
     let (window, event_loop) = create_window(app_name, width, height);
+
     let mut base_app = BaseApp::new(&window, app_name, enable_raytracing)?;
+
     let mut ui = A::Gui::new()?;
+    
     let mut app = A::new(&mut base_app)?;
     let mut gui_context = GuiContext::new(
         &base_app.context,
@@ -237,7 +256,7 @@ pub fn run<A: App + 'static>(
 }
 
 fn create_window(app_name: &str, width: u32, height: u32) -> (Window, EventLoop<()>) {
-    log::debug!("Creating window and event loop");
+    log::info!("Creating window and event loop");
     let events_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title(app_name)
@@ -251,7 +270,7 @@ fn create_window(app_name: &str, width: u32, height: u32) -> (Window, EventLoop<
 
 impl<B: App> BaseApp<B> {
     fn new(window: &Window, app_name: &str, enable_raytracing: bool) -> Result<Self> {
-        log::info!("Create application");
+        log::info!("Creating App");
 
         // Vulkan context
         let mut required_extensions = vec!["VK_KHR_swapchain"];

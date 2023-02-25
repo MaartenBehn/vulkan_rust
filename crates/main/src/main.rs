@@ -14,7 +14,7 @@ const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
 const APP_NAME: &str = "Ray traced reflections";
 
-const MODEL_PATH: &str = "./assets/models/reflections.glb";
+const MODEL_PATH: &str = "./assets/models/Scene.glb";
 const MAX_DEPTH: u32 = 10;
 
 fn main() -> Result<()> {
