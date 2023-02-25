@@ -1,0 +1,58 @@
+#version 450
+
+struct Particle {
+  vec3 position;
+  vec3 velocity;
+  vec3 color;
+};
+
+layout(std430, binding = 0) buffer Buffer {
+   Particle particles[];
+};
+
+layout(binding = 1) uniform Ubo {
+  vec3 attractorCenter;
+  vec3 particle_colors[3];
+  uint attractorStrength;
+  uint particleCount;
+  float elasped;
+} ubo;
+
+layout (local_size_x = 256) in;
+
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void main() {
+    // Current SSBO index
+    uint index = gl_GlobalInvocationID.x;
+
+    // Don't try to write beyond particle count
+    if (index >= ubo.particleCount) {
+      return;
+    }
+
+    // Read particle attribute
+    vec3 position = particles[index].position.xyz;
+    vec3 velocity = normalize(particles[index].velocity);
+
+    const vec3 MAX_SPEED = vec3(100.0);
+
+    // compute velocity
+    float distanceToMass = length(ubo.attractorCenter - position);
+    float speedFactor = rand(gl_GlobalInvocationID.xx) * 0.2 + 0.8;
+    vec3 toMass = normalize(ubo.attractorCenter - position) * distanceToMass * ubo.elasped * ubo.attractorStrength * speedFactor;
+    velocity = clamp(velocity + toMass, -MAX_SPEED, MAX_SPEED);
+
+    // Move by velocity
+    position += velocity * ubo.elasped;
+
+    // choose particle color
+    uint color_index = uint(floor(rand(gl_GlobalInvocationID.xx / 100.0) * 3.0));
+
+    // Write back
+    particles[index].position = position;
+    particles[index].velocity = velocity;
+    particles[index].color = ubo.particle_colors[color_index];
+}
