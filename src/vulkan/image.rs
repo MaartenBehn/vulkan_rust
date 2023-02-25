@@ -2,8 +2,7 @@ use super::{VulkanApp, context::VkContext};
 
 use ash::{vk, Device};
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn create_image(
         vk_context: &VkContext,
         mem_properties: vk::MemoryPropertyFlags,

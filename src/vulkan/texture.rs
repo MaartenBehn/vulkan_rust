@@ -1,8 +1,8 @@
-use std::mem::{size_of, align_of};
+use std::mem::{align_of, size_of};
 
 use ash::{vk, Device};
 
-use super::{VulkanApp, context::VkContext, swapchain::SwapchainProperties, fs};
+use super::{fs, swapchain::SwapchainProperties, VulkanApp, context::VkContext};
 
 #[derive(Clone, Copy)]
 pub struct Texture {
@@ -39,8 +39,7 @@ impl Texture {
     }
 }
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn create_color_texture(
         vk_context: &VkContext,
         command_pool: vk::CommandPool,

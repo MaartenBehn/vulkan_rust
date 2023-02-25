@@ -1,4 +1,6 @@
-use super::{VulkanApp, swapchain::*, debug::*};
+use crate::vulkan::swapchain::SwapchainSupportDetails;
+
+use super::{debug::*, Context, VulkanApp};
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{vk, Device, Instance};
@@ -10,7 +12,7 @@ pub struct QueueFamiliesIndices {
     pub present_index: u32,
 }
 
-impl VulkanApp{
+impl VulkanApp {
     /// Pick the first suitable physical device.
     ///
     /// # Requirements

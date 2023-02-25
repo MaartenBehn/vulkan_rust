@@ -1,9 +1,8 @@
-use super::{VulkanApp, swapchain::SwapchainProperties};
+use super::{swapchain::SwapchainProperties, VulkanApp};
 
 use ash::{vk, Device};
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn create_render_pass(
         device: &Device,
         swapchain_properties: SwapchainProperties,
@@ -89,5 +88,4 @@ impl VulkanApp{
 
         unsafe { device.create_render_pass(&render_pass_info, None).unwrap() }
     }
-    
 }

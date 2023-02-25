@@ -4,8 +4,7 @@ use super::VulkanApp;
 
 use ash::{vk, Device};
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn read_shader_from_file<P: AsRef<std::path::Path>>(path: P) -> Vec<u32> {
         log::debug!("Loading shader file {}", path.as_ref().to_str().unwrap());
         let mut cursor = fs::load(path);

@@ -49,8 +49,7 @@ impl Iterator for InFlightFrames {
     }
 }
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn create_sync_objects(device: &Device) -> InFlightFrames {
         let mut sync_objects_vec = Vec::new();
         for _ in 0..MAX_FRAMES_IN_FLIGHT {
@@ -85,5 +84,4 @@ impl VulkanApp{
     pub fn wait_gpu_idle(&self) {
         unsafe { self.vk_context.device().device_wait_idle().unwrap() };
     }
-    
 }

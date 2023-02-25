@@ -1,10 +1,9 @@
-use super::{VulkanApp, buffer::UniformBufferObject};
+use super::{buffer::UniformBufferObject, VulkanApp};
 
 use ash::{vk, Device};
 use std::mem::size_of;
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn create_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
         let ubo_binding = UniformBufferObject::get_descriptor_set_layout_binding();
         let sampler_binding = vk::DescriptorSetLayoutBinding::builder()
@@ -52,7 +51,7 @@ impl VulkanApp{
         device: &Device,
         pool: vk::DescriptorPool,
         layout: vk::DescriptorSetLayout,
-        uniform_buffers: &[vk::Buffer]
+        uniform_buffers: &[vk::Buffer],
     ) -> Vec<vk::DescriptorSet> {
         let layouts = (0..uniform_buffers.len())
             .map(|_| layout)

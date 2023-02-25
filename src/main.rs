@@ -1,16 +1,17 @@
 mod vulkan;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate simplelog;
 
 use simplelog::*;
 use std::fs::File;
 
+use game_loop::game_loop;
 use vulkan::VulkanApp;
 use winit::{
     dpi::PhysicalSize,
     event::{ElementState, MouseButton, MouseScrollDelta},
 };
-use game_loop::{game_loop};
 
 use game_loop::winit::event::{Event, WindowEvent};
 use game_loop::winit::event_loop::EventLoop;
@@ -22,13 +23,22 @@ const MAX_UPS: u32 = 30;
 const MIN_FPS: u32 = 30;
 
 fn main() {
-    CombinedLogger::init(
-        vec![
-            TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
-            WriteLogger::new(LevelFilter::Trace, Config::default(), File::create("vulkan_rust.log").unwrap()),
-        ]
-    ).unwrap();
-    
+    #[cfg(debug_assertions)]
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            LevelFilter::Warn,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Trace,
+            Config::default(),
+            File::create("vulkan_rust.log").unwrap(),
+        ),
+    ])
+    .unwrap();
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Vulkan Renderer")
@@ -39,15 +49,26 @@ fn main() {
     let app = vulkan::VulkanApp::new(&window, WIDTH, HEIGHT);
 
     let game = Game::new(app);
-    game_loop(event_loop, window,  game,MAX_UPS, 1.0 / MIN_FPS as f64, |g| {
-        g.game.update();
-        trace!("FPS: {}", (1.0 / g.last_frame_time()) as u32)
-
-    }, |g| {
-        g.game.render(&g.window);
-    }, | g, event| {
-        if !g.game.window(event) { g.exit(); }
-    });
+    game_loop(
+        event_loop,
+        window,
+        game,
+        MAX_UPS,
+        1.0 / MIN_FPS as f64,
+        |g| {
+            g.game.update();
+            trace!("FPS: {}", (1.0 / g.last_frame_time()) as u32)
+        },
+        |g| {
+            let fps = 1.0 / g.last_frame_time();
+            g.game.render(&g.window, fps);
+        },
+        |g, event| {
+            if !g.game.window(event, &g.window) {
+                g.exit();
+            }
+        },
+    );
 }
 
 struct Game {
@@ -61,11 +82,11 @@ struct Game {
 
 impl Game {
     pub fn new(app: VulkanApp) -> Self {
-        Game{ 
-            is_left_clicked: None, 
-            last_position: [0,0], 
+        Game {
+            is_left_clicked: None,
+            last_position: [0, 0],
             cursor_position: Some(app.cursor_position),
-            wheel_delta: None, 
+            wheel_delta: None,
             app: app,
             dirty_swapchain: false,
         }
@@ -91,10 +112,14 @@ impl Game {
         self.last_position = self.app.cursor_position;
         self.wheel_delta = None;
 
-        self.app.camera.update(self.app.is_left_clicked, self.app.cursor_delta, self.app.keys_pressed);
+        self.app.camera.update(
+            self.app.is_left_clicked,
+            self.app.cursor_delta,
+            self.app.keys_pressed,
+        );
     }
 
-    pub fn render(&mut self, window: &Window) {
+    pub fn render(&mut self, window: &Window, fps: f64) {
         if self.dirty_swapchain {
             let size = window.inner_size();
             if size.width > 0 && size.height > 0 {
@@ -103,16 +128,24 @@ impl Game {
                 return;
             }
         }
-        self.dirty_swapchain = self.app.draw_frame();
+        self.dirty_swapchain = self.app.draw_frame(window, fps);
     }
 
-    pub fn window(&mut self, event: Event<()>) -> bool {
+    pub fn window(&mut self, event: Event<()>, window: &Window) -> bool {
+        self.app
+            .platform
+            .handle_event(self.app.imgui.io_mut(), window, &event);
+
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => return false,
                 WindowEvent::Resized { .. } => self.dirty_swapchain = true,
                 // Accumulate input events
-                WindowEvent::MouseInput {button: MouseButton::Left, state, .. } => {
+                WindowEvent::MouseInput {
+                    button: MouseButton::Left,
+                    state,
+                    ..
+                } => {
                     if state == ElementState::Pressed {
                         self.is_left_clicked = Some(true);
                     } else {
@@ -123,14 +156,16 @@ impl Game {
                     let position: (i32, i32) = position.into();
                     self.cursor_position = Some([position.0, position.1]);
                 }
-                WindowEvent::MouseWheel {delta: MouseScrollDelta::LineDelta(_, v_lines), .. } => {
-                    self.wheel_delta = Some(v_lines/ 100.0);
+                WindowEvent::MouseWheel {
+                    delta: MouseScrollDelta::LineDelta(_, v_lines),
+                    ..
+                } => {
+                    self.wheel_delta = Some(v_lines / 100.0);
                 }
                 WindowEvent::KeyboardInput { input, .. } => {
                     if input.state == ElementState::Pressed {
                         self.app.keys_pressed[input.virtual_keycode.unwrap() as usize] = true;
-                    }
-                    else if input.state == ElementState::Released {
+                    } else if input.state == ElementState::Released {
                         self.app.keys_pressed[input.virtual_keycode.unwrap() as usize] = false;
                     }
                 }

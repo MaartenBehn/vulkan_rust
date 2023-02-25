@@ -1,5 +1,5 @@
-use std::{mem::size_of};
 use ash::vk;
+use std::mem::size_of;
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]

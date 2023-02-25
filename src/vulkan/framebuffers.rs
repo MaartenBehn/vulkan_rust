@@ -1,9 +1,8 @@
-use super::{VulkanApp, texture::Texture, swapchain::SwapchainProperties};
+use super::{swapchain::SwapchainProperties, texture::Texture, VulkanApp};
 
 use ash::{vk, Device};
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn create_framebuffers(
         device: &Device,
         image_views: &[vk::ImageView],

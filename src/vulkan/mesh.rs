@@ -1,9 +1,9 @@
+use super::transform::Transform;
 use crate::vulkan::vertex::Vertex;
-use cgmath::{Vector4, Vector3, vec4, Matrix4, Zero};
-use super::{transform::Transform};
+use cgmath::{vec4, Matrix4, Vector3, Vector4, Zero};
 
 #[derive(Clone)]
-pub struct Mesh{
+pub struct Mesh {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
 
@@ -18,33 +18,33 @@ pub struct Mesh{
 
 impl Mesh {
     pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Self {
-       Self { 
-            vertices, 
-            indices, 
-            transform: Transform::default(), 
+        Self {
+            vertices,
+            indices,
+            transform: Transform::default(),
             last_transform_matrix: Matrix4::zero(),
-            transformed_vertices: vec![], 
+            transformed_vertices: vec![],
             child_meshes: vec![],
             is_child_mesh: true,
             needs_parent_mesh_update: true,
         }
     }
 
-    pub fn new_parent_mesh(mehes: Vec<Mesh>) -> Mesh{
-        Self { 
-            vertices: vec![], 
-            indices: vec![], 
-            transform: Transform::default(), 
+    pub fn new_parent_mesh(mehes: Vec<Mesh>) -> Mesh {
+        Self {
+            vertices: vec![],
+            indices: vec![],
+            transform: Transform::default(),
             last_transform_matrix: Matrix4::zero(),
-            transformed_vertices:  vec![], 
+            transformed_vertices: vec![],
             child_meshes: mehes,
             is_child_mesh: false,
             needs_parent_mesh_update: true,
         }
     }
 
-    fn generate_mesh(&mut self){
-        if self.is_child_mesh || !self.needs_parent_mesh_update{
+    fn generate_mesh(&mut self) {
+        if self.is_child_mesh || !self.needs_parent_mesh_update {
             return;
         }
 
@@ -68,7 +68,6 @@ impl Mesh {
         }
 
         self.needs_parent_mesh_update = false;
-
     }
 
     pub fn get_base_vertices(&mut self) -> &Vec<Vertex> {
@@ -82,7 +81,8 @@ impl Mesh {
         if self.last_transform_matrix != self.transform.get_matrix() {
             self.transformed_vertices = self.vertices.to_vec();
             for (i, vertex) in self.vertices.iter().enumerate() {
-                let new_pos = self.transform.get_matrix() * vec4(vertex.pos[0], vertex.pos[1], vertex.pos[2], 1.0 );
+                let new_pos = self.transform.get_matrix()
+                    * vec4(vertex.pos[0], vertex.pos[1], vertex.pos[2], 1.0);
 
                 self.transformed_vertices[i].pos[0] = new_pos[0];
                 self.transformed_vertices[i].pos[1] = new_pos[1];
@@ -100,7 +100,7 @@ impl Mesh {
     }
 
     // Mesh Models
-    pub fn plane(double_sided: bool ) -> Mesh {
+    pub fn plane(double_sided: bool) -> Mesh {
         let vertices: Vec<Vertex> = vec![
             Vertex {
                 pos: [-1.0, -1.0, 0.0],
@@ -117,18 +117,18 @@ impl Mesh {
             Vertex {
                 pos: [1.0, 1.0, 0.0],
                 color: [1.0, 1.0, 0.0],
-            }
+            },
         ];
-        
+
         let mut indices: Vec<u32> = vec![0, 1, 2, 3, 2, 1];
         if double_sided {
             indices.extend(vec![2, 1, 0, 1, 2, 3])
         }
 
-        Mesh::new(vertices, indices )
+        Mesh::new(vertices, indices)
     }
 
-    pub fn floor(double_sided: bool ) -> Mesh {
+    pub fn floor(double_sided: bool) -> Mesh {
         let vertices: Vec<Vertex> = vec![
             Vertex {
                 pos: [-10.0, 0.0, -10.0],
@@ -145,7 +145,7 @@ impl Mesh {
             Vertex {
                 pos: [10.0, 0.0, 10.0],
                 color: [1.0, 1.0, 0.0],
-            }
+            },
         ];
 
         let mut indices: Vec<u32> = vec![0, 1, 2, 3, 2, 1];
@@ -153,10 +153,10 @@ impl Mesh {
             indices.extend(vec![2, 1, 0, 1, 2, 3])
         }
 
-        Mesh::new(vertices, indices )
+        Mesh::new(vertices, indices)
     }
 
-    pub fn cube(double_sided: bool ) -> Mesh {
+    pub fn cube(double_sided: bool) -> Mesh {
         let vertices: Vec<Vertex> = vec![
             Vertex {
                 pos: [-1.0, -1.0, -1.0],
@@ -189,29 +189,21 @@ impl Mesh {
             Vertex {
                 pos: [1.0, 1.0, 1.0],
                 color: [1.0, 1.0, 1.0],
-            }
+            },
         ];
 
         let mut indices: Vec<u32> = vec![
-            0, 1, 3, 0, 3, 2,
-            0, 5, 1, 0, 4, 5,
-            1, 7, 3, 1, 5, 7, 
-            3, 6, 2, 3, 7, 6, 
-            2, 4, 0, 2, 6, 4, 
-            4, 7, 5, 4, 6, 7,
-            ];
+            0, 1, 3, 0, 3, 2, 0, 5, 1, 0, 4, 5, 1, 7, 3, 1, 5, 7, 3, 6, 2, 3, 7, 6, 2, 4, 0, 2, 6,
+            4, 4, 7, 5, 4, 6, 7,
+        ];
         if double_sided {
             indices.extend(vec![
-                3, 1, 0, 2, 3, 0,
-                1, 5, 0, 5, 4, 0,
-                3, 7, 1, 7, 5, 1, 
-                2, 6, 3, 6, 7, 3, 
-                0, 4, 2, 4, 6, 2, 
-                5, 7, 4, 7, 6, 4,
-                ]);
-        }  
+                3, 1, 0, 2, 3, 0, 1, 5, 0, 5, 4, 0, 3, 7, 1, 7, 5, 1, 2, 6, 3, 6, 7, 3, 0, 4, 2, 4,
+                6, 2, 5, 7, 4, 7, 6, 4,
+            ]);
+        }
 
-        Mesh::new(vertices, indices )
+        Mesh::new(vertices, indices)
     }
 }
 

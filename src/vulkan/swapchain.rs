@@ -1,4 +1,4 @@
-use super::{VulkanApp, context::*, device::QueueFamiliesIndices};
+use super::{context::*, device::QueueFamiliesIndices, VulkanApp};
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{vk, Device};
@@ -117,8 +117,7 @@ pub struct SwapchainProperties {
     pub extent: vk::Extent2D,
 }
 
-impl VulkanApp{
-
+impl VulkanApp {
     /// Create the swapchain with optimal settings possible with
     /// `device`.
     ///
@@ -311,14 +310,6 @@ impl VulkanApp{
             device,
             self.command_pool,
             &swapchain_framebuffers,
-            render_pass,
-            properties,
-            self.vertex_buffer,
-            self.index_buffer,
-            self.model_index_count,
-            layout,
-            &self.descriptor_sets,
-            pipeline,
         );
 
         self.swapchain = swapchain;
@@ -354,5 +345,4 @@ impl VulkanApp{
             self.swapchain.destroy_swapchain(self.swapchain_khr, None);
         }
     }
-    
 }

@@ -1,11 +1,12 @@
-use super::{VulkanApp, debug::*};
+use super::VulkanApp;
+use super::debug::{get_layer_names_and_pointers, ENABLE_VALIDATION_LAYERS, check_validation_layer_support};
 
-use ash::extensions::{ext::DebugUtils};
+use ash::extensions::ext::DebugUtils;
 use ash::{vk, Entry, Instance};
+use std::ffi::{c_char, CString};
 use winit::window::Window;
-use std::ffi::CString;
 
-impl VulkanApp{
+impl VulkanApp {
     pub fn create_instance(entry: &Entry, window: &Window) -> Instance {
         let app_name = CString::new("Vulkan Application").unwrap();
         let engine_name = CString::new("No Engine").unwrap();
@@ -14,14 +15,11 @@ impl VulkanApp{
             .application_version(vk::make_api_version(0, 0, 1, 0))
             .engine_name(engine_name.as_c_str())
             .engine_version(vk::make_api_version(0, 0, 1, 0))
-            .api_version(vk::make_api_version(0, 1, 0, 0))
+            .api_version(vk::make_api_version(0, 1, 1, 0))
             .build();
 
         let extension_names = ash_window::enumerate_required_extensions(window).unwrap();
-        let mut extension_names = extension_names
-            .iter()
-            .map(|ext| ext.as_ptr())
-            .collect::<Vec<_>>();
+        let mut extension_names = extension_names.iter().map(|ext| *ext).collect::<Vec<_>>();
         if ENABLE_VALIDATION_LAYERS {
             extension_names.push(DebugUtils::name().as_ptr());
         }

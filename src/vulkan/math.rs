@@ -1,4 +1,4 @@
-use cgmath::{prelude::*, Vector2, Vector3, Vector4, BaseFloat, Matrix4, Rad, BaseNum};
+use cgmath::{prelude::*, BaseFloat, BaseNum, Matrix4, Rad, Vector2, Vector3, Vector4};
 use extend::ext;
 
 /// Perspective matrix that is suitable for Vulkan.
@@ -52,7 +52,6 @@ pub fn clamp<T: PartialOrd>(value: T, min: T, max: T) -> T {
     }
 }
 
-
 #[ext]
 pub impl<S: BaseNum> Vector2<S> {
     /// A Vector from a scalar.
@@ -61,7 +60,6 @@ pub impl<S: BaseNum> Vector2<S> {
         Vector2::new(s, s)
     }
 }
-
 
 #[ext]
 pub impl<S: BaseNum> Vector3<S> {
@@ -72,7 +70,6 @@ pub impl<S: BaseNum> Vector3<S> {
     }
 }
 
-
 #[ext]
 pub impl<S: BaseNum> Vector4<S> {
     /// A Vector from a scalar.
@@ -81,7 +78,3 @@ pub impl<S: BaseNum> Vector4<S> {
         Vector4::new(s, s, s, s)
     }
 }
-
-
-
-

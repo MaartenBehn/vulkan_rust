@@ -1,10 +1,9 @@
-use super::{VulkanApp, swapchain::SwapchainProperties, vertex::Vertex};
+use super::{swapchain::SwapchainProperties, vertex::Vertex, VulkanApp};
 
+use ash::{vk, Device};
 use std::ffi::CString;
-use ash::{Device, vk};
 
-impl VulkanApp{
-
+impl VulkanApp {
     pub fn create_pipeline(
         device: &Device,
         swapchain_properties: SwapchainProperties,
@@ -97,7 +96,7 @@ impl VulkanApp{
             .build();
 
         let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
-            .color_write_mask(vk::ColorComponentFlags::all())
+            .color_write_mask(vk::ColorComponentFlags::RGBA)
             .blend_enable(false)
             .src_color_blend_factor(vk::BlendFactor::ONE)
             .dst_color_blend_factor(vk::BlendFactor::ZERO)
@@ -156,5 +155,4 @@ impl VulkanApp{
 
         (pipeline, layout)
     }
-    
 }

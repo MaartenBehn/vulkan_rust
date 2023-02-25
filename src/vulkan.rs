@@ -21,13 +21,17 @@ mod transform;
 mod world;
 mod mesh;
 
-use crate::{vulkan::{context::VkContext, debug::*, swapchain::*, texture::Texture, camera::Camera, mesh::Mesh}};
+use crate::{vulkan::{debug::*, swapchain::*, texture::Texture, camera::Camera, mesh::Mesh}};
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{vk, Entry};
+use imgui::*;
+use imgui_rs_vulkan_renderer::*;
+use imgui_winit_support::{WinitPlatform, HiDpiMode};
 use winit::{window::Window, event::VirtualKeyCode};
 
-use self::{device::QueueFamiliesIndices, sync::InFlightFrames};
+
+use self::{device::QueueFamiliesIndices, sync::InFlightFrames, context::VkContext};
 
 const MAX_FRAMES_IN_FLIGHT: u32 = 2;
 
@@ -72,13 +76,17 @@ pub struct VulkanApp {
     descriptor_sets: Vec<vk::DescriptorSet>,
     command_buffers: Vec<vk::CommandBuffer>,
     in_flight_frames: InFlightFrames,
+    
+    pub imgui: Context,
+    pub platform: WinitPlatform,
+    renderer: Renderer,
 }
 
 impl VulkanApp {
     pub fn new(window: &Window, with: u32, height: u32) -> Self {
         log::debug!("Creating application.");
 
-        let entry = unsafe { Entry::new().expect("Failed to create entry.") };
+        let entry = unsafe { Entry::load().unwrap() };
         let instance = Self::create_instance(&entry, window);
 
         let surface = Surface::new(&entry, &instance);
@@ -129,7 +137,7 @@ impl VulkanApp {
         let command_pool = Self::create_command_pool(
             vk_context.device(),
             queue_families_indices,
-            vk::CommandPoolCreateFlags::empty(),
+            vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         );
         let transient_command_pool = Self::create_command_pool(
             vk_context.device(),
@@ -192,17 +200,58 @@ impl VulkanApp {
             vk_context.device(),
             command_pool,
             &swapchain_framebuffers,
-            render_pass,
-            properties,
-            vertex_buffer,
-            index_buffer,
-            mesh.get_indices().len(),
-            layout,
-            &descriptor_sets,
-            pipeline,
         );
 
         let in_flight_frames = Self::create_sync_objects(vk_context.device());
+
+        info!("imgui");
+        let mut imgui = Context::create();
+        imgui.set_ini_filename(None);
+         
+        let mut platform = WinitPlatform::init(&mut imgui);
+
+        let hidpi_factor = platform.hidpi_factor();
+        let font_size = (13.0 * hidpi_factor) as f32;
+        imgui.fonts().add_font(&[
+            FontSource::DefaultFontData {
+                config: Some(FontConfig {
+                    size_pixels: font_size,
+                    ..FontConfig::default()
+                }),
+            },
+            FontSource::TtfData {
+                data: include_bytes!("../assets/fonts/mplus-1p-regular.ttf"),
+                size_pixels: font_size,
+                config: Some(FontConfig {
+                    rasterizer_multiply: 1.75,
+                    glyph_ranges: FontGlyphRanges::japanese(),
+                    ..FontConfig::default()
+                }),
+            },
+        ]);
+        imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
+        platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
+
+        // Generate UI
+        platform
+            .prepare_frame(imgui.io_mut(), &window)
+            .expect("Failed to prepare frame");
+        info!("Context done");
+
+        info!("imgui renderer");
+        let renderer = Renderer::with_default_allocator(
+            &vk_context.instance(),
+            vk_context.physical_device(),
+            vk_context.device().clone(),
+            graphics_queue,
+            command_pool,
+            render_pass,
+            &mut imgui,
+            Some(Options {
+                in_flight_frames: images.len() as usize,
+                ..Default::default()
+            }),
+        ).unwrap();
 
         Self {
             resize_dimensions: None,
@@ -243,17 +292,38 @@ impl VulkanApp {
             descriptor_sets,
             command_buffers,
             in_flight_frames,
+            
+            imgui,
+            platform,
+            renderer,
         }
     }
 
 
 
-    pub fn draw_frame(&mut self) -> bool {
+    pub fn draw_frame(&mut self, window: &Window, fps: f64) -> bool {
         let sync_objects = self.in_flight_frames.next().unwrap();
         let image_available_semaphore = sync_objects.image_available_semaphore;
         let render_finished_semaphore = sync_objects.render_finished_semaphore;
         let in_flight_fence = sync_objects.fence;
         let wait_fences = [in_flight_fence];
+
+        let ui = self.imgui.frame();
+        imgui::Window::new("Debug")
+            .position([10.0, 10.0], Condition::Always)
+            .size([200.0, 100.0], Condition::FirstUseEver)
+            .build(&ui, || {
+                ui.text_wrapped(format!("FPS: {:.1}", fps));
+
+                let mouse_pos = ui.io().mouse_pos;
+                ui.text(format!(
+                    "Mouse Position: ({:.1},{:.1})",
+                    mouse_pos[0], mouse_pos[1]
+                ));
+            });
+
+        self.platform.prepare_render(&ui, &window);
+        let draw_data = ui.render();
 
         unsafe {
             self.vk_context
@@ -280,9 +350,27 @@ impl VulkanApp {
 
         unsafe { self.vk_context.device().reset_fences(&wait_fences).unwrap() };
 
+        Self::updating_command_buffer(
+            image_index as usize,
+            &self.command_buffers,
+            self.vk_context.device(),
+            self.command_pool,
+            &self.swapchain_framebuffers,
+            self.render_pass,
+            self.swapchain_properties,
+            self.vertex_buffer,
+            self.index_buffer,
+            self.model_index_count,
+            self.pipeline_layout,
+            &self.descriptor_sets,
+            self.pipeline,
+            &mut self.renderer,
+            draw_data
+        );
+
         self.update_uniform_buffers(image_index);
 
-        let device = self.vk_context.device();
+
         let wait_semaphores = [image_available_semaphore];
         let signal_semaphores = [render_finished_semaphore];
 
@@ -298,7 +386,7 @@ impl VulkanApp {
                 .build();
             let submit_infos = [submit_info];
             unsafe {
-                device
+                self.vk_context.device()
                     .queue_submit(self.graphics_queue, &submit_infos, in_flight_fence)
                     .unwrap()
             };

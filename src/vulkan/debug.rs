@@ -22,7 +22,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 
     let message = CStr::from_ptr((*p_callback_data).p_message);
     match flag {
-        Flag::VERBOSE => log::debug!("{:?} - {:?}", typ, message),
+        Flag::VERBOSE => log::trace!("{:?} - {:?}", typ, message),
         Flag::INFO => log::info!("{:?} - {:?}", typ, message),
         Flag::WARNING => log::warn!("{:?} - {:?}", typ, message),
         _ => log::error!("{:?} - {:?}", typ, message),
@@ -78,9 +78,17 @@ pub fn setup_debug_messenger(
     }
 
     let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-        .flags(vk::DebugUtilsMessengerCreateFlagsEXT::all())
-        .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
-        .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+        .message_severity(
+            vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+                | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                | vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
+        )
+        .message_type(
+            vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
+                | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+        )
         .pfn_user_callback(Some(vulkan_debug_callback));
     let debug_utils = DebugUtils::new(entry, instance);
     let debug_utils_messenger = unsafe {
