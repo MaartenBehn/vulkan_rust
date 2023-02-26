@@ -2,16 +2,7 @@
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
-layout(location = 0) rayPayloadInEXT Payload {
-	bool missed;
-	bool reflective;
-	vec3 hitValue;
-	vec3 hitOrigin;
-	vec3 hitNormal;
-} payload;
-layout(location = 1) rayPayloadEXT bool isShadowed;
-hitAttributeEXT vec2 attribs;
-
+// ------ Bindings ------ 
 struct Vertex {
     vec3 pos;
     vec3 normal;
@@ -35,11 +26,24 @@ layout(binding = 2, set = 0) uniform SceneData {
 	vec4 lightDirection;
 	vec4 lightColor;
 	uint maxDepth;
+    uint rays_per_pixel;
+    uint render_mode;
 } scene;
 layout(binding = 3, set = 0) readonly buffer Vertices { Vertex v[]; } vertices;
 layout(binding = 4, set = 0) readonly buffer Indices { uint i[]; } indices;
 layout(binding = 5, set = 0) readonly buffer GeometryInfos { GeometryInfo g[]; } geometryInfos;
 layout(binding = 6, set = 0) uniform sampler2D textures[];
+
+
+// ------ HitInfo ------ 
+layout(location = 0) rayPayloadInEXT HitInfo {
+	bool missed;
+	vec4 hitValue;
+	vec3 hitOrigin;
+	vec3 hitNormal;
+} hitInfo;
+hitAttributeEXT vec2 attribs;
+
 
 void main() {
     GeometryInfo geometryInfo = geometryInfos.g[gl_GeometryIndexEXT];
@@ -56,66 +60,20 @@ void main() {
 	Vertex v1 = vertices.v[i1];
 	Vertex v2 = vertices.v[i2];
 
-    // Interpolate and transform normal
+    // Origen
+    hitInfo.hitOrigin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+
+    // Normal
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	vec3 normal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
     normal = normalize(geometryInfo.transform * vec4(normal, 0.0)).xyz;
+    hitInfo.hitNormal = normal;
 
-    // Interpolate UVs
-    vec2 uvs = v0.uvs * barycentricCoords.x + v1.uvs * barycentricCoords.y + v2.uvs * barycentricCoords.z;
-
-    // Interpolate Color
+    //Color
     vec3 vertexColor = v0.color * barycentricCoords.x + v1.color * barycentricCoords.y + v2.color * barycentricCoords.z;
     vec3 baseColor = geometryInfo.baseColor.xyz;
     vec3 color = vertexColor * baseColor;
+    hitInfo.hitValue = vec4(color, 1 - geometryInfo.metallicFactor);
 
-    if (geometryInfo.baseColorTextureIndex > -1) {
-        color = color * texture(textures[geometryInfo.baseColorTextureIndex], uvs).rgb;
-    }
-
-    // Lighting
-    const vec3 lightColor = scene.lightColor.rgb;
-    const vec3 lightDir = normalize(scene.lightDirection.xyz);
-    float dot_prod = dot(-lightDir, normal);
-    float factor = max(0.3, dot_prod);
-    vec3 finalColor = color * lightColor;
-
-    bool reflective = geometryInfo.metallicFactor > 0;
-
-    vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-
-    isShadowed = true;
-
-    if (dot_prod > 0) {
-        // Shadow casting
-        float tmin = 0.001;
-        float tmax = 100.0;
-        
-        
-        // Trace shadow ray and offset indices to match shadow hit/miss shader group indices
-        const uint missIndex = 1;
-
-        traceRayEXT(
-            topLevelAS, 
-            gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 
-            0xFF, 
-            0, 0, 
-            missIndex, 
-            origin, 
-            tmin, 
-            -lightDir, 
-            tmax, 
-            1
-        );
-    }
-
-    if (isShadowed) {
-        factor = 0.3;
-    }
-
-    payload.missed = false;
-    payload.reflective = reflective;
-    payload.hitValue = factor * finalColor;
-    payload.hitOrigin = origin;
-    payload.hitNormal = normal;
+    hitInfo.missed = false;
 }

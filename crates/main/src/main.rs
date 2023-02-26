@@ -109,6 +109,8 @@ impl App for Reflections {
             light_direction,
             light_color,
             max_depth: gui.max_depth,
+            rays_per_pixel: 1,
+            render_mode: gui.render_mode,
         };
 
         self.ubo_buffer.copy_data_to_buffer(&[scene_ubo])?;
@@ -167,6 +169,7 @@ impl App for Reflections {
 struct Gui {
     light: Light,
     max_depth: u32,
+    render_mode: u32,
 }
 
 impl app::Gui for Gui {
@@ -177,6 +180,7 @@ impl app::Gui for Gui {
                 color: [1.0; 3],
             },
             max_depth: MAX_DEPTH,
+            render_mode: 0,
         })
     }
 
@@ -186,6 +190,11 @@ impl app::Gui for Gui {
             .build(|| {
                 // RT controls
                 ui.text_wrapped("Rays");
+
+                let mut render_mode = self.render_mode as _;
+                ui.input_int("render mode", &mut render_mode).build();
+                self.render_mode = render_mode.clamp(0, 2) as _;
+
                 let mut max_depth = self.max_depth as _;
                 ui.input_int("max depth", &mut max_depth).build();
                 self.max_depth = max_depth.max(1) as _;
@@ -253,6 +262,8 @@ pub struct SceneUBO {
     light_direction: [f32; 4],
     light_color: [f32; 4],
     max_depth: u32,
+    rays_per_pixel: u32,
+    render_mode: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
