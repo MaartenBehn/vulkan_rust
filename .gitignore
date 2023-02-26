@@ -1,2 +1,3 @@
 /target
 .idea
+./vulkan_rust.log
