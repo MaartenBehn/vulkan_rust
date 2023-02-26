@@ -15,7 +15,9 @@ const HEIGHT: u32 = 1080;
 const APP_NAME: &str = "Ray traced reflections";
 
 const MODEL_PATH: &str = "./assets/models/Scene.glb";
-const MAX_DEPTH: u32 = 10;
+const MAX_DEPTH: u32 = 1;
+const RAYS_PER_PIXEL: u32 = 2;
+const RENDER_MODE: u32 = 2;
 
 fn main() -> Result<()> {
     app::run::<Reflections>(APP_NAME, WIDTH, HEIGHT, true)
@@ -90,10 +92,10 @@ impl App for Reflections {
         let proj = base.camera.projection_matrix();
         let inverted_proj = proj.inverse();
 
-        let light_direction = [
-            gui.light.direction[0],
-            gui.light.direction[1],
-            gui.light.direction[2],
+        let light_pos = [
+            gui.light.pos[0],
+            gui.light.pos[1],
+            gui.light.pos[2],
             0.0,
         ];
         let light_color = [
@@ -106,10 +108,10 @@ impl App for Reflections {
         let scene_ubo = SceneUBO {
             inverted_view,
             inverted_proj,
-            light_direction,
+            light_pos,
             light_color,
             max_depth: gui.max_depth,
-            rays_per_pixel: 1,
+            rays_per_pixel: gui.rays_per_pixel,
             render_mode: gui.render_mode,
         };
 
@@ -169,6 +171,7 @@ impl App for Reflections {
 struct Gui {
     light: Light,
     max_depth: u32,
+    rays_per_pixel: u32,
     render_mode: u32,
 }
 
@@ -176,11 +179,12 @@ impl app::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
             light: Light {
-                direction: [-2.0, -1.0, -2.0],
+                pos: [-2.0, -1.0, -2.0],
                 color: [1.0; 3],
             },
             max_depth: MAX_DEPTH,
-            render_mode: 0,
+            rays_per_pixel: RAYS_PER_PIXEL,
+            render_mode: RENDER_MODE,
         })
     }
 
@@ -189,8 +193,6 @@ impl app::Gui for Gui {
             .size([300.0, 400.0], Condition::FirstUseEver)
             .build(|| {
                 // RT controls
-                ui.text_wrapped("Rays");
-
                 let mut render_mode = self.render_mode as _;
                 ui.input_int("render mode", &mut render_mode).build();
                 self.render_mode = render_mode.clamp(0, 2) as _;
@@ -199,11 +201,15 @@ impl app::Gui for Gui {
                 ui.input_int("max depth", &mut max_depth).build();
                 self.max_depth = max_depth.max(1) as _;
 
+                let mut rays_per_pixel = self.rays_per_pixel as _;
+                ui.input_int("rays per pixel", &mut rays_per_pixel).build();
+                self.rays_per_pixel = rays_per_pixel.max(1) as _;
+
                 // Light control
                 ui.text_wrapped("Light");
                 ui.separator();
 
-                ui.input_float3("direction", &mut self.light.direction)
+                ui.input_float3("pos", &mut self.light.pos)
                     .build();
 
                 ui.color_picker3_config("color", &mut self.light.color)
@@ -250,7 +256,7 @@ struct DescriptorRes {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 struct Light {
-    direction: [f32; 3],
+    pos: [f32; 3],
     color: [f32; 3],
 }
 
@@ -259,7 +265,7 @@ struct Light {
 pub struct SceneUBO {
     inverted_view: Mat4,
     inverted_proj: Mat4,
-    light_direction: [f32; 4],
+    light_pos: [f32; 4],
     light_color: [f32; 4],
     max_depth: u32,
     rays_per_pixel: u32,
@@ -694,7 +700,7 @@ fn create_pipeline(context: &Context, model: &Model) -> Result<PipelineRes> {
 
     let pipeline_create_info = RayTracingPipelineCreateInfo {
         shaders: &shaders_create_info,
-        max_ray_recursion_depth: 2,
+        max_ray_recursion_depth: 1,
     };
 
     let pipeline = context.create_ray_tracing_pipeline(&pipeline_layout, pipeline_create_info)?;
