@@ -36,13 +36,14 @@ layout(binding = 6, set = 0) uniform sampler2D textures[];
 
 
 // ------ Payload ------ 
-layout(location = 0) rayPayloadEXT Payload {
+layout(location = 0) rayPayloadInEXT Payload {
 	vec3 directLight;
 	vec3 nextRayOrigin;
 	vec3 nextRayDirection;
 	vec3 nextFactor;
 	bool shadowRayMiss;
 	int level;
+    uint pass;
 } payload;
 layout(location = 1) rayPayloadEXT bool isShadowed;
 
@@ -113,7 +114,7 @@ void main() {
     uint rayFlags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
     float rayMin     = 0.001;
     float rayMax     = length(scene.lightPos.xyz - position);  
-    float shadowBias = 0.001;
+    float shadowBias = 0.1;
     uint cullMask = 0xFFu;
     float frontFacing = dot(-gl_WorldRayDirectionEXT, normal);
     vec3 shadowRayOrigin = position + sign(frontFacing) * shadowBias * normal;
@@ -124,17 +125,14 @@ void main() {
     traceRayEXT(topLevelAS, rayFlags, cullMask, 0u, 0u, 0u, 
         shadowRayOrigin, rayMin, shadowRayDirection, rayMax, 0);
         
-    if(payload.shadowRayMiss || frontFacing < 0.0) { // if not in shadow
-        float irradiance = max(dot(lightDir, normal), 0.0) * lightAttenuation * lightIntensity;
-        if(irradiance > 0.0) { // if receives light
-        radiance += color / PI * irradiance; // diffuse shading
-        }
-    }  
-    payload.directLight = vec3(0.8);
+    float irradiance = max(dot(lightDir, normal), 0.0) * lightAttenuation * lightIntensity * 5;
+    if(irradiance > 0.0) { // if receives light
+    radiance += color / PI * irradiance; // diffuse shading
+    }
+    payload.directLight = radiance;
 
-    
     // different random value for each pixel and each frame
-    vec3 random = random_pcg3d(uvec3(gl_LaunchIDEXT.xy, payload.level));
+    vec3 random = random_pcg3d(uvec3(gl_LaunchIDEXT.xy, payload.pass + payload.level));
 
     // important sampling
     float theta = asin(sqrt(random.y));
@@ -143,7 +141,9 @@ void main() {
     // sampled indirect diffuse direction in normal space
     vec3 localDiffuseDir = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
     vec3 diffuseDir = getNormalSpace(normal) * localDiffuseDir;
+
+    payload.nextRayDirection = diffuseDir;
+
     payload.nextRayOrigin = position;
-    payload.nextRayDirection = normal;
     payload.nextFactor = color;
 }

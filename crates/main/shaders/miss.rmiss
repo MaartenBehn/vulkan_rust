@@ -2,13 +2,14 @@
 #extension GL_EXT_ray_tracing : enable
 
 // ------ Payload ------ 
-layout(location = 0) rayPayloadEXT Payload {
+layout(location = 0) rayPayloadInEXT Payload {
 	vec3 directLight;
 	vec3 nextRayOrigin;
 	vec3 nextRayDirection;
 	vec3 nextFactor;
 	bool shadowRayMiss;
 	int level;
+	uint pass;
 } payload;
 void main() {
 	// set color to black

@@ -179,7 +179,7 @@ impl app::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
             light: Light {
-                pos: [-2.0, -1.0, -2.0],
+                pos: [-1.0, 1.0, 1.0],
                 color: [1.0; 3],
             },
             max_depth: MAX_DEPTH,

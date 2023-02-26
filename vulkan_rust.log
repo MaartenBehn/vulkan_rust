@@ -1,22 +1,22 @@
-17:31:57 [INFO] Creating window and event loop
-17:31:57 [TRACE] (1) mio::poll: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/mio-0.8.5/src/poll.rs:532] registering event source with poller: token=Token(0), interests=READABLE
-17:31:57 [INFO] Guessed window scale factor: 1
-17:31:57 [DEBUG] (1) winit::platform_impl::platform::x11::window: Calculated physical dimensions: 1920x1080
-17:31:57 [INFO] Creating App
-17:31:58 [INFO] GENERAL - "linux_read_sorted_physical_devices:"
-17:31:58 [INFO] GENERAL - "     Original order:"
-17:31:58 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB"
-17:31:58 [INFO] GENERAL - "     Sorted order:"
-17:31:58 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB  "
-17:31:58 [INFO] GENERAL - "linux_read_sorted_physical_devices:"
-17:31:58 [INFO] GENERAL - "     Original order:"
-17:31:58 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB"
-17:31:58 [INFO] GENERAL - "     Sorted order:"
-17:31:58 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB  "
-17:31:58 [DEBUG] (1) vulkan::context: Choosing Vulkan physical device
-17:31:58 [INFO] Selected physical device: "NVIDIA GeForce GTX 1060 6GB"
-17:31:58 [INFO] GENERAL - "       Using \"NVIDIA GeForce GTX 1060 6GB\" with driver: \"libGLX_nvidia.so.0\"\n"
-17:31:58 [DEBUG] (1) vulkan::context: Ray tracing pipeline properties PhysicalDeviceRayTracingPipelinePropertiesKHR {
+19:10:34 [INFO] Creating window and event loop
+19:10:34 [TRACE] (1) mio::poll: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/mio-0.8.5/src/poll.rs:532] registering event source with poller: token=Token(0), interests=READABLE
+19:10:34 [INFO] Guessed window scale factor: 1
+19:10:34 [DEBUG] (1) winit::platform_impl::platform::x11::window: Calculated physical dimensions: 1920x1080
+19:10:34 [INFO] Creating App
+19:10:34 [INFO] GENERAL - "linux_read_sorted_physical_devices:"
+19:10:34 [INFO] GENERAL - "     Original order:"
+19:10:34 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB"
+19:10:34 [INFO] GENERAL - "     Sorted order:"
+19:10:34 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB  "
+19:10:34 [INFO] GENERAL - "linux_read_sorted_physical_devices:"
+19:10:34 [INFO] GENERAL - "     Original order:"
+19:10:34 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB"
+19:10:34 [INFO] GENERAL - "     Sorted order:"
+19:10:34 [INFO] GENERAL - "           [0] NVIDIA GeForce GTX 1060 6GB  "
+19:10:34 [DEBUG] (1) vulkan::context: Choosing Vulkan physical device
+19:10:34 [INFO] Selected physical device: "NVIDIA GeForce GTX 1060 6GB"
+19:10:34 [INFO] GENERAL - "       Using \"NVIDIA GeForce GTX 1060 6GB\" with driver: \"libGLX_nvidia.so.0\"\n"
+19:10:34 [DEBUG] (1) vulkan::context: Ray tracing pipeline properties PhysicalDeviceRayTracingPipelinePropertiesKHR {
     s_type: PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
     p_next: 0x0000000000000000,
     shader_group_handle_size: 32,
@@ -28,7 +28,7 @@
     shader_group_handle_alignment: 32,
     max_ray_hit_attribute_size: 32,
 }
-17:31:58 [DEBUG] (1) vulkan::context: Acceleration structure properties PhysicalDeviceAccelerationStructurePropertiesKHR {
+19:10:34 [DEBUG] (1) vulkan::context: Acceleration structure properties PhysicalDeviceAccelerationStructurePropertiesKHR {
     s_type: PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR,
     p_next: 0x0000000000000000,
     max_geometry_count: 16777215,
@@ -40,104 +40,98 @@
     max_descriptor_set_update_after_bind_acceleration_structures: 1048576,
     min_acceleration_structure_scratch_offset_alignment: 128,
 }
-17:31:58 [DEBUG] (1) vulkan::swapchain: Creating vulkan swapchain
-17:31:58 [DEBUG] (1) vulkan::swapchain: Swapchain format: SurfaceFormatKHR { format: B8G8R8A8_UNORM, color_space: SRGB_NONLINEAR }
-17:31:58 [DEBUG] (1) vulkan::swapchain: Swapchain present mode: IMMEDIATE
-17:31:58 [DEBUG] (1) vulkan::swapchain: Swapchain extent: Extent2D { width: 1920, height: 1007 }
-17:31:58 [DEBUG] (1) vulkan::swapchain: Swapchain image count: 3
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 123776 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 123904 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 43272 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 43520 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 240 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 512 bytes with an alignment of 1024.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 480 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 480 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 333568 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 150144 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 64 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 1792 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 640 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
-17:31:58 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer: Creating imgui renderer with options Options { in_flight_frames: 2, enable_depth_test: false, enable_depth_write: false }
-17:31:58 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan descriptor set layout
-17:31:58 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan pipeline layout
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 262144 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 262144 bytes with an alignment of 1024.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan descriptor pool
-17:31:58 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan descriptor set
-17:31:58 [DEBUG] (1) app: Window has been resized
-17:31:58 [DEBUG] (1) app: Recreating the swapchain
-17:31:58 [DEBUG] (1) vulkan::swapchain: Resizing vulkan swapchain to 1920x1007
-17:31:58 [DEBUG] (1) vulkan::swapchain: Swapchain extent: Extent2D { width: 1920, height: 1007 }
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 15888 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 2900 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 15888 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 2900 bytes with an alignment of 4.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 16608 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3008 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 17568 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3152 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 17248 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3104 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 17408 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3128 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 17488 bytes with an alignment of 16.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:31:58 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3140 bytes with an alignment of 4.
-17:31:58 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
-17:32:04 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer: Destroying ImGui Renderer
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
-17:32:04 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
+19:10:34 [DEBUG] (1) vulkan::swapchain: Creating vulkan swapchain
+19:10:34 [DEBUG] (1) vulkan::swapchain: Swapchain format: SurfaceFormatKHR { format: B8G8R8A8_UNORM, color_space: SRGB_NONLINEAR }
+19:10:34 [DEBUG] (1) vulkan::swapchain: Swapchain present mode: IMMEDIATE
+19:10:34 [DEBUG] (1) vulkan::swapchain: Swapchain extent: Extent2D { width: 1920, height: 1007 }
+19:10:34 [DEBUG] (1) vulkan::swapchain: Swapchain image count: 3
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 123776 bytes with an alignment of 4.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 123904 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 43272 bytes with an alignment of 4.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 43520 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 240 bytes with an alignment of 4.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 512 bytes with an alignment of 1024.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 480 bytes with an alignment of 4.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 480 bytes with an alignment of 16.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 333568 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 150144 bytes with an alignment of 16.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 64 bytes with an alignment of 4.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 1792 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 640 bytes with an alignment of 16.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `buffer` of 256 bytes with an alignment of 256.
+19:10:34 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer: Creating imgui renderer with options Options { in_flight_frames: 2, enable_depth_test: false, enable_depth_write: false }
+19:10:34 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan descriptor set layout
+19:10:34 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan pipeline layout
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 262144 bytes with an alignment of 4.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 262144 bytes with an alignment of 1024.
+19:10:34 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:34 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan descriptor pool
+19:10:34 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer::vulkan: Creating vulkan descriptor set
+19:10:34 [DEBUG] (1) app: Window has been resized
+19:10:34 [DEBUG] (1) app: Recreating the swapchain
+19:10:34 [DEBUG] (1) vulkan::swapchain: Resizing vulkan swapchain to 1920x1007
+19:10:35 [DEBUG] (1) vulkan::swapchain: Swapchain extent: Extent2D { width: 1920, height: 1007 }
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `image` of 7864320 bytes with an alignment of 1024.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 15728 bytes with an alignment of 16.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 2876 bytes with an alignment of 4.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 15728 bytes with an alignment of 16.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 2876 bytes with an alignment of 4.
+19:10:35 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 16448 bytes with an alignment of 16.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:35 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 2984 bytes with an alignment of 4.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:35 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 17488 bytes with an alignment of 16.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:35 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3140 bytes with an alignment of 4.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:35 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 17328 bytes with an alignment of 16.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:35 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3116 bytes with an alignment of 4.
+19:10:35 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:38 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:736] Resizing vertex buffers
+19:10:38 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 17408 bytes with an alignment of 16.
+19:10:38 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:38 [TRACE] (1) imgui_rs_vulkan_renderer::renderer::mesh: [/home/stroby/.cargo/registry/src/github.com-1ecc6299db9ec823/imgui-rs-vulkan-renderer-1.6.0/src/renderer/mod.rs:756] Resizing index buffers
+19:10:38 [DEBUG] (1) gpu_allocator::vulkan: Allocating `` of 3128 bytes with an alignment of 4.
+19:10:38 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `buffer`.
+19:10:52 [DEBUG] (1) imgui_rs_vulkan_renderer::renderer: Destroying ImGui Renderer
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing ``.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
+19:10:52 [DEBUG] (1) gpu_allocator::vulkan: Freeing `image`.
