@@ -2,12 +2,19 @@
     "version": "2.0.0",
     "tasks": [{
         "label": "build",
-        "command": "cargo build",
-        "type": "shell"
+        "command": "sh scripts/debug.sh main",
+        "type": "shell",
+        "dependsOn": "compile_shader"
     },
     {
         "label": "build_release",
-        "command": "cargo build --release",
+        "command": "sh scripts/release.sh main",
+        "type": "shell",
+        "dependsOn": "compile_shader"
+    },
+    {
+        "label": "compile_shader",
+        "command": "sh scripts/compile_shaders.sh",
         "type": "shell"
-    }]
+    },]
 }

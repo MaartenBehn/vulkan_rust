@@ -1,0 +1,17 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log.workspace = true
+simplelog.workspace = true
+anyhow.workspace = true
+winit.workspace = true
+glam.workspace = true
+
+vulkan = { path = "../vulkan" }
+gui = { path = "../gui" }

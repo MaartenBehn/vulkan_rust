@@ -1,5 +1,4 @@
 /target
-*vert.spv
-*frag.spv
-*comp.spv
-vulkan_rust.log
+.idea
+*.log
+*.spv
