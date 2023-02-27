@@ -1,5 +1,5 @@
 [package]
-name = "main"
+name = "rt_mirror"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,6 +7,6 @@ authors.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-app = { path = "../libs/app" }
-gltf = { path = "../libs/gltf" }
-gui = { path = "../libs/gui" }
+app = { path = "../../libs/app" }
+gltf = { path = "../../libs/gltf" }
+gui = { path = "../../libs/gui" }

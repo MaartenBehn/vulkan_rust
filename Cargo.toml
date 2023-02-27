@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/examples/rt_mirror",
     "crates/examples/rt_global_ilumination",
     "crates/examples/rt_triangle",
     "crates/examples/rt_shadows",
@@ -8,7 +9,6 @@ members = [
     "crates/examples/gpu_particles",
     "crates/examples/mandelbrot",
     "crates/libs/*",
-    "crates/main",
 ]
 
 [workspace.package]
@@ -26,7 +26,7 @@ ron = "0.8"
 num_cpus = "1.13"
 rand = "0.8"
 
-gltf = "1.0"
+gltf = "1.0.0"
 glam = { version = "0.22", features = ["serde"] }
 
 winit = "0.27"
