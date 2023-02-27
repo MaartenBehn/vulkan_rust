@@ -14,7 +14,7 @@
     },
     {
         "label": "compile_shader",
-        "command": "sh scripts/compile_shaders.sh",
+        "command": "sh scripts/compile_shaders_selected.sh comp_mandelbulb",
         "type": "shell"
     },]
 }
