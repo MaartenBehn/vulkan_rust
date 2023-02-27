@@ -33,6 +33,7 @@ const IN_FLIGHT_FRAMES: u32 = 2;
 pub struct BaseApp<B: App> {
     phantom: PhantomData<B>,
     raytracing_enabled: bool,
+    compute_rendering_enabled: bool,
     pub swapchain: Swapchain,
     pub command_pool: CommandPool,
     pub storage_images: Vec<ImageAndView>,
@@ -71,6 +72,20 @@ pub trait App: Sized {
     }
 
     fn record_raster_commands(
+        &self,
+        base: &BaseApp<Self>,
+        buffer: &CommandBuffer,
+        image_index: usize,
+    ) -> Result<()> {
+        // prevents reports of unused parameters without needing to use #[allow]
+        let _ = base;
+        let _ = buffer;
+        let _ = image_index;
+
+        Ok(())
+    }
+
+    fn record_compute_commands(
         &self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
@@ -123,6 +138,7 @@ pub fn run<A: App + 'static>(
     width: u32,
     height: u32,
     enable_raytracing: bool,
+    enabled_compute_rendering: bool,
 ) -> Result<()> {
     
     #[cfg(debug_assertions)]
@@ -144,7 +160,7 @@ pub fn run<A: App + 'static>(
     
     let (window, event_loop) = create_window(app_name, width, height);
 
-    let mut base_app = BaseApp::new(&window, app_name, enable_raytracing)?;
+    let mut base_app = BaseApp::new(&window, app_name, enable_raytracing, enabled_compute_rendering)?;
 
     let mut ui = A::Gui::new()?;
     
@@ -269,7 +285,7 @@ fn create_window(app_name: &str, width: u32, height: u32) -> (Window, EventLoop<
 }
 
 impl<B: App> BaseApp<B> {
-    fn new(window: &Window, app_name: &str, enable_raytracing: bool) -> Result<Self> {
+    fn new(window: &Window, app_name: &str, enable_raytracing: bool, enabled_compute_rendering: bool) -> Result<Self> {
         log::info!("Creating App");
 
         // Vulkan context
@@ -306,7 +322,7 @@ impl<B: App> BaseApp<B> {
             window.inner_size().height,
         )?;
 
-        let storage_images = if enable_raytracing {
+        let storage_images = if enable_raytracing || enabled_compute_rendering {
             create_storage_images(
                 &mut context,
                 swapchain.format,
@@ -333,6 +349,7 @@ impl<B: App> BaseApp<B> {
         Ok(Self {
             phantom: PhantomData,
             raytracing_enabled: enable_raytracing,
+            compute_rendering_enabled: enabled_compute_rendering,
             context,
             command_pool,
             swapchain,
@@ -541,7 +558,13 @@ impl<B: App> BaseApp<B> {
 
         if self.raytracing_enabled {
             base_app.record_raytracing_commands(self, buffer, image_index)?;
+        }
 
+        if self.compute_rendering_enabled {
+            base_app.record_compute_commands(self, buffer, image_index)?;
+        }
+
+        if self.raytracing_enabled || self.compute_rendering_enabled{
             let storage_image = &self.storage_images[image_index].image;
             // Copy ray tracing result into swapchain
             buffer.pipeline_image_barriers(&[
@@ -560,7 +583,7 @@ impl<B: App> BaseApp<B> {
                     new_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     src_access_mask: vk::AccessFlags2::SHADER_WRITE,
                     dst_access_mask: vk::AccessFlags2::TRANSFER_READ,
-                    src_stage_mask: vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
+                    src_stage_mask: vk::PipelineStageFlags2::COMPUTE_SHADER,
                     dst_stage_mask: vk::PipelineStageFlags2::TRANSFER,
                 },
             ]);
@@ -593,8 +616,7 @@ impl<B: App> BaseApp<B> {
                 },
             ]);
         }
-
-        if !self.raytracing_enabled {
+        else {
             buffer.pipeline_image_barriers(&[ImageBarrier {
                 image: swapchain_image,
                 old_layout: vk::ImageLayout::UNDEFINED,

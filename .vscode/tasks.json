@@ -2,13 +2,13 @@
     "version": "2.0.0",
     "tasks": [{
         "label": "build",
-        "command": "sh scripts/debug.sh main",
+        "command": "sh scripts/debug.sh comp_mandelbulb",
         "type": "shell",
         "dependsOn": "compile_shader"
     },
     {
         "label": "build_release",
-        "command": "sh scripts/release.sh main",
+        "command": "sh scripts/release.sh comp_mandelbulb",
         "type": "shell",
         "dependsOn": "compile_shader"
     },

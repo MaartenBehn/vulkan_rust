@@ -20,7 +20,7 @@ const RAYS_PER_PIXEL: u32 = 2;
 const RENDER_MODE: u32 = 2;
 
 fn main() -> Result<()> {
-    app::run::<Reflections>(APP_NAME, WIDTH, HEIGHT, true)
+    app::run::<Reflections>(APP_NAME, WIDTH, HEIGHT, true, false)
 }
 
 struct Reflections {

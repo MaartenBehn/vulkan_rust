@@ -14,7 +14,7 @@ const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Triangle";
 
 fn main() -> Result<()> {
-    app::run::<Triangle>(APP_NAME, WIDTH, HEIGHT, false)
+    app::run::<Triangle>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct Triangle {
     vertex_buffer: Buffer,

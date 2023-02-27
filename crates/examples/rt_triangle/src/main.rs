@@ -11,7 +11,7 @@ const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray traced triangle";
 
 fn main() -> Result<()> {
-    app::run::<Triangle>(APP_NAME, WIDTH, HEIGHT, true)
+    app::run::<Triangle>(APP_NAME, WIDTH, HEIGHT, true, false)
 }
 
 struct Triangle {

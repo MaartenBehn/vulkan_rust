@@ -18,7 +18,7 @@ const MODEL_PATH: &str = "./assets/models/reflections.glb";
 const MAX_DEPTH: u32 = 10;
 
 fn main() -> Result<()> {
-    app::run::<Reflections>(APP_NAME, WIDTH, HEIGHT, true)
+    app::run::<Reflections>(APP_NAME, WIDTH, HEIGHT, true, false)
 }
 
 struct Reflections {

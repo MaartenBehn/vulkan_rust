@@ -17,7 +17,7 @@ const APP_NAME: &str = "Ray traced shadows";
 const MODEL_PATH: &str = "./assets/models/shadows.glb";
 
 fn main() -> Result<()> {
-    app::run::<Shadows>(APP_NAME, WIDTH, HEIGHT, true)
+    app::run::<Shadows>(APP_NAME, WIDTH, HEIGHT, true, false)
 }
 
 struct Shadows {
