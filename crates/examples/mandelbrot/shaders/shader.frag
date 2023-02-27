@@ -1,20 +1,20 @@
 #version 450
 
-layout(location = 0) in vec2 iUV;
+layout(location = 0) in vec2 uv;
 
 layout(location = 0) out vec4 oColor;
 
 void main() {
 
-    float   real  = iUV.x;
-    float   imag  = iUV.y;
+    float   real  = uv.x;
+    float   imag  = uv.y;
     float   Creal = real;  
     float   Cimag = imag;  
 
     float r2 = 0.0;
 
     // Stupid number of iterations to stress gpu
-    for (float iter = 0.0; iter < 10000 && r2 < 4.0; ++iter) {
+    for (float iter = 0.0; iter < 1000 && r2 < 4.0; ++iter) {
         float tempreal = real;
 
         real = (tempreal * tempreal) - (imag * imag) + Creal;

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/examples/comp_mandelbrot",
     "crates/examples/comp_mandelbulb",
     "crates/examples/rt_mirror",
     "crates/examples/rt_global_ilumination",

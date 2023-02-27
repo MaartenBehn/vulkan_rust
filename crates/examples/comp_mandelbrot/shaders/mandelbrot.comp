@@ -1,0 +1,42 @@
+#version 450
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(binding = 0, rgba8) uniform writeonly image2D img;
+layout(binding = 1) uniform UniformBufferObject {
+    vec3 pos;
+    vec3 dir;
+} ubo;
+
+
+void main () {
+
+    // Normalized pixel coordinates (from 0 to 1)
+    vec2 uv = (gl_GlobalInvocationID.xy - 0.5 * imageSize(img)) / imageSize(img) * vec2(2, -2);
+    
+    float   real  = uv.x;
+    float   imag  = uv.y;
+    float   Creal = real;  
+    float   Cimag = imag;  
+
+    float r2 = 0.0;
+
+    // Stupid number of iterations to stress gpu
+    for (float iter = 0.0; iter < 1000 && r2 < 4.0; ++iter) {
+        float tempreal = real;
+
+        real = (tempreal * tempreal) - (imag * imag) + Creal;
+        imag = 2.0 * tempreal * imag + Cimag;
+        r2   = (real * real) + (imag * imag);
+    }
+
+    vec4 color;
+
+    if (r2 < 4.0)
+        color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    else
+        color = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), color);
+}
+

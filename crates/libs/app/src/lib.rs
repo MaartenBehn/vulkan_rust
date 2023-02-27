@@ -583,7 +583,7 @@ impl<B: App> BaseApp<B> {
                     new_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     src_access_mask: vk::AccessFlags2::SHADER_WRITE,
                     dst_access_mask: vk::AccessFlags2::TRANSFER_READ,
-                    src_stage_mask: vk::PipelineStageFlags2::COMPUTE_SHADER,
+                    src_stage_mask: vk::PipelineStageFlags2::COMPUTE_SHADER | vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
                     dst_stage_mask: vk::PipelineStageFlags2::TRANSFER,
                 },
             ]);

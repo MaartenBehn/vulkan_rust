@@ -2,19 +2,19 @@
     "version": "2.0.0",
     "tasks": [{
         "label": "build",
-        "command": "sh scripts/debug.sh comp_mandelbulb",
+        "command": "sh scripts/debug.sh comp_mandelbrot",
         "type": "shell",
         "dependsOn": "compile_shader"
     },
     {
         "label": "build_release",
-        "command": "sh scripts/release.sh comp_mandelbulb",
+        "command": "sh scripts/release.sh comp_mandelbrot",
         "type": "shell",
         "dependsOn": "compile_shader"
     },
     {
         "label": "compile_shader",
-        "command": "sh scripts/compile_shaders_selected.sh comp_mandelbulb",
+        "command": "sh scripts/compile_shaders_selected.sh comp_mandelbrot",
         "type": "shell"
     },]
 }
