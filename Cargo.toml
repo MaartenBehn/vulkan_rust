@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/examples/rt_global_ilumination",
     "crates/examples/rt_triangle",
     "crates/examples/rt_shadows",
     "crates/examples/rt_reflections",
