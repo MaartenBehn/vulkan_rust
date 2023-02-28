@@ -9,6 +9,110 @@ layout(binding = 1) uniform UniformBufferObject {
     vec3 dir;
 } ubo;
 
+/*
+struct Ray{
+    vec3 origin;
+    vec3 odir;
+    vec3 dir;
+};
+
+struct AABB{
+    vec3 center;
+    vec3 minSize;
+    vec3 maxSize;
+};
+
+vec3 saturate(vec3 v){
+    return clamp(v, 0.0, 1.0);
+}
+
+bool checkHit(in Ray ray, in AABB aabb, out float tMin, out float tMax, out vec3 sideMin, out vec3 sideMax)
+{
+    vec3 isPositive = vec3(ray.odir.x > 0, ray.odir.y > 0, ray.odir.z > 0); // ray.odir = 1.0 / ray.dir
+    vec3 isNegative = 1.0f - isPositive;
+
+    vec3 leftSide = aabb.center + isPositive * aabb.minSize + isNegative * aabb.maxSize;
+    vec3 rightSide = aabb.center + isPositive * aabb.maxSize + isNegative * aabb.minSize;
+
+    vec3 leftSideTimesOneOverDir = (leftSide - ray.origin) * ray.odir;
+    vec3 rightSideTimesOneOverDir = (rightSide - ray.origin) * ray.odir;
+
+    tMin = max(leftSideTimesOneOverDir.x, max(leftSideTimesOneOverDir.y, leftSideTimesOneOverDir.z));
+    tMax = min(rightSideTimesOneOverDir.x, min(rightSideTimesOneOverDir.y, rightSideTimesOneOverDir.z));
+
+    vec3 directionSign = sign(ray.odir);
+
+    sideMin = vec3(leftSideTimesOneOverDir.x == tMin, leftSideTimesOneOverDir.y == tMin, leftSideTimesOneOverDir.z == tMin) * directionSign;
+    sideMax = vec3(rightSideTimesOneOverDir.x == tMax, rightSideTimesOneOverDir.y == tMax, rightSideTimesOneOverDir.z == tMax) * directionSign;
+
+    return tMax > tMin;
+}
+
+bool arrayRayHit(in Ray ray, in AABB root, out vec3 hitPoint, out vec3 normal, out AABB voxel)
+{
+    float tMin, tMax;
+    vec3 sideMin, sideMax;
+
+    // sideMin and sideMax that where hit on the inital hit.
+    bool initialHitStatus = checkHit(ray, root, tMin, tMax, sideMin, sideMax);
+
+    // (tMin < 0) & (tMax < 0) checks if the Ray is even pointing at the volume.
+    if ((!initialHitStatus) || ((tMin < 0) && (tMax < 0)))
+    {
+        return false;
+    }
+
+    float maximumDepth = tMax;
+    bool isOriginInside = true;//isInsideVolume(ray.origin, arrayCube);
+
+    // Starting point
+    vec3 floatPosition3 = ray.origin + tMin * ray.dir * (!isOriginInside);
+
+    // Position of the first Voxel
+    vec3 intPosition3 = floor(floatPosition3);
+
+    // If the starting point isn't in the volume than we offset the volume so it is in the volume.
+    vec3 offset = saturate(intPosition3 - floor(floatPosition3 + 0.01f)); 
+    intPosition3 -= offset;
+
+    // pstvDirComps expresses which components have sing = +1
+    // ngtvDirComps expresses which components have sing = -1
+    vec3 pstvDirComps = saturate(sign(ray.dir));
+    vec3 ngtvDirComps = 1.0 - pstvDirComps;
+
+    AABB nextVoxel = createAABB(intPosition3, vec3(1, 1, 1));
+
+    // We loop till the next voxel is not found
+    // or till we hit a solid voxel
+    // or till we leave the volume.
+    while (checkHit(ray, nextAABB, tMin, tMax, sideMin, sideMax) && (currentVoxelData == 0) && (maximumDepth - tMax) >= 1) { 
+
+        // The next intersection position.
+        floatPosition3 = ray.origin + tMax * ray.dir;
+        // The position of the coresponding voxel.
+        intPosition3 = floor(floatPosition3);
+
+        // Checking for floating point error
+        vec3 rightRnddComps = (intPosition3 - floor(floatPosition3 + 0.01f)) + 1;
+        vec3 wrongRnddComps = 1 - rightRnddComps;
+
+        // Offsetting when floating point error accured. 
+        offset = sideMax * ((pstvDirComps * wrongRnddComps) + (ngtvDirComps * rightRnddComps)); 
+        intPosition3 += offset; 
+
+        // The normal vector is the inverse of the side the ray is exiting.
+        // normal = -sideMax;
+
+        currentVoxelData = getData(intPosition3);
+        nextVoxel.center = intPosition3; 
+    }
+
+    hitPoint = floatPosition3;
+    voxel = nextVoxel;
+
+    return currentVoxelData > 0; // [12]
+}
+*/
 
 void main () {
 

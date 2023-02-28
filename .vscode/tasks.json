@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [{
         "label": "build",
-        "command": "sh scripts/debug.sh ${env:EXAMPLE_NAME}",
+        "command": "sh scripts/debug.sh comp_ray_caster",
         "type": "shell",
         "dependsOn": [
             "compile_shader"
@@ -10,7 +10,7 @@
     },
     {
         "label": "build_release",
-        "command": "sh scripts/release.sh ${env:EXAMPLE_NAME}",
+        "command": "sh scripts/release.sh comp_ray_caster",
         "type": "shell",
         "dependsOn": [
             "compile_shader"
@@ -18,17 +18,9 @@
     },
     {
         "label": "compile_shader",
-        "command": "sh scripts/compile_shaders_selected.sh ${env:EXAMPLE_NAME}",
+        "command": "sh scripts/compile_shaders_selected.sh comp_ray_caster",
         "type": "shell",
-        "dependsOn": [
-            "set_example_name"
-        ]
-    },
-    {
-        "label": "set_example_name",
-        "command": "export EXAMPLE_NAME=comp_ray_caster",
-        "type": "shell"
-    }]
+    }
 }
 
 

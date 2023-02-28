@@ -17,21 +17,24 @@ use gui::imgui::{Condition, Ui};
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
-const APP_NAME: &str = "Comp Mandelbrot";
+const APP_NAME: &str = "Ray Caster";
 
 const DISPATCH_GROUP_SIZE_X: u32 = 32;
 const DISPATCH_GROUP_SIZE_Y: u32 = 32;
+
+const OCTTREE_SIZE: usize = 32;
+const OCTTREE_NODE_COUNT: usize = OCTTREE_SIZE * OCTTREE_SIZE * OCTTREE_SIZE;
 
 fn main() -> Result<()> {
     app::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, true)
 }
 struct Particles {
-    compute_ubo_buffer: Buffer,
-    _compute_descriptor_pool: DescriptorPool,
-    _compute_descriptor_layout: DescriptorSetLayout,
-    compute_descriptor_sets: Vec<DescriptorSet>,
-    compute_pipeline_layout: PipelineLayout,
-    compute_pipeline: ComputePipeline,
+    render_ubo_buffer: Buffer,
+    _render_descriptor_pool: DescriptorPool,
+    _render_descriptor_layout: DescriptorSetLayout,
+    render_descriptor_sets: Vec<DescriptorSet>,
+    render_pipeline_layout: PipelineLayout,
+    render_pipeline: ComputePipeline,
 }
 
 impl App for Particles {
@@ -41,13 +44,19 @@ impl App for Particles {
         let context = &mut base.context;
 
         let images = &base.swapchain.images;
-        let compute_ubo_buffer = context.create_buffer(
+        let render_ubo_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
             size_of::<ComputeUbo>() as _,
         )?;
+        
+        let octtree_buffer = context.create_buffer(
+            vk::BufferUsageFlags::STORAGE_BUFFER, 
+            MemoryLocation::CpuToGpu,
+            (size_of::<OcttreeNode>() * OCTTREE_NODE_COUNT) as _,
+        )?;
 
-        let compute_descriptor_pool = context.create_descriptor_pool(
+        let render_descriptor_pool = context.create_descriptor_pool(
             3,
             &[
                 vk::DescriptorPoolSize {
@@ -61,12 +70,22 @@ impl App for Particles {
             ],
         )?;
 
-        let compute_descriptor_layout = context.create_descriptor_set_layout(&[
+        let update_octtree_descriptor_pool = context.create_descriptor_pool(
+            1,
+            &[
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: 1,
+                },
+            ],
+        )?;
+
+        let render_descriptor_layout = context.create_descriptor_set_layout(&[
             vk::DescriptorSetLayoutBinding {
                 binding: 0,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::STORAGE_IMAGE,
-                stage_flags: vk::ShaderStageFlags::ALL,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
             vk::DescriptorSetLayoutBinding {
@@ -78,12 +97,22 @@ impl App for Particles {
             },
         ])?;
 
-        let mut compute_descriptor_sets = Vec::new();
-        for i in 0..images.len(){
-            let compute_descriptor_set =
-            compute_descriptor_pool.allocate_set(&compute_descriptor_layout)?;
+        let update_octtree_descriptor_layout = context.create_descriptor_set_layout(&[
+            vk::DescriptorSetLayoutBinding {
+                binding: 0,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+        ])?;
 
-            compute_descriptor_set.update(&[
+        let mut render_descriptor_sets = Vec::new();
+        for i in 0..images.len(){
+            let render_descriptor_set =
+            render_descriptor_pool.allocate_set(&render_descriptor_layout)?;
+
+            render_descriptor_set.update(&[
                 WriteDescriptorSet {
                     binding: 0,
                     kind: WriteDescriptorSetKind::StorageImage {
@@ -94,18 +123,31 @@ impl App for Particles {
                 WriteDescriptorSet {
                     binding: 1,
                     kind: WriteDescriptorSetKind::UniformBuffer {
-                        buffer: &compute_ubo_buffer,
+                        buffer: &render_ubo_buffer,
                     },
                 },
             ]);
-            compute_descriptor_sets.push(compute_descriptor_set);
+            render_descriptor_sets.push(render_descriptor_set);
         }
 
-        let compute_pipeline_layout =
-            context.create_pipeline_layout(&[&compute_descriptor_layout])?;
 
-        let compute_pipeline = context.create_compute_pipeline(
-            &compute_pipeline_layout,
+        let update_octtree_descriptor_set = update_octtree_descriptor_pool.allocate_set(&update_octtree_descriptor_layout)?;
+        update_octtree_descriptor_set.update(&[
+            WriteDescriptorSet {
+                binding: 0,
+                kind: WriteDescriptorSetKind::StorageBuffer { 
+                    buffer: &octtree_buffer
+                } 
+            },
+        ]);
+        let update_octtree_descriptor_sets = [update_octtree_descriptor_set];
+
+
+        let render_pipeline_layout =
+            context.create_pipeline_layout(&[&render_descriptor_layout])?;
+
+        let render_pipeline = context.create_compute_pipeline(
+            &render_pipeline_layout,
             ComputePipelineCreateInfo {
                 shader_source: &include_bytes!("../shaders/ray_caster.comp.spv")[..],
             },
@@ -115,12 +157,12 @@ impl App for Particles {
         base.camera.z_far = 100.0;
 
         Ok(Self {
-            compute_ubo_buffer,
-            _compute_descriptor_pool: compute_descriptor_pool,
-            _compute_descriptor_layout: compute_descriptor_layout,
-            compute_descriptor_sets,
-            compute_pipeline_layout,
-            compute_pipeline,
+            render_ubo_buffer,
+            _render_descriptor_pool: render_descriptor_pool,
+            _render_descriptor_layout: render_descriptor_layout,
+            render_descriptor_sets,
+            render_pipeline_layout,
+            render_pipeline,
         })
     }
 
@@ -132,7 +174,7 @@ impl App for Particles {
         delta_time: Duration,
     ) -> Result<()> {
     
-        self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
+        self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             pos: base.camera.position,
             dir: base.camera.direction,
@@ -148,13 +190,13 @@ impl App for Particles {
         image_index: usize
     ) -> Result<()> {
 
-        buffer.bind_compute_pipeline(&self.compute_pipeline);
+        buffer.bind_compute_pipeline(&self.render_pipeline);
 
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::COMPUTE,
-            &self.compute_pipeline_layout,
+            &self.render_pipeline_layout,
             0,
-            &[&self.compute_descriptor_sets[image_index]],
+            &[&self.render_descriptor_sets[image_index]],
         );
 
         buffer.dispatch((base.swapchain.extent.width / DISPATCH_GROUP_SIZE_X) + 1, (base.swapchain.extent.height / DISPATCH_GROUP_SIZE_Y) + 1, 1);
@@ -167,7 +209,7 @@ impl App for Particles {
             .iter()
             .enumerate()
             .for_each(|(index, img)| {
-                let set = &self.compute_descriptor_sets[index];
+                let set = &self.render_descriptor_sets[index];
 
                 set.update(&[WriteDescriptorSet {
                     binding: 0,
@@ -212,4 +254,11 @@ struct ComputeUbo {
     screen_size: [f32; 2],
     pos: Vec3,
     dir: Vec3,
+}
+
+
+#[derive(Clone, Copy)]
+struct OcttreeNode {
+    childrenStartIndex: u32,
+    data: u32,
 }
