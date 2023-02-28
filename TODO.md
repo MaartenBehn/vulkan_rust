@@ -1,6 +1,5 @@
-- [ ] Mercury
-- [ ] Adding Compute Pipeline
-    - [ ] Compute Render Example
+- [x] Adding Compute Pipeline
+    - [x] Compute Render Example
 
 - [ ] Voxel Rendering
     - [ ] Simple Ray Caster
