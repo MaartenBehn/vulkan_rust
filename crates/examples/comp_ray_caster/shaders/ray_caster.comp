@@ -1,27 +1,53 @@
 #version 450
-#extension GL_EXT_shader_16bit_storage: enable
-#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+#extension GL_AMD_gpu_shader_int16: enable
+#extension GL_EXT_shader_explicit_arithmetic_types: enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16: enable
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
+struct Node{
+    uint16_t children[8];
+    uvec4 pos; // w is the depth
+    vec4 color; // w is the parent index and data bit field
+};
+
+uint getParent(Node node){
+    return uint(floatBitsToUint(node.color.w));
+}
+uint getDepth(Node node){
+    return uint(node.pos.w);
+}
+
+
 layout(binding = 0, rgba8) uniform writeonly image2D img;
+
 layout(binding = 1) uniform UniformBufferObject {
     vec2 screen_size;
     vec3 pos;
     vec3 dir;
 } ubo;
 
-
-struct Node{
-    uint16_t children[8];
-    uint16_t parent;
-    uint16_t data;
-    vec3 color;
-};
-layout(binding = 3) buffer OcttreeBuffer {
+layout(binding = 2) buffer OcttreeBuffer {
     Node octtree[];
 } octtreeBuffer;
 
+#define BUFFER_DEBUG true
+#define MAX_X 16
+#define MAX_Y 16
+
+uint to1D( uvec3 v ) {
+    return (v.z * MAX_X * MAX_Y) + (v.y * MAX_X) + v.x;
+}
+
+/*
+uint16_t[] to3D( uint16_t idx ) {
+    final int z = idx / (xMax * yMax);
+    idx -= (z * xMax * yMax);
+    final int y = idx / xMax;
+    final int x = idx % xMax;
+    return new int[]{ x, y, z };
+}
+*/
 
 /*
 struct Ray{
@@ -128,11 +154,36 @@ bool arrayRayHit(in Ray ray, in AABB root, out vec3 hitPoint, out vec3 normal, o
 }
 */
 
+
 void main () {
 
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size;
-    
-    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0, 0));
+
+    if (BUFFER_DEBUG) {
+        Node node = octtreeBuffer.octtree[gl_GlobalInvocationID.x];
+
+        if (uv.y < 0.1) {
+            imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(node.children[0]) / vec3(4681), 0));
+        }
+        else if (uv.y < 0.2) {
+            imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(getParent(node)) / vec3(4681), 0));
+        }
+        else if (uv.y < 0.3) {
+            imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(node.pos.x) / vec3(16), 0));
+        }
+        else if (uv.y < 0.4) {
+            imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(node.pos.y) / vec3(16), 0));
+        }
+        else if (uv.y < 0.5) {
+            imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(node.pos.z) / vec3(16), 0));
+        }
+        else if (uv.y < 0.6) {
+            imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(getDepth(node)) / vec3(4), 0));
+        }
+        else if (uv.y < 0.7) {
+            imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(node.color.xyz, 0));
+        }
+    }
 }
 

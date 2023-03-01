@@ -2,30 +2,35 @@ use app::glam::Vec3;
 use rand::Rng;
 
 pub const OCTTREE_DEPTH: usize = 4;
-pub const OCTTREE_SIZE: usize = 32;
+pub const OCTTREE_SIZE: usize = 16;
 pub const OCTTREE_NODE_COUNT: usize = 4681;
 
-pub struct Octtree{
-    nodes: [OcttreeNode; OCTTREE_NODE_COUNT]
-}
+const OCTTREE_CONFIG: [[u32; 3]; 8] = [
+    [0, 0, 0],
+    [0, 0, 1],
+    [0, 1, 0],
+    [0, 1, 1],
+    [1, 0, 1],
+    [1, 0, 1],
+    [1, 1, 0],
+    [1, 1, 1],
+];
+
 
 #[derive(Clone, Copy)]
-pub struct OcttreeNode {
-    children: [u16; 8],
-    parent: u16,
-    data: u16,
-    color: Vec3,
+pub struct Octtree{
+    pub nodes: [OcttreeNode; OCTTREE_NODE_COUNT]
 }
 
-impl Default for OcttreeNode {
-    fn default() -> Self {
-        Self { 
-            children: Default::default(), 
-            parent: Default::default(),
-            data: Default::default(),
-            color: Vec3::new(1.0, 0.0, 0.0),
-        }
-    }
+#[derive(Clone, Copy, Default)]
+pub struct OcttreeNode {
+    children: [u16; 8],
+
+    pos: [u32; 3],
+    depth: u32,
+    
+    color: Vec3,
+    parent: u32,
 }
 
 
@@ -36,31 +41,46 @@ impl Octtree{
         };
 
         let mut rng= rand::thread_rng();
-        octtree.update(0, 0, &mut rng);
+        octtree.update(0, 0, [0, 0, 0], &mut rng);
 
         return octtree;
     }
 
-    fn update(&mut self, i: usize, depth: usize, rng: &mut impl Rng) -> usize {
+    fn update(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng) -> usize {
 
         let mut new_i = i;
         if depth < OCTTREE_DEPTH {
             for j in 0..8 {
 
-                new_i += 1;
-                self.nodes[i].children[j] = new_i as u16;
-                self.nodes[new_i].parent = i as u16;
-
-                new_i = self.update(new_i, depth + 1, rng);
-
-                if self.nodes[self.nodes[i].children[j] as usize].data == 1 {
-                    self.nodes[i].data = 1
+                if j == 1 && depth == 0{
+                    print!("test");
                 }
+
+                new_i += 1;
+
+                self.nodes[i].children[j] = new_i as u16;
+                self.nodes[new_i].parent = i as u32;
+
+                let inverse_depth = u32::pow(2, (OCTTREE_DEPTH - depth - 1) as u32);
+                let new_pos = [
+                    pos[0] + OCTTREE_CONFIG[j][0] * inverse_depth, 
+                    pos[1] + OCTTREE_CONFIG[j][1] * inverse_depth, 
+                    pos[2] + OCTTREE_CONFIG[j][2] * inverse_depth,
+                    ];
+                
+                new_i = self.update(new_i, depth + 1, new_pos, rng);
             }
+
+            self.nodes[i].pos = self.nodes[self.nodes[i].children[0] as usize].pos
+
         }else{
             let data: bool = rng.gen();
-            self.nodes[i].data = data as u16;
+
+            self.nodes[i].pos = pos;
         }
+
+        self.nodes[i].depth = depth as u32;
+        self.nodes[i].color = Vec3::new(0.5, 0.5, 0.0);
         
         return new_i;
     }

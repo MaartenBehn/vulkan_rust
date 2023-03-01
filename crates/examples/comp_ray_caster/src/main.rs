@@ -1,5 +1,5 @@
 use std::mem::size_of;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
 use app::anyhow::Result;
 use app::glam::{Vec3};
@@ -35,6 +35,7 @@ struct RayCaster {
     render_pipeline_layout: PipelineLayout,
     render_pipeline: ComputePipeline,
 
+    octtree: Octtree,
     octtree_buffer: Buffer,
     update_octtree: bool,
     _update_octtree_descriptor_pool: DescriptorPool,
@@ -147,7 +148,7 @@ impl App for RayCaster {
                     },
                 },
                 WriteDescriptorSet {
-                    binding: 0,
+                    binding: 2,
                     kind: WriteDescriptorSetKind::StorageBuffer { 
                         buffer: &octtree_buffer
                     } 
@@ -198,6 +199,7 @@ impl App for RayCaster {
             render_pipeline_layout,
             render_pipeline,
 
+            octtree,
             octtree_buffer,
             update_octtree: true,
             _update_octtree_descriptor_pool: update_octtree_descriptor_pool,
@@ -222,6 +224,7 @@ impl App for RayCaster {
             dir: base.camera.direction,
         }])?;
 
+        self.octtree_buffer.copy_data_to_buffer(&[self.octtree])?;
 
         self.update_octtree = false;
 
