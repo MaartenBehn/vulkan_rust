@@ -1,13 +1,13 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use ash::vk::{self, AccessFlags, PipelineStageFlags, ImageMemoryBarrier};
+use ash::vk::{self};
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc, Allocator},
     MemoryLocation,
 };
 
-use crate::{device::Device, Context, CommandPool, Queue, CommandBuffer};
+use crate::{device::Device, Context};
 
 pub struct Image {
     device: Arc<Device>,

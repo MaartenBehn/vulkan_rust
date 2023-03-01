@@ -2,42 +2,50 @@ use std::mem::size_of;
 use std::time::{Duration, Instant};
 
 use app::anyhow::Result;
-use app::glam::{vec3, Mat4, Vec3, Vec2};
+use app::glam::{Vec3};
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
-    Buffer, BufferBarrier, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context,
-    DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
-    GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout, Vertex,
+    Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo,
+    DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
     WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::{log, App, BaseApp};
+use app::{App, BaseApp};
 use gui::imgui::{Condition, Ui};
+use rand::Rng;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
 
-const DISPATCH_GROUP_SIZE_X: u32 = 32;
-const DISPATCH_GROUP_SIZE_Y: u32 = 32;
+const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 32;
+const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
+const OCTTREE_DEPTH: usize = 4;
 const OCTTREE_SIZE: usize = 32;
-const OCTTREE_NODE_COUNT: usize = OCTTREE_SIZE * OCTTREE_SIZE * OCTTREE_SIZE;
+const OCTTREE_NODE_COUNT: usize = 4681;
 
 fn main() -> Result<()> {
-    app::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, true)
+    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
 }
-struct Particles {
+struct RayCaster {
     render_ubo_buffer: Buffer,
     _render_descriptor_pool: DescriptorPool,
     _render_descriptor_layout: DescriptorSetLayout,
     render_descriptor_sets: Vec<DescriptorSet>,
     render_pipeline_layout: PipelineLayout,
     render_pipeline: ComputePipeline,
+
+    octtree_buffer: Buffer,
+    update_octtree: bool,
+    _update_octtree_descriptor_pool: DescriptorPool,
+    _update_octtree_descriptor_layout: DescriptorSetLayout,
+    update_octtree_descriptor_set: DescriptorSet,
+    update_octtree_pipeline_layout: PipelineLayout,
+    update_octtree_pipeline: ComputePipeline,
 }
 
-impl App for Particles {
+impl App for RayCaster {
     type Gui = Gui;
 
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
@@ -49,6 +57,8 @@ impl App for Particles {
             MemoryLocation::CpuToGpu,
             size_of::<ComputeUbo>() as _,
         )?;
+
+        let octtree = Octtree::new();
         
         let octtree_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
@@ -140,8 +150,6 @@ impl App for Particles {
                 } 
             },
         ]);
-        let update_octtree_descriptor_sets = [update_octtree_descriptor_set];
-
 
         let render_pipeline_layout =
             context.create_pipeline_layout(&[&render_descriptor_layout])?;
@@ -150,6 +158,16 @@ impl App for Particles {
             &render_pipeline_layout,
             ComputePipelineCreateInfo {
                 shader_source: &include_bytes!("../shaders/ray_caster.comp.spv")[..],
+            },
+        )?;
+
+        let update_octtree_pipeline_layout =
+            context.create_pipeline_layout(&[&update_octtree_descriptor_layout])?;
+
+        let update_octtree_pipeline = context.create_compute_pipeline(
+            &render_pipeline_layout,
+            ComputePipelineCreateInfo {
+                shader_source: &include_bytes!("../shaders/build_tree.comp.spv")[..],
             },
         )?;
 
@@ -163,6 +181,14 @@ impl App for Particles {
             render_descriptor_sets,
             render_pipeline_layout,
             render_pipeline,
+
+            octtree_buffer,
+            update_octtree: true,
+            _update_octtree_descriptor_pool: update_octtree_descriptor_pool,
+            _update_octtree_descriptor_layout: update_octtree_descriptor_layout,
+            update_octtree_descriptor_set,
+            update_octtree_pipeline_layout,
+            update_octtree_pipeline
         })
     }
 
@@ -180,6 +206,9 @@ impl App for Particles {
             dir: base.camera.direction,
         }])?;
 
+
+        self.update_octtree = true;
+
         Ok(())
     }
 
@@ -190,6 +219,23 @@ impl App for Particles {
         image_index: usize
     ) -> Result<()> {
 
+        if self.update_octtree {
+            buffer.bind_compute_pipeline(&self.update_octtree_pipeline);
+
+            buffer.bind_descriptor_sets(
+                vk::PipelineBindPoint::COMPUTE,
+                &self.update_octtree_pipeline_layout,
+        0,
+            &[&self.update_octtree_descriptor_set],
+            );
+
+            buffer.dispatch(
+                OCTTREE_SIZE as u32, 
+                OCTTREE_SIZE as u32, 
+                OCTTREE_SIZE as u32,
+            );
+        }
+
         buffer.bind_compute_pipeline(&self.render_pipeline);
 
         buffer.bind_descriptor_sets(
@@ -199,7 +245,10 @@ impl App for Particles {
             &[&self.render_descriptor_sets[image_index]],
         );
 
-        buffer.dispatch((base.swapchain.extent.width / DISPATCH_GROUP_SIZE_X) + 1, (base.swapchain.extent.height / DISPATCH_GROUP_SIZE_Y) + 1, 1);
+        buffer.dispatch(
+            (base.swapchain.extent.width / RENDER_DISPATCH_GROUP_SIZE_X) + 1, 
+            (base.swapchain.extent.height / RENDER_DISPATCH_GROUP_SIZE_Y) + 1, 
+            1);
 
         Ok(())
     }
@@ -257,8 +306,60 @@ struct ComputeUbo {
 }
 
 
+struct Octtree{
+    nodes: [OcttreeNode; OCTTREE_NODE_COUNT]
+}
+
 #[derive(Clone, Copy)]
 struct OcttreeNode {
-    childrenStartIndex: u32,
+    children: [u32; 8],
     data: u32,
 }
+
+impl Default for OcttreeNode {
+    fn default() -> Self {
+        Self { 
+            children: Default::default(), 
+            data: Default::default()
+        }
+    }
+}
+
+
+impl Octtree{
+    fn new() -> Octtree{
+        let mut octtree = Octtree{
+            nodes: [OcttreeNode::default(); OCTTREE_NODE_COUNT],
+        };
+
+        let mut rng= rand::thread_rng();
+        octtree.update(0, 0, &mut rng);
+
+        return octtree;
+    }
+
+    fn update(&mut self, i: usize, depth: usize, rng: &mut impl Rng) -> usize {
+
+        let mut new_i = i;
+        if depth < OCTTREE_DEPTH {
+            for j in 0..8 {
+
+                new_i += 1;
+                self.nodes[i].children[j] = new_i as u32;
+                new_i = self.update(new_i, depth + 1, rng);
+
+                if self.nodes[self.nodes[i].children[j] as usize].data == 1 {
+                    self.nodes[i].data = 1
+                }
+            }
+        }else{
+            let data: bool = rng.gen();
+            self.nodes[i].data = data as u32;
+        }
+
+
+        
+        return new_i;
+    }
+}
+

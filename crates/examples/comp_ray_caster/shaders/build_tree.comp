@@ -3,7 +3,7 @@
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 struct Node{
-    uint childrenStartIndex;
+    uint children[8];
     uint data;
 };
 
@@ -11,44 +11,8 @@ layout(binding = 0) buffer OcttreeBuffer {
     Node octtree[];
 } octtreeBuffer;
 
-#define size 512
-#define maxDepth 4
-
-uint calculateRelativeIndex(uint v, uint d) {
-    return v / (size >> d);
-}
-
-uint calculateOctant(uvec3 pos, uint d){
-    return calculateRelativeIndex(pos.x, d) + calculateRelativeIndex(pos.z, d) * 2 + calculateRelativeIndex(pos.y, d) * 4;
-}
-
-uint calculateRelativeOctant(uvec3 pos, uint d){
-    return calculateOctant(pos % (size >> (d - 1)), d);
-}
-
-void updateOctree(uvec3 pos){
-    uint relativeIndex = calculateRelativeOctant(pos, 1);
-    octtreeBuffer.octtree[0].data |= 1;
-
-    uint nextIndex = relativeIndex + 1;
-    for (uint depth = 1; depth <= maxDepth; depth++){
-        Node current = octtreeBuffer.octtree[nextIndex];
-        current.data |= 1; 
-        octtreeBuffer.octtree[nextIndex] = current;
-
-        relativeIndex = calculateRelativeOctant(pos, depth + 1);
-
-        nextIndex = current.childrenStartIndex + relativeIndex;
-    }
-}
 
 void main()
 {
     uvec3 pos = gl_GlobalInvocationID.xyz;
-
-    //if (getData(pos) < 1){
-    //    return;
-    //}
-        
-    updateOctree(pos);
 }
