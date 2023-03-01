@@ -12,7 +12,10 @@ use app::vulkan::{
 };
 use app::{App, BaseApp};
 use gui::imgui::{Condition, Ui};
-use rand::Rng;
+
+
+mod octtree;
+use octtree::*;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -20,10 +23,6 @@ const APP_NAME: &str = "Ray Caster";
 
 const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 32;
 const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
-
-const OCTTREE_DEPTH: usize = 4;
-const OCTTREE_SIZE: usize = 32;
-const OCTTREE_NODE_COUNT: usize = 4681;
 
 fn main() -> Result<()> {
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
@@ -77,6 +76,10 @@ impl App for RayCaster {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
                     descriptor_count: 1,
                 },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: 1,
+                },
             ],
         )?;
 
@@ -102,6 +105,13 @@ impl App for RayCaster {
                 binding: 1,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 2,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -135,6 +145,12 @@ impl App for RayCaster {
                     kind: WriteDescriptorSetKind::UniformBuffer {
                         buffer: &render_ubo_buffer,
                     },
+                },
+                WriteDescriptorSet {
+                    binding: 0,
+                    kind: WriteDescriptorSetKind::StorageBuffer { 
+                        buffer: &octtree_buffer
+                    } 
                 },
             ]);
             render_descriptor_sets.push(render_descriptor_set);
@@ -207,7 +223,7 @@ impl App for RayCaster {
         }])?;
 
 
-        self.update_octtree = true;
+        self.update_octtree = false;
 
         Ok(())
     }
@@ -303,63 +319,5 @@ struct ComputeUbo {
     screen_size: [f32; 2],
     pos: Vec3,
     dir: Vec3,
-}
-
-
-struct Octtree{
-    nodes: [OcttreeNode; OCTTREE_NODE_COUNT]
-}
-
-#[derive(Clone, Copy)]
-struct OcttreeNode {
-    children: [u32; 8],
-    data: u32,
-}
-
-impl Default for OcttreeNode {
-    fn default() -> Self {
-        Self { 
-            children: Default::default(), 
-            data: Default::default()
-        }
-    }
-}
-
-
-impl Octtree{
-    fn new() -> Octtree{
-        let mut octtree = Octtree{
-            nodes: [OcttreeNode::default(); OCTTREE_NODE_COUNT],
-        };
-
-        let mut rng= rand::thread_rng();
-        octtree.update(0, 0, &mut rng);
-
-        return octtree;
-    }
-
-    fn update(&mut self, i: usize, depth: usize, rng: &mut impl Rng) -> usize {
-
-        let mut new_i = i;
-        if depth < OCTTREE_DEPTH {
-            for j in 0..8 {
-
-                new_i += 1;
-                self.nodes[i].children[j] = new_i as u32;
-                new_i = self.update(new_i, depth + 1, rng);
-
-                if self.nodes[self.nodes[i].children[j] as usize].data == 1 {
-                    self.nodes[i].data = 1
-                }
-            }
-        }else{
-            let data: bool = rng.gen();
-            self.nodes[i].data = data as u32;
-        }
-
-
-        
-        return new_i;
-    }
 }
 
