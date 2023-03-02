@@ -52,6 +52,8 @@ impl App for RayCaster {
         let context = &mut base.context;
 
         let images = &base.swapchain.images;
+        let images_len = images.len() as u32;
+
         let render_ubo_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
@@ -67,19 +69,19 @@ impl App for RayCaster {
         )?;
 
         let render_descriptor_pool = context.create_descriptor_pool(
-            3,
+            images_len * 3,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_IMAGE,
-                    descriptor_count: 1,
+                    descriptor_count: images_len,
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
-                    descriptor_count: 1,
+                    descriptor_count: images_len,
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,
-                    descriptor_count: 1,
+                    descriptor_count: images_len,
                 },
             ],
         )?;
@@ -188,7 +190,7 @@ impl App for RayCaster {
             },
         )?;
 
-        base.camera.position.z = 2.0;
+        base.camera.position = Vec3::new(0.0, 0.0, -2.0);
         base.camera.z_far = 100.0;
 
         Ok(Self {
@@ -220,13 +222,20 @@ impl App for RayCaster {
     
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
+            fill_0: 0.0,
+            fill_01: 0.0,
             pos: base.camera.position,
+            fill_1: 0.0,
             dir: base.camera.direction,
+            fill_2: 0.0
         }])?;
 
         self.octtree_buffer.copy_data_to_buffer(&[self.octtree])?;
 
         self.update_octtree = false;
+
+        gui.pos = base.camera.position;
+        gui.dir = base.camera.direction;
 
         Ok(())
     }
@@ -294,24 +303,30 @@ impl App for RayCaster {
 
 #[derive(Debug, Clone, Copy)]
 struct Gui {
-    
+    pos: Vec3,
+    dir: Vec3,
 }
 
 impl app::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
-            
+            pos: Vec3::default(),
+            dir: Vec3::default(),
         })
     }
 
     fn build(&mut self, ui: &Ui) {
-        ui.window("Debug")
+        ui.window("Ray caster")
             .position([5.0, 5.0], Condition::FirstUseEver)
             .size([300.0, 250.0], Condition::FirstUseEver)
             .resizable(false)
             .movable(false)
             .build(|| {
-                ui.text("Compute");
+                let pos = self.pos;
+                ui.text(format!("Pos: {pos}"));
+
+                let dir = self.dir;
+                ui.text(format!("Dir: {dir}"));
             });
     }
 }
@@ -320,7 +335,11 @@ impl app::Gui for Gui {
 #[allow(dead_code)]
 struct ComputeUbo {
     screen_size: [f32; 2],
+    fill_0: f32,
+    fill_01: f32,
     pos: Vec3,
+    fill_1: f32,
     dir: Vec3,
+    fill_2: f32,
 }
 
