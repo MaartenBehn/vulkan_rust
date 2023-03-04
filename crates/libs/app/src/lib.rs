@@ -490,7 +490,7 @@ impl<B: App> BaseApp<B> {
                 .focus_on_appearing(false)
                 .no_decoration()
                 .bg_alpha(0.5)
-                .position([width - 165.0, 5.0], gui::imgui::Condition::Always)
+                .position([5.0, 5.0], gui::imgui::Condition::Always)
                 .size([160.0, 140.0], gui::imgui::Condition::FirstUseEver)
                 .build(|| {
                     ui.text("Framerate");

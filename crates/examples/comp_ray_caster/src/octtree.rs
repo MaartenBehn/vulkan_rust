@@ -1,5 +1,6 @@
-use app::glam::Vec3;
-use rand::Rng;
+use app::{glam::Vec3, log};
+use rand::{Rng, SeedableRng};
+use rand::rngs::StdRng;
 
 pub const OCTTREE_DEPTH: usize = 4;
 pub const OCTTREE_SIZE: usize = 16;
@@ -45,7 +46,12 @@ impl Octtree{
             nodes: [OcttreeNode::default(); OCTTREE_NODE_COUNT],
         };
 
-        let mut rng= rand::thread_rng();
+        let mut seed_rng= rand::thread_rng();
+        let seed: u64 = seed_rng.gen();
+
+        log::info!("Octtree Seed: {:?}", seed);
+        let mut rng = StdRng::seed_from_u64(seed);
+       
         octtree.update(0, 0, [0, 0, 0], &mut rng);
 
         return octtree;
@@ -57,10 +63,11 @@ impl Octtree{
         if depth < OCTTREE_DEPTH {
             for j in 0..8 {
                 new_i += 1;
+                let childIndex = new_i;
 
-                self.nodes[i].children[j] = new_i as u16;
-                self.nodes[new_i].parent = i as u32;
-                self.nodes[new_i].child_index = j as u32;
+                self.nodes[i].children[j] = childIndex as u16;
+                self.nodes[childIndex].parent = i as u32;
+                self.nodes[childIndex].child_index = j as u32;
 
                 let inverse_depth = u32::pow(2, (OCTTREE_DEPTH - depth - 1) as u32);
                 let new_pos = [
@@ -71,20 +78,24 @@ impl Octtree{
                 
                 new_i = self.update(new_i, depth + 1, new_pos, rng);
 
-                if (self.nodes[new_i].color != Vec3::new(0.0, 0.0, 0.0)){
-                    self.nodes[i].color = self.nodes[new_i].color;
+                if (self.nodes[childIndex].color != Vec3::new(0.0, 0.0, 0.0)){
+                    self.nodes[i].color = self.nodes[childIndex].color;
                 }
             }
 
             self.nodes[i].pos = self.nodes[self.nodes[i].children[0] as usize].pos
 
         }else{
+            self.nodes[i].pos = pos;
+
             let data: f32 = rng.gen();
-            if (data < 0.1){
+            if (data < 0.01){
                 self.nodes[i].color = Vec3::new(rng.gen(), rng.gen(), rng.gen());
             }
 
-            self.nodes[i].pos = pos;
+            if (pos == [0, 0, 0] && depth == OCTTREE_DEPTH){
+                self.nodes[i].color = Vec3::new(1.0, 1.0, 1.0);
+            }
         }
 
         self.nodes[i].depth = depth as u32;

@@ -265,6 +265,7 @@ dependencies = [
  "app",
  "gui",
  "rand",
+ "rand_chacha",
 ]
 
 [[package]]

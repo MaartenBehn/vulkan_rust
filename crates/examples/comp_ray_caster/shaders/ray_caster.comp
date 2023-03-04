@@ -45,10 +45,6 @@ vec3 getNodeColor(Node node){
     return vec3(node.color);
 }
 
-bool isNodeEmpty(Node node){
-    return getNodeColor(node) == vec3(0);
-}
-
 void draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size;
@@ -146,66 +142,6 @@ bool checkHit(in Ray ray, in Node node, out float tMin, out float tMax, out vec3
     return tMax > tMin;
 }
 
-uint getSideIndex(vec3 side){
-    if (side == vec3(0, 0, 1)){
-        return 0;
-    }
-    if (side == vec3(0, 1, 0)){
-        return 1;
-    }
-    if (side == vec3(1, 0, 0)){
-        return 2;
-    }
-    if (side == vec3(0, 0, -1)){
-        return 3;
-    }
-    if (side == vec3(0, -1, 0)){
-        return 4;
-    }
-    if (side == vec3(-1, 0, 0)){
-        return 5;
-    }
-    return 6;
-}
-
-Node getHitChildIndex(in Ray ray, in Node node, in vec3 side, out vec3 newSideMin, out vec3 newSideMax){
-    float tMin;
-    float tMax;
-    vec3 sideMin;
-    vec3 sideMax;
-
-    uint sideIndex = getSideIndex(side);
-
-    uint childrenPerSide[6][4] = uint[][](
-        uint[](0, 2, 4, 6), 
-        uint[](0, 1, 4, 5), 
-        uint[](0, 1, 2, 3),
-        uint[](1, 3, 5, 7), 
-        uint[](2, 3, 6, 7), 
-        uint[](4, 5, 6, 7));
-
-    Node bestChildNode;
-    float bestTMin = 100000;
-
-    for (uint i = 0; i < 4; i++) {
-        uint16_t childIndex = node.children[childrenPerSide[sideIndex][i]];
-        Node childNode = octtreeBuffer.octtree[childIndex];
-        bool hit = checkHit(ray, childNode, tMin, tMax, sideMin, sideMax);
-
-        if (hit && tMin < bestTMin) {
-            bestTMin = tMin;
-            bestChildNode = childNode;
-            newSideMin = sideMin;
-            newSideMax = sideMax;
-        }
-    }
-
-    return bestChildNode;
-}
-
-bool shouldGoDown(Node node){
-    return getNodeDepth(node) < 4;
-}
 
 /*
 Child Offset:
@@ -229,92 +165,86 @@ Side:
 5  [-1, 0, 0]
 */
 
-bool findNeigborNode(Node node, vec3 side, out Node neigbor){
-    uint lookUp[8][6] = uint[][](
-            uint[](1, 2, 4, 8, 8, 8), 
-            uint[](8, 3, 5, 0, 8, 8), 
-            uint[](3, 8, 6, 8, 0, 8),
-            uint[](8, 8, 7, 2, 1, 8),
-
-            uint[](5, 6, 8, 8, 8, 0),
-            uint[](8, 7, 8, 4, 8, 1),
-            uint[](7, 8, 8, 8, 4, 2),
-            uint[](8, 8, 8, 6, 5, 3));
-
-    bool running = true;
-    uint counter = 0;
-    while (running && counter < 100){
-        Node parent = octtreeBuffer.octtree[getParent(node)];
-
-        uint index = lookUp[node.childIndex][getSideIndex(side)];
-        if (index >= 8){
-            if (getParent(node) == getParent(parent)){
-                return false;
-            }
-            else {
-                node = parent;
-            }            
-        }
-        else{
-            node = octtreeBuffer.octtree[parent.children[index]];
-            running = false;
-        }
-
-        counter++;
-    }
-
-    neigbor = node;
-    return true;
+uvec3 getNodePos(vec3 pos, uint depth){
+    uvec3 size = uvec3(pow(2, OCTTREE_DEPTH - depth));
+    uvec3 nodePos = (uvec3(pos / size) - uvec3(pos.x < 0, pos.y < 0, pos.z < 0)) * size;
+    return nodePos;
 }
 
-bool hitOctree(in Ray ray, out float depth, out vec3 color){
+Node getChildFromAtPos(Node node, vec3 pos, uint depth){
+    uvec3 nodePos = getNodePos(pos, depth);
+
+    for (uint i = 0; i < 8; i++){
+        Node childNode = octtreeBuffer.octtree[node.children[i]];
+        if (uvec3(childNode.pos) == nodePos){
+            return childNode;
+        }
+    }
+
+    return node;
+}
+
+bool hitOctree(in Ray ray, out vec3 color){
 
     float tMin;
     float tMax;
     vec3 sideMin;
     vec3 sideMax;
-    depth = 0;
+    uint depth = 0;
+    float rayLen = 0;
+
     color = vec3(0);
+    Node root = octtreeBuffer.octtree[0];
 
-    Node node = octtreeBuffer.octtree[0];
+    if (getNodePos(ray.pos, 0) != uvec3(0)){
+        bool initalHit = checkHit(ray, root, tMin, tMax, sideMin, sideMax);
 
-    bool initalHit = checkHit(ray, node, tMin, tMax, sideMin, sideMax);
-
-    if (!initalHit || (tMin < 0) || (tMax < 0)){
-        return false;
-    }
-
-    bool running = true;
-    uint counter = 0;
-    while (running && counter < 30) {
-        depth = tMin;
-
-        if (isNodeEmpty(node)){
-            Node neigbor;
-            if (findNeigborNode(node, sideMax, neigbor)){
-                node = neigbor;
-
-                checkHit(ray, node, tMin, tMax, sideMin, sideMax);
-            }
-            else{
-                return false;
-            }
+        if (!initalHit || (tMin < 0) || (tMax < 0)){
+            return false;
         }
         else{
-            if (shouldGoDown(node)){
-                node = getHitChildIndex(ray, node, sideMin, sideMin, sideMax);
+            ray.pos = ray.pos + ray.dir * (tMin + 0.0001);
+            rayLen += tMin;
+        }
+    }
+
+    Node node = root;
+
+    uint counter = 0;
+    while(counter < 100){
+        bool isEmpty = getNodeColor(node) == vec3(0);
+        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * 0.03));
+
+        if (!isEmpty && isLeave){
+            color = getNodeColor(node);
+            return true; // Ray Hit Node to Render
+
+        }
+        else if (isEmpty){
+            checkHit(ray, node, tMin, tMax, sideMin, sideMax);
+            ray.pos = ray.pos + ray.dir * (tMax + 0.0001);
+            rayLen += tMax;
+
+            if (getNodePos(ray.pos, 0) == uvec3(0)){
+                node = root;
+                depth = 0;
             }
             else{
-                color = getNodeColor(node);
-                color = vec3(1, 1, 0);
-                return true;
+                color = vec3(0.1, 0.1, 0);
+                return true; // Ray left Tree.
             }
         }
+        else if (!isEmpty && !isLeave){
+            depth += 1;
+
+            node = getChildFromAtPos(node, ray.pos, depth);
+        }
+
         counter++;
     }
 
-    color = vec3(1, 0, 0.5);
-    return true;
+    color = vec3(0.1, 0, 0.1);
+    return true; // Stopped loop
 }
 
 
@@ -326,10 +256,9 @@ void main () {
 
     Ray ray = initRay();
 
-    float depth;
     vec3 color;
 
-    bool hit = hitOctree(ray, depth, color);
+    bool hit = hitOctree(ray, color);
 
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4((color) * float(hit) , 0));
 }

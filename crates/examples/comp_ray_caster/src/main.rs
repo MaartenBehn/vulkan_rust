@@ -318,8 +318,8 @@ impl app::Gui for Gui {
 
     fn build(&mut self, ui: &Ui) {
         ui.window("Ray caster")
-            .position([5.0, 5.0], Condition::FirstUseEver)
-            .size([300.0, 250.0], Condition::FirstUseEver)
+            .position([5.0, 150.0], Condition::FirstUseEver)
+            .size([150.0, 100.0], Condition::FirstUseEver)
             .resizable(false)
             .movable(false)
             .build(|| {
