@@ -10,7 +10,7 @@ const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 1],
     [0, 1, 0],
     [0, 1, 1],
-    [1, 0, 1],
+    [1, 0, 0],
     [1, 0, 1],
     [1, 1, 0],
     [1, 1, 1],
@@ -31,6 +31,11 @@ pub struct OcttreeNode {
     
     color: Vec3,
     parent: u32,
+
+    child_index: u32,
+    fill_0: u32,
+    fill_1: u32,
+    fill_2: u32,
 }
 
 
@@ -51,15 +56,11 @@ impl Octtree{
         let mut new_i = i;
         if depth < OCTTREE_DEPTH {
             for j in 0..8 {
-
-                if j == 1 && depth == 0{
-                    print!("test");
-                }
-
                 new_i += 1;
 
                 self.nodes[i].children[j] = new_i as u16;
                 self.nodes[new_i].parent = i as u32;
+                self.nodes[new_i].child_index = j as u32;
 
                 let inverse_depth = u32::pow(2, (OCTTREE_DEPTH - depth - 1) as u32);
                 let new_pos = [
@@ -69,18 +70,24 @@ impl Octtree{
                     ];
                 
                 new_i = self.update(new_i, depth + 1, new_pos, rng);
+
+                if (self.nodes[new_i].color != Vec3::new(0.0, 0.0, 0.0)){
+                    self.nodes[i].color = self.nodes[new_i].color;
+                }
             }
 
             self.nodes[i].pos = self.nodes[self.nodes[i].children[0] as usize].pos
 
         }else{
-            let data: bool = rng.gen();
+            let data: f32 = rng.gen();
+            if (data < 0.1){
+                self.nodes[i].color = Vec3::new(rng.gen(), rng.gen(), rng.gen());
+            }
 
             self.nodes[i].pos = pos;
         }
 
         self.nodes[i].depth = depth as u32;
-        self.nodes[i].color = Vec3::new(0.5, 0.5, 0.0);
         
         return new_i;
     }

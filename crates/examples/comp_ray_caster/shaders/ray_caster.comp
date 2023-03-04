@@ -7,8 +7,13 @@ layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 struct Node{
     uint16_t children[8];
+
     uvec4 pos; // w is the depth
-    vec4 color; // w is the parent index and data bit field
+
+    vec4 color; // w is the parent index as uint
+
+    uint childIndex;
+    vec2 fill;
 };
 
 layout(binding = 0, rgba8) uniform writeonly image2D img;
@@ -25,41 +30,53 @@ layout(binding = 2) buffer OcttreeBuffer {
 
 #define BUFFER_DEBUG false
 #define OCTTREE_SIZE 16
-#define VIEW_DIST 10
+#define OCTTREE_DEPTH 4
+#define VIEW_DIST 100
 
 
 uint getParent(Node node){
     return uint(floatBitsToUint(node.color.w));
 }
-uint getDepth(Node node){
+uint getNodeDepth(Node node){
     return uint(node.pos.w);
+}
+
+vec3 getNodeColor(Node node){
+    return vec3(node.color);
+}
+
+bool isNodeEmpty(Node node){
+    return getNodeColor(node) == vec3(0);
 }
 
 void draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size;
-    Node node = octtreeBuffer.octtree[gl_GlobalInvocationID.x];
+    Node node = octtreeBuffer.octtree[gl_GlobalInvocationID.x / 10];
     
     vec3 color = vec3(0);
     if (uv.y < 0.1) {
         color = vec3(node.children[0]) / vec3(4681);
     }
     else if (uv.y < 0.2) {
-        color = vec3(getParent(node));
+        color = vec3(getParent(node)) / vec3(4681);
     }
     else if (uv.y < 0.3) {
-        color = vec3(node.pos.x) / vec3(16);
+        color = vec3(node.childIndex) / vec3(8);
     }
     else if (uv.y < 0.4) {
-        color = vec3(node.pos.y) / vec3(16);
+        color = vec3(node.pos.x) / vec3(16);
     }
     else if (uv.y < 0.5) {
-        color = vec3(node.pos.z) / vec3(16);
+        color = vec3(node.pos.y) / vec3(16);
     }
     else if (uv.y < 0.6) {
-        color = vec3(getDepth(node)) / vec3(4);
+        color = vec3(node.pos.z) / vec3(16);
     }
     else if (uv.y < 0.7) {
+        color = vec3(getNodeDepth(node)) / vec3(4);
+    }
+    else if (uv.y < 0.8) {
         color = node.color.xyz;
     }
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
@@ -82,18 +99,31 @@ uint16_t[] to3D( uint16_t idx ) {
 
 
 struct Ray{
-    vec3 origin;
+    vec3 pos;
     vec3 dir;
 };
 
-vec3 saturate(vec3 v){
-    return clamp(v, 0.0, 1.0);
+
+
+Ray initRay(){
+    vec2 uv = ((gl_GlobalInvocationID.xy * 2 - ubo.screen_size.xy) / ubo.screen_size.y) * vec2(-1);
+
+    vec3 ro = ubo.pos;
+    vec3 fwd = ubo.dir;
+    vec3 up = vec3(0.,1.,0.);
+    vec3 right = normalize(cross(up,fwd));
+    up = cross(fwd,right);
+    vec3 rd = right * uv.x + up * uv.y + fwd;
+    rd = normalize(rd);
+
+    Ray ray = Ray(ro, rd);
+    return ray;
 }
 
-bool checkHit(in Ray ray, in vec3 pos, in vec3 size, out float tMin, out float tMax, out vec3 sideMin, out vec3 sideMax)
+bool checkHit(in Ray ray, in Node node, out float tMin, out float tMax, out vec3 sideMin, out vec3 sideMax)
 {
-    vec3 minSize = pos;
-    vec3 maxSize = pos + size;
+    vec3 minSize = vec3(node.pos);
+    vec3 maxSize = vec3(node.pos) + vec3(pow(2, OCTTREE_DEPTH - getNodeDepth(node)));
     vec3 odir = vec3(1) / (ray.dir);
 
     vec3 isPositive = vec3(odir.x > 0, odir.y > 0, odir.z >= 0); // ray.odir = 1.0 / ray.dir
@@ -102,8 +132,8 @@ bool checkHit(in Ray ray, in vec3 pos, in vec3 size, out float tMin, out float t
     vec3 leftSide  = isPositive * minSize + isNegative * maxSize;
     vec3 rightSide = isPositive * maxSize + isNegative * minSize;
 
-    vec3 leftSideTimesOneOverDir  = (leftSide  - ray.origin) * odir;
-    vec3 rightSideTimesOneOverDir = (rightSide - ray.origin) * odir;
+    vec3 leftSideTimesOneOverDir  = (leftSide  - ray.pos) * odir;
+    vec3 rightSideTimesOneOverDir = (rightSide - ray.pos) * odir;
 
     tMin = max(leftSideTimesOneOverDir.x, max(leftSideTimesOneOverDir.y, leftSideTimesOneOverDir.z));
     tMax = min(rightSideTimesOneOverDir.x, min(rightSideTimesOneOverDir.y, rightSideTimesOneOverDir.z));
@@ -116,34 +146,191 @@ bool checkHit(in Ray ray, in vec3 pos, in vec3 size, out float tMin, out float t
     return tMax > tMin;
 }
 
-
-void main () {
-    if (BUFFER_DEBUG) {
-        draw_buffer_debuger();
-        return;
+uint getSideIndex(vec3 side){
+    if (side == vec3(0, 0, 1)){
+        return 0;
     }
+    if (side == vec3(0, 1, 0)){
+        return 1;
+    }
+    if (side == vec3(1, 0, 0)){
+        return 2;
+    }
+    if (side == vec3(0, 0, -1)){
+        return 3;
+    }
+    if (side == vec3(0, -1, 0)){
+        return 4;
+    }
+    if (side == vec3(-1, 0, 0)){
+        return 5;
+    }
+    return 6;
+}
 
-    vec2 uv = (gl_GlobalInvocationID.xy * 2 - ubo.screen_size.xy) / ubo.screen_size.y;
-
-    vec3 ro = ubo.pos * vec3(-1);
-    vec3 fwd = ubo.dir;
-    vec3 up = vec3(0.,1.,0.);
-    vec3 right = normalize(cross(up,fwd));
-    up = cross(fwd,right);
-    vec3 rd = right * uv.x + up * uv.y + fwd;
-    rd = normalize(rd);
-
-    Ray ray = Ray(ro, rd);
-
+Node getHitChildIndex(in Ray ray, in Node node, in vec3 side, out vec3 newSideMin, out vec3 newSideMax){
     float tMin;
     float tMax;
     vec3 sideMin;
     vec3 sideMax;
 
-    bool hit = checkHit(ray, vec3(-0.5), vec3(1), tMin, tMax, sideMin, sideMax);
+    uint sideIndex = getSideIndex(side);
 
-    float depth = (1 - (tMin / VIEW_DIST)) * float(hit);
+    uint childrenPerSide[6][4] = uint[][](
+        uint[](0, 2, 4, 6), 
+        uint[](0, 1, 4, 5), 
+        uint[](0, 1, 2, 3),
+        uint[](1, 3, 5, 7), 
+        uint[](2, 3, 6, 7), 
+        uint[](4, 5, 6, 7));
 
-    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(depth), 0));
+    Node bestChildNode;
+    float bestTMin = 100000;
+
+    for (uint i = 0; i < 4; i++) {
+        uint16_t childIndex = node.children[childrenPerSide[sideIndex][i]];
+        Node childNode = octtreeBuffer.octtree[childIndex];
+        bool hit = checkHit(ray, childNode, tMin, tMax, sideMin, sideMax);
+
+        if (hit && tMin < bestTMin) {
+            bestTMin = tMin;
+            bestChildNode = childNode;
+            newSideMin = sideMin;
+            newSideMax = sideMax;
+        }
+    }
+
+    return bestChildNode;
+}
+
+bool shouldGoDown(Node node){
+    return getNodeDepth(node) < 4;
+}
+
+/*
+Child Offset:
+0  [0, 0, 0],
+1  [0, 0, 1],
+2  [0, 1, 0],
+3  [0, 1, 1],
+
+4  [1, 0, 0],
+5  [1, 0, 1],
+6  [1, 1, 0],
+7  [1, 1, 1],
+
+Side:
+0  [0, 0, 1]
+1  [0, 1, 0]
+2  [1, 0, 0]
+
+3  [0, 0,-1]
+4  [0,-1, 0]
+5  [-1, 0, 0]
+*/
+
+bool findNeigborNode(Node node, vec3 side, out Node neigbor){
+    uint lookUp[8][6] = uint[][](
+            uint[](1, 2, 4, 8, 8, 8), 
+            uint[](8, 3, 5, 0, 8, 8), 
+            uint[](3, 8, 6, 8, 0, 8),
+            uint[](8, 8, 7, 2, 1, 8),
+
+            uint[](5, 6, 8, 8, 8, 0),
+            uint[](8, 7, 8, 4, 8, 1),
+            uint[](7, 8, 8, 8, 4, 2),
+            uint[](8, 8, 8, 6, 5, 3));
+
+    bool running = true;
+    uint counter = 0;
+    while (running && counter < 100){
+        Node parent = octtreeBuffer.octtree[getParent(node)];
+
+        uint index = lookUp[node.childIndex][getSideIndex(side)];
+        if (index >= 8){
+            if (getParent(node) == getParent(parent)){
+                return false;
+            }
+            else {
+                node = parent;
+            }            
+        }
+        else{
+            node = octtreeBuffer.octtree[parent.children[index]];
+            running = false;
+        }
+
+        counter++;
+    }
+
+    neigbor = node;
+    return true;
+}
+
+bool hitOctree(in Ray ray, out float depth, out vec3 color){
+
+    float tMin;
+    float tMax;
+    vec3 sideMin;
+    vec3 sideMax;
+    depth = 0;
+    color = vec3(0);
+
+    Node node = octtreeBuffer.octtree[0];
+
+    bool initalHit = checkHit(ray, node, tMin, tMax, sideMin, sideMax);
+
+    if (!initalHit || (tMin < 0) || (tMax < 0)){
+        return false;
+    }
+
+    bool running = true;
+    uint counter = 0;
+    while (running && counter < 30) {
+        depth = tMin;
+
+        if (isNodeEmpty(node)){
+            Node neigbor;
+            if (findNeigborNode(node, sideMax, neigbor)){
+                node = neigbor;
+
+                checkHit(ray, node, tMin, tMax, sideMin, sideMax);
+            }
+            else{
+                return false;
+            }
+        }
+        else{
+            if (shouldGoDown(node)){
+                node = getHitChildIndex(ray, node, sideMin, sideMin, sideMax);
+            }
+            else{
+                color = getNodeColor(node);
+                color = vec3(1, 1, 0);
+                return true;
+            }
+        }
+        counter++;
+    }
+
+    color = vec3(1, 0, 0.5);
+    return true;
+}
+
+
+void main () { 
+    if (BUFFER_DEBUG) {
+        draw_buffer_debuger();
+        return;
+    }
+
+    Ray ray = initRay();
+
+    float depth;
+    vec3 color;
+
+    bool hit = hitOctree(ray, depth, color);
+
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4((color) * float(hit) , 0));
 }
 

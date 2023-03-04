@@ -190,7 +190,8 @@ impl App for RayCaster {
             },
         )?;
 
-        base.camera.position = Vec3::new(0.0, 0.0, -2.0);
+        base.camera.position = Vec3::new(-10.0, 0.0, 2.0);
+        base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
 
         Ok(Self {
