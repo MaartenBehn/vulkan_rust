@@ -54,9 +54,9 @@ impl Octtree{
         if depth < OCTTREE_DEPTH {
             for j in 0..8 {
                 new_i += 1;
-                let childIndex = new_i;
+                let child_index = new_i;
 
-                self.nodes[i].children[j] = childIndex as u16;
+                self.nodes[i].children[j] = child_index as u16;
                 //self.nodes[childIndex].parent = i as u32;
                 //self.nodes[childIndex].child_index = j as u32;
 
@@ -69,8 +69,8 @@ impl Octtree{
                 
                 new_i = self.update(new_i, depth + 1, new_pos, rng);
 
-                if (self.nodes[childIndex].color != Vec3::new(0.0, 0.0, 0.0)){
-                    self.nodes[i].color = self.nodes[childIndex].color;
+                if (self.nodes[child_index].color != Vec3::new(0.0, 0.0, 0.0)){
+                    self.nodes[i].color = self.nodes[child_index].color;
                 }
             }
 
@@ -80,7 +80,7 @@ impl Octtree{
             //self.nodes[i].pos = pos;
 
             let data: f32 = rng.gen();
-            if (data < 0.4){
+            if (data < 0.01){
                 self.nodes[i].color = Vec3::new(rng.gen(), rng.gen(), rng.gen());
             }
 

@@ -82,7 +82,6 @@ impl App for RayCaster {
             &[octtree],
         )?;
         
-
         let render_descriptor_pool = context.create_descriptor_pool(
             images_len * 3,
             &[
