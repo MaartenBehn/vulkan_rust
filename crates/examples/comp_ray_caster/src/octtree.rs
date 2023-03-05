@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 
 pub const OCTTREE_DEPTH: usize = 4;
 pub const OCTTREE_SIZE: usize = 16;
-pub const OCTTREE_NODE_COUNT: usize = 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1
+pub const OCTTREE_NODE_COUNT: usize = 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
@@ -92,5 +92,9 @@ impl Octtree{
         //self.nodes[i].depth = depth as u32;
         
         return new_i;
+    }
+
+    pub fn getOctreeInfo() -> [u64; 3]{
+        return [0, 0, OCTTREE_NODE_COUNT as u64];
     }
 }

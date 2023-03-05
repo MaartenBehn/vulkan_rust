@@ -38,6 +38,7 @@ struct RayCaster {
 
     octtree: Octtree,
     octtree_buffer: Buffer,
+    octtree_info_buffer: Buffer,
     update_octtree: bool,
     _update_octtree_descriptor_pool: DescriptorPool,
     _update_octtree_descriptor_layout: DescriptorSetLayout,
@@ -65,26 +66,31 @@ impl App for RayCaster {
 
         let octtree = Octtree::new();
 
-        /*
-        let octtree_buffer = context.create_buffer(
-            vk::BufferUsageFlags::STORAGE_BUFFER, 
-            MemoryLocation::CpuToGpu,
-            (size_of::<OcttreeNode>() * OCTTREE_NODE_COUNT) as _,
-        )?;
-
-        octtree_buffer.copy_data_to_buffer(&[octtree])?;
-        */
-
         let octtree_buffer = create_gpu_only_buffer_from_data(
             context,
-            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
             &[octtree],
+        )?;
+
+        let octtree_info = Octtree::getOctreeInfo();
+
+        let octtree_info_buffer = create_gpu_only_buffer_from_data(
+            context, 
+            vk::BufferUsageFlags::STORAGE_BUFFER, 
+            &[octtree_info]
         )?;
         
         let render_descriptor_pool = context.create_descriptor_pool(
-            images_len * 3,
+            images_len * 4,
             &[
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: images_len,
+                },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: images_len,
+                },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_IMAGE,
                     descriptor_count: images_len,
@@ -93,16 +99,16 @@ impl App for RayCaster {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
                     descriptor_count: images_len,
                 },
-                vk::DescriptorPoolSize {
-                    ty: vk::DescriptorType::STORAGE_BUFFER,
-                    descriptor_count: images_len,
-                },
             ],
         )?;
 
         let update_octtree_descriptor_pool = context.create_descriptor_pool(
-            1,
+            2,
             &[
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: 1,
+                },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,
                     descriptor_count: 1,
@@ -114,21 +120,28 @@ impl App for RayCaster {
             vk::DescriptorSetLayoutBinding {
                 binding: 0,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_IMAGE,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
             vk::DescriptorSetLayoutBinding {
                 binding: 1,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
             vk::DescriptorSetLayoutBinding {
                 binding: 2,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                descriptor_type: vk::DescriptorType::STORAGE_IMAGE,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 3,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -137,6 +150,13 @@ impl App for RayCaster {
         let update_octtree_descriptor_layout = context.create_descriptor_set_layout(&[
             vk::DescriptorSetLayoutBinding {
                 binding: 0,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 1,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
@@ -152,22 +172,28 @@ impl App for RayCaster {
             render_descriptor_set.update(&[
                 WriteDescriptorSet {
                     binding: 0,
+                    kind: WriteDescriptorSetKind::StorageBuffer { 
+                        buffer: &octtree_buffer
+                    } 
+                },
+                WriteDescriptorSet {
+                    binding: 1,
+                    kind: WriteDescriptorSetKind::StorageBuffer { 
+                        buffer: &octtree_info_buffer
+                    } 
+                },
+                WriteDescriptorSet {
+                    binding: 2,
                     kind: WriteDescriptorSetKind::StorageImage {
                         layout: vk::ImageLayout::GENERAL,
                         view: &base.storage_images[i].view,
                     },
                 },
                 WriteDescriptorSet {
-                    binding: 1,
+                    binding: 3,
                     kind: WriteDescriptorSetKind::UniformBuffer {
                         buffer: &render_ubo_buffer,
                     },
-                },
-                WriteDescriptorSet {
-                    binding: 2,
-                    kind: WriteDescriptorSetKind::StorageBuffer { 
-                        buffer: &octtree_buffer
-                    } 
                 },
             ]);
             render_descriptor_sets.push(render_descriptor_set);
@@ -180,6 +206,12 @@ impl App for RayCaster {
                 binding: 0,
                 kind: WriteDescriptorSetKind::StorageBuffer { 
                     buffer: &octtree_buffer
+                } 
+            },
+            WriteDescriptorSet {
+                binding: 1,
+                kind: WriteDescriptorSetKind::StorageBuffer { 
+                    buffer: &octtree_info_buffer
                 } 
             },
         ]);
@@ -218,7 +250,8 @@ impl App for RayCaster {
 
             octtree,
             octtree_buffer,
-            update_octtree: true,
+            octtree_info_buffer,
+            update_octtree: false,
             _update_octtree_descriptor_pool: update_octtree_descriptor_pool,
             _update_octtree_descriptor_layout: update_octtree_descriptor_layout,
             update_octtree_descriptor_set,
@@ -284,7 +317,7 @@ impl App for RayCaster {
             buffer.bind_descriptor_sets(
                 vk::PipelineBindPoint::COMPUTE,
                 &self.update_octtree_pipeline_layout,
-        0,
+                0,
             &[&self.update_octtree_descriptor_set],
             );
 

@@ -5,24 +5,97 @@
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
+// Octtree Start
+#define Bit_8_MAX 255
+#define Bit_16_MAX 65536
+
 struct Node{
     uint16_t children[8];
-    vec4 color;
+    vec4 color; // w is 16 bit Partent Index, 8 bit renderCounter.
 };
 
-layout(binding = 0, rgba8) uniform writeonly image2D img;
+layout(binding = 0) buffer OcttreeBuffer {
+    Node octtree[];
+} octtreeBuffer;
 
-layout(binding = 1) uniform UniformBufferObject {
-    vec4 screen_size; // z is RootNodeIndex, w is renderCounter actually an u8
+layout(binding = 1) buffer OcttreeInfo {
+    uint data[]; // 0 is Root index, 1 is buffer Head, 2 is BufferSize
+} octtreeInfo;
+
+
+Node getNode(uint index){
+    return octtreeBuffer.octtree[index];
+}
+void setNode(uint index, Node node){
+    octtreeBuffer.octtree[index] = node;
+}
+
+uint getChildIndex(Node node, uint childIndex){
+    return node.children[childIndex];
+}
+void setChildIndex(uint index, uint childIndex, uint newIndex){
+    octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
+}
+
+vec3 getNodeColor(Node node){
+    return vec3(node.color);
+}
+
+uint getParentIndex(Node node){
+    return uint(floatBitsToUint(node.color.w) & Bit_16_MAX);
+}
+void setParentIndex(uint index, uint parentIndex){
+
+    uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
+
+    bits = (bits & ~(Bit_16_MAX << 0) | (parentIndex << 0));
+
+    octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
+}
+
+bool getRenderFlag(Node node){
+    return bool((uint(floatBitsToUint(node.color.w)) >> 15) & 1); 
+}
+void setRenderFlag(uint index, bool renderFlag){
+    
+    uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
+
+    bits = (bits & ~(1 << 15) | (uint(renderFlag) << 15));
+
+    octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
+}
+
+
+uint getRootIndex(){
+    return octtreeInfo.data[0];
+}
+void setRootIndex(uint rootIndex){
+    octtreeInfo.data[0] = rootIndex;
+}
+
+uint getBufferHead(){
+    return octtreeInfo.data[1];
+}
+void setBufferHead(uint rootIndex){
+    octtreeInfo.data[1] = rootIndex;
+}
+
+uint getBufferSize(){
+    return octtreeInfo.data[2];
+}
+// Octtree End
+
+
+layout(binding = 2, rgba8) uniform writeonly image2D img;
+
+layout(binding = 3) uniform UniformBufferObject {
+    vec4 screen_size;
     vec4 pos;
     vec4 dir;
 } ubo;
 
-layout(binding = 2) buffer OcttreeBuffer {
-    Node octtree[];
-} octtreeBuffer;
 
-#define BUFFER_DEBUG false
+#define BUFFER_DEBUG true
 #define COUNTER_DEBUG false
 
 #define OCTTREE_SIZE 16
@@ -31,22 +104,10 @@ layout(binding = 2) buffer OcttreeBuffer {
 #define MAX_STEPS 100
 
 
-vec3 getNodeColor(Node node){
-    return vec3(node.color);
-}
-
-uint getRootNodeIndex(){
-    return uint(floatBitsToUint(ubo.screen_size.z)); 
-}
-
-uint getRenderCounter(){
-    return uint(floatBitsToUint(ubo.screen_size.w)); 
-}
-
 void draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size.xy;
-    Node node = octtreeBuffer.octtree[gl_GlobalInvocationID.x];
+    Node node = getNode(gl_GlobalInvocationID.x);
     
     vec3 color = vec3(0);
     if (uv.y < 0.1) {
@@ -163,7 +224,9 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     // Loop
     uint depth = 0;
     uint size = rootSize;
-    Node root = octtreeBuffer.octtree[getRootNodeIndex()];
+
+    setRenderFlag(getRootIndex(), true);
+    Node root = getNode(getRootIndex());
     Node node = root;
     uvec3 nodePos = uvec3(0);
 
@@ -189,7 +252,10 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             }
 
             uint childIndex = getChildFromPos(posDelta);
-            node = octtreeBuffer.octtree[node.children[childIndex]];
+            uint newNodeIndex = node.children[childIndex];
+
+            setRenderFlag(newNodeIndex, true);
+            node = getNode(newNodeIndex);
         }
         else if (isEmpty){
             checkHit(ray, vec3(nodePos), size, tMin, tMax);

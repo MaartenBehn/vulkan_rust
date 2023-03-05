@@ -1,22 +1,158 @@
 #version 450
-#extension GL_EXT_shader_16bit_storage: enable
-#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
 
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+#extension GL_AMD_gpu_shader_int16: enable
+#extension GL_EXT_shader_explicit_arithmetic_types: enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16: enable
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+
+// Octtree Start
+#define Bit_8_MAX 255
+#define Bit_16_MAX 65536
 
 struct Node{
     uint16_t children[8];
-    uint16_t parent;
-    uint16_t data;
-    vec3 color;
+    vec4 color; // w is 16 bit Partent Index, 8 bit renderCounter.
 };
 
 layout(binding = 0) buffer OcttreeBuffer {
     Node octtree[];
 } octtreeBuffer;
 
+layout(binding = 1) buffer OcttreeInfo {
+    uint data[]; // 0 is Root index, 1 is buffer Head, 2 is BufferSize
+} octtreeInfo;
+
+
+Node getNode(uint index){
+    return octtreeBuffer.octtree[index];
+}
+void setNode(uint index, Node node){
+    octtreeBuffer.octtree[index] = node;
+}
+
+uint getChildIndex(Node node, uint childIndex){
+    return node.children[childIndex];
+}
+void setChildIndex(uint index, uint childIndex, uint newIndex){
+    octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
+}
+
+vec3 getNodeColor(Node node){
+    return vec3(node.color);
+}
+
+uint getParentIndex(Node node){
+    return uint(floatBitsToUint(node.color.w) & Bit_16_MAX);
+}
+void setParentIndex(uint index, uint parentIndex){
+
+    uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
+
+    bits = (bits & ~(Bit_16_MAX << 0) | (parentIndex << 0));
+
+    octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
+}
+
+bool getRenderFlag(Node node){
+    return bool((uint(floatBitsToUint(node.color.w)) >> 15) & 1); 
+}
+void setRenderFlag(uint index, bool renderFlag){
+    
+    uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
+
+    bits = (bits & ~(1 << 15) | (uint(renderFlag) << 15));
+
+    octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
+}
+
+
+uint getRootIndex(){
+    return octtreeInfo.data[0];
+}
+void setRootIndex(uint rootIndex){
+    octtreeInfo.data[0] = rootIndex;
+}
+
+uint getBufferHead(){
+    return octtreeInfo.data[1];
+}
+void setBufferHead(uint rootIndex){
+    octtreeInfo.data[1] = rootIndex;
+}
+
+uint getBufferSize(){
+    return octtreeInfo.data[2];
+}
+// Octtree End
+
+
+
+uint setHead(int index, uint size){
+    return index - size * uint(index > size) + size * uint(index < 0);
+}
+
+void moveNodeConnections(Node node, uint fromIndex, uint toIndex, uint rootIndex){
+    // Updating parentIndex of Children.
+    for (uint i = 0; i < 8; i++){
+        uint childIndex = getChildIndex(node, i);
+        if (childIndex != 0){
+            setParentIndex(childIndex, toIndex);
+        }
+    }
+
+    // Updating childIndex of Parent.
+    if (fromIndex != rootIndex){
+        uint parentIndex = getParentIndex(node);
+        Node parentNode = getNode(parentIndex);
+
+        for (uint i = 0; i < 8; i++){
+            uint childIndex = getChildIndex(parentNode, i);
+            if (childIndex == fromIndex){
+                setChildIndex(parentIndex, i, toIndex);
+            }
+        }
+    }
+}
 
 void main()
 {
-    uvec3 pos = gl_GlobalInvocationID.xyz;
+    uint readHead = getBufferHead();
+    uint bufferSize = getBufferSize();
+    uint rootIndex = getRootIndex();
+
+    uint writeHead = setHead(int(readHead) - 1, bufferSize);
+
+    uint counter = 0;
+    while (setHead(int(readHead) + 1, bufferSize) == writeHead || counter > 10000){
+        Node readNode = getNode(readHead);
+        Node writeNode = getNode(writeHead);
+
+        bool readRenderFlag = getRenderFlag(readNode);
+        bool writeRenderFlag = getRenderFlag(writeNode);
+
+        if (!readRenderFlag){
+            readHead = setHead(int(readHead) + 1, bufferSize);
+
+            continue;
+        }
+        if (writeRenderFlag){
+            setRenderFlag(writeHead, false);
+
+            writeHead = setHead(int(readHead) - 1, bufferSize);
+            continue;
+        }
+        
+        moveNodeConnections(readNode, readHead, writeHead, rootIndex);
+        moveNodeConnections(writeNode, writeHead, readHead, rootIndex);
+
+        setNode(writeHead, readNode);
+        setNode(readHead, writeNode);
+
+        setRenderFlag(readHead, false);
+
+        readHead = setHead(int(readHead) + 1, bufferSize);
+        writeHead = setHead(int(readHead) - 1, bufferSize);
+    }
 }
