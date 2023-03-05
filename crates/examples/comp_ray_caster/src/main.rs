@@ -5,6 +5,7 @@ use app::anyhow::Result;
 use app::glam::{Vec3};
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
+use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo,
     DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
@@ -61,12 +62,24 @@ impl App for RayCaster {
         )?;
 
         let octtree = Octtree::new();
-        
+
+        /*
         let octtree_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::CpuToGpu,
             (size_of::<OcttreeNode>() * OCTTREE_NODE_COUNT) as _,
         )?;
+
+        octtree_buffer.copy_data_to_buffer(&[octtree])?;
+        */
+
+        let octtree_buffer = create_gpu_only_buffer_from_data(
+            context,
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                | vk::BufferUsageFlags::STORAGE_BUFFER,
+            &[octtree],
+        )?;
+        
 
         let render_descriptor_pool = context.create_descriptor_pool(
             images_len * 3,
@@ -190,7 +203,7 @@ impl App for RayCaster {
             },
         )?;
 
-        base.camera.position = Vec3::new(-10.0, 0.0, 2.0);
+        base.camera.position = Vec3::new(-10.0, 8.0, 8.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
 
@@ -223,15 +236,13 @@ impl App for RayCaster {
     
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
-            fill_0: 0.0,
+            root_node_index: 0,
             fill_01: 0.0,
             pos: base.camera.position,
             fill_1: 0.0,
             dir: base.camera.direction,
             fill_2: 0.0
         }])?;
-
-        self.octtree_buffer.copy_data_to_buffer(&[self.octtree])?;
 
         self.update_octtree = false;
 
@@ -336,7 +347,7 @@ impl app::Gui for Gui {
 #[allow(dead_code)]
 struct ComputeUbo {
     screen_size: [f32; 2],
-    fill_0: f32,
+    root_node_index: u32,
     fill_01: f32,
     pos: Vec3,
     fill_1: f32,
