@@ -13,7 +13,7 @@ struct Node{
 layout(binding = 0, rgba8) uniform writeonly image2D img;
 
 layout(binding = 1) uniform UniformBufferObject {
-    vec3 screen_size; // z is RootNodeIndex
+    vec4 screen_size; // z is RootNodeIndex, w is renderCounter actually an u8
     vec3 pos;
     vec3 dir;
 } ubo;
@@ -39,7 +39,9 @@ uint getRootNodeIndex(){
     return uint(floatBitsToUint(ubo.screen_size.z)); 
 }
 
-
+uint getRenderCounter(){
+    return uint(floatBitsToUint(ubo.screen_size.w)); 
+}
 
 void draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)

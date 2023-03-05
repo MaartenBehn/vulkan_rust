@@ -44,6 +44,8 @@ struct RayCaster {
     update_octtree_descriptor_set: DescriptorSet,
     update_octtree_pipeline_layout: PipelineLayout,
     update_octtree_pipeline: ComputePipeline,
+
+    render_counter: u8, 
 }
 
 impl App for RayCaster {
@@ -222,7 +224,9 @@ impl App for RayCaster {
             _update_octtree_descriptor_layout: update_octtree_descriptor_layout,
             update_octtree_descriptor_set,
             update_octtree_pipeline_layout,
-            update_octtree_pipeline
+            update_octtree_pipeline,
+
+            render_counter: 0,
         })
     }
 
@@ -237,18 +241,34 @@ impl App for RayCaster {
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             root_node_index: 0,
-            fill_01: 0.0,
+            //render_counter: self.render_counter, 
+            render_counter: self.render_counter as u32,
+            //fill_01: 0,
             pos: base.camera.position,
-            fill_1: 0.0,
+            fill_1: 0,
             dir: base.camera.direction,
-            fill_2: 0.0
+            fill_2: 0
         }])?;
 
         self.update_octtree = false;
 
+        // Updateing Gui
         gui.pos = base.camera.position;
         gui.dir = base.camera.direction;
+        gui.render_counter = self.render_counter;
 
+        // Incrementing render counter
+        if self.render_counter < 255{
+            self.render_counter += 1;
+        }
+
+        self.render_counter = if self.render_counter < 255 {
+            self.render_counter + 1
+        } else {
+            0
+        };
+
+        
         Ok(())
     }
 
@@ -317,6 +337,7 @@ impl App for RayCaster {
 struct Gui {
     pos: Vec3,
     dir: Vec3,
+    render_counter: u8,
 }
 
 impl app::Gui for Gui {
@@ -324,6 +345,7 @@ impl app::Gui for Gui {
         Ok(Gui {
             pos: Vec3::default(),
             dir: Vec3::default(),
+            render_counter: 0,
         })
     }
 
@@ -339,6 +361,9 @@ impl app::Gui for Gui {
 
                 let dir = self.dir;
                 ui.text(format!("Dir: {dir}"));
+
+                let render_counter = self.render_counter;
+                ui.text(format!("Render Counter: {render_counter}"));
             });
     }
 }
@@ -348,10 +373,12 @@ impl app::Gui for Gui {
 struct ComputeUbo {
     screen_size: [f32; 2],
     root_node_index: u32,
-    fill_01: f32,
+    render_counter: u32,
+
     pos: Vec3,
-    fill_1: f32,
+    fill_1: u32,
+
     dir: Vec3,
-    fill_2: f32,
+    fill_2: u32,
 }
 
