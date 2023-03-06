@@ -107,37 +107,60 @@ void main()
 
     Node readNode = getNode(readHead);
     if (getRenderFlag(readNode)){
-        uint readParentIndex = 0;
-        uint readParentChildIndex = 0;
-        bool running = true;
-        for (int i = 0; i < bufferSize && running; i++){
-            for (int j = 0; j < 8 && running; j++){
-                Node parentNode = getNode(i);
-                if (getChildIndex(parentNode, j) == readHead){
-                    readParentIndex = i;
-                    readParentChildIndex = j;
-                    running = false;
-                }
-            }
-        }
-
-        uint writeParentIndex = 0;
-        uint writeParentChildIndex = 0;
-        running = true;
-        for (int i = 0; i < bufferSize && running; i++){
-            for (int j = 0; j < 8 && running; j++){
-                Node parentNode = getNode(i);
-                if (getChildIndex(parentNode, j) == writeHead){
-                    writeParentIndex = i;
-                    writeParentChildIndex = j;
-                    running = false;
-                }
-            }
-        }
-
-        setChildIndex(writeParentIndex, writeParentChildIndex, readHead);
-        setChildIndex(readParentIndex, readParentChildIndex, writeHead);
         
+        // Updateing parentIndex of children.
+        for (uint i = 0; i < 8; i++){
+            uint childIndex = getChildIndex(readNode, i);
+            if (childIndex != 0){
+                setParentIndex(childIndex, writeHead);
+            }
+        }
+
+        for (uint i = 0; i < 8; i++){
+            uint childIndex = getChildIndex(writeNode, i);
+            if (childIndex != 0){
+                setParentIndex(childIndex, readHead);
+            }
+        }
+        
+
+        // Updating childIndex of Parent.
+        uint readParentIndex = getParentIndex(readNode);
+        Node readParentNode = getNode(readParentIndex);
+        uint readChildIndex = 8;
+
+        for (uint i = 0; i < 8; i++){
+            uint childIndex = getChildIndex(readParentNode, i);
+            if (childIndex == readHead){
+                readChildIndex = i;
+                break;
+            }
+        }
+
+        uint writeParentIndex = getParentIndex(writeNode);
+        Node writeParentNode = getNode(writeParentIndex);
+        uint writeChildIndex = 8;
+
+        for (uint i = 0; i < 8; i++){
+            uint childIndex = getChildIndex(writeParentNode, i);
+            if (childIndex == writeHead){
+                writeChildIndex = i;
+                break;
+            }
+        }
+        
+        if (readChildIndex == 8){
+            octtreeBuffer.octtree[readHead].color.xyz = vec3(1);
+        }
+        else{
+            setChildIndex(readParentIndex, readChildIndex, writeHead);
+        }
+        if (writeChildIndex == 8){
+            octtreeBuffer.octtree[writeHead].color.xyz = vec3(1);
+        }
+        else{
+            setChildIndex(writeParentIndex, writeChildIndex, readHead);
+        }
 
         setNode(readHead, writeNode);
         setNode(writeHead, readNode);

@@ -287,22 +287,23 @@ impl App for RayCaster {
 
         dir_offset *= 0.3;
 
+        self.total_time += delta_time;
+        let check_index = (self.total_time.as_millis() as u32) % OCTTREE_NODE_COUNT as u32;
+
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
-            clean_up: 1, // (self.render_counter == 128) as u32,
+            clean_up: (check_index == 0) as u32, // (self.render_counter == 128) as u32,
             pos: base.camera.position,
             fill_1: 0,
             dir: base.camera.direction, //- dir_offset,
             fill_2: 0,
         }])?;
 
-        self.total_time += delta_time;
-
         self.octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo {
             octtree_buffer_size: OCTTREE_NODE_COUNT as u32,
             octtree_depth: OCTTREE_DEPTH as u32,
-            check_index: (self.total_time.as_secs() as u32) % OCTTREE_NODE_COUNT as u32,
+            check_index: check_index,
             fill_1: 0,
         }])?;
 
