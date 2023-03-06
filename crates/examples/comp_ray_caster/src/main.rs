@@ -9,7 +9,7 @@ use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo,
     DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
-    WriteDescriptorSet, WriteDescriptorSetKind, BufferBarrier, MemoryBarrier,
+    WriteDescriptorSet, WriteDescriptorSetKind, MemoryBarrier,
 };
 use app::{App, BaseApp};
 use gui::imgui::{Condition, Ui};
@@ -72,13 +72,19 @@ impl App for RayCaster {
             &[octtree],
         )?;
 
-        let octtree_info = Octtree::get_octree_info();
-
-        let octtree_info_buffer = create_gpu_only_buffer_from_data(
-            context, 
-            vk::BufferUsageFlags::STORAGE_BUFFER, 
-            &[octtree_info]
+        let octtree_info_buffer = context.create_buffer(
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            MemoryLocation::CpuToGpu,
+            size_of::<OcttreeInfo>() as _,
         )?;
+
+        octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo {
+            octtreeBufferSize: OCTTREE_NODE_COUNT as u32,
+            octtreeDepth: OCTTREE_DEPTH as u32,
+
+            fill_0: 0,
+            fill_1: 0,
+        }])?;
         
         let render_descriptor_pool = context.create_descriptor_pool(
             images_len * 4,
@@ -96,7 +102,7 @@ impl App for RayCaster {
                     descriptor_count: images_len,
                 },
                 vk::DescriptorPoolSize {
-                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    ty: vk::DescriptorType::UNIFORM_BUFFER,
                     descriptor_count: images_len,
                 },
             ],
@@ -110,7 +116,7 @@ impl App for RayCaster {
                     descriptor_count: 1,
                 },
                 vk::DescriptorPoolSize {
-                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    ty: vk::DescriptorType::UNIFORM_BUFFER,
                     descriptor_count: 1,
                 },
             ],
@@ -141,7 +147,7 @@ impl App for RayCaster {
             vk::DescriptorSetLayoutBinding {
                 binding: 3,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -158,7 +164,7 @@ impl App for RayCaster {
             vk::DescriptorSetLayoutBinding {
                 binding: 1,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -191,7 +197,7 @@ impl App for RayCaster {
                 },
                 WriteDescriptorSet {
                     binding: 3,
-                    kind: WriteDescriptorSetKind::StorageBuffer { 
+                    kind: WriteDescriptorSetKind::UniformBuffer {  
                         buffer: &octtree_info_buffer
                     },
                 },
@@ -210,7 +216,7 @@ impl App for RayCaster {
             },
             WriteDescriptorSet {
                 binding: 1,
-                kind: WriteDescriptorSetKind::StorageBuffer { 
+                kind: WriteDescriptorSetKind::UniformBuffer {  
                     buffer: &octtree_info_buffer
                 } 
             },
@@ -236,7 +242,7 @@ impl App for RayCaster {
             },
         )?;
 
-        base.camera.position = Vec3::new(-10.0, 8.0, 8.0);
+        base.camera.position = Vec3::new(-5.0, 1.0, 1.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
 
@@ -269,18 +275,18 @@ impl App for RayCaster {
         _: usize,
         delta_time: Duration,
     ) -> Result<()> {
-    
+
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
             cleanUp: 1, // (self.render_counter == 128) as u32,
-            pos: base.camera.position,
+            pos: base.camera.position + Vec3::new(self.render_counter as f32, 0.0, 0.0),
             fill_1: 0,
             dir: base.camera.direction,
             fill_2: 0,
         }])?;
 
-        self.update_octtree = gui.cach; //&& self.render_counter == 0;
+        self.update_octtree = true; //&& self.render_counter == 0;
 
         // Updateing Gui
         gui.pos = base.camera.position;
@@ -302,22 +308,15 @@ impl App for RayCaster {
         image_index: usize
     ) -> Result<()> {
 
-        buffer.bind_compute_pipeline(&self.render_pipeline);
-
-        buffer.bind_descriptor_sets(
-            vk::PipelineBindPoint::COMPUTE,
-            &self.render_pipeline_layout,
-            0,
-            &[&self.render_descriptor_sets[image_index]],
-        );
-
-        buffer.dispatch(
-            (base.swapchain.extent.width / RENDER_DISPATCH_GROUP_SIZE_X) + 1, 
-            (base.swapchain.extent.height / RENDER_DISPATCH_GROUP_SIZE_Y) + 1, 
-            1);
-
-
         if self.update_octtree {
+            buffer.pipeline_memory_barriers(&[MemoryBarrier {
+                src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+                src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+                dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+                dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+            }]);
+
+
             buffer.bind_compute_pipeline(&self.update_octtree_pipeline);
 
             buffer.bind_descriptor_sets(
@@ -332,7 +331,28 @@ impl App for RayCaster {
                 1, 
                 1,
             );
+
+            buffer.pipeline_memory_barriers(&[MemoryBarrier {
+                src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+                src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+                dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+                dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+            }]);
         }
+
+        buffer.bind_compute_pipeline(&self.render_pipeline);
+
+        buffer.bind_descriptor_sets(
+            vk::PipelineBindPoint::COMPUTE,
+            &self.render_pipeline_layout,
+            0,
+            &[&self.render_descriptor_sets[image_index]],
+        );
+
+        buffer.dispatch(
+            (base.swapchain.extent.width / RENDER_DISPATCH_GROUP_SIZE_X) + 1, 
+            (base.swapchain.extent.height / RENDER_DISPATCH_GROUP_SIZE_Y) + 1, 
+            1);
 
         Ok(())
     }
@@ -370,7 +390,7 @@ impl app::Gui for Gui {
         Ok(Gui {
             pos: Vec3::default(),
             dir: Vec3::default(),
-            mode: 0,
+            mode: 1,
             cach: false,
         })
     }
@@ -417,3 +437,12 @@ struct ComputeUbo {
     fill_2: u32,
 }
 
+
+#[derive(Clone, Copy)]
+#[allow(dead_code)]
+struct OcttreeInfo {
+    octtreeBufferSize: u32,
+    octtreeDepth: u32,
+    fill_0: u32,
+    fill_1: u32,
+}

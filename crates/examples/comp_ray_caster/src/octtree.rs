@@ -3,7 +3,7 @@ use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
 pub const OCTTREE_DEPTH: usize = 2;
-pub const OCTTREE_NODE_COUNT: usize = 73; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
+pub const OCTTREE_NODE_COUNT: usize = 73; // 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
@@ -23,7 +23,7 @@ pub struct Octtree{
 
 #[derive(Clone, Copy, Default)]
 pub struct OcttreeNode {
-    children: [u32; 8],
+    children: [u16; 8],
 
     color: Vec3,
     data: u32,
@@ -55,7 +55,7 @@ impl Octtree{
                 new_i += 1;
                 let child_index = new_i;
 
-                self.nodes[i].children[j] = child_index as u32;
+                self.nodes[i].children[j] = child_index as u16;
                 self.nodes[child_index].data = i as u32;
                 //self.nodes[childIndex].child_index = j as u32;
 
@@ -91,9 +91,5 @@ impl Octtree{
         //self.nodes[i].depth = depth as u32;
         
         return new_i;
-    }
-
-    pub fn get_octree_info() -> [u32; 2]{
-        return [0, OCTTREE_NODE_COUNT as u32];
     }
 }

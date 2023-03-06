@@ -25,8 +25,9 @@ bool getCleanUp(){
 #define Bit_8_MAX 255
 #define Bit_16_MAX 65535
 
+
 struct Node{
-    uint children[8];
+    uint16_t children[8];
     vec4 color; // w is 16 bit Partent Index, 8 bit renderCounter.
 };
 
@@ -34,16 +35,16 @@ layout(binding = 2) buffer OcttreeBuffer {
     Node octtree[];
 } octtreeBuffer;
 
-layout(binding = 3) buffer OcttreeInfo {
-    uint data[]; // 0 is Root index, 1 is buffer Head, 2 is BufferSize
+layout(binding = 3) uniform OcttreeInfo {
+    uvec2 data_0; // 0 is BufferSize, 1 is Buffer Depth
 } octtreeInfo;
 
 
 uint getChildIndex(Node node, uint childIndex){
-    return uint(node.children[childIndex]);
+    return node.children[childIndex];
 }
 void setChildIndex(uint index, uint childIndex, uint newIndex){
-    octtreeBuffer.octtree[index].children[childIndex] = uint(newIndex);
+    octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
 }
 
 vec3 getNodeColor(Node node){
@@ -51,25 +52,25 @@ vec3 getNodeColor(Node node){
 }
 
 uint getParentIndex(Node node){
-    return floatBitsToUint(node.color.w) & ~(1 << 31);
+    return uint(floatBitsToUint(node.color.w) & Bit_16_MAX);
 }
 void setParentIndex(uint index, uint parentIndex){
 
     uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
 
-    bits = (bits & ~(1 << 31) | parentIndex);
+    bits = (bits & ~(Bit_16_MAX << 0) | (parentIndex << 0));
 
     octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
 }
 
 bool getRenderFlag(Node node){
-    return bool((uint(floatBitsToUint(node.color.w)) >> 31) & 1); 
+    return bool((uint(floatBitsToUint(node.color.w)) >> 16) & 1); 
 }
 void setRenderFlag(uint index, bool renderFlag){
     
     uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
 
-    bits = (bits & ~(1 << 31) | (uint(renderFlag) << 31));
+    bits = (bits & ~(1 << 16) | (uint(renderFlag) << 16));
 
     octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
 }
@@ -86,42 +87,75 @@ void setNode(uint index, Node node){
 }
 
 
-uint getRootIndex(){
-    return octtreeInfo.data[0];
-}
-void setRootIndex(uint rootIndex){
-    octtreeInfo.data[0] = rootIndex;
-}
-
 uint getBufferSize(){
-    return octtreeInfo.data[1];
+    return octtreeInfo.data_0.x;
+}
+uint getOcttreeDepth(){
+    return octtreeInfo.data_0.y;
 }
 // Octtree End
 
-
-
-#define OCTTREE_SIZE 73
-#define OCTTREE_DEPTH 2
 #define VIEW_DIST 100
 #define MAX_STEPS 100
 
 
+vec3 getColorGradient(float x){
+    if (x == 0){
+        return vec3(0);
+    }
+
+    vec3 firstColor = vec3(0, 1, 0); // greee
+    vec3 middleColor = vec3(0, 0, 1); // blue
+    vec3 endColor = vec3(1, 0, 0); // red
+
+    float h = 0.5; // adjust position of middleColor
+    vec3 col = mix(mix(firstColor, middleColor, x/h), mix(middleColor, endColor, (x - h)/(1.0 - h)), step(h, x));
+    return col;
+}
+
 void draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size.xy;
-    Node node = getNode(gl_GlobalInvocationID.x);
+
+
+    uint nodeIndex = gl_GlobalInvocationID.x;
+    Node node = getNode(nodeIndex);
     
     vec3 color = vec3(0);
     if (uv.y < 0.1) {
-        color = vec3(getChildIndex(node, 0)) / vec3(getBufferSize());
+        color = getColorGradient(float(nodeIndex) / float(getBufferSize()));
+    }
+    else if (uv.y < 0.15) {
+        color = getColorGradient(float(getChildIndex(node, 0)) / float(getBufferSize()));
     }
     else if (uv.y < 0.2) {
-        color = vec3(getParentIndex(node)) / vec3(getBufferSize());
+        color = getColorGradient(float(getChildIndex(node, 1)) / float(getBufferSize()));
+    }
+    else if (uv.y < 0.25) {
+        color = getColorGradient(float(getChildIndex(node, 2)) / float(getBufferSize()));
     }
     else if (uv.y < 0.3) {
-        color = getNodeColor(node);
+        color = getColorGradient(float(getChildIndex(node, 3)) / float(getBufferSize()));
+    }
+    else if (uv.y < 0.35) {
+        color = getColorGradient(float(getChildIndex(node, 4)) / float(getBufferSize()));
     }
     else if (uv.y < 0.4) {
+        color = getColorGradient(float(getChildIndex(node, 5)) / float(getBufferSize()));
+    }
+    else if (uv.y < 0.45) {
+        color = getColorGradient(float(getChildIndex(node, 6)) / float(getBufferSize()));
+    }
+    else if (uv.y < 0.5) {
+        color = getColorGradient(float(getChildIndex(node, 7)) / float(getBufferSize()));
+    }
+    else if (uv.y < 0.6) {
+        color = getColorGradient(float(getParentIndex(node)) / float(getBufferSize()));
+    }
+    else if (uv.y < 0.7) {
+        color = getNodeColor(node);
+    }
+    else if (uv.y < 0.8) {
         color = vec3(getRenderFlag(node));
     }
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
@@ -214,7 +248,7 @@ uint getChildFromPos(uvec3 pos){
 }
 
 uint getSizeFromDepth(uint depth){
-    return uint(pow(2, OCTTREE_DEPTH - depth));
+    return uint(pow(2, getOcttreeDepth() - depth));
 }
 
 bool hitOctree(in Ray ray, out vec3 color, out uint counter){
@@ -241,8 +275,8 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     uint depth = 0;
     uint size = rootSize;
 
-    setRenderFlag(getRootIndex(), true);
-    Node root = getNode(getRootIndex());
+    setRenderFlag(0, true);
+    Node root = getNode(0);
     Node node = root;
     uvec3 nodePos = uvec3(0);
 
@@ -252,7 +286,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     
     while(counter < MAX_STEPS){
         bool isEmpty = getNodeColor(node) == vec3(0);
-        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * 0.03));
+        bool isLeave = depth >= (getOcttreeDepth() - (rayLen * 0.03));
 
         if (!isEmpty && !isLeave){
             depth += 1;
@@ -297,17 +331,6 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     }
 
     return false; // Stopped loop
-}
-
-
-vec3 getColorGradient(float x){
-    vec3 firstColor = vec3(0, 1, 0); // greee
-    vec3 middleColor = vec3(0, 0, 1); // blue
-    vec3 endColor = vec3(1, 0, 0); // red
-
-    float h = 0.5; // adjust position of middleColor
-    vec3 col = mix(mix(firstColor, middleColor, x/h), mix(middleColor, endColor, (x - h)/(1.0 - h)), step(h, x));
-    return col;
 }
 
 void main () { 
