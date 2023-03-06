@@ -36,7 +36,7 @@ layout(binding = 2) buffer OcttreeBuffer {
 } octtreeBuffer;
 
 layout(binding = 3) uniform OcttreeInfo {
-    uvec2 data_0; // 0 is BufferSize, 1 is Buffer Depth
+    uvec4 data_0; // 0 is BufferSize, 1 is Buffer Depth, 2 check Index
 } octtreeInfo;
 
 
@@ -93,6 +93,9 @@ uint getBufferSize(){
 uint getOcttreeDepth(){
     return octtreeInfo.data_0.y;
 }
+uint getCheckIndex(){
+    return octtreeInfo.data_0.z;
+}
 // Octtree End
 
 #define VIEW_DIST 100
@@ -113,12 +116,12 @@ vec3 getColorGradient(float x){
     return col;
 }
 
-void draw_buffer_debuger(){
+vec3 draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size.xy;
 
 
-    uint nodeIndex = gl_GlobalInvocationID.x;
+    uint nodeIndex = gl_GlobalInvocationID.x / 20;
     Node node = getNode(nodeIndex);
     
     vec3 color = vec3(0);
@@ -158,7 +161,10 @@ void draw_buffer_debuger(){
     else if (uv.y < 0.8) {
         color = vec3(getRenderFlag(node));
     }
-    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
+    else if (uv.y < 0.85) {
+        color = vec3(nodeIndex == getCheckIndex());
+    }
+    return color;
 }
 
 void cleanUpRenderFlag(){
@@ -334,23 +340,30 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
 }
 
 void main () { 
-    if (getMode() == 0) {
-        draw_buffer_debuger();
-        return;
-    }
-
-    cleanUpRenderFlag();
-
-    Ray ray = initRay();
-
     vec3 color;
-    uint counter;
-    bool hit = hitOctree(ray, color, counter);
+    if (getMode() == 0) {
+        color = draw_buffer_debuger();
+        
+    }
+    else{
+        cleanUpRenderFlag();
 
-    if (getMode() == 2) {
-        color = getColorGradient((float(counter) / MAX_STEPS));
+        Ray ray = initRay();
+
+        uint counter;
+        bool hit = hitOctree(ray, color, counter);
+
+        if (getMode() == 2) {
+            color = getColorGradient((float(counter) / MAX_STEPS));
+        }
+
+        color *= float(hit);
+
+        if (getMode() == 3) {
+            color += draw_buffer_debuger() * 0.5;
+        }
     }
 
-    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color * float(hit), 0));
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
 }
 

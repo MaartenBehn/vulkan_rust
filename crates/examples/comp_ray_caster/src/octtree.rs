@@ -40,7 +40,7 @@ impl Octtree{
         let seed: u64 = seed_rng.gen();
 
         log::info!("Octtree Seed: {:?}", seed);
-        let mut rng = StdRng::seed_from_u64(seed);
+        let mut rng = StdRng::seed_from_u64(8998840515808983062);
        
         octtree.update(0, 0, [0, 0, 0], &mut rng);
 

@@ -46,7 +46,8 @@ struct RayCaster {
     update_octtree_pipeline_layout: PipelineLayout,
     update_octtree_pipeline: ComputePipeline,
 
-    render_counter: u8, 
+    render_counter: u32, 
+    total_time: Duration,
 }
 
 impl App for RayCaster {
@@ -79,10 +80,9 @@ impl App for RayCaster {
         )?;
 
         octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo {
-            octtreeBufferSize: OCTTREE_NODE_COUNT as u32,
-            octtreeDepth: OCTTREE_DEPTH as u32,
-
-            fill_0: 0,
+            octtree_buffer_size: OCTTREE_NODE_COUNT as u32,
+            octtree_depth: OCTTREE_DEPTH as u32,
+            check_index: 0,
             fill_1: 0,
         }])?;
         
@@ -236,7 +236,7 @@ impl App for RayCaster {
             context.create_pipeline_layout(&[&update_octtree_descriptor_layout])?;
 
         let update_octtree_pipeline = context.create_compute_pipeline(
-            &render_pipeline_layout,
+            &update_octtree_pipeline_layout,
             ComputePipelineCreateInfo {
                 shader_source: &include_bytes!("../shaders/build_tree.comp.spv")[..],
             },
@@ -265,6 +265,7 @@ impl App for RayCaster {
             update_octtree_pipeline,
 
             render_counter: 0,
+            total_time: Duration::ZERO
         })
     }
 
@@ -276,14 +277,33 @@ impl App for RayCaster {
         delta_time: Duration,
     ) -> Result<()> {
 
+        
+        let mut dir_offset = Vec3::new(0.0, 1.0, 0.0);
+        dir_offset *= (self.render_counter % 5) as f32;
+
+        if (self.render_counter % 10) >= 5 {
+            dir_offset = Vec3::new(0.0, 5.0, 0.0) - dir_offset;
+        }
+
+        dir_offset *= 0.3;
+
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
-            cleanUp: 1, // (self.render_counter == 128) as u32,
-            pos: base.camera.position + Vec3::new(self.render_counter as f32, 0.0, 0.0),
+            clean_up: 1, // (self.render_counter == 128) as u32,
+            pos: base.camera.position,
             fill_1: 0,
-            dir: base.camera.direction,
+            dir: base.camera.direction, //- dir_offset,
             fill_2: 0,
+        }])?;
+
+        self.total_time += delta_time;
+
+        self.octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo {
+            octtree_buffer_size: OCTTREE_NODE_COUNT as u32,
+            octtree_depth: OCTTREE_DEPTH as u32,
+            check_index: (self.total_time.as_secs() as u32) % OCTTREE_NODE_COUNT as u32,
+            fill_1: 0,
         }])?;
 
         self.update_octtree = true; //&& self.render_counter == 0;
@@ -292,7 +312,7 @@ impl App for RayCaster {
         gui.pos = base.camera.position;
         gui.dir = base.camera.direction;
 
-        self.render_counter = if self.render_counter < 255{
+        self.render_counter = if self.render_counter < OCTTREE_NODE_COUNT as u32{
             self.render_counter + 1
         }else{
             0
@@ -428,7 +448,7 @@ impl app::Gui for Gui {
 struct ComputeUbo {
     screen_size: [f32; 2],
     mode: u32,
-    cleanUp: u32,
+    clean_up: u32,
 
     pos: Vec3,
     fill_1: u32,
@@ -441,8 +461,8 @@ struct ComputeUbo {
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 struct OcttreeInfo {
-    octtreeBufferSize: u32,
-    octtreeDepth: u32,
-    fill_0: u32,
+    octtree_buffer_size: u32,
+    octtree_depth: u32,
+    check_index: u32,
     fill_1: u32,
 }
