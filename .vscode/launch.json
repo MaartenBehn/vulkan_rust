@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-   a         "name": "Debug",
+            "name": "Debug",
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/comp_ray_caster",

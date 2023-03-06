@@ -9,10 +9,10 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 // Octtree Start
 #define Bit_8_MAX 255
-#define Bit_16_MAX 65536
+#define Bit_16_MAX 65535
 
 struct Node{
-    uint16_t children[8];
+    uint children[8];
     vec4 color; // w is 16 bit Partent Index, 8 bit renderCounter.
 };
 
@@ -21,22 +21,15 @@ layout(binding = 0) buffer OcttreeBuffer {
 } octtreeBuffer;
 
 layout(binding = 1) buffer OcttreeInfo {
-    uint data[]; // 0 is Root index, 1 is buffer Head, 2 is BufferSize
+    uint data[]; // 0 is Root index, 1 is buffer Size
 } octtreeInfo;
 
 
-Node getNode(uint index){
-    return octtreeBuffer.octtree[index];
-}
-void setNode(uint index, Node node){
-    octtreeBuffer.octtree[index] = node;
-}
-
 uint getChildIndex(Node node, uint childIndex){
-    return node.children[childIndex];
+    return uint(node.children[childIndex]);
 }
 void setChildIndex(uint index, uint childIndex, uint newIndex){
-    octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
+    octtreeBuffer.octtree[index].children[childIndex] = uint(newIndex);
 }
 
 vec3 getNodeColor(Node node){
@@ -44,27 +37,38 @@ vec3 getNodeColor(Node node){
 }
 
 uint getParentIndex(Node node){
-    return uint(floatBitsToUint(node.color.w) & Bit_16_MAX);
+    return floatBitsToUint(node.color.w) & ~(1 << 31);
 }
 void setParentIndex(uint index, uint parentIndex){
 
     uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
 
-    bits = (bits & ~(Bit_16_MAX << 0) | (parentIndex << 0));
+    bits = (bits & ~(1 << 31) | parentIndex);
 
     octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
 }
 
 bool getRenderFlag(Node node){
-    return bool((uint(floatBitsToUint(node.color.w)) >> 15) & 1); 
+    return bool((uint(floatBitsToUint(node.color.w)) >> 31) & 1); 
 }
 void setRenderFlag(uint index, bool renderFlag){
     
     uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
 
-    bits = (bits & ~(1 << 15) | (uint(renderFlag) << 15));
+    bits = (bits & ~(1 << 31) | (uint(renderFlag) << 31));
 
     octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
+}
+
+Node getNode(uint index){
+    return octtreeBuffer.octtree[index];
+}
+void setNode(uint index, Node node){
+    for (uint i = 0; i < 8; i++){
+        setChildIndex(index, i, getChildIndex(node, i));
+    }
+
+    octtreeBuffer.octtree[index].color = node.color;
 }
 
 
@@ -75,84 +79,99 @@ void setRootIndex(uint rootIndex){
     octtreeInfo.data[0] = rootIndex;
 }
 
-uint getBufferHead(){
-    return octtreeInfo.data[1];
-}
-void setBufferHead(uint rootIndex){
-    octtreeInfo.data[1] = rootIndex;
-}
-
 uint getBufferSize(){
-    return octtreeInfo.data[2];
+    return octtreeInfo.data[1];
 }
 // Octtree End
 
 
-
-uint setHead(int index, uint size){
-    return index - size * uint(index > size) + size * uint(index < 0);
-}
-
-void moveNodeConnections(Node node, uint fromIndex, uint toIndex, uint rootIndex){
-    // Updating parentIndex of Children.
-    for (uint i = 0; i < 8; i++){
-        uint childIndex = getChildIndex(node, i);
-        if (childIndex != 0){
-            setParentIndex(childIndex, toIndex);
-        }
-    }
-
-    // Updating childIndex of Parent.
-    if (fromIndex != rootIndex){
-        uint parentIndex = getParentIndex(node);
-        Node parentNode = getNode(parentIndex);
-
-        for (uint i = 0; i < 8; i++){
-            uint childIndex = getChildIndex(parentNode, i);
-            if (childIndex == fromIndex){
-                setChildIndex(parentIndex, i, toIndex);
-            }
-        }
-    }
+void moveNodeConnections(Node node, uint fromIndex, uint toIndex){
+    
 }
 
 void main()
 {
-    uint readHead = getBufferHead();
+    uint readHead = 1;
+    uint writeHead = 1;
     uint bufferSize = getBufferSize();
     uint rootIndex = getRootIndex();
 
-    uint writeHead = setHead(int(readHead) - 1, bufferSize);
-
     uint counter = 0;
-    while (setHead(int(readHead) + 1, bufferSize) == writeHead || counter > 10000){
-        Node readNode = getNode(readHead);
+    while (counter < 73){
+        counter++;
+
         Node writeNode = getNode(writeHead);
-
-        bool readRenderFlag = getRenderFlag(readNode);
-        bool writeRenderFlag = getRenderFlag(writeNode);
-
-        if (!readRenderFlag){
-            readHead = setHead(int(readHead) + 1, bufferSize);
-
-            continue;
+        while (getRenderFlag(writeNode) && writeHead < 73 - 1){
+            writeHead++;
+            writeNode = getNode(writeHead);
         }
-        if (writeRenderFlag){
-            setRenderFlag(writeHead, false);
 
-            writeHead = setHead(int(readHead) - 1, bufferSize);
-            continue;
+        readHead = max(readHead, writeHead) + 1;
+
+        Node readNode = getNode(readHead);
+
+        if (getRenderFlag(readNode)){
+
+            // Updateing parentIndex of children.
+            for (uint i = 0; i < 8; i++){
+                uint childIndex = getChildIndex(readNode, i);
+                if (childIndex != 0){
+                    setParentIndex(childIndex, writeHead);
+                }
+            }
+
+            for (uint i = 0; i < 8; i++){
+                uint childIndex = getChildIndex(writeNode, i);
+                if (childIndex != 0){
+                    setParentIndex(childIndex, readHead);
+                }
+            }
+
+            // Updating childIndex of Parent.
+            uint readParentIndex = getParentIndex(readNode);
+            Node readParentNode = getNode(readParentIndex);
+            uint readChildIndex = 8;
+
+            for (uint i = 0; i < 8; i++){
+                uint childIndex = getChildIndex(readParentNode, i);
+                if (childIndex == readHead){
+                    readChildIndex = i;
+                    break;
+                }
+            }
+
+            uint writeParentIndex = getParentIndex(writeNode);
+            Node writeParentNode = getNode(writeParentIndex);
+            uint writeChildIndex = 8;
+
+            for (uint i = 0; i < 8; i++){
+                uint childIndex = getChildIndex(writeParentNode, i);
+                if (childIndex == writereHead){
+                    writeChildIndex = i;
+                    break;
+                }
+            }
+
+            if (readChildIndex == 8){
+                octtreeBuffer.octtree[readHead].color.xyz = vec3(1);
+            }
+            else{
+                setChildIndex(readParentIndex, readChildIndex, writeHead);
+            }
+            if (writeChildIndex == 8){
+                octtreeBuffer.octtree[writeHead].color.xyz = vec3(1);
+            }
+            else{
+                setChildIndex(writeParentIndex, writeChildIndex, readHead);
+            }
+
+            
+            
+
+            setNode(writeHead, readNode);
+            setNode(readHead, writeNode);
+
+            
         }
-        
-        moveNodeConnections(readNode, readHead, writeHead, rootIndex);
-        moveNodeConnections(writeNode, writeHead, readHead, rootIndex);
-
-        setNode(writeHead, readNode);
-        setNode(readHead, writeNode);
-
-        setRenderFlag(readHead, false);
-
-        readHead = setHead(int(readHead) + 1, bufferSize);
-        writeHead = setHead(int(readHead) - 1, bufferSize);
     }
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use ash::vk;
+use ash::vk::{self, MemoryBarrier2};
 
 use crate::{
     device::Device, Buffer, ComputePipeline, Context, DescriptorSet, GraphicsPipeline, Image,
@@ -226,6 +226,28 @@ impl CommandBuffer {
             .collect::<Vec<_>>();
 
         let dependency_info = vk::DependencyInfo::builder().buffer_memory_barriers(&barriers);
+
+        unsafe {
+            self.device
+                .inner
+                .cmd_pipeline_barrier2(self.inner, &dependency_info)
+        };
+    }
+
+    pub fn pipeline_memory_barriers(&self, barriers: &[MemoryBarrier]) {
+        let barriers = barriers
+            .iter()
+            .map(|b| {
+                vk::MemoryBarrier2::builder()
+                    .src_stage_mask(b.src_stage_mask)
+                    .src_access_mask(b.src_access_mask)
+                    .dst_stage_mask(b.dst_stage_mask)
+                    .dst_access_mask(b.dst_access_mask)
+                    .build()
+            })
+            .collect::<Vec<_>>();
+
+        let dependency_info = vk::DependencyInfo::builder().memory_barriers(&barriers);
 
         unsafe {
             self.device
@@ -472,6 +494,13 @@ impl CommandBuffer {
 #[derive(Clone, Copy)]
 pub struct BufferBarrier<'a> {
     pub buffer: &'a Buffer,
+    pub src_access_mask: vk::AccessFlags2,
+    pub dst_access_mask: vk::AccessFlags2,
+    pub src_stage_mask: vk::PipelineStageFlags2,
+    pub dst_stage_mask: vk::PipelineStageFlags2,
+}
+
+pub struct MemoryBarrier{
     pub src_access_mask: vk::AccessFlags2,
     pub dst_access_mask: vk::AccessFlags2,
     pub src_stage_mask: vk::PipelineStageFlags2,

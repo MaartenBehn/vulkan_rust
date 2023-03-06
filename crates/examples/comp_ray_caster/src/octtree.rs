@@ -2,9 +2,8 @@ use app::{glam::Vec3, log};
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
-pub const OCTTREE_DEPTH: usize = 4;
-pub const OCTTREE_SIZE: usize = 16;
-pub const OCTTREE_NODE_COUNT: usize = 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
+pub const OCTTREE_DEPTH: usize = 2;
+pub const OCTTREE_NODE_COUNT: usize = 73; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
@@ -24,7 +23,7 @@ pub struct Octtree{
 
 #[derive(Clone, Copy, Default)]
 pub struct OcttreeNode {
-    children: [u16; 8],
+    children: [u32; 8],
 
     color: Vec3,
     data: u32,
@@ -56,8 +55,8 @@ impl Octtree{
                 new_i += 1;
                 let child_index = new_i;
 
-                self.nodes[i].children[j] = child_index as u16;
-                //self.nodes[childIndex].parent = i as u32;
+                self.nodes[i].children[j] = child_index as u32;
+                self.nodes[child_index].data = i as u32;
                 //self.nodes[childIndex].child_index = j as u32;
 
                 let inverse_depth = u32::pow(2, (OCTTREE_DEPTH - depth - 1) as u32);
@@ -80,7 +79,7 @@ impl Octtree{
             //self.nodes[i].pos = pos;
 
             let data: f32 = rng.gen();
-            if (data < 0.01){
+            if (data < 0.4){
                 self.nodes[i].color = Vec3::new(rng.gen(), rng.gen(), rng.gen());
             }
 
@@ -94,7 +93,7 @@ impl Octtree{
         return new_i;
     }
 
-    pub fn getOctreeInfo() -> [u64; 3]{
-        return [0, 0, OCTTREE_NODE_COUNT as u64];
+    pub fn get_octree_info() -> [u32; 2]{
+        return [0, OCTTREE_NODE_COUNT as u32];
     }
 }
