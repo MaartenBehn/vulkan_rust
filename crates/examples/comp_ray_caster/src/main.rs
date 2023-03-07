@@ -29,6 +29,8 @@ fn main() -> Result<()> {
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
 }
 struct RayCaster {
+    total_time: Duration,
+
     render_ubo_buffer: Buffer,
     _render_descriptor_pool: DescriptorPool,
     _render_descriptor_layout: DescriptorSetLayout,
@@ -46,8 +48,8 @@ struct RayCaster {
     update_octtree_pipeline_layout: PipelineLayout,
     update_octtree_pipeline: ComputePipeline,
 
-    render_counter: u32, 
-    total_time: Duration,
+    update_octtree_intervall: Duration,
+    update_octtree_last_time: Duration,
 }
 
 impl App for RayCaster {
@@ -80,10 +82,10 @@ impl App for RayCaster {
         )?;
 
         octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo {
+            octtree_size: OCTTREE_NODE_COUNT as u32,
             octtree_buffer_size: OCTTREE_NODE_COUNT as u32,
             octtree_depth: OCTTREE_DEPTH as u32,
-            check_index: 0,
-            fill_1: 0,
+            fill_0: 0
         }])?;
         
         let render_descriptor_pool = context.create_descriptor_pool(
@@ -247,6 +249,8 @@ impl App for RayCaster {
         base.camera.z_far = 100.0;
 
         Ok(Self {
+            total_time: Duration::ZERO,
+
             render_ubo_buffer,
             _render_descriptor_pool: render_descriptor_pool,
             _render_descriptor_layout: render_descriptor_layout,
@@ -264,8 +268,9 @@ impl App for RayCaster {
             update_octtree_pipeline_layout,
             update_octtree_pipeline,
 
-            render_counter: 0,
-            total_time: Duration::ZERO
+            update_octtree_intervall: Duration::from_secs(1),
+            update_octtree_last_time: Duration::ZERO,
+
         })
     }
 
@@ -277,47 +282,30 @@ impl App for RayCaster {
         delta_time: Duration,
     ) -> Result<()> {
 
-        
-        let mut dir_offset = Vec3::new(0.0, 1.0, 0.0);
-        dir_offset *= (self.render_counter % 5) as f32;
-
-        if (self.render_counter % 10) >= 5 {
-            dir_offset = Vec3::new(0.0, 5.0, 0.0) - dir_offset;
-        }
-
-        dir_offset *= 0.3;
-
         self.total_time += delta_time;
-        let check_index = (self.total_time.as_millis() as u32) % OCTTREE_NODE_COUNT as u32;
 
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
-            clean_up: (check_index == 0) as u32, // (self.render_counter == 128) as u32,
+            fill_0: 0,
             pos: base.camera.position,
             fill_1: 0,
-            dir: base.camera.direction, //- dir_offset,
+            dir: base.camera.direction,
             fill_2: 0,
         }])?;
 
-        self.octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo {
-            octtree_buffer_size: OCTTREE_NODE_COUNT as u32,
-            octtree_depth: OCTTREE_DEPTH as u32,
-            check_index: check_index,
-            fill_1: 0,
-        }])?;
 
-        self.update_octtree = true; //&& self.render_counter == 0;
+        self.update_octtree = if self.update_octtree_last_time + self.update_octtree_intervall < self.total_time {
+            self.update_octtree_last_time = self.total_time;
+
+            gui.cach
+        }else{
+            false
+        };
 
         // Updateing Gui
         gui.pos = base.camera.position;
         gui.dir = base.camera.direction;
-
-        self.render_counter = if self.render_counter < OCTTREE_NODE_COUNT as u32{
-            self.render_counter + 1
-        }else{
-            0
-        };
 
         Ok(())
     }
@@ -449,7 +437,7 @@ impl app::Gui for Gui {
 struct ComputeUbo {
     screen_size: [f32; 2],
     mode: u32,
-    clean_up: u32,
+    fill_0: u32,
 
     pos: Vec3,
     fill_1: u32,
@@ -462,8 +450,8 @@ struct ComputeUbo {
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 struct OcttreeInfo {
+    octtree_size: u32,
     octtree_buffer_size: u32,
     octtree_depth: u32,
-    check_index: u32,
-    fill_1: u32,
+    fill_0: u32,
 }

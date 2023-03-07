@@ -8,7 +8,7 @@ layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 layout(binding = 0, rgba8) uniform writeonly image2D img;
 
 layout(binding = 1) uniform UniformBufferObject {
-    vec4 screen_size; // z is mode as u32, w is cleanup bool as u32
+    vec4 screen_size; // z is mode as u32
     vec3 pos;
     vec3 dir;
 } ubo;
@@ -16,11 +16,6 @@ layout(binding = 1) uniform UniformBufferObject {
 uint getMode(){
     return uint(floatBitsToUint(ubo.screen_size.z));
 }
-
-bool getCleanUp(){
-    return bool(floatBitsToUint(ubo.screen_size.w));
-}
-
 // Octtree Start
 #define Bit_8_MAX 255
 #define Bit_16_MAX 65535
@@ -28,7 +23,7 @@ bool getCleanUp(){
 
 struct Node{
     uint16_t children[8];
-    vec4 color; // w is 16 bit Partent Index, 8 bit renderCounter.
+    uvec4 data;
 };
 
 layout(binding = 2) buffer OcttreeBuffer {
@@ -48,53 +43,53 @@ void setChildIndex(uint index, uint childIndex, uint newIndex){
 }
 
 vec3 getNodeColor(Node node){
-    return vec3(node.color);
+    uint rg = node.data[0];
+    uint ba = node.data[1];
+
+    vec3 color;
+    color.r = rg & Bit_16_MAX;
+    color.g = rg >> 16;
+    color.b = ba & Bit_16_MAX;
+
+    return color / Bit_16_MAX;
 }
 
-uint getParentIndex(Node node){
-    return uint(floatBitsToUint(node.color.w) & Bit_16_MAX);
+uint getNodeId(Node node){
+    return node.data[2];
 }
-void setParentIndex(uint index, uint parentIndex){
+uint getNodeIdIndex(uint index){
+    return octtreeBuffer.octtree[index].data[2];
+}
 
-    uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
-
-    bits = (bits & ~(Bit_16_MAX << 0) | (parentIndex << 0));
-
-    octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
+uint getNodeDepth(Node node){
+    return node.data[3] & Bit_8_MAX;
 }
 
 bool getRenderFlag(Node node){
-    return bool((uint(floatBitsToUint(node.color.w)) >> 16) & 1); 
+    return bool(node.data[3] & (1 << 8));
 }
-void setRenderFlag(uint index, bool renderFlag){
-    
-    uint bits = floatBitsToUint(octtreeBuffer.octtree[index].color.w);
-
-    bits = (bits & ~(1 << 16) | (uint(renderFlag) << 16));
-
-    octtreeBuffer.octtree[index].color.w = uintBitsToFloat(bits);
+void setRenderFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] |= (1 << 8);
+}
+void resetRenderFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
 }
 
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
 void setNode(uint index, Node node){
-    for (uint i = 0; i < 8; i++){
-        setChildIndex(index, i, getChildIndex(node, i));
-    }
-
-    octtreeBuffer.octtree[index].color = node.color;
+    octtreeBuffer.octtree[index] = node;
 }
 
-
+uint getTreeSize(){
+    return octtreeInfo.data_0[0];
+}
 uint getBufferSize(){
-    return octtreeInfo.data_0.x;
+    return octtreeInfo.data_0[1];
 }
 uint getOcttreeDepth(){
-    return octtreeInfo.data_0.y;
-}
-uint getCheckIndex(){
-    return octtreeInfo.data_0.z;
+    return octtreeInfo.data_0[2];
 }
 // Octtree End
 
@@ -126,7 +121,7 @@ vec3 draw_buffer_debuger(){
     
     vec3 color = vec3(0);
     if (uv.y < 0.1) {
-        color = getColorGradient(float(nodeIndex) / float(getBufferSize()));
+        color = getColorGradient(float(getNodeId(node)) / float(getTreeSize()));
     }
     else if (uv.y < 0.15) {
         color = getColorGradient(float(getChildIndex(node, 0)) / float(getBufferSize()));
@@ -153,7 +148,7 @@ vec3 draw_buffer_debuger(){
         color = getColorGradient(float(getChildIndex(node, 7)) / float(getBufferSize()));
     }
     else if (uv.y < 0.6) {
-        color = getColorGradient(float(getParentIndex(node)) / float(getBufferSize()));
+        color = getColorGradient(float(getNodeDepth(node)) / float(getOcttreeDepth()));
     }
     else if (uv.y < 0.7) {
         color = getNodeColor(node);
@@ -161,18 +156,7 @@ vec3 draw_buffer_debuger(){
     else if (uv.y < 0.8) {
         color = vec3(getRenderFlag(node));
     }
-    else if (uv.y < 0.85) {
-        color = vec3(nodeIndex == getCheckIndex());
-    }
     return color;
-}
-
-void cleanUpRenderFlag(){
-    if (getCleanUp() && gl_GlobalInvocationID.xy == uvec2(0)) {
-        for (uint i = 0; i < 4681; i++){
-            setRenderFlag(i, false);
-        }
-    }
 }
 
 struct Ray{
@@ -281,7 +265,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     uint depth = 0;
     uint size = rootSize;
 
-    setRenderFlag(0, true);
+    setRenderFlag(0);
     Node root = getNode(0);
     Node node = root;
     uvec3 nodePos = uvec3(0);
@@ -310,7 +294,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             uint childIndex = getChildFromPos(posDelta);
             uint newNodeIndex = node.children[childIndex];
 
-            setRenderFlag(newNodeIndex, true);
+            setRenderFlag(newNodeIndex);
             node = getNode(newNodeIndex);
         }
         else if (isEmpty){
@@ -343,10 +327,9 @@ void main () {
     vec3 color;
     if (getMode() == 0) {
         color = draw_buffer_debuger();
-        
+
     }
     else{
-        cleanUpRenderFlag();
 
         Ray ray = initRay();
 
