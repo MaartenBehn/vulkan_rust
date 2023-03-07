@@ -22,8 +22,10 @@ const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
 
-const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 32;
-const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
+const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 64;
+const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 64;
+
+const BUILD_DISPATCH_GROUP_SIZE: u32 = 32;
 
 fn main() -> Result<()> {
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
@@ -46,8 +48,9 @@ struct RayCaster {
     _update_octtree_descriptor_layout: DescriptorSetLayout,
     update_octtree_descriptor_set: DescriptorSet,
     update_octtree_pipeline_layout: PipelineLayout,
-    update_octtree_pipeline: ComputePipeline,
 
+    build_octtree_pipeline: ComputePipeline,
+    load_octtree_pipeline: ComputePipeline,
     update_octtree_intervall: Duration,
     update_octtree_last_time: Duration,
 }
@@ -237,10 +240,17 @@ impl App for RayCaster {
         let update_octtree_pipeline_layout =
             context.create_pipeline_layout(&[&update_octtree_descriptor_layout])?;
 
-        let update_octtree_pipeline = context.create_compute_pipeline(
+        let build_octtree_pipeline = context.create_compute_pipeline(
             &update_octtree_pipeline_layout,
             ComputePipelineCreateInfo {
                 shader_source: &include_bytes!("../shaders/build_tree.comp.spv")[..],
+            },
+        )?;
+
+        let load_octtree_pipeline = context.create_compute_pipeline(
+            &update_octtree_pipeline_layout,
+            ComputePipelineCreateInfo {
+                shader_source: &include_bytes!("../shaders/load_tree.comp.spv")[..],
             },
         )?;
 
@@ -266,11 +276,11 @@ impl App for RayCaster {
             _update_octtree_descriptor_layout: update_octtree_descriptor_layout,
             update_octtree_descriptor_set,
             update_octtree_pipeline_layout,
-            update_octtree_pipeline,
 
+            build_octtree_pipeline,
+            load_octtree_pipeline,
             update_octtree_intervall: Duration::from_secs(1),
             update_octtree_last_time: Duration::ZERO,
-
         })
     }
 
@@ -325,8 +335,7 @@ impl App for RayCaster {
                 dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
             }]);
 
-
-            buffer.bind_compute_pipeline(&self.update_octtree_pipeline);
+            buffer.bind_compute_pipeline(&self.load_octtree_pipeline);
 
             buffer.bind_descriptor_sets(
                 vk::PipelineBindPoint::COMPUTE,
@@ -347,9 +356,29 @@ impl App for RayCaster {
                 dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
                 dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
             }]);
-        }
+            
+            buffer.bind_compute_pipeline(&self.build_octtree_pipeline);
 
-        buffer.bind_compute_pipeline(&self.render_pipeline);
+            buffer.bind_descriptor_sets(
+                vk::PipelineBindPoint::COMPUTE,
+                &self.update_octtree_pipeline_layout,
+                0,
+            &[&self.update_octtree_descriptor_set],
+            );
+
+            buffer.dispatch(
+                (OCTTREE_NODE_COUNT as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
+                1, 
+                1,
+            );
+
+            buffer.pipeline_memory_barriers(&[MemoryBarrier {
+                src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+                src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+                dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+                dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+            }]);
+        }
 
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::COMPUTE,
@@ -358,6 +387,7 @@ impl App for RayCaster {
             &[&self.render_descriptor_sets[image_index]],
         );
 
+        buffer.bind_compute_pipeline(&self.render_pipeline);
         buffer.dispatch(
             (base.swapchain.extent.width / RENDER_DISPATCH_GROUP_SIZE_X) + 1, 
             (base.swapchain.extent.height / RENDER_DISPATCH_GROUP_SIZE_Y) + 1, 

@@ -4,7 +4,7 @@
 #extension GL_EXT_shader_explicit_arithmetic_types: enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int16: enable
 
-layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 
 // Octtree Start
@@ -87,31 +87,29 @@ uint getOcttreeDepth(){
 // Octtree End
 
 
-uint getChildId(uint nodeId, uint childNr, uint depth){
-    int childSize = (1 - int(pow(8, depth))) / -7;
-    return uint(nodeId + childSize * childNr + 1);
-}
-
 void main()
 {
     uint bufferSize = getBufferSize();
-    uint octtreeDepth = getOcttreeDepth();
-    uint nodeIndex = gl_GlobalInvocationID.x;
 
-    resetRenderFlag(nodeIndex);
+    uint writeHead = 1;
+    uint readHead = 1;
     
-    if (getNodeDepthIndex(nodeIndex) >= octtreeDepth){
-        return;
-    }
+    uint counter = 0;
+    while (counter < bufferSize && readHead < bufferSize - 1){
+        counter++;
 
-    for (uint childNr = 0; childNr < 8; childNr++){
-        uint childId = getChildId(getNodeIdIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
+        Node writeNode = getNode(writeHead);
+        while (getRenderFlag(writeNode) && writeHead < bufferSize - 1){
+            writeHead++;
+            writeNode = getNode(writeHead);
+        }
 
-        for (uint childIndex = 0; childIndex < bufferSize; childIndex++){
-            if (getNodeIdIndex(childIndex) == childId){
-                setChildIndex(nodeIndex, childNr, childIndex);
-                break;
-            }
+        readHead = max(writeHead, readHead) + 1;
+
+        Node readNode = getNode(readHead);
+        if (getRenderFlag(readNode)){
+            setNode(readHead, writeNode);
+            setNode(writeHead, readNode);
         }
     }
 }

@@ -64,6 +64,9 @@ uint getNodeIdIndex(uint index){
 uint getNodeDepth(Node node){
     return node.data[3] & Bit_8_MAX;
 }
+uint getNodeDepthIndex(uint index){
+    return octtreeBuffer.octtree[index].data[3] & Bit_8_MAX;
+}
 
 bool getRenderFlag(Node node){
     return bool(node.data[3] & (1 << 8));
@@ -115,8 +118,7 @@ vec3 draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size.xy;
 
-
-    uint nodeIndex = gl_GlobalInvocationID.x / 20;
+    uint nodeIndex = gl_GlobalInvocationID.x;
     Node node = getNode(nodeIndex);
     
     vec3 color = vec3(0);

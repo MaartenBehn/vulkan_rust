@@ -2,8 +2,8 @@ use app::{glam::Vec3, log};
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
-pub const OCTTREE_DEPTH: usize = 2; // 255
-pub const OCTTREE_NODE_COUNT: usize = 73; // 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
+pub const OCTTREE_DEPTH: usize = 4; // 255
+pub const OCTTREE_NODE_COUNT: usize = 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
