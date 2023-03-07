@@ -406,7 +406,7 @@ impl App for RayCaster {
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
-            fill_0: 0,
+            debug_scale: gui.debug_scale,
             pos: base.camera.position,
             fill_1: 0,
             dir: base.camera.direction,
@@ -538,6 +538,7 @@ struct Gui {
     dir: Vec3,
     mode: u32,
     cach: bool,
+    debug_scale: u32
 }
 
 impl app::Gui for Gui {
@@ -547,6 +548,7 @@ impl app::Gui for Gui {
             dir: Vec3::default(),
             mode: 1,
             cach: false,
+            debug_scale: 1,
         })
     }
 
@@ -568,6 +570,11 @@ impl app::Gui for Gui {
                 mode = mode.clamp(0, 4);
                 self.mode = mode as u32;
 
+                let mut debug_scale = self.debug_scale as i32;
+                ui.input_int("Scale", &mut debug_scale).build();
+                debug_scale = debug_scale.clamp(1, 100);
+                self.debug_scale = debug_scale as u32;
+
                 let mut cach = self.cach;
                 if ui.radio_button_bool("Use Cach", cach){
                     cach = !cach;
@@ -583,7 +590,7 @@ impl app::Gui for Gui {
 struct ComputeUbo {
     screen_size: [f32; 2],
     mode: u32,
-    fill_0: u32,
+    debug_scale: u32,
 
     pos: Vec3,
     fill_1: u32,

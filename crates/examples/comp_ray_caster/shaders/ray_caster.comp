@@ -8,7 +8,7 @@ layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 layout(binding = 0, rgba8) uniform writeonly image2D img;
 
 layout(binding = 1) uniform UniformBufferObject {
-    vec4 screen_size; // z is mode as u32
+    vec4 screen_size; // z is mode as u32, w debug scale
     vec3 pos;
     vec3 dir;
 } ubo;
@@ -16,6 +16,11 @@ layout(binding = 1) uniform UniformBufferObject {
 uint getMode(){
     return uint(floatBitsToUint(ubo.screen_size.z));
 }
+
+uint getDebugScale(){
+    return uint(floatBitsToUint(ubo.screen_size.w));
+}
+
 // Octtree Start
 #define Bit_8_MAX 255
 #define Bit_16_MAX 65535
@@ -132,7 +137,7 @@ vec3 draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size.xy;
 
-    uint nodeIndex = gl_GlobalInvocationID.x / 20;
+    uint nodeIndex = gl_GlobalInvocationID.x / getDebugScale();
     Node node = getNode(nodeIndex);
     
     vec3 color = vec3(0);
@@ -283,7 +288,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     // Loop
     uint depth = 0;
     uint size = rootSize;
-     uint bufferSize = getBufferSize();
+    uint bufferSize = getBufferSize();
 
     setRenderFlag(0);
     Node root = getNode(0);
@@ -327,6 +332,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             rayLen += tMax;
 
             if (getNodePos(ray.pos, rootSize) == uvec3(0)){
+                nodeIndex = 0;
                 node = root;
                 depth = 0;
                 size = rootSize;

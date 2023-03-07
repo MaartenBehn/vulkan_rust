@@ -2,10 +2,10 @@ use app::log;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
-pub const OCTTREE_DEPTH: usize = 2; // 255
-pub const OCTTREE_SIZE: usize = 73; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
-pub const OCTTREE_BUFFER_SIZE: usize = 50; 
-pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 16;  // Must be dividable by 8
+pub const OCTTREE_DEPTH: usize = 4; // 255
+pub const OCTTREE_SIZE: usize = 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
+pub const OCTTREE_BUFFER_SIZE: usize = 2048; 
+pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 64;  // Must be dividable by 8
 
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
@@ -130,6 +130,11 @@ impl Octtree{
     }
 
     pub fn get_requested_nodes(&self, requested_ids: Vec<u32>) -> [OcttreeNode; OCTTREE_TRANSFER_BUFFER_SIZE] {
+
+        let out = OCTTREE_BUFFER_SIZE as u16;
+        let new_children = [out, out, out, out,  out, out, out, out];
+        let new_children_zero = [0, 0, 0, 0,  0, 0, 0, 0];
+
         let mut nodes = [OcttreeNode::default(); OCTTREE_TRANSFER_BUFFER_SIZE];
 
         for (i, id) in requested_ids.iter().enumerate() {
@@ -138,6 +143,14 @@ impl Octtree{
             }
 
             nodes[i] = self.nodes[*id as usize];
+
+            if nodes[i].data < OCTTREE_DEPTH as u32{
+                nodes[i].children = new_children;
+            }
+            else{
+                nodes[i].children = new_children_zero;
+            }
+
         }
 
         nodes

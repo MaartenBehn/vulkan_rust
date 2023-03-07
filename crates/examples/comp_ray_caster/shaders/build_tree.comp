@@ -103,7 +103,7 @@ uint getOcttreeDepth(){
 
 
 uint getChildId(uint nodeId, uint childNr, uint depth){
-    int childSize = (1 - int(pow(8, depth))) / -7;
+    int childSize = int((1 - pow(8, depth)) / -7);
     return uint(nodeId + childSize * childNr + 1);
 }
 
@@ -115,19 +115,21 @@ void main()
 
     resetRenderFlag(nodeIndex);
     resetNeedsChildrenFlag(nodeIndex);
-    
-    if (getNodeDepthIndex(nodeIndex) >= octtreeDepth){
-        return;
-    }
 
     for (uint childNr = 0; childNr < 8; childNr++){
         uint childId = getChildId(getNodeIdIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
 
+        bool found = false;
         for (uint childIndex = 0; childIndex < bufferSize; childIndex++){
             if (getNodeIdIndex(childIndex) == childId){
                 setChildIndex(nodeIndex, childNr, childIndex);
+                found = true;
                 break;
             }
+        }
+
+        if (!found){
+            setChildIndex(nodeIndex, childNr, bufferSize);
         }
     }
 }
