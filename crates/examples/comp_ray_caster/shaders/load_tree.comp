@@ -68,6 +68,17 @@ void resetRenderFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
 }
 
+bool getNeedsChildrenFlag(Node node){
+    return bool(node.data[3] & (1 << 9));
+}
+void setNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] |= (1 << 9);
+}
+void resetNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] &= ~(1 << 9);
+}
+
+
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
@@ -81,25 +92,56 @@ uint getTreeSize(){
 uint getBufferSize(){
     return octtreeInfo.data_0[1];
 }
-uint getOcttreeDepth(){
+uint getTransferBufferSize(){
     return octtreeInfo.data_0[2];
+}
+uint getOcttreeDepth(){
+    return octtreeInfo.data_0[3];
 }
 // Octtree End
 
 
+layout(binding = 2) buffer TransferBuffer {
+    Node nodes[];
+} transferBuffer;
+
+layout(binding = 3) buffer RequestBuffer {
+    uint nodes[];
+} requestBuffer;
+
+
+uint getChildId(uint nodeId, uint childNr, uint depth){
+    int childSize = (1 - int(pow(8, depth))) / -7;
+    return uint(nodeId + childSize * childNr + 1);
+}
+
 void main()
 {
     uint bufferSize = getBufferSize();
+    uint transferBufferSize = getTransferBufferSize();
+    uint octtreeDepth = getOcttreeDepth();
 
     uint writeHead = 1;
     uint readHead = 1;
-    
+    uint reqestHead = 0;
+
     uint counter = 0;
     while (counter < bufferSize && readHead < bufferSize - 1){
         counter++;
 
         Node writeNode = getNode(writeHead);
         while (getRenderFlag(writeNode) && writeHead < bufferSize - 1){
+
+            // Cehck for needs Child Flags.
+            if (getNeedsChildrenFlag(writeNode) && reqestHead < transferBufferSize){
+
+                for (uint childNr = 0; childNr < 8; childNr++){
+                    uint childId = getChildId(getNodeIdIndex(writeHead), childNr, octtreeDepth - getNodeDepthIndex(writeHead));
+                    requestBuffer.nodes[reqestHead] = childId;
+                    reqestHead++;
+                }
+            }
+
             writeHead++;
             writeNode = getNode(writeHead);
         }
@@ -111,5 +153,23 @@ void main()
             setNode(readHead, writeNode);
             setNode(writeHead, readNode);
         }
+    }
+
+    while (reqestHead < transferBufferSize){
+        requestBuffer.nodes[reqestHead] = 0;
+        reqestHead++;
+    }
+
+
+    uint transferHead = bufferSize - 1;
+    for (uint i = 0; i < transferBufferSize; i++){
+        Node newNode = transferBuffer.nodes[i];
+
+        if (getNodeId(newNode) == 0){
+            break;
+        }
+
+        setNode(bufferSize - i - 1, newNode);
+        //setRenderFlag(transferHead);
     }
 }

@@ -11,7 +11,7 @@ use app::vulkan::{
     DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
     WriteDescriptorSet, WriteDescriptorSetKind, MemoryBarrier,
 };
-use app::{App, BaseApp};
+use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
 
 
@@ -22,8 +22,8 @@ const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
 
-const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 64;
-const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 64;
+const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 32;
+const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
 const BUILD_DISPATCH_GROUP_SIZE: u32 = 32;
 
@@ -43,14 +43,23 @@ struct RayCaster {
     octtree: Octtree,
     octtree_buffer: Buffer,
     octtree_info_buffer: Buffer,
-    update_octtree: bool,
-    _update_octtree_descriptor_pool: DescriptorPool,
-    _update_octtree_descriptor_layout: DescriptorSetLayout,
-    update_octtree_descriptor_set: DescriptorSet,
-    update_octtree_pipeline_layout: PipelineLayout,
+    octtree_transfer_buffer: Buffer,
+    octtree_request_buffer: Buffer,
 
+    update_octtree: bool,
+
+    _build_descriptor_pool: DescriptorPool,
+    _build_descriptor_layout: DescriptorSetLayout,
+    build_octtree_descriptor_set: DescriptorSet,
+    build_octtree_pipeline_layout: PipelineLayout,
     build_octtree_pipeline: ComputePipeline,
+
+    _load_descriptor_pool: DescriptorPool,
+    _load_descriptor_layout: DescriptorSetLayout,
+    load_octtree_descriptor_set: DescriptorSet,
+    load_octtree_pipeline_layout: PipelineLayout,
     load_octtree_pipeline: ComputePipeline,
+
     update_octtree_intervall: Duration,
     update_octtree_last_time: Duration,
 }
@@ -75,21 +84,28 @@ impl App for RayCaster {
         let octtree_buffer = create_gpu_only_buffer_from_data(
             context,
             vk::BufferUsageFlags::STORAGE_BUFFER,
-            &[octtree],
+            octtree.get_inital_buffer_data(),
         )?;
+
 
         let octtree_info_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
             size_of::<OcttreeInfo>() as _,
         )?;
+        octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo::new()])?;
 
-        octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo {
-            octtree_size: OCTTREE_NODE_COUNT as u32,
-            octtree_buffer_size: OCTTREE_NODE_COUNT as u32,
-            octtree_depth: OCTTREE_DEPTH as u32,
-            fill_0: 0
-        }])?;
+        let octtree_transfer_buffer = context.create_buffer(
+            vk::BufferUsageFlags::STORAGE_BUFFER, 
+            MemoryLocation::CpuToGpu, 
+            (size_of::<OcttreeNode>() * OCTTREE_TRANSFER_BUFFER_SIZE) as _,
+        )?;
+
+        let octtree_request_buffer = context.create_buffer(
+            vk::BufferUsageFlags::STORAGE_BUFFER, 
+            MemoryLocation::GpuToCpu, 
+            (size_of::<u32>() * OCTTREE_TRANSFER_BUFFER_SIZE) as _,
+        )?;
         
         let render_descriptor_pool = context.create_descriptor_pool(
             images_len * 4,
@@ -113,7 +129,7 @@ impl App for RayCaster {
             ],
         )?;
 
-        let update_octtree_descriptor_pool = context.create_descriptor_pool(
+        let build_octtree_descriptor_pool = context.create_descriptor_pool(
             2,
             &[
                 vk::DescriptorPoolSize {
@@ -122,6 +138,29 @@ impl App for RayCaster {
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
+                    descriptor_count: 1,
+                },
+            ],
+        )?;
+
+        let load_octtree_descriptor_pool = context.create_descriptor_pool(
+            2,
+            &[
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: 1,
+                },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::UNIFORM_BUFFER,
+                    descriptor_count: 1,
+                },
+                
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: 1,
+                },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
                     descriptor_count: 1,
                 },
             ],
@@ -158,7 +197,7 @@ impl App for RayCaster {
             },
         ])?;
 
-        let update_octtree_descriptor_layout = context.create_descriptor_set_layout(&[
+        let build_octtree_descriptor_layout = context.create_descriptor_set_layout(&[
             vk::DescriptorSetLayoutBinding {
                 binding: 0,
                 descriptor_count: 1,
@@ -170,6 +209,37 @@ impl App for RayCaster {
                 binding: 1,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+        ])?;
+
+        let load_octtree_descriptor_layout = context.create_descriptor_set_layout(&[
+            vk::DescriptorSetLayoutBinding {
+                binding: 0,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 1,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 2,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 3,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -210,9 +280,8 @@ impl App for RayCaster {
             render_descriptor_sets.push(render_descriptor_set);
         }
 
-
-        let update_octtree_descriptor_set = update_octtree_descriptor_pool.allocate_set(&update_octtree_descriptor_layout)?;
-        update_octtree_descriptor_set.update(&[
+        let build_octtree_descriptor_set = build_octtree_descriptor_pool.allocate_set(&build_octtree_descriptor_layout)?;
+        build_octtree_descriptor_set.update(&[
             WriteDescriptorSet {
                 binding: 0,
                 kind: WriteDescriptorSetKind::StorageBuffer { 
@@ -227,6 +296,34 @@ impl App for RayCaster {
             },
         ]);
 
+        let load_octtree_descriptor_set = load_octtree_descriptor_pool.allocate_set(&load_octtree_descriptor_layout)?;
+        load_octtree_descriptor_set.update(&[
+            WriteDescriptorSet {
+                binding: 0,
+                kind: WriteDescriptorSetKind::StorageBuffer { 
+                    buffer: &octtree_buffer
+                } 
+            },
+            WriteDescriptorSet {
+                binding: 1,
+                kind: WriteDescriptorSetKind::UniformBuffer {  
+                    buffer: &octtree_info_buffer
+                } 
+            },
+            WriteDescriptorSet {
+                binding: 2,
+                kind: WriteDescriptorSetKind::StorageBuffer {  
+                    buffer: &octtree_transfer_buffer
+                } 
+            },
+            WriteDescriptorSet {
+                binding: 3,
+                kind: WriteDescriptorSetKind::StorageBuffer {  
+                    buffer: &octtree_request_buffer
+                } 
+            },
+        ]);
+
         let render_pipeline_layout =
             context.create_pipeline_layout(&[&render_descriptor_layout])?;
 
@@ -237,18 +334,21 @@ impl App for RayCaster {
             },
         )?;
 
-        let update_octtree_pipeline_layout =
-            context.create_pipeline_layout(&[&update_octtree_descriptor_layout])?;
+        let build_octtree_pipeline_layout =
+            context.create_pipeline_layout(&[&build_octtree_descriptor_layout])?;
 
         let build_octtree_pipeline = context.create_compute_pipeline(
-            &update_octtree_pipeline_layout,
+            &build_octtree_pipeline_layout,
             ComputePipelineCreateInfo {
                 shader_source: &include_bytes!("../shaders/build_tree.comp.spv")[..],
             },
         )?;
 
+        let load_octtree_pipeline_layout =
+            context.create_pipeline_layout(&[&load_octtree_descriptor_layout])?;
+
         let load_octtree_pipeline = context.create_compute_pipeline(
-            &update_octtree_pipeline_layout,
+            &load_octtree_pipeline_layout,
             ComputePipelineCreateInfo {
                 shader_source: &include_bytes!("../shaders/load_tree.comp.spv")[..],
             },
@@ -271,14 +371,23 @@ impl App for RayCaster {
             octtree,
             octtree_buffer,
             octtree_info_buffer,
-            update_octtree: false,
-            _update_octtree_descriptor_pool: update_octtree_descriptor_pool,
-            _update_octtree_descriptor_layout: update_octtree_descriptor_layout,
-            update_octtree_descriptor_set,
-            update_octtree_pipeline_layout,
+            octtree_transfer_buffer,
+            octtree_request_buffer,
 
+            update_octtree: false,
+
+            _build_descriptor_pool: build_octtree_descriptor_pool,
+            _build_descriptor_layout: build_octtree_descriptor_layout,
+            build_octtree_descriptor_set,
+            build_octtree_pipeline_layout,
             build_octtree_pipeline,
+
+            _load_descriptor_pool: load_octtree_descriptor_pool,
+            _load_descriptor_layout: load_octtree_descriptor_layout,
+            load_octtree_descriptor_set,
+            load_octtree_pipeline_layout,
             load_octtree_pipeline,
+
             update_octtree_intervall: Duration::from_secs(1),
             update_octtree_last_time: Duration::ZERO,
         })
@@ -304,14 +413,21 @@ impl App for RayCaster {
             fill_2: 0,
         }])?;
 
-
         self.update_octtree = if self.update_octtree_last_time + self.update_octtree_intervall < self.total_time {
             self.update_octtree_last_time = self.total_time;
-
             gui.cach
         }else{
             false
         };
+
+        if self.update_octtree {
+            let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(OCTTREE_TRANSFER_BUFFER_SIZE)?;
+            log::debug!("{:?}", &request_data);
+
+            let requested_nodes = self.octtree.get_requested_nodes(request_data);
+            self.octtree_transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
+
+        }
 
         // Updateing Gui
         gui.pos = base.camera.position;
@@ -339,9 +455,9 @@ impl App for RayCaster {
 
             buffer.bind_descriptor_sets(
                 vk::PipelineBindPoint::COMPUTE,
-                &self.update_octtree_pipeline_layout,
+                &self.load_octtree_pipeline_layout,
                 0,
-            &[&self.update_octtree_descriptor_set],
+            &[&self.load_octtree_descriptor_set],
             );
 
             buffer.dispatch(
@@ -361,13 +477,13 @@ impl App for RayCaster {
 
             buffer.bind_descriptor_sets(
                 vk::PipelineBindPoint::COMPUTE,
-                &self.update_octtree_pipeline_layout,
+                &self.build_octtree_pipeline_layout,
                 0,
-            &[&self.update_octtree_descriptor_set],
+            &[&self.build_octtree_descriptor_set],
             );
 
             buffer.dispatch(
-                (OCTTREE_NODE_COUNT as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
+                (OCTTREE_SIZE as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
                 1, 
                 1,
             );
@@ -474,14 +590,4 @@ struct ComputeUbo {
 
     dir: Vec3,
     fill_2: u32,
-}
-
-
-#[derive(Clone, Copy)]
-#[allow(dead_code)]
-struct OcttreeInfo {
-    octtree_size: u32,
-    octtree_buffer_size: u32,
-    octtree_depth: u32,
-    fill_0: u32,
 }

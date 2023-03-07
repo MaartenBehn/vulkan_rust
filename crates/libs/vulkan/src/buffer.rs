@@ -1,5 +1,5 @@
 use std::{
-    mem::{align_of, size_of_val},
+    mem::{align_of, size_of_val, size_of},
     sync::{Arc, Mutex},
 };
 
@@ -68,6 +68,28 @@ impl Buffer {
         };
 
         Ok(())
+    }
+
+    pub fn get_data_from_buffer<T: Copy>(&self, len: usize) -> Result<Vec<T>> {
+        
+        let mut data = Vec::new();
+        unsafe {
+            let data_ptr = self
+                .allocation
+                .as_ref()
+                .unwrap()
+                .mapped_ptr()
+                .unwrap()
+                .as_ptr();
+            let mut align: ash::util::Align<T> =
+                ash::util::Align::new(data_ptr, align_of::<T>() as _, (len * size_of::<T>())  as _);
+
+            for (_, val) in align.iter_mut().enumerate().take(len) {
+                data.push(*val);
+            }
+        };
+
+        Ok(data)
     }
 
     pub fn get_device_address(&self) -> u64 {

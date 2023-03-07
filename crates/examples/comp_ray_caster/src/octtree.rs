@@ -1,9 +1,12 @@
-use app::{glam::Vec3, log};
+use app::log;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
-pub const OCTTREE_DEPTH: usize = 4; // 255
-pub const OCTTREE_NODE_COUNT: usize = 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
+pub const OCTTREE_DEPTH: usize = 2; // 255
+pub const OCTTREE_SIZE: usize = 73; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
+pub const OCTTREE_BUFFER_SIZE: usize = 50; 
+pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 16;  // Must be dividable by 8
+
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
@@ -15,10 +18,9 @@ const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [1, 1, 1],
 ];
 
-
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Octtree{
-    pub nodes: [OcttreeNode; OCTTREE_NODE_COUNT]
+    pub nodes: Vec<OcttreeNode>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -26,16 +28,35 @@ pub struct OcttreeNode {
     children: [u16; 8],
 
     color: [u16; 4],
-    //reflective: u16,
-    nodeId: u32,
+    node_id: u32,
     data: u32, // first 8 bits = depth, Nr 8 is render 
+}
+
+#[derive(Clone, Copy)]
+#[allow(dead_code)]
+pub struct OcttreeInfo {
+    octtree_size: u32,
+    octtree_buffer_size: u32,
+    octtree_transfer_buffer_size: u32,
+    octtree_depth: u32,
+}
+
+impl OcttreeNode{
+    fn new(node_id: u32, children: [u16; 8], color: [u16; 4], data: u32) -> Self {
+        Self { 
+            children, 
+            color, 
+            node_id, 
+            data,
+        }
+    }
 }
 
 
 impl Octtree{
-    pub fn new() -> Octtree{
+    pub fn new() -> Self {
         let mut octtree = Octtree{
-            nodes: [OcttreeNode::default(); OCTTREE_NODE_COUNT],
+            nodes: Vec::new(),
         };
 
         let mut seed_rng= rand::thread_rng();
@@ -56,8 +77,14 @@ impl Octtree{
 
     fn update(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng) -> usize {
 
-        self.nodes[i].nodeId = i as u32;
-        self.nodes[i].data = depth as u32;
+        
+        let node_id = i as u32;
+        let data = depth as u32;
+        let children = [0 as u16; 8];
+        let color = [0 as u16; 4];
+
+        let node = OcttreeNode::new(node_id, children, color, data);
+        self.nodes.push(node);
 
         let mut new_i = i + 1;
         if depth < OCTTREE_DEPTH {
@@ -76,24 +103,56 @@ impl Octtree{
                 
                 new_i = self.update(new_i, depth + 1, new_pos, rng);
 
-                let childColor = self.nodes[child_index].color;
-                if childColor[0] != 0 || childColor[1] != 0 || childColor[2] != 0{
-                    self.nodes[i].color = childColor;
+                let child_color = self.nodes[child_index].color;
+                if child_color[0] != 0 || child_color[1] != 0 || child_color[2] != 0{
+                    self.nodes[i].color = child_color;
                 }
             }
 
         }else{
 
             let rand_float: f32 = rng.gen();
-            if (rand_float < 0.4){
+            if rand_float < 0.4 {
                 self.nodes[i].color = [rng.gen(), rng.gen(), rng.gen(), 0];
             }
 
-            if (pos == [0, 0, 0] && depth == OCTTREE_DEPTH){
+            if pos == [0, 0, 0] && depth == OCTTREE_DEPTH {
                 self.nodes[i].color = [u16::MAX, u16::MAX, u16::MAX, 0];
             }
         }
-        
+
         return new_i;
+    }
+
+
+    pub fn get_inital_buffer_data(&self) -> &[OcttreeNode] {
+        return &self.nodes[0..OCTTREE_BUFFER_SIZE];
+    }
+
+    pub fn get_requested_nodes(&self, requested_ids: Vec<u32>) -> [OcttreeNode; OCTTREE_TRANSFER_BUFFER_SIZE] {
+        let mut nodes = [OcttreeNode::default(); OCTTREE_TRANSFER_BUFFER_SIZE];
+
+        for (i, id) in requested_ids.iter().enumerate() {
+            if *id == 0 {
+                break;
+            }
+
+            nodes[i] = self.nodes[*id as usize];
+        }
+
+        nodes
+    }
+
+}
+
+
+impl OcttreeInfo{
+    pub fn new() -> Self {
+        Self { 
+            octtree_size:                   OCTTREE_SIZE as u32, 
+            octtree_buffer_size:            OCTTREE_BUFFER_SIZE as u32,
+            octtree_transfer_buffer_size:   OCTTREE_TRANSFER_BUFFER_SIZE as u32, 
+            octtree_depth:                  OCTTREE_DEPTH as u32, 
+        }
     }
 }

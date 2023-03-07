@@ -78,6 +78,17 @@ void resetRenderFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
 }
 
+bool getNeedsChildrenFlag(Node node){
+    return bool(node.data[3] & (1 << 9));
+}
+void setNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] |= (1 << 9);
+}
+void resetNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] &= ~(1 << 9);
+}
+
+
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
@@ -91,8 +102,11 @@ uint getTreeSize(){
 uint getBufferSize(){
     return octtreeInfo.data_0[1];
 }
-uint getOcttreeDepth(){
+uint getTransferBufferSize(){
     return octtreeInfo.data_0[2];
+}
+uint getOcttreeDepth(){
+    return octtreeInfo.data_0[3];
 }
 // Octtree End
 
@@ -118,7 +132,7 @@ vec3 draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size.xy;
 
-    uint nodeIndex = gl_GlobalInvocationID.x;
+    uint nodeIndex = gl_GlobalInvocationID.x / 20;
     Node node = getNode(nodeIndex);
     
     vec3 color = vec3(0);
@@ -155,8 +169,11 @@ vec3 draw_buffer_debuger(){
     else if (uv.y < 0.7) {
         color = getNodeColor(node);
     }
-    else if (uv.y < 0.8) {
+    else if (uv.y < 0.75) {
         color = vec3(getRenderFlag(node));
+    }
+    else if (uv.y < 0.8) {
+        color = vec3(getNeedsChildrenFlag(node));
     }
     return color;
 }
@@ -266,11 +283,14 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     // Loop
     uint depth = 0;
     uint size = rootSize;
+     uint bufferSize = getBufferSize();
 
     setRenderFlag(0);
     Node root = getNode(0);
     Node node = root;
+    uint nodeIndex = 0;
     uvec3 nodePos = uvec3(0);
+   
 
 
     color = vec3(0);
@@ -288,16 +308,18 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             uvec3 posDelta = (newNodePos - nodePos) / (size); 
             nodePos = newNodePos;
 
-            if (posDelta.x < 0 || posDelta.x > 1 || posDelta.y < 0 || posDelta.y > 1 || posDelta.z < 0 || posDelta.z > 1){
-                color = vec3(1, 0, 0.5);
-                return true;
-            }
-
             uint childIndex = getChildFromPos(posDelta);
-            uint newNodeIndex = node.children[childIndex];
+            uint newNodeIndex = getChildIndex(node, childIndex);
 
-            setRenderFlag(newNodeIndex);
-            node = getNode(newNodeIndex);
+            if (newNodeIndex >= bufferSize){
+                setNeedsChildrenFlag(nodeIndex);
+                isLeave = true; // Child is not in Buffer
+            }
+            else{
+                nodeIndex = newNodeIndex;
+                setRenderFlag(newNodeIndex);
+                node = getNode(newNodeIndex);
+            }
         }
         else if (isEmpty){
             checkHit(ray, vec3(nodePos), size, tMin, tMax);
@@ -314,7 +336,8 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
                 return false; // Ray left Tree.
             }
         }
-        else if (!isEmpty && isLeave){
+
+        if (!isEmpty && isLeave){
             color = getNodeColor(node);
             return true; // Ray Hit Node to Render
         }

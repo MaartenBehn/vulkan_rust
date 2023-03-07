@@ -68,6 +68,17 @@ void resetRenderFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
 }
 
+bool getNeedsChildrenFlag(Node node){
+    return bool(node.data[3] & (1 << 9));
+}
+void setNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] |= (1 << 9);
+}
+void resetNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] &= ~(1 << 9);
+}
+
+
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
@@ -81,10 +92,14 @@ uint getTreeSize(){
 uint getBufferSize(){
     return octtreeInfo.data_0[1];
 }
-uint getOcttreeDepth(){
+uint getTransferBufferSize(){
     return octtreeInfo.data_0[2];
 }
+uint getOcttreeDepth(){
+    return octtreeInfo.data_0[3];
+}
 // Octtree End
+
 
 
 uint getChildId(uint nodeId, uint childNr, uint depth){
@@ -99,6 +114,7 @@ void main()
     uint nodeIndex = gl_GlobalInvocationID.x;
 
     resetRenderFlag(nodeIndex);
+    resetNeedsChildrenFlag(nodeIndex);
     
     if (getNodeDepthIndex(nodeIndex) >= octtreeDepth){
         return;
