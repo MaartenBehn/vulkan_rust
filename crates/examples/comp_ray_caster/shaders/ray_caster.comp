@@ -125,9 +125,8 @@ uint getWorkerSizeTransfer(){
 }
 // Octtree End
 
-#define VIEW_DIST 100
+#define VIEW_DIST 10000
 #define MAX_STEPS 1000
-
 
 vec3 getColorGradient(float x){
     if (x == 0){
@@ -336,7 +335,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     
     while(counter < MAX_STEPS){
         bool isEmpty = getNodeColor(node) == vec3(0);
-        bool isLeave = depth >= (getOcttreeDepth() - (rayLen * 0.03));
+        bool isLeave = depth >= (getOcttreeDepth() - (rayLen * 0.02));
 
         if (!isEmpty && !isLeave){
             depth += 1;

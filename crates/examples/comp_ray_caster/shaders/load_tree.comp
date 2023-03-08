@@ -156,7 +156,7 @@ void main()
     bool reqestRunning = true;
     bool transferRunning = true;
 
-    for (uint i = startIndex; (reqestRunning || transferRunning) && i < endIndex; i++){
+    for (uint i = startIndex; i < endIndex; i++){
 
         Node node = getNode(i);
         bool renderFlag = getRenderFlag(node);
@@ -173,16 +173,19 @@ void main()
                     reqestRunning = reqestHead < reqestEnd;
                 }
             }
+
+            resetRenderFlag(i);
+            resetNeedsChildrenFlag(i);
         }
         else{
             if (transferRunning){
-                Node newNode = transferBuffer.nodes[transferHead];
+            Node newNode = transferBuffer.nodes[transferHead];
 
                 if (getNodeId(newNode) != 0){
-                    setNode(i, newNode);
-                }
+                setNode(i, newNode);
+            }
 
-                transferHead++;
+            transferHead++;
                 transferRunning = transferHead < transferEnd;
             }
         }

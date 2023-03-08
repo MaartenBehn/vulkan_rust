@@ -1,3 +1,4 @@
+use app::glam::Vec3;
 use shuffle::shuffler::Shuffler;
 use shuffle::irs::Irs;
 use rand::rngs::mock::StepRng;
@@ -23,6 +24,8 @@ pub struct OcttreeController{
     pub buffer_size: usize, 
     pub transfer_size: usize,
     pub worker_count: usize,
+
+    worker_offset: usize,
 }
 
 #[derive(Clone)]
@@ -65,6 +68,7 @@ impl OcttreeController{
             buffer_size: buffer_size, 
             transfer_size: worker_count * transfer_slots_per_worker,
             worker_count: worker_count,
+            worker_offset: 0,
         }
     }
 
@@ -83,9 +87,10 @@ impl OcttreeController{
         return &self.octtree.nodes[0 .. self.buffer_size];
     }
 
-    pub fn get_requested_nodes(&self, requested_ids: Vec<u32>) -> Vec<OcttreeNode> {
+    pub fn get_requested_nodes(&mut self, requested_ids: Vec<u32>) -> Vec<OcttreeNode> {
 
         let transfer_worker_size = self.transfer_size / self.worker_count;
+
         let out = self.buffer_size as u16;
         let new_children = [out, out, out, out,  out, out, out, out];
         let new_children_zero = [0, 0, 0, 0,  0, 0, 0, 0];
@@ -102,19 +107,22 @@ impl OcttreeController{
                 continue;
             }
 
-            nodes[i] = self.octtree.nodes[*id as usize];
+            let mut index = self.worker_offset + i;
+            while index >= self.transfer_size {
+                index = index - self.transfer_size;
+            }
 
-            if nodes[i].data < self.octtree.depth as u32{
-                nodes[i].children = new_children;
+            nodes[index] = self.octtree.nodes[*id as usize];
+
+            if nodes[index].data < self.octtree.depth as u32{
+                nodes[index].children = new_children;
             }
             else{
-                nodes[i].children = new_children_zero;
+                nodes[index].children = new_children_zero;
             }
         }
 
-        let mut irs = Irs::default();
-
-        irs.shuffle(&mut nodes, &mut rand::thread_rng());
+        self.worker_offset = (self.worker_offset + transfer_worker_size) % self.transfer_size;
 
         nodes
     }
@@ -151,8 +159,6 @@ impl Octtree{
     }
 
     fn inital_fill(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng) -> usize {
-
-        
         let node_id = i as u32;
         let data = depth as u32;
         let children = [0 as u16; 8];
@@ -185,14 +191,20 @@ impl Octtree{
             }
 
         }else{
+            let radius = f32::powf(2.0, self.depth as f32) / 2.0;
+            let dist = Vec3::new(
+                pos[0] as f32 - radius, 
+                pos[1] as f32 - radius, 
+                pos[2] as f32 - radius
+            ).length();
 
-            let rand_float: f32 = rng.gen();
-            if rand_float < 0.2 {
-                self.nodes[i].color = [rng.gen(), rng.gen(), rng.gen(), 0];
-            }
-
-            if pos == [0, 0, 0] && depth == self.depth {
-                self.nodes[i].color = [u16::MAX, u16::MAX, u16::MAX, 0];
+            if dist < radius {
+                self.nodes[i].color = [
+                    ((pos[0] as f32 * 0.01).sin() * (u16::MAX / 2) as f32) as u16 + (u16::MAX / 4), 
+                    ((pos[1] as f32 * 0.02).sin() * (u16::MAX / 2) as f32) as u16 + (u16::MAX / 4), 
+                    ((pos[2] as f32 * 0.03).sin() * (u16::MAX / 2) as f32) as u16 + (u16::MAX / 4), 
+                    0
+                ];
             }
         }
 

@@ -82,10 +82,10 @@ impl App for RayCaster {
         )?;
 
         let octtree_controller = OcttreeController::new(
-            Octtree::new(7, 123), 
+            Octtree::new(9, 123), 
             usize::pow(2, 14), 
-            32, 
-            2);
+            64, 
+            32);
 
         let octtree_buffer = create_gpu_only_buffer_from_data(
             context,
@@ -429,7 +429,7 @@ impl App for RayCaster {
 
         if self.update_octtree {
             let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size)?;
-            log::debug!("{:?}", request_data);
+            //log::debug!("{:?}", request_data);
             let requested_nodes = self.octtree_controller.get_requested_nodes(request_data);
             self.octtree_transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
         }
