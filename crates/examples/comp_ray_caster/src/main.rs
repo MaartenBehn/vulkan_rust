@@ -1,15 +1,16 @@
 use std::mem::size_of;
-use std::time::{Duration};
+use std::thread;
+use std::time::{Duration, self};
 
 use app::anyhow::Result;
 use app::glam::{Vec3};
-use app::vulkan::ash::vk::{self, MemoryBarrier2};
+use app::vulkan::ash::vk::{self};
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo,
     DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
-    WriteDescriptorSet, WriteDescriptorSetKind, MemoryBarrier, BufferBarrier,
+    WriteDescriptorSet, WriteDescriptorSetKind, BufferBarrier,
 };
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
@@ -40,7 +41,7 @@ struct RayCaster {
     render_pipeline_layout: PipelineLayout,
     render_pipeline: ComputePipeline,
 
-    octtree: Octtree,
+    octtree_controller: OcttreeController,
     octtree_buffer: Buffer,
     octtree_info_buffer: Buffer,
     octtree_transfer_buffer: Buffer,
@@ -79,32 +80,31 @@ impl App for RayCaster {
             size_of::<ComputeUbo>() as _,
         )?;
 
-        let octtree = Octtree::new();
+        let octtree_controller = OcttreeController::new(Octtree::new(4, 123), 2000, 16);
 
         let octtree_buffer = create_gpu_only_buffer_from_data(
             context,
             vk::BufferUsageFlags::STORAGE_BUFFER,
-            octtree.get_inital_buffer_data(),
+            octtree_controller.get_inital_buffer_data(),
         )?;
-
 
         let octtree_info_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
             size_of::<OcttreeInfo>() as _,
         )?;
-        octtree_info_buffer.copy_data_to_buffer(&[OcttreeInfo::new()])?;
+        octtree_info_buffer.copy_data_to_buffer(&[octtree_controller.get_octtree_info()])?;
 
         let octtree_transfer_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::CpuToGpu, 
-            (size_of::<OcttreeNode>() * OCTTREE_TRANSFER_BUFFER_SIZE) as _,
+            (size_of::<OcttreeNode>() * octtree_controller.transfer_size) as _,
         )?;
 
         let octtree_request_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuToCpu, 
-            (size_of::<u32>() * OCTTREE_TRANSFER_BUFFER_SIZE) as _,
+            (size_of::<u32>() * octtree_controller.transfer_size) as _,
         )?;
         
         let render_descriptor_pool = context.create_descriptor_pool(
@@ -354,7 +354,7 @@ impl App for RayCaster {
             },
         )?;
 
-        base.camera.position = Vec3::new(20.1, 20.1, 20.1);
+        base.camera.position = Vec3::new(-5.0, 0.0, 0.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
 
@@ -368,7 +368,7 @@ impl App for RayCaster {
             render_pipeline_layout,
             render_pipeline,
 
-            octtree,
+            octtree_controller,
             octtree_buffer,
             octtree_info_buffer,
             octtree_transfer_buffer,
@@ -423,8 +423,8 @@ impl App for RayCaster {
         self.update_octtree = gui.cach;
 
         if self.update_octtree {
-            let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(OCTTREE_TRANSFER_BUFFER_SIZE)?;
-            let requested_nodes = self.octtree.get_requested_nodes(request_data);
+            let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size)?;
+            let requested_nodes = self.octtree_controller.get_requested_nodes(request_data);
             self.octtree_transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
 
         }
@@ -486,7 +486,7 @@ impl App for RayCaster {
             );
 
             buffer.dispatch(
-                (OCTTREE_SIZE as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
+                (self.octtree_controller.octtree.size as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
                 1, 
                 1,
             );

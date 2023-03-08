@@ -2,11 +2,6 @@ use app::log;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
-pub const OCTTREE_DEPTH: usize = 5; // 4; // max 255
-pub const OCTTREE_SIZE: usize = 37499; // 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
-pub const OCTTREE_BUFFER_SIZE: usize = 4000; 
-pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 32;
-
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
@@ -18,9 +13,21 @@ const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [1, 1, 1],
 ];
 
+
+pub struct OcttreeController{
+    pub octtree: Octtree,
+
+    pub buffer_size: usize, 
+    pub transfer_size: usize,
+}
+
 #[derive(Clone)]
 pub struct Octtree{
     pub nodes: Vec<OcttreeNode>,
+
+    pub depth: usize,
+    pub size: usize,
+    
 }
 
 #[derive(Clone, Copy, Default)]
@@ -32,6 +39,7 @@ pub struct OcttreeNode {
     data: u32, // first 8 bits = depth, Nr 8 is render 
 }
 
+
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub struct OcttreeInfo {
@@ -41,31 +49,77 @@ pub struct OcttreeInfo {
     octtree_depth: u32,
 }
 
-impl OcttreeNode{
-    fn new(node_id: u32, children: [u16; 8], color: [u16; 4], data: u32) -> Self {
+
+impl OcttreeController{
+    pub fn new(octtree: Octtree, buffer_size: usize, transfer_size: usize) -> Self{
         Self { 
-            children, 
-            color, 
-            node_id, 
-            data,
+            octtree, 
+            buffer_size: buffer_size, 
+            transfer_size: transfer_size 
         }
+    }
+
+    pub fn get_octtree_info(&self) -> OcttreeInfo {
+        OcttreeInfo::new(self.octtree.depth as u32, self.octtree.size as u32, self.buffer_size as u32, self.transfer_size as u32)
+    }
+
+    pub fn get_inital_buffer_data(&self) -> &[OcttreeNode] {
+        return &self.octtree.nodes[0 .. self.buffer_size];
+    }
+
+    pub fn get_requested_nodes(&self, requested_ids: Vec<u32>) -> Vec<OcttreeNode> {
+
+        let out = self.buffer_size as u16;
+        let new_children = [out, out, out, out,  out, out, out, out];
+        let new_children_zero = [0, 0, 0, 0,  0, 0, 0, 0];
+
+        let mut nodes = vec![OcttreeNode::default(); self.transfer_size];
+
+        for (i, id) in requested_ids.iter().enumerate() {
+
+            if *id >= self.octtree.size as u32 {
+                log::error!("Requested Child ID: {:?}", id);
+            }
+
+            if *id <= 0 || *id >= self.octtree.size as u32 {
+                break;
+            }
+
+            nodes[i] = self.octtree.nodes[*id as usize];
+
+            if nodes[i].data < self.octtree.depth as u32{
+                nodes[i].children = new_children;
+            }
+            else{
+                nodes[i].children = new_children_zero;
+            }
+        }
+
+        nodes
     }
 }
 
 
+
+
+
 impl Octtree{
-    pub fn new() -> Self {
+    pub fn new(depth: usize, mut seed: u64) -> Self {
         let mut octtree = Octtree{
             nodes: Vec::new(),
+            depth: depth,
+            size: (1 - i32::pow(8, depth as u32 + 1) / -7) as usize,
         };
 
-        let mut seed_rng= rand::thread_rng();
-        let seed: u64 = seed_rng.gen();
-
-        log::info!("Octtree Seed: {:?}", seed);
-        let mut rng = StdRng::seed_from_u64(8998840515808983062);
+        if seed == 0 {
+            let mut seed_rng= rand::thread_rng();
+            seed = seed_rng.gen();
+        }
        
-        octtree.update(0, 0, [0, 0, 0], &mut rng);
+        log::info!("Octtree Seed: {:?}", seed);
+        let mut rng = StdRng::seed_from_u64(seed);
+       
+        octtree.inital_fill(0, 0, [0, 0, 0], &mut rng);
 
         return octtree;
     }
@@ -75,7 +129,7 @@ impl Octtree{
         return (node_id + child_size * child_nr + 1) as u32;
     }
 
-    fn update(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng) -> usize {
+    fn inital_fill(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng) -> usize {
 
         
         let node_id = i as u32;
@@ -87,12 +141,12 @@ impl Octtree{
         self.nodes.push(node);
 
         let mut new_i = i + 1;
-        if depth < OCTTREE_DEPTH {
+        if depth < self.depth {
             for j in 0..8 {
                 
-                let inverse_depth = u32::pow(2, (OCTTREE_DEPTH - depth - 1) as u32);
+                let inverse_depth = u32::pow(2, (self.depth - depth - 1) as u32);
 
-                let child_index = Self::get_child_id(i as u32, j as u32, (OCTTREE_DEPTH - depth) as u32) as usize;
+                let child_index = Self::get_child_id(i as u32, j as u32, (self.depth - depth) as u32) as usize;
                 self.nodes[i].children[j] = child_index as u16;
                 
                 let new_pos = [
@@ -101,7 +155,7 @@ impl Octtree{
                     pos[2] + OCTTREE_CONFIG[j][2] * inverse_depth,
                     ];
                 
-                new_i = self.update(new_i, depth + 1, new_pos, rng);
+                new_i = self.inital_fill(new_i, depth + 1, new_pos, rng);
 
                 let child_color = self.nodes[child_index].color;
                 if child_color[0] != 0 || child_color[1] != 0 || child_color[2] != 0{
@@ -116,7 +170,7 @@ impl Octtree{
                 self.nodes[i].color = [rng.gen(), rng.gen(), rng.gen(), 0];
             }
 
-            if pos == [0, 0, 0] && depth == OCTTREE_DEPTH {
+            if pos == [0, 0, 0] && depth == self.depth {
                 self.nodes[i].color = [u16::MAX, u16::MAX, u16::MAX, 0];
             }
         }
@@ -124,53 +178,28 @@ impl Octtree{
         return new_i;
     }
 
+}
 
-    pub fn get_inital_buffer_data(&self) -> &[OcttreeNode] {
-        return &self.nodes[0..OCTTREE_BUFFER_SIZE];
-    }
 
-    pub fn get_requested_nodes(&self, requested_ids: Vec<u32>) -> [OcttreeNode; OCTTREE_TRANSFER_BUFFER_SIZE] {
-
-        let out = OCTTREE_BUFFER_SIZE as u16;
-        let new_children = [out, out, out, out,  out, out, out, out];
-        let new_children_zero = [0, 0, 0, 0,  0, 0, 0, 0];
-
-        let mut nodes = [OcttreeNode::default(); OCTTREE_TRANSFER_BUFFER_SIZE];
-
-        for (i, id) in requested_ids.iter().enumerate() {
-
-            if *id >= OCTTREE_SIZE as u32 {
-                log::error!("Requested Child ID: {:?}", id);
-            }
-
-            if *id <= 0 || *id >= OCTTREE_SIZE as u32 {
-                break;
-            }
-
-            nodes[i] = self.nodes[*id as usize];
-
-            if nodes[i].data < OCTTREE_DEPTH as u32{
-                nodes[i].children = new_children;
-            }
-            else{
-                nodes[i].children = new_children_zero;
-            }
-
+impl OcttreeNode{
+    fn new(node_id: u32, children: [u16; 8], color: [u16; 4], data: u32) -> Self {
+        Self { 
+            children, 
+            color, 
+            node_id, 
+            data,
         }
-
-        nodes
     }
-
 }
 
 
 impl OcttreeInfo{
-    pub fn new() -> Self {
+    fn new(depth: u32, tree_size: u32, buffer_size: u32, transfer_size: u32) -> Self {
         Self { 
-            octtree_size:                   OCTTREE_SIZE as u32, 
-            octtree_buffer_size:            OCTTREE_BUFFER_SIZE as u32,
-            octtree_transfer_buffer_size:   OCTTREE_TRANSFER_BUFFER_SIZE as u32, 
-            octtree_depth:                  OCTTREE_DEPTH as u32, 
+            octtree_size: tree_size, 
+            octtree_buffer_size: buffer_size,
+            octtree_transfer_buffer_size: transfer_size, 
+            octtree_depth: depth, 
         }
     }
 }
