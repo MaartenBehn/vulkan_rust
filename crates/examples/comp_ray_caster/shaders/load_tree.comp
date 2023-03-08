@@ -116,14 +116,15 @@ uint getChildId(uint nodeId, uint childNr, uint depth){
     return uint(nodeId + childSize * childNr + 1);
 }
 
-void pushNode(Node node, uint nodeIndex){
 
-    for (uint i = nodeIndex - 1; i > 0; i--){
-        Node moveNode = getNode(i);
-        setNode(i + 1, moveNode);
-    }
+float rand(vec2 co){
+   return fract(sin(dot(co.xy,vec2(12.9898,78.233))) * 43758.5453);
+}
 
-    setNode(1, node);
+uint randRange(uint from, uint to, uint x, uint y){
+    float randFloat = rand(vec2(x, y));
+
+    return from + uint(float(to - from) * randFloat);
 }
 
 void main()
@@ -138,7 +139,10 @@ void main()
     bool requestDone = false;
     bool transferDone = false;
 
-    for (int i = 0; i < bufferSize && (!transferDone || !requestDone); i++){
+    uint randSeed = getNodeIdIndex(bufferSize) + requestBuffer.nodes[0];
+    uint startIndex = randRange(1, bufferSize - 1, randSeed, randSeed - 1);
+
+    for (uint i = 0; i < bufferSize && (!transferDone || !requestDone); i++){
 
         Node node = getNode(i);
         bool renderFlag = getRenderFlag(node);
@@ -167,7 +171,7 @@ void main()
             bool newNodeEmpty = getNodeId(newNode) == 0;
             bool transferHeadAtEnd = transferHead >= transferBufferSize -1;
 
-            if (!transferHeadAtEnd && !newNodeEmpty){
+            if (!transferHeadAtEnd && !newNodeEmpty && i > startIndex){
                 setNode(i, newNode);
                 transferHead++;
             }

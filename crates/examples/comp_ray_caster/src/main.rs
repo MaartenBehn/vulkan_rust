@@ -9,7 +9,7 @@ use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo,
     DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
-    WriteDescriptorSet, WriteDescriptorSetKind, MemoryBarrier,
+    WriteDescriptorSet, WriteDescriptorSetKind, MemoryBarrier, BufferBarrier,
 };
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
@@ -354,7 +354,7 @@ impl App for RayCaster {
             },
         )?;
 
-        base.camera.position = Vec3::new(-5.0, 1.0, 1.0);
+        base.camera.position = Vec3::new(20.1, 20.1, 20.1);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
 
@@ -444,12 +444,14 @@ impl App for RayCaster {
     ) -> Result<()> {
 
         if self.update_octtree {
+            /* 
             buffer.pipeline_memory_barriers(&[MemoryBarrier {
                 src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
                 src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
                 dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
                 dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
             }]);
+            */
 
             buffer.bind_compute_pipeline(&self.load_octtree_pipeline);
 
@@ -466,7 +468,8 @@ impl App for RayCaster {
                 1,
             );
 
-            buffer.pipeline_memory_barriers(&[MemoryBarrier {
+            buffer.pipeline_buffer_barriers(&[BufferBarrier {
+                buffer: &self.octtree_buffer,
                 src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
                 src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
                 dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
@@ -488,12 +491,7 @@ impl App for RayCaster {
                 1,
             );
 
-            buffer.pipeline_memory_barriers(&[MemoryBarrier {
-                src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
-                src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
-                dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
-                dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
-            }]);
+            
         }
 
         buffer.bind_descriptor_sets(
@@ -547,7 +545,7 @@ impl app::Gui for Gui {
             pos: Vec3::default(),
             dir: Vec3::default(),
             mode: 1,
-            cach: false,
+            cach: true,
             debug_scale: 1,
         })
     }
