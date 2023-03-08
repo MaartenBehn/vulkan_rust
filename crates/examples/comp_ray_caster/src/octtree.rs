@@ -4,8 +4,8 @@ use rand::rngs::StdRng;
 
 pub const OCTTREE_DEPTH: usize = 5; // 4; // max 255
 pub const OCTTREE_SIZE: usize = 37499; // 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
-pub const OCTTREE_BUFFER_SIZE: usize = 2048; 
-pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 64;  // Must be dividable by 8
+pub const OCTTREE_BUFFER_SIZE: usize = 4000; 
+pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 32;
 
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],

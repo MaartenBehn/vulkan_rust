@@ -28,6 +28,9 @@ layout(binding = 1) uniform OcttreeInfo {
 uint getChildIndex(Node node, uint childIndex){
     return node.children[childIndex];
 }
+uint getChildIndexIndex(uint index, uint childIndex){
+    return octtreeBuffer.octtree[index].children[childIndex];
+}
 void setChildIndex(uint index, uint childIndex, uint newIndex){
     octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
 }
@@ -116,6 +119,12 @@ void main()
 
     for (uint childNr = 0; childNr < 8; childNr++){
         uint childId = getChildId(getNodeIdIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
+    
+        uint oldChildIndex = getChildIndexIndex(nodeIndex, childNr);
+        uint oldChildId = getNodeIdIndex(oldChildIndex);
+        if (oldChildIndex < bufferSize && oldChildId == childId){
+            continue;
+        }
 
         bool found = false;
         for (uint childIndex = 0; childIndex < bufferSize; childIndex++){
