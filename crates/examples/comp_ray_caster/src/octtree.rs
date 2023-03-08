@@ -59,10 +59,7 @@ pub struct OcttreeInfo {
 
 
 impl OcttreeController{
-    pub fn new(octtree: Octtree, buffer_size: usize, worker_size: usize, transfer_slots_per_worker: usize) -> Self{
-
-        let worker_count = buffer_size / worker_size;
-
+    pub fn new(octtree: Octtree, buffer_size: usize, worker_count: usize, transfer_slots_per_worker: usize) -> Self{
         Self { 
             octtree, 
             buffer_size: buffer_size, 

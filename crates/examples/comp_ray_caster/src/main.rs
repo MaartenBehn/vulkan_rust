@@ -81,7 +81,11 @@ impl App for RayCaster {
             size_of::<ComputeUbo>() as _,
         )?;
 
-        let octtree_controller = OcttreeController::new(Octtree::new(6, 123), 2048, 256, 8);
+        let octtree_controller = OcttreeController::new(
+            Octtree::new(7, 123), 
+            usize::pow(2, 14), 
+            32, 
+            2);
 
         let octtree_buffer = create_gpu_only_buffer_from_data(
             context,
@@ -428,7 +432,6 @@ impl App for RayCaster {
             log::debug!("{:?}", request_data);
             let requested_nodes = self.octtree_controller.get_requested_nodes(request_data);
             self.octtree_transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
-
         }
 
         // Updateing Gui
@@ -456,7 +459,7 @@ impl App for RayCaster {
             );
 
             buffer.dispatch(
-                1,//self.octtree_controller.worker_count as u32, 
+                self.octtree_controller.worker_count as u32, 
                 1, 
                 1,
             );
@@ -479,7 +482,7 @@ impl App for RayCaster {
             );
 
             buffer.dispatch(
-                (self.octtree_controller.octtree.size as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
+                (self.octtree_controller.buffer_size as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
                 1, 
                 1,
             );

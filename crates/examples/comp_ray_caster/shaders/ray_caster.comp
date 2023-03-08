@@ -92,8 +92,8 @@ bool getNeedsChildrenFlag(Node node, uint childNr){
 void setNeedsChildrenFlag(uint index, uint childNr){
     octtreeBuffer.octtree[index].data[3] |= (1 << (16 + childNr));
 }
-void resetNeedsChildrenFlag(uint index, uint childNr){
-    octtreeBuffer.octtree[index].data[3] &= ~(1 << (16 + childNr));
+void resetNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] &= ~(Bit_16_MAX << 16);
 }
 
 
@@ -126,7 +126,7 @@ uint getWorkerSizeTransfer(){
 // Octtree End
 
 #define VIEW_DIST 100
-#define MAX_STEPS 100
+#define MAX_STEPS 1000
 
 
 vec3 getColorGradient(float x){

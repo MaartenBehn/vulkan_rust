@@ -78,10 +78,9 @@ bool getNeedsChildrenFlag(Node node, uint childNr){
 void setNeedsChildrenFlag(uint index, uint childNr){
     octtreeBuffer.octtree[index].data[3] |= (1 << (16 + childNr));
 }
-void resetNeedsChildrenFlag(uint index, uint childNr){
-    octtreeBuffer.octtree[index].data[3] &= ~(1 << (16 + childNr));
+void resetNeedsChildrenFlag(uint index){
+    octtreeBuffer.octtree[index].data[3] &= ~(Bit_16_MAX << 16);
 }
-
 
 
 Node getNode(uint index){
@@ -154,37 +153,38 @@ void main()
     uint reqestHead = transferHead;
     uint reqestEnd = transferEnd;
 
-    for (uint i = startIndex; i < endIndex; i++){
+    bool reqestRunning = true;
+    bool transferRunning = true;
+
+    for (uint i = startIndex; (reqestRunning || transferRunning) && i < endIndex; i++){
 
         Node node = getNode(i);
         bool renderFlag = getRenderFlag(node);
 
         if (renderFlag){
             // Check for needs Child Flags.
-            for (uint childNr = 0; (reqestHead < reqestEnd) && childNr < 8; childNr++){
+            for (uint childNr = 0; reqestRunning && childNr < 8; childNr++){
 
                 if (getNeedsChildrenFlag(node, childNr)){
                     uint childId = getChildId(getNodeId(node), childNr, octtreeDepth - getNodeDepth(node));
                     requestBuffer.nodes[reqestHead] = childId;
-                    reqestHead++;
 
-                    resetNeedsChildrenFlag(i, childNr);
+                    reqestHead++;
+                    reqestRunning = reqestHead < reqestEnd;
                 }
             }
-
-            resetRenderFlag(i);
         }
         else{
-            Node newNode = transferBuffer.nodes[transferHead];
+            if (transferRunning){
+                Node newNode = transferBuffer.nodes[transferHead];
 
-            bool newNodeEmpty = getNodeId(newNode) == 0;
-            bool transferHeadAtEnd = transferHead >= transferEnd -1;
+                if (getNodeId(newNode) != 0){
+                    setNode(i, newNode);
+                }
 
-            if (!transferHeadAtEnd && !newNodeEmpty){
-                setNode(i, newNode);
+                transferHead++;
+                transferRunning = transferHead < transferEnd;
             }
-
-            transferHead++;
         }
     }
 
