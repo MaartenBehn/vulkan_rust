@@ -25,7 +25,6 @@ uint getDebugScale(){
 #define Bit_8_MAX 255
 #define Bit_16_MAX 65535
 
-
 struct Node{
     uint16_t children[8];
     uvec4 data;
@@ -36,12 +35,16 @@ layout(binding = 2) buffer OcttreeBuffer {
 } octtreeBuffer;
 
 layout(binding = 3) uniform OcttreeInfo {
-    uvec4 data_0; // 0 is BufferSize, 1 is Buffer Depth, 2 check Index
+    uvec4 data_0;
+    uvec4 data_1;
 } octtreeInfo;
 
 
 uint getChildIndex(Node node, uint childIndex){
     return node.children[childIndex];
+}
+uint getChildIndexbyIndex(uint index, uint childIndex){
+    return octtreeBuffer.octtree[index].children[childIndex];
 }
 void setChildIndex(uint index, uint childIndex, uint newIndex){
     octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
@@ -94,6 +97,7 @@ void resetNeedsChildrenFlag(uint index, uint childNr){
 }
 
 
+
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
@@ -112,6 +116,12 @@ uint getTransferBufferSize(){
 }
 uint getOcttreeDepth(){
     return octtreeInfo.data_0[3];
+}
+uint getWorkerSizeBuffer(){
+    return octtreeInfo.data_1[0];
+}
+uint getWorkerSizeTransfer(){
+    return octtreeInfo.data_1[1];
 }
 // Octtree End
 

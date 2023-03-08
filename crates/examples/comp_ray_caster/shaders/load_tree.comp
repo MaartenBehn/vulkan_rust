@@ -21,12 +21,16 @@ layout(binding = 0) buffer OcttreeBuffer {
 } octtreeBuffer;
 
 layout(binding = 1) uniform OcttreeInfo {
-    uvec4 data_0; // 0 is BufferSize, 1 is Buffer Depth, 2 check Index
+    uvec4 data_0;
+    uvec4 data_1;
 } octtreeInfo;
 
 
 uint getChildIndex(Node node, uint childIndex){
     return node.children[childIndex];
+}
+uint getChildIndexbyIndex(uint index, uint childIndex){
+    return octtreeBuffer.octtree[index].children[childIndex];
 }
 void setChildIndex(uint index, uint childIndex, uint newIndex){
     octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
@@ -99,6 +103,12 @@ uint getTransferBufferSize(){
 uint getOcttreeDepth(){
     return octtreeInfo.data_0[3];
 }
+uint getWorkerSizeBuffer(){
+    return octtreeInfo.data_1[0];
+}
+uint getWorkerSizeTransfer(){
+    return octtreeInfo.data_1[1];
+}
 // Octtree End
 
 
@@ -132,32 +142,31 @@ void main()
     uint bufferSize = getBufferSize();
     uint transferBufferSize = getTransferBufferSize();
     uint octtreeDepth = getOcttreeDepth();
+    uint workerSizeBuffer = getWorkerSizeBuffer();
+    uint workerSizeTransfer = getWorkerSizeTransfer();
 
-    uint reqestHead = 0;
-    uint transferHead = 0;
+    uint startIndex = gl_GlobalInvocationID.x * workerSizeBuffer;
+    uint endIndex = startIndex + workerSizeBuffer;
 
-    bool requestDone = false;
-    bool transferDone = false;
+    uint transferHead = gl_GlobalInvocationID.x * workerSizeTransfer;
+    uint transferEnd = transferHead + workerSizeTransfer;
 
-    uint randSeed = getNodeIdIndex(bufferSize) + requestBuffer.nodes[0];
-    uint startIndex = randRange(1, bufferSize - 1, randSeed, randSeed - 1);
+    uint reqestHead = transferHead;
+    uint reqestEnd = transferEnd;
 
-    for (uint i = 0; i < bufferSize && (!transferDone || !requestDone); i++){
+    for (uint i = startIndex; i < endIndex; i++){
 
         Node node = getNode(i);
         bool renderFlag = getRenderFlag(node);
 
         if (renderFlag){
             // Check for needs Child Flags.
-            for (uint childNr = 0; (reqestHead < transferBufferSize) && childNr < 8; childNr++){
-
+            for (uint childNr = 0; (reqestHead < reqestEnd) && childNr < 8; childNr++){
 
                 if (getNeedsChildrenFlag(node, childNr)){
                     uint childId = getChildId(getNodeId(node), childNr, octtreeDepth - getNodeDepth(node));
                     requestBuffer.nodes[reqestHead] = childId;
                     reqestHead++;
-
-                    requestDone = reqestHead == transferBufferSize -1;
 
                     resetNeedsChildrenFlag(i, childNr);
                 }
@@ -169,18 +178,17 @@ void main()
             Node newNode = transferBuffer.nodes[transferHead];
 
             bool newNodeEmpty = getNodeId(newNode) == 0;
-            bool transferHeadAtEnd = transferHead >= transferBufferSize -1;
+            bool transferHeadAtEnd = transferHead >= transferEnd -1;
 
-            if (!transferHeadAtEnd && !newNodeEmpty && i > startIndex){
+            if (!transferHeadAtEnd && !newNodeEmpty){
                 setNode(i, newNode);
-                transferHead++;
             }
 
-            transferDone = newNodeEmpty || transferHeadAtEnd;
+            transferHead++;
         }
     }
 
-    while (reqestHead < transferBufferSize){
+    while (reqestHead < reqestEnd){
         requestBuffer.nodes[reqestHead] = 0;
         reqestHead++;
     }

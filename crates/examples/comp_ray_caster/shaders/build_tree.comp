@@ -21,14 +21,15 @@ layout(binding = 0) buffer OcttreeBuffer {
 } octtreeBuffer;
 
 layout(binding = 1) uniform OcttreeInfo {
-    uvec4 data_0; // 0 is BufferSize, 1 is Buffer Depth, 2 check Index
+    uvec4 data_0;
+    uvec4 data_1;
 } octtreeInfo;
 
 
 uint getChildIndex(Node node, uint childIndex){
     return node.children[childIndex];
 }
-uint getChildIndexIndex(uint index, uint childIndex){
+uint getChildIndexbyIndex(uint index, uint childIndex){
     return octtreeBuffer.octtree[index].children[childIndex];
 }
 void setChildIndex(uint index, uint childIndex, uint newIndex){
@@ -102,6 +103,12 @@ uint getTransferBufferSize(){
 uint getOcttreeDepth(){
     return octtreeInfo.data_0[3];
 }
+uint getWorkerSizeBuffer(){
+    return octtreeInfo.data_1[0];
+}
+uint getWorkerSizeTransfer(){
+    return octtreeInfo.data_1[1];
+}
 // Octtree End
 
 
@@ -120,7 +127,7 @@ void main()
     for (uint childNr = 0; childNr < 8; childNr++){
         uint childId = getChildId(getNodeIdIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
     
-        uint oldChildIndex = getChildIndexIndex(nodeIndex, childNr);
+        uint oldChildIndex = getChildIndexbyIndex(nodeIndex, childNr);
         uint oldChildId = getNodeIdIndex(oldChildIndex);
         if (oldChildIndex < bufferSize && oldChildId == childId){
             continue;

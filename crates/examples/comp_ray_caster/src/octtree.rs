@@ -1,3 +1,6 @@
+use shuffle::shuffler::Shuffler;
+use shuffle::irs::Irs;
+use rand::rngs::mock::StepRng;
 use app::log;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
@@ -19,6 +22,7 @@ pub struct OcttreeController{
 
     pub buffer_size: usize, 
     pub transfer_size: usize,
+    pub worker_count: usize,
 }
 
 #[derive(Clone)]
@@ -43,24 +47,39 @@ pub struct OcttreeNode {
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub struct OcttreeInfo {
-    octtree_size: u32,
-    octtree_buffer_size: u32,
-    octtree_transfer_buffer_size: u32,
-    octtree_depth: u32,
+    tree_size: u32,
+    buffer_size: u32,
+    transfer_buffer_size: u32,
+    depth: u32,
+    worker_size_buffer: u32,
+    worker_size_transfer: u32,
+    fill_0: u32,
+    fill_1: u32,
 }
 
 
 impl OcttreeController{
-    pub fn new(octtree: Octtree, buffer_size: usize, transfer_size: usize) -> Self{
+    pub fn new(octtree: Octtree, buffer_size: usize, worker_size: usize, transfer_slots_per_worker: usize) -> Self{
+
+        let worker_count = buffer_size / worker_size;
+
         Self { 
             octtree, 
             buffer_size: buffer_size, 
-            transfer_size: transfer_size 
+            transfer_size: worker_count * transfer_slots_per_worker,
+            worker_count: worker_count,
         }
     }
 
     pub fn get_octtree_info(&self) -> OcttreeInfo {
-        OcttreeInfo::new(self.octtree.depth as u32, self.octtree.size as u32, self.buffer_size as u32, self.transfer_size as u32)
+        OcttreeInfo::new(
+            self.octtree.depth as u32, 
+            self.octtree.size as u32, 
+            self.buffer_size as u32, 
+            self.transfer_size as u32,
+            (self.buffer_size / self.worker_count) as u32,
+            (self.transfer_size / self.worker_count) as u32
+        )
     }
 
     pub fn get_inital_buffer_data(&self) -> &[OcttreeNode] {
@@ -69,6 +88,7 @@ impl OcttreeController{
 
     pub fn get_requested_nodes(&self, requested_ids: Vec<u32>) -> Vec<OcttreeNode> {
 
+        let transfer_worker_size = self.transfer_size / self.worker_count;
         let out = self.buffer_size as u16;
         let new_children = [out, out, out, out,  out, out, out, out];
         let new_children_zero = [0, 0, 0, 0,  0, 0, 0, 0];
@@ -82,7 +102,7 @@ impl OcttreeController{
             }
 
             if *id <= 0 || *id >= self.octtree.size as u32 {
-                break;
+                continue;
             }
 
             nodes[i] = self.octtree.nodes[*id as usize];
@@ -94,6 +114,10 @@ impl OcttreeController{
                 nodes[i].children = new_children_zero;
             }
         }
+
+        let mut irs = Irs::default();
+
+        irs.shuffle(&mut nodes, &mut rand::thread_rng());
 
         nodes
     }
@@ -194,12 +218,16 @@ impl OcttreeNode{
 
 
 impl OcttreeInfo{
-    fn new(depth: u32, tree_size: u32, buffer_size: u32, transfer_size: u32) -> Self {
+    fn new(depth: u32, tree_size: u32, buffer_size: u32, transfer_size: u32, worker_size_buffer: u32, worker_size_transfer: u32) -> Self {
         Self { 
-            octtree_size: tree_size, 
-            octtree_buffer_size: buffer_size,
-            octtree_transfer_buffer_size: transfer_size, 
-            octtree_depth: depth, 
+            tree_size, 
+            buffer_size,
+            transfer_buffer_size: transfer_size, 
+            depth, 
+            worker_size_buffer,
+            worker_size_transfer,
+            fill_0: 0,
+            fill_1: 0,
         }
     }
 }

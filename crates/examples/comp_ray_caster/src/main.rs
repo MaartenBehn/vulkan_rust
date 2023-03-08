@@ -26,6 +26,7 @@ const APP_NAME: &str = "Ray Caster";
 const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 32;
 const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
+const LOAD_DISPATCH_GROUP_SIZE: u32 = 32;
 const BUILD_DISPATCH_GROUP_SIZE: u32 = 32;
 
 fn main() -> Result<()> {
@@ -80,7 +81,7 @@ impl App for RayCaster {
             size_of::<ComputeUbo>() as _,
         )?;
 
-        let octtree_controller = OcttreeController::new(Octtree::new(4, 123), 2000, 16);
+        let octtree_controller = OcttreeController::new(Octtree::new(6, 123), 2048, 256, 8);
 
         let octtree_buffer = create_gpu_only_buffer_from_data(
             context,
@@ -424,6 +425,7 @@ impl App for RayCaster {
 
         if self.update_octtree {
             let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size)?;
+            log::debug!("{:?}", request_data);
             let requested_nodes = self.octtree_controller.get_requested_nodes(request_data);
             self.octtree_transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
 
@@ -444,15 +446,6 @@ impl App for RayCaster {
     ) -> Result<()> {
 
         if self.update_octtree {
-            /* 
-            buffer.pipeline_memory_barriers(&[MemoryBarrier {
-                src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
-                src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
-                dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
-                dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
-            }]);
-            */
-
             buffer.bind_compute_pipeline(&self.load_octtree_pipeline);
 
             buffer.bind_descriptor_sets(
@@ -463,7 +456,7 @@ impl App for RayCaster {
             );
 
             buffer.dispatch(
-                1, 
+                1,//self.octtree_controller.worker_count as u32, 
                 1, 
                 1,
             );
