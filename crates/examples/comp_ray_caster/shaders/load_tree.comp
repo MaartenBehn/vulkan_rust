@@ -133,43 +133,51 @@ void main()
     uint octtreeDepth = getOcttreeDepth();
 
     uint reqestHead = 0;
-    bool startPushing = false;
-    for (int i = 0; i < bufferSize; i++){
+    uint transferHead = 0;
+
+    bool requestDone = false;
+    bool transferDone = false;
+
+    for (int i = 0; i < bufferSize && (!transferDone || !requestDone); i++){
 
         Node node = getNode(i);
+        bool renderFlag = getRenderFlag(node);
+
+        if (renderFlag){
+            // Check for needs Child Flags.
+            for (uint childNr = 0; (reqestHead < transferBufferSize) && childNr < 8; childNr++){
 
 
-        // Check for needs Child Flags.
-        for (uint childNr = 0; (reqestHead < transferBufferSize) && childNr < 8; childNr++){
+                if (getNeedsChildrenFlag(node, childNr)){
+                    uint childId = getChildId(getNodeId(node), childNr, octtreeDepth - getNodeDepth(node));
+                    requestBuffer.nodes[reqestHead] = childId;
+                    reqestHead++;
 
-            if (getNeedsChildrenFlag(node, childNr)){
-                uint childId = getChildId(getNodeId(node), childNr, octtreeDepth - getNodeDepth(node));
-                requestBuffer.nodes[reqestHead] = childId;
-                reqestHead++;
+                    requestDone = reqestHead == transferBufferSize -1;
+
+                    resetNeedsChildrenFlag(i, childNr);
+                }
             }
-        }
 
-        if (!startPushing && !getRenderFlag(node)){
-            startPushing = true;
+            resetRenderFlag(i);
         }
-        else if (startPushing && getRenderFlag(node)){
-            pushNode(node, i);
+        else{
+            Node newNode = transferBuffer.nodes[transferHead];
+
+            bool newNodeEmpty = getNodeId(newNode) == 0;
+            bool transferHeadAtEnd = transferHead >= transferBufferSize -1;
+
+            if (!transferHeadAtEnd && !newNodeEmpty){
+                setNode(i, newNode);
+                transferHead++;
+            }
+
+            transferDone = newNodeEmpty || transferHeadAtEnd;
         }
     }
 
     while (reqestHead < transferBufferSize){
         requestBuffer.nodes[reqestHead] = 0;
         reqestHead++;
-    }
-
-    uint transferHead = bufferSize - 1;
-    for (uint i = 0; i < transferBufferSize; i++){
-        Node newNode = transferBuffer.nodes[i];
-
-        if (getNodeId(newNode) == 0){
-            break;
-        }
-
-        pushNode(newNode, bufferSize - 1);
     }
 }

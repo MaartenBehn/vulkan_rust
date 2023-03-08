@@ -420,10 +420,10 @@ impl App for RayCaster {
             false
         };
 
+        self.update_octtree = gui.cach;
+
         if self.update_octtree {
             let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(OCTTREE_TRANSFER_BUFFER_SIZE)?;
-            log::debug!("{:?}", &request_data);
-
             let requested_nodes = self.octtree.get_requested_nodes(request_data);
             self.octtree_transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
 

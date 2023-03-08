@@ -114,16 +114,6 @@ void main()
     uint octtreeDepth = getOcttreeDepth();
     uint nodeIndex = gl_GlobalInvocationID.x;
 
-    resetRenderFlag(nodeIndex);
-    resetNeedsChildrenFlag(nodeIndex, 0);
-    resetNeedsChildrenFlag(nodeIndex, 1);
-    resetNeedsChildrenFlag(nodeIndex, 2);
-    resetNeedsChildrenFlag(nodeIndex, 3);
-    resetNeedsChildrenFlag(nodeIndex, 4);
-    resetNeedsChildrenFlag(nodeIndex, 5);
-    resetNeedsChildrenFlag(nodeIndex, 6);
-    resetNeedsChildrenFlag(nodeIndex, 7);
-
     for (uint childNr = 0; childNr < 8; childNr++){
         uint childId = getChildId(getNodeIdIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
 
