@@ -83,14 +83,14 @@ void resetRenderFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
 }
 
-bool getNeedsChildrenFlag(Node node){
-    return bool(node.data[3] & (1 << 9));
+bool getNeedsChildrenFlag(Node node, uint childNr){
+    return bool(node.data[3] & (1 << (16 + childNr)));
 }
-void setNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] |= (1 << 9);
+void setNeedsChildrenFlag(uint index, uint childNr){
+    octtreeBuffer.octtree[index].data[3] |= (1 << (16 + childNr));
 }
-void resetNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] &= ~(1 << 9);
+void resetNeedsChildrenFlag(uint index, uint childNr){
+    octtreeBuffer.octtree[index].data[3] &= ~(1 << (16 + childNr));
 }
 
 
@@ -174,12 +174,35 @@ vec3 draw_buffer_debuger(){
     else if (uv.y < 0.7) {
         color = getNodeColor(node);
     }
-    else if (uv.y < 0.75) {
+    else if (uv.y < 0.8) {
         color = vec3(getRenderFlag(node));
     }
-    else if (uv.y < 0.8) {
-        color = vec3(getNeedsChildrenFlag(node));
+
+    else if (uv.y < 0.81) {
+        color = vec3(getNeedsChildrenFlag(node, 0));
     }
+    else if (uv.y < 0.82) {
+        color = vec3(getNeedsChildrenFlag(node, 1));
+    }
+    else if (uv.y < 0.83) {
+        color = vec3(getNeedsChildrenFlag(node, 2));
+    }
+    else if (uv.y < 0.84) {
+        color = vec3(getNeedsChildrenFlag(node, 3));
+    }
+    else if (uv.y < 0.85) {
+        color = vec3(getNeedsChildrenFlag(node, 4));
+    }
+    else if (uv.y < 0.86) {
+        color = vec3(getNeedsChildrenFlag(node, 5));
+    }
+    else if (uv.y < 0.87) {
+        color = vec3(getNeedsChildrenFlag(node, 6));
+    }
+    else if (uv.y < 0.88) {
+        color = vec3(getNeedsChildrenFlag(node, 7));
+    }
+
     return color;
 }
 
@@ -313,11 +336,11 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             uvec3 posDelta = (newNodePos - nodePos) / (size); 
             nodePos = newNodePos;
 
-            uint childIndex = getChildFromPos(posDelta);
-            uint newNodeIndex = getChildIndex(node, childIndex);
+            uint childNr = getChildFromPos(posDelta);
+            uint newNodeIndex = getChildIndex(node, childNr);
 
             if (newNodeIndex >= bufferSize){
-                setNeedsChildrenFlag(nodeIndex);
+                setNeedsChildrenFlag(nodeIndex, childNr);
                 isLeave = true; // Child is not in Buffer
             }
             else{

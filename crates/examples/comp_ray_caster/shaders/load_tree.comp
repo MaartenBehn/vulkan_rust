@@ -68,15 +68,16 @@ void resetRenderFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
 }
 
-bool getNeedsChildrenFlag(Node node){
-    return bool(node.data[3] & (1 << 9));
+bool getNeedsChildrenFlag(Node node, uint childNr){
+    return bool(node.data[3] & (1 << (16 + childNr)));
 }
-void setNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] |= (1 << 9);
+void setNeedsChildrenFlag(uint index, uint childNr){
+    octtreeBuffer.octtree[index].data[3] |= (1 << (16 + childNr));
 }
-void resetNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] &= ~(1 << 9);
+void resetNeedsChildrenFlag(uint index, uint childNr){
+    octtreeBuffer.octtree[index].data[3] &= ~(1 << (16 + childNr));
 }
+
 
 
 Node getNode(uint index){
@@ -137,10 +138,11 @@ void main()
 
         Node node = getNode(i);
 
-        // Check for needs Child Flags.
-        if (getNeedsChildrenFlag(node) && reqestHead < transferBufferSize){
 
-            for (uint childNr = 0; childNr < 8; childNr++){
+        // Check for needs Child Flags.
+        for (uint childNr = 0; (reqestHead < transferBufferSize) && childNr < 8; childNr++){
+
+            if (getNeedsChildrenFlag(node, childNr)){
                 uint childId = getChildId(getNodeId(node), childNr, octtreeDepth - getNodeDepth(node));
                 requestBuffer.nodes[reqestHead] = childId;
                 reqestHead++;

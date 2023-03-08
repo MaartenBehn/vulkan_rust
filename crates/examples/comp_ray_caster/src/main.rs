@@ -388,7 +388,7 @@ impl App for RayCaster {
             load_octtree_pipeline_layout,
             load_octtree_pipeline,
 
-            update_octtree_intervall: Duration::from_secs(1),
+            update_octtree_intervall: Duration::from_millis(10),
             update_octtree_last_time: Duration::ZERO,
         })
     }

@@ -5,7 +5,7 @@ use rand::rngs::StdRng;
 pub const OCTTREE_DEPTH: usize = 4; // 255
 pub const OCTTREE_SIZE: usize = 4681; // (1 - pow(8, OCTTREE_DEPTH + 1)) / 1 - 8
 pub const OCTTREE_BUFFER_SIZE: usize = 2048; 
-pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 64;  // Must be dividable by 8
+pub const OCTTREE_TRANSFER_BUFFER_SIZE: usize = 16;  // Must be dividable by 8
 
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
@@ -138,7 +138,8 @@ impl Octtree{
         let mut nodes = [OcttreeNode::default(); OCTTREE_TRANSFER_BUFFER_SIZE];
 
         for (i, id) in requested_ids.iter().enumerate() {
-            if *id == 0 {
+            if *id <= 0 || *id >= OCTTREE_SIZE as u32 {
+                log::error!("Requested Child ID: {:?}", id);
                 break;
             }
 

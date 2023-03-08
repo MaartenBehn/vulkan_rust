@@ -68,15 +68,16 @@ void resetRenderFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
 }
 
-bool getNeedsChildrenFlag(Node node){
-    return bool(node.data[3] & (1 << 9));
+bool getNeedsChildrenFlag(Node node, uint childNr){
+    return bool(node.data[3] & (1 << (16 + childNr)));
 }
-void setNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] |= (1 << 9);
+void setNeedsChildrenFlag(uint index, uint childNr){
+    octtreeBuffer.octtree[index].data[3] |= (1 << (16 + childNr));
 }
-void resetNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] &= ~(1 << 9);
+void resetNeedsChildrenFlag(uint index, uint childNr){
+    octtreeBuffer.octtree[index].data[3] &= ~(1 << (16 + childNr));
 }
+
 
 
 Node getNode(uint index){
@@ -114,7 +115,14 @@ void main()
     uint nodeIndex = gl_GlobalInvocationID.x;
 
     resetRenderFlag(nodeIndex);
-    resetNeedsChildrenFlag(nodeIndex);
+    resetNeedsChildrenFlag(nodeIndex, 0);
+    resetNeedsChildrenFlag(nodeIndex, 1);
+    resetNeedsChildrenFlag(nodeIndex, 2);
+    resetNeedsChildrenFlag(nodeIndex, 3);
+    resetNeedsChildrenFlag(nodeIndex, 4);
+    resetNeedsChildrenFlag(nodeIndex, 5);
+    resetNeedsChildrenFlag(nodeIndex, 6);
+    resetNeedsChildrenFlag(nodeIndex, 7);
 
     for (uint childNr = 0; childNr < 8; childNr++){
         uint childId = getChildId(getNodeIdIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
