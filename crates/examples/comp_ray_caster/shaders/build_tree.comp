@@ -36,22 +36,18 @@ void setChildIndex(uint index, uint childIndex, uint newIndex){
     octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
 }
 
-vec3 getNodeColor(Node node){
-    uint rg = node.data[0];
-    uint ba = node.data[1];
-
-    vec3 color;
-    color.r = rg & Bit_16_MAX;
-    color.g = rg >> 16;
-    color.b = ba & Bit_16_MAX;
-
-    return color / Bit_16_MAX;
-}
 
 uint getNodeId(Node node){
+    return node.data[0];
+}
+uint getNodeIdbyIndex(uint index){
+    return octtreeBuffer.octtree[index].data[0];
+}
+
+uint getNodeMaterial(Node node){
     return node.data[2];
 }
-uint getNodeIdIndex(uint index){
+uint getNodeMaterialbyIndex(uint index){
     return octtreeBuffer.octtree[index].data[2];
 }
 
@@ -123,17 +119,17 @@ void main()
     uint nodeIndex = gl_GlobalInvocationID.x;
 
     for (uint childNr = 0; childNr < 8; childNr++){
-        uint childId = getChildId(getNodeIdIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
+        uint childId = getChildId(getNodeIdbyIndex(nodeIndex), childNr, octtreeDepth - getNodeDepthIndex(nodeIndex));
     
         uint oldChildIndex = getChildIndexbyIndex(nodeIndex, childNr);
-        uint oldChildId = getNodeIdIndex(oldChildIndex);
+        uint oldChildId = getNodeIdbyIndex(oldChildIndex);
         if (oldChildIndex < bufferSize && oldChildId == childId){
             continue;
         }
 
         bool found = false;
         for (uint childIndex = 0; childIndex < bufferSize; childIndex++){
-            if (getNodeIdIndex(childIndex) == childId){
+            if (getNodeIdbyIndex(childIndex) == childId){
                 setChildIndex(nodeIndex, childNr, childIndex);
                 found = true;
                 break;

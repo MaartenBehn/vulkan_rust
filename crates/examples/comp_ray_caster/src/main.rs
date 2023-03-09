@@ -82,7 +82,7 @@ impl App for RayCaster {
         )?;
 
         let octtree_controller = OcttreeController::new(
-            Octtree::new(9, 123), 
+            Octtree::new(7, 123), 
             usize::pow(2, 14), 
             64, 
             32);
@@ -98,7 +98,7 @@ impl App for RayCaster {
             MemoryLocation::CpuToGpu,
             size_of::<OcttreeInfo>() as _,
         )?;
-        octtree_info_buffer.copy_data_to_buffer(&[octtree_controller.get_octtree_info()])?;
+        
 
         let octtree_transfer_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
@@ -408,6 +408,9 @@ impl App for RayCaster {
 
         self.total_time += delta_time;
 
+        self.octtree_controller.step();
+        self.octtree_info_buffer.copy_data_to_buffer(&[self.octtree_controller.octtree_info])?;
+
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
@@ -417,13 +420,6 @@ impl App for RayCaster {
             dir: base.camera.direction,
             fill_2: 0,
         }])?;
-
-        self.update_octtree = if self.update_octtree_last_time + self.update_octtree_intervall < self.total_time {
-            self.update_octtree_last_time = self.total_time;
-            gui.cach
-        }else{
-            false
-        };
 
         self.update_octtree = gui.cach;
 

@@ -36,22 +36,18 @@ void setChildIndex(uint index, uint childIndex, uint newIndex){
     octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
 }
 
-vec3 getNodeColor(Node node){
-    uint rg = node.data[0];
-    uint ba = node.data[1];
-
-    vec3 color;
-    color.r = rg & Bit_16_MAX;
-    color.g = rg >> 16;
-    color.b = ba & Bit_16_MAX;
-
-    return color / Bit_16_MAX;
-}
 
 uint getNodeId(Node node){
+    return node.data[0];
+}
+uint getNodeIdbyIndex(uint index){
+    return octtreeBuffer.octtree[index].data[0];
+}
+
+uint getNodeMaterial(Node node){
     return node.data[2];
 }
-uint getNodeIdIndex(uint index){
+uint getNodeMaterialbyIndex(uint index){
     return octtreeBuffer.octtree[index].data[2];
 }
 
@@ -82,7 +78,6 @@ void resetNeedsChildrenFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(Bit_16_MAX << 16);
 }
 
-
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
@@ -107,6 +102,9 @@ uint getWorkerSizeBuffer(){
 }
 uint getWorkerSizeTransfer(){
     return octtreeInfo.data_1[1];
+}
+uint getTransferOffset(){
+    return octtreeInfo.data_1[2];
 }
 // Octtree End
 
@@ -143,9 +141,9 @@ void main()
     uint octtreeDepth = getOcttreeDepth();
     uint workerSizeBuffer = getWorkerSizeBuffer();
     uint workerSizeTransfer = getWorkerSizeTransfer();
+    uint transferOffset = + getTransferOffset();
 
     uint startIndex = gl_GlobalInvocationID.x * workerSizeBuffer;
-    uint endIndex = startIndex + workerSizeBuffer;
 
     uint transferHead = gl_GlobalInvocationID.x * workerSizeTransfer;
     uint transferEnd = transferHead + workerSizeTransfer;
@@ -156,9 +154,11 @@ void main()
     bool reqestRunning = true;
     bool transferRunning = true;
 
-    for (uint i = startIndex; i < endIndex; i++){
+    for (int i = 0; i < workerSizeBuffer; i++){
 
-        Node node = getNode(i);
+        uint index = (int(i - transferOffset) % workerSizeBuffer) + startIndex;
+
+        Node node = getNode(index);
         bool renderFlag = getRenderFlag(node);
 
         if (renderFlag){
@@ -174,15 +174,15 @@ void main()
                 }
             }
 
-            resetRenderFlag(i);
-            resetNeedsChildrenFlag(i);
+            resetRenderFlag(index);
+            resetNeedsChildrenFlag(index);
         }
         else{
             if (transferRunning){
             Node newNode = transferBuffer.nodes[transferHead];
 
                 if (getNodeId(newNode) != 0){
-                setNode(i, newNode);
+                setNode(index, newNode);
             }
 
             transferHead++;

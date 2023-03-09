@@ -50,22 +50,18 @@ void setChildIndex(uint index, uint childIndex, uint newIndex){
     octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
 }
 
-vec3 getNodeColor(Node node){
-    uint rg = node.data[0];
-    uint ba = node.data[1];
-
-    vec3 color;
-    color.r = rg & Bit_16_MAX;
-    color.g = rg >> 16;
-    color.b = ba & Bit_16_MAX;
-
-    return color / Bit_16_MAX;
-}
 
 uint getNodeId(Node node){
+    return node.data[0];
+}
+uint getNodeIdbyIndex(uint index){
+    return octtreeBuffer.octtree[index].data[0];
+}
+
+uint getNodeMaterial(Node node){
     return node.data[2];
 }
-uint getNodeIdIndex(uint index){
+uint getNodeMaterialbyIndex(uint index){
     return octtreeBuffer.octtree[index].data[2];
 }
 
@@ -95,8 +91,6 @@ void setNeedsChildrenFlag(uint index, uint childNr){
 void resetNeedsChildrenFlag(uint index){
     octtreeBuffer.octtree[index].data[3] &= ~(Bit_16_MAX << 16);
 }
-
-
 
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
@@ -181,7 +175,7 @@ vec3 draw_buffer_debuger(){
         color = getColorGradient(float(getNodeDepth(node)) / float(getOcttreeDepth()));
     }
     else if (uv.y < 0.7) {
-        color = getNodeColor(node);
+        color = vec3(getNodeMaterial(node));
     }
     else if (uv.y < 0.8) {
         color = vec3(getRenderFlag(node));
@@ -327,14 +321,12 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     Node node = root;
     uint nodeIndex = 0;
     uvec3 nodePos = uvec3(0);
-   
-
 
     color = vec3(0);
     counter = 0;
     
     while(counter < MAX_STEPS){
-        bool isEmpty = getNodeColor(node) == vec3(0);
+        bool isEmpty = getNodeMaterial(node) == 0;
         bool isLeave = depth >= (getOcttreeDepth() - (rayLen * 0.02));
 
         if (!isEmpty && !isLeave){
@@ -376,7 +368,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
         }
 
         if (!isEmpty && isLeave){
-            color = getNodeColor(node);
+            color = vec3(0.5, 0.5, 0.5);
             return true; // Ray Hit Node to Render
         }
 
