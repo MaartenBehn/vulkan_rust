@@ -44,7 +44,7 @@ layout(binding = 3) uniform OcttreeInfo {
 uint getChildIndex(Node node, uint childIndex){
     return node.children[childIndex];
 }
-uint getChildIndexbyIndex(uint index, uint childIndex){
+uint getChildIndex(uint index, uint childIndex){
     return octtreeBuffer.octtree[index].children[childIndex];
 }
 void setChildIndex(uint index, uint childIndex, uint newIndex){
@@ -61,13 +61,28 @@ uint setParentIndex(uint index, uint parentIndex){
 uint getPNext(Node node){
     return node.dynamik_data[1];
 }
+uint getPNext(uint index){
+    return octtreeBuffer.octtree[index].dynamik_data[1];
+}
+void setPNext(uint index, uint pNext){
+    octtreeBuffer.octtree[index].dynamik_data[1] = pNext;
+}
 
 uint getPLast(Node node){
     return node.dynamik_data[2];
 }
+uint getPLast(uint index){
+    return octtreeBuffer.octtree[index].dynamik_data[2];
+}
+void setPLast(uint index, uint pLast){
+    octtreeBuffer.octtree[index].dynamik_data[2] = pLast;
+}
 
 bool getRenderFlag(Node node){
     return bool(node.dynamik_data[3] & 1);
+}
+bool getRenderFlag(uint index){
+    return bool(octtreeBuffer.octtree[index].dynamik_data[3] & 1);
 }
 void setRenderFlag(uint index){
     octtreeBuffer.octtree[index].dynamik_data[3] |= 1;
@@ -78,6 +93,9 @@ void resetRenderFlag(uint index){
 
 bool getNeedsChildrenFlag(Node node, uint childNr){
     return bool(node.dynamik_data[3] & (1 << (16 + childNr)));
+}
+bool getNeedsChildrenFlag(uint index, uint childNr){
+    return bool(octtreeBuffer.octtree[index].dynamik_data[3] & (1 << (16 + childNr)));
 }
 void setNeedsChildrenFlag(uint index, uint childNr){
     octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr));
@@ -97,21 +115,21 @@ void setNode(uint index, Node node){
 uint getNodeId(Node node){
     return node.static_data[0];
 }
-uint getNodeIdbyIndex(uint index){
+uint getNodeId(uint index){
     return octtreeBuffer.octtree[index].static_data[0];
 }
 
 uint getNodeMaterial(Node node){
     return node.static_data[2];
 }
-uint getNodeMaterialbyIndex(uint index){
+uint getNodeMaterial(uint index){
     return octtreeBuffer.octtree[index].static_data[2];
 }
 
 uint getNodeDepth(Node node){
     return node.static_data[3];
 }
-uint getNodeDepthIndex(uint index){
+uint getNodeDepth(uint index){
     return octtreeBuffer.octtree[index].static_data[3];
 }
 
@@ -160,8 +178,17 @@ vec3 draw_buffer_debuger(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = gl_GlobalInvocationID.xy / ubo.screen_size.xy;
 
+
     uint nodeIndex = gl_GlobalInvocationID.x / getDebugScale();
     Node node = getNode(nodeIndex);
+
+    if (getMode() == 4) {
+        uint head = 0;
+        for (int i = 0; i < nodeIndex; i++){
+            head = getPNext(head);
+        }
+        node = getNode(head);
+    }
     
     vec3 color = vec3(0);
     // Static Data
@@ -201,13 +228,13 @@ vec3 draw_buffer_debuger(){
         color = getColorGradient(float(getChildIndex(node, 7)) / float(getBufferSize()));
     }
 
-    else if (uv.y < 0.7) {
+    else if (uv.y < 0.65) {
         color = getColorGradient(float(getParentIndex(node)) / float(getBufferSize()));
     }
-    else if (uv.y < 0.75) {
+    else if (uv.y < 0.7) {
         color = getColorGradient(float(getPNext(node)) / float(getBufferSize()));
     }
-    else if (uv.y < 0.8) {
+    else if (uv.y < 0.75) {
         color = getColorGradient(float(getPLast(node)) / float(getBufferSize()));
     }
 
@@ -413,27 +440,20 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
 }
 
 void main () { 
+    Ray ray = initRay();
+
     vec3 color;
-    if (getMode() == 0) {
-        color = draw_buffer_debuger();
+    uint counter;
+    bool hit = hitOctree(ray, color, counter);
 
+    if (getMode() == 2) {
+        color = getColorGradient((float(counter) / MAX_STEPS));
     }
-    else{
 
-        Ray ray = initRay();
+    color *= float(hit);
 
-        uint counter;
-        bool hit = hitOctree(ray, color, counter);
-
-        if (getMode() == 2) {
-            color = getColorGradient((float(counter) / MAX_STEPS));
-        }
-
-        color *= float(hit);
-
-        if (getMode() == 3) {
-            color += draw_buffer_debuger() * 0.5;
-        }
+    if (getMode() == 3 || getMode() == 4) {
+        color += draw_buffer_debuger() * 0.5;
     }
 
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));

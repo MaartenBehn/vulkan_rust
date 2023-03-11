@@ -24,10 +24,6 @@ pub struct OcttreeController{
 
     pub buffer_size: usize, 
     pub transfer_size: usize,
-    pub worker_count: usize,
-
-    worker_offset: usize,
-    transfer_offset: usize,
 }
 
 #[derive(Clone)]
@@ -64,19 +60,19 @@ pub struct OcttreeInfo {
     buffer_size: u32,
     transfer_buffer_size: u32,
     depth: u32,
-    worker_size_buffer: u32,
-    worker_size_transfer: u32,
-    transfer_offset: u32,
+
+    fill_0: u32,
     fill_1: u32,
+    fill_2: u32,
+    fill_3: u32,
 }
 
 
 impl OcttreeController{
-    pub fn new(octtree: Octtree, buffer_size: usize, worker_count: usize, transfer_slots_per_worker: usize) -> Self{
+    pub fn new(octtree: Octtree, buffer_size: usize, transfer_size: usize) -> Self{
 
         let depth = octtree.depth;
         let size = octtree.size;
-        let transfer_size = worker_count * transfer_slots_per_worker;
 
         Self { 
             octtree, 
@@ -85,33 +81,25 @@ impl OcttreeController{
                 buffer_size:            buffer_size as u32, 
                 transfer_buffer_size:   transfer_size as u32, 
                 depth:                  depth as u32, 
-                worker_size_buffer:     (buffer_size / worker_count) as u32, 
-                worker_size_transfer:   transfer_slots_per_worker as u32, 
-                transfer_offset:        0, 
-                fill_1:                 0 
+                fill_0: 0, 
+                fill_1: 0, 
+                fill_2: 0, 
+                fill_3: 0,
             },
             buffer_size:        buffer_size, 
             transfer_size:      transfer_size,
-            worker_count:       worker_count,
-            worker_offset:      0,
-            transfer_offset:    0,
         }
     }
 
-    pub fn step(&mut self){
-        let transfer_worker_size = self.transfer_size / self.worker_count;
-        self.worker_offset = (self.worker_offset + transfer_worker_size) % self.transfer_size;
+    pub fn get_inital_buffer_data(&mut self) -> &[OcttreeNode] {
+        let nodes = &mut self.octtree.nodes[0 .. self.buffer_size];
+        nodes[0].p_last = (self.buffer_size - 1) as u32;
+        nodes[self.buffer_size - 1].p_next = 0 as u32;
 
-        self.octtree_info.transfer_offset = (self.octtree_info.transfer_offset + self.octtree_info.worker_size_transfer) % self.octtree_info.worker_size_buffer;
-    }
-
-    pub fn get_inital_buffer_data(&self) -> &[OcttreeNode] {
-        return &self.octtree.nodes[0 .. self.buffer_size];
+        nodes
     }
 
     pub fn get_requested_nodes(&mut self, requested_ids: Vec<u32>) -> Vec<OcttreeNode> {
-
-        
 
         let out = self.buffer_size as u16;
         let new_children = [out, out, out, out,  out, out, out, out];
@@ -129,18 +117,13 @@ impl OcttreeController{
                 continue;
             }
 
-            let mut index = self.worker_offset + i;
-            while index >= self.transfer_size {
-                index = index - self.transfer_size;
-            }
+            nodes[i] = self.octtree.nodes[*id as usize];
 
-            nodes[index] = self.octtree.nodes[*id as usize];
-
-            if nodes[index].depth < self.octtree.depth as u32{
-                nodes[index].children = new_children;
+            if nodes[i].depth < self.octtree.depth as u32{
+                nodes[i].children = new_children;
             }
             else{
-                nodes[index].children = new_children_zero;
+                nodes[i].children = new_children_zero;
             }
         }
 
@@ -157,7 +140,7 @@ impl Octtree{
         let mut octtree = Octtree{
             nodes: Vec::new(),
             depth: depth,
-            size: (1 - i32::pow(8, (depth + 1) as u32) / (1 - 8)) as usize,
+            size: Self::get_tree_size(depth),
         };
 
         if seed == 0 {
@@ -171,6 +154,10 @@ impl Octtree{
         octtree.inital_fill(0, 0, [0, 0, 0], &mut rng);
 
         return octtree;
+    }
+
+    pub fn get_tree_size(depth: usize) -> usize {
+        (1 - i32::pow(8, (depth + 1) as u32) / (1 - 8) - 1) as usize
     }
 
     fn get_child_id(node_id: u32, child_nr: u32, depth: u32) -> u32{
