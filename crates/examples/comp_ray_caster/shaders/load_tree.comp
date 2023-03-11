@@ -13,10 +13,11 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 struct Node{
     uint16_t children[8];
-    uvec4 data;
+    uvec4 dynamik_data;
+    uvec4 static_data;
 };
 
-layout(binding = 0) buffer OcttreeBuffer {
+layout(std430, binding = 0) buffer OcttreeBuffer {
     Node octtree[];
 } octtreeBuffer;
 
@@ -25,7 +26,7 @@ layout(binding = 1) uniform OcttreeInfo {
     uvec4 data_1;
 } octtreeInfo;
 
-
+// Dynamik Data
 uint getChildIndex(Node node, uint childIndex){
     return node.children[childIndex];
 }
@@ -36,46 +37,39 @@ void setChildIndex(uint index, uint childIndex, uint newIndex){
     octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
 }
 
-
-uint getNodeId(Node node){
-    return node.data[0];
+uint getParentIndex(Node node){
+    return node.dynamik_data[0];
 }
-uint getNodeIdbyIndex(uint index){
-    return octtreeBuffer.octtree[index].data[0];
-}
-
-uint getNodeMaterial(Node node){
-    return node.data[2];
-}
-uint getNodeMaterialbyIndex(uint index){
-    return octtreeBuffer.octtree[index].data[2];
+uint setParentIndex(uint index, uint parentIndex){
+    return octtreeBuffer.octtree[index].dynamik_data[0] = parentIndex;
 }
 
-uint getNodeDepth(Node node){
-    return node.data[3] & Bit_8_MAX;
+uint getPNext(Node node){
+    return node.dynamik_data[1];
 }
-uint getNodeDepthIndex(uint index){
-    return octtreeBuffer.octtree[index].data[3] & Bit_8_MAX;
+
+uint getPLast(Node node){
+    return node.dynamik_data[2];
 }
 
 bool getRenderFlag(Node node){
-    return bool(node.data[3] & (1 << 8));
+    return bool(node.dynamik_data[3] & 1);
 }
 void setRenderFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] |= (1 << 8);
+    octtreeBuffer.octtree[index].dynamik_data[3] |= 1;
 }
 void resetRenderFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] &= ~(1 << 8);
+    octtreeBuffer.octtree[index].dynamik_data[3] &= ~1;
 }
 
 bool getNeedsChildrenFlag(Node node, uint childNr){
-    return bool(node.data[3] & (1 << (16 + childNr)));
+    return bool(node.dynamik_data[3] & (1 << (16 + childNr)));
 }
 void setNeedsChildrenFlag(uint index, uint childNr){
-    octtreeBuffer.octtree[index].data[3] |= (1 << (16 + childNr));
+    octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr));
 }
 void resetNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].data[3] &= ~(Bit_16_MAX << 16);
+    octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_16_MAX << 16);
 }
 
 Node getNode(uint index){
@@ -85,6 +79,29 @@ void setNode(uint index, Node node){
     octtreeBuffer.octtree[index] = node;
 }
 
+// Static Data
+uint getNodeId(Node node){
+    return node.static_data[0];
+}
+uint getNodeIdbyIndex(uint index){
+    return octtreeBuffer.octtree[index].static_data[0];
+}
+
+uint getNodeMaterial(Node node){
+    return node.static_data[2];
+}
+uint getNodeMaterialbyIndex(uint index){
+    return octtreeBuffer.octtree[index].static_data[2];
+}
+
+uint getNodeDepth(Node node){
+    return node.static_data[3];
+}
+uint getNodeDepthIndex(uint index){
+    return octtreeBuffer.octtree[index].static_data[3];
+}
+
+// Octtree Info
 uint getTreeSize(){
     return octtreeInfo.data_0[0];
 }
@@ -108,7 +125,6 @@ uint getTransferOffset(){
 }
 // Octtree End
 
-
 layout(binding = 2) buffer TransferBuffer {
     Node nodes[];
 } transferBuffer;
@@ -121,17 +137,6 @@ layout(binding = 3) buffer RequestBuffer {
 uint getChildId(uint nodeId, uint childNr, uint depth){
     int childSize = int((1 - pow(8, depth)) / -7);
     return uint(nodeId + childSize * childNr + 1);
-}
-
-
-float rand(vec2 co){
-   return fract(sin(dot(co.xy,vec2(12.9898,78.233))) * 43758.5453);
-}
-
-uint randRange(uint from, uint to, uint x, uint y){
-    float randFloat = rand(vec2(x, y));
-
-    return from + uint(float(to - from) * randFloat);
 }
 
 void main()

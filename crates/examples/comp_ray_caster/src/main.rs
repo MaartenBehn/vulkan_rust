@@ -48,22 +48,19 @@ struct RayCaster {
     octtree_transfer_buffer: Buffer,
     octtree_request_buffer: Buffer,
 
-    update_octtree: bool,
-
+    build_tree: bool,
     _build_descriptor_pool: DescriptorPool,
     _build_descriptor_layout: DescriptorSetLayout,
     build_octtree_descriptor_set: DescriptorSet,
     build_octtree_pipeline_layout: PipelineLayout,
     build_octtree_pipeline: ComputePipeline,
 
+    load_tree: bool,
     _load_descriptor_pool: DescriptorPool,
     _load_descriptor_layout: DescriptorSetLayout,
     load_octtree_descriptor_set: DescriptorSet,
     load_octtree_pipeline_layout: PipelineLayout,
     load_octtree_pipeline: ComputePipeline,
-
-    update_octtree_intervall: Duration,
-    update_octtree_last_time: Duration,
 }
 
 impl App for RayCaster {
@@ -82,9 +79,9 @@ impl App for RayCaster {
         )?;
 
         let octtree_controller = OcttreeController::new(
-            Octtree::new(7, 123), 
-            usize::pow(2, 14), 
-            64, 
+            Octtree::new(4, 123), 
+            4681, //usize::pow(2, 11), 
+            8, 
             32);
 
         let octtree_buffer = create_gpu_only_buffer_from_data(
@@ -379,22 +376,19 @@ impl App for RayCaster {
             octtree_transfer_buffer,
             octtree_request_buffer,
 
-            update_octtree: false,
-
+            build_tree: false,
             _build_descriptor_pool: build_octtree_descriptor_pool,
             _build_descriptor_layout: build_octtree_descriptor_layout,
             build_octtree_descriptor_set,
             build_octtree_pipeline_layout,
             build_octtree_pipeline,
 
+            load_tree: false,
             _load_descriptor_pool: load_octtree_descriptor_pool,
             _load_descriptor_layout: load_octtree_descriptor_layout,
             load_octtree_descriptor_set,
             load_octtree_pipeline_layout,
             load_octtree_pipeline,
-
-            update_octtree_intervall: Duration::from_millis(10),
-            update_octtree_last_time: Duration::ZERO,
         })
     }
 
@@ -421,9 +415,10 @@ impl App for RayCaster {
             fill_2: 0,
         }])?;
 
-        self.update_octtree = gui.cach;
+        self.build_tree = gui.build;
+        self.load_tree = gui.load;
 
-        if self.update_octtree {
+        if self.load_tree {
             let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size)?;
             //log::debug!("{:?}", request_data);
             let requested_nodes = self.octtree_controller.get_requested_nodes(request_data);
@@ -444,7 +439,7 @@ impl App for RayCaster {
         image_index: usize
     ) -> Result<()> {
 
-        if self.update_octtree {
+        if self.load_tree {
             buffer.bind_compute_pipeline(&self.load_octtree_pipeline);
 
             buffer.bind_descriptor_sets(
@@ -459,7 +454,6 @@ impl App for RayCaster {
                 1, 
                 1,
             );
-
             buffer.pipeline_buffer_barriers(&[BufferBarrier {
                 buffer: &self.octtree_buffer,
                 src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
@@ -467,7 +461,9 @@ impl App for RayCaster {
                 dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
                 dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
             }]);
-            
+        }
+
+        if self.build_tree {
             buffer.bind_compute_pipeline(&self.build_octtree_pipeline);
 
             buffer.bind_descriptor_sets(
@@ -482,8 +478,6 @@ impl App for RayCaster {
                 1, 
                 1,
             );
-
-            
         }
 
         buffer.bind_descriptor_sets(
@@ -527,7 +521,8 @@ struct Gui {
     pos: Vec3,
     dir: Vec3,
     mode: u32,
-    cach: bool,
+    build: bool,
+    load: bool,
     debug_scale: u32
 }
 
@@ -537,7 +532,8 @@ impl app::Gui for Gui {
             pos: Vec3::default(),
             dir: Vec3::default(),
             mode: 1,
-            cach: true,
+            build: false,
+            load: false,
             debug_scale: 1,
         })
     }
@@ -565,11 +561,17 @@ impl app::Gui for Gui {
                 debug_scale = debug_scale.clamp(1, 100);
                 self.debug_scale = debug_scale as u32;
 
-                let mut cach = self.cach;
-                if ui.radio_button_bool("Use Cach", cach){
-                    cach = !cach;
+                let mut build = self.build;
+                if ui.radio_button_bool("Build Tree", build){
+                    build = !build;
                 }
-                self.cach = cach;
+                self.build = build;
+
+                let mut load = self.load;
+                if ui.radio_button_bool("Load Tree", load){
+                    load = !load;
+                }
+                self.load = load;
 
             });
     }

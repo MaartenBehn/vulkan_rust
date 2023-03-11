@@ -41,12 +41,19 @@ pub struct Octtree{
 
 #[derive(Clone, Copy, Default)]
 pub struct OcttreeNode {
+    // Dynamic node Data (32 byte)
     children: [u16; 8],
 
+    parent: u32,
+    p_next: u32,
+    p_last: u32,
+    bit_flags: u32,
+
+    // Static node Data (16 byte)
     node_id_0: u32,
     node_id_1: u32,
     mat_id: u32,
-    data: u32,
+    depth: u32,
 }
 
 
@@ -129,7 +136,7 @@ impl OcttreeController{
 
             nodes[index] = self.octtree.nodes[*id as usize];
 
-            if nodes[index].data < self.octtree.depth as u32{
+            if nodes[index].depth < self.octtree.depth as u32{
                 nodes[index].children = new_children;
             }
             else{
@@ -150,7 +157,7 @@ impl Octtree{
         let mut octtree = Octtree{
             nodes: Vec::new(),
             depth: depth,
-            size: (1 - i32::pow(8, depth as u32 + 1) / -7) as usize,
+            size: (1 - i32::pow(8, (depth + 1) as u32) / (1 - 8)) as usize,
         };
 
         if seed == 0 {
@@ -185,12 +192,20 @@ impl Octtree{
             mat_id = 1;
         }
         
+        let p_next = i + 1;
+        let p_last = if i > 0 { i - 1 } else { 0 };
+
         self.nodes.push(OcttreeNode { 
-            children: [0 as u16; 8], 
             node_id_0: i as u32, 
             node_id_1: 0,
             mat_id: mat_id, 
-            data: depth as u32 
+            depth: depth as u32,
+
+            children: [0 as u16; 8], 
+            parent: 0,
+            p_next: p_next as u32,
+            p_last: p_last as u32,
+            bit_flags: 0,
         });
 
         let mut new_i = i + 1;
@@ -210,12 +225,13 @@ impl Octtree{
                 
                 new_i = self.inital_fill(new_i, depth + 1, new_pos, rng);
 
+                self.nodes[child_index].parent = i as u32;
+
                 let child_material = self.nodes[child_index].mat_id;
                 if child_material != 0 {
                     self.nodes[i].mat_id = child_material;
                 }
             }
-
         }
 
         return new_i;
