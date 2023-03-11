@@ -24,6 +24,7 @@ pub struct OcttreeController{
 
     pub buffer_size: usize, 
     pub transfer_size: usize,
+    pub build_size: usize,
 }
 
 #[derive(Clone)]
@@ -61,7 +62,7 @@ pub struct OcttreeInfo {
     transfer_buffer_size: u32,
     depth: u32,
 
-    fill_0: u32,
+    build_offset: u32,
     fill_1: u32,
     fill_2: u32,
     fill_3: u32,
@@ -69,7 +70,7 @@ pub struct OcttreeInfo {
 
 
 impl OcttreeController{
-    pub fn new(octtree: Octtree, buffer_size: usize, transfer_size: usize) -> Self{
+    pub fn new(octtree: Octtree, buffer_size: usize, transfer_size: usize, build_size: usize) -> Self{
 
         let depth = octtree.depth;
         let size = octtree.size;
@@ -81,14 +82,19 @@ impl OcttreeController{
                 buffer_size:            buffer_size as u32, 
                 transfer_buffer_size:   transfer_size as u32, 
                 depth:                  depth as u32, 
-                fill_0: 0, 
+                build_offset: 0, 
                 fill_1: 0, 
                 fill_2: 0, 
                 fill_3: 0,
             },
             buffer_size:        buffer_size, 
             transfer_size:      transfer_size,
+            build_size:         build_size,
         }
+    }
+
+    pub fn step(& mut self){
+        self.octtree_info.build_offset = (self.octtree_info.build_offset + self.build_size as u32) % self.buffer_size as u32;
     }
 
     pub fn get_inital_buffer_data(&mut self) -> &[OcttreeNode] {

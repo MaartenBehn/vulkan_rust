@@ -40,6 +40,9 @@ void setChildIndex(uint index, uint childIndex, uint newIndex){
 uint getParentIndex(Node node){
     return node.dynamik_data[0];
 }
+uint getParentIndex(uint index){
+    return octtreeBuffer.octtree[index].dynamik_data[0];
+}
 uint setParentIndex(uint index, uint parentIndex){
     return octtreeBuffer.octtree[index].dynamik_data[0] = parentIndex;
 }
@@ -132,14 +135,8 @@ uint getTransferBufferSize(){
 uint getOcttreeDepth(){
     return octtreeInfo.data_0[3];
 }
-uint getWorkerSizeBuffer(){
+uint getBuildOffset(){
     return octtreeInfo.data_1[0];
-}
-uint getWorkerSizeTransfer(){
-    return octtreeInfo.data_1[1];
-}
-uint getTransferOffset(){
-    return octtreeInfo.data_1[2];
 }
 // Octtree End
 
@@ -149,11 +146,9 @@ uint getChildId(uint nodeId, uint childNr, uint depth){
     return uint(nodeId + childSize * childNr + 1);
 }
 
-void main()
-{
+void buildNode(uint nodeIndex){
     uint bufferSize = getBufferSize();
     uint octtreeDepth = getOcttreeDepth();
-    uint nodeIndex = gl_GlobalInvocationID.x;
     uint depth = getNodeDepth(nodeIndex);
 
     for (uint childNr = 0; childNr < 8; childNr++){
@@ -180,4 +175,10 @@ void main()
             setParentIndex(newChildIndex, nodeIndex);
         }
     }
+}
+
+void main()
+{
+    uint nodeIndex = gl_GlobalInvocationID.x + getBuildOffset();
+    buildNode(nodeIndex);
 }

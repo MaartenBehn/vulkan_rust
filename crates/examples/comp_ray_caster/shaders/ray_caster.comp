@@ -54,6 +54,9 @@ void setChildIndex(uint index, uint childIndex, uint newIndex){
 uint getParentIndex(Node node){
     return node.dynamik_data[0];
 }
+uint getParentIndex(uint index){
+    return octtreeBuffer.octtree[index].dynamik_data[0];
+}
 uint setParentIndex(uint index, uint parentIndex){
     return octtreeBuffer.octtree[index].dynamik_data[0] = parentIndex;
 }
@@ -146,19 +149,14 @@ uint getTransferBufferSize(){
 uint getOcttreeDepth(){
     return octtreeInfo.data_0[3];
 }
-uint getWorkerSizeBuffer(){
+uint getBuildOffset(){
     return octtreeInfo.data_1[0];
-}
-uint getWorkerSizeTransfer(){
-    return octtreeInfo.data_1[1];
-}
-uint getTransferOffset(){
-    return octtreeInfo.data_1[2];
 }
 // Octtree End
 
-#define VIEW_DIST 10000
+#define VIEW_MULTI 0.001
 #define MAX_STEPS 1000
+#define RAY_POS_OFFSET 0.001
 
 vec3 getColorGradient(float x){
     if (x == 0){
@@ -367,7 +365,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             return false;
         }
         else{
-            ray.pos = ray.pos + ray.dir * (tMin + 0.0001);
+            ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);
             rayLen += tMin;
         }
     }
@@ -388,7 +386,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     
     while(counter < MAX_STEPS){
         bool isEmpty = getNodeMaterial(node) == 0;
-        bool isLeave = depth >= (getOcttreeDepth() - (rayLen * 0.02));
+        bool isLeave = depth >= (getOcttreeDepth() - (rayLen * VIEW_MULTI));
 
         if (!isEmpty && !isLeave){
             depth += 1;
@@ -413,7 +411,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
         }
         else if (isEmpty){
             checkHit(ray, vec3(nodePos), size, tMin, tMax);
-            ray.pos = ray.pos + ray.dir * (tMax + 0.0001);
+            ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);
             rayLen += tMax;
 
             if (getNodePos(ray.pos, rootSize) == uvec3(0)){
