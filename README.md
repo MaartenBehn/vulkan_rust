@@ -3,10 +3,10 @@
 |  |  |
 -------------------------|-------------------------
 **Raytracing Mirror** | **Global Ilumination**
-(`sh scripts/run.sh rt_mirror`) | (`sh scripts/run.sh rt_global_ilumination`)
+`sh scripts/run.sh rt_mirror` | `sh scripts/run.sh rt_global_ilumination`
 ![Pic](assets/screenshots/mirror.png)  |  ![Pic](assets/screenshots/global_ilumination.png) 
 **GPU Particles**  | **Mandelbrot** 
-(`sh scripts/run.sh gpu_particles`) | (`sh scripts/run.sh mandelbrot`)
+`sh scripts/run.sh gpu_particles` | `sh scripts/run.sh mandelbrot`
 ![Pic](assets/screenshots/particles.png)  |  ![Pic](assets/screenshots/mandelbrot.png)
 
 
