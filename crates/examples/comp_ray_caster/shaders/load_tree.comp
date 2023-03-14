@@ -148,6 +148,10 @@ layout(binding = 3) buffer RequestBuffer {
     uint nodes[];
 } requestBuffer;
 
+layout(binding = 4) buffer RequestNoteBuffer {
+    uint data[];
+} requestNoteBuffer;
+
 
 // Linked List Operations
 void extractNode(uint nodeIndex){
@@ -173,37 +177,6 @@ uint getChildId(uint nodeId, uint childNr, uint depth){
     return uint(nodeId + childSize * childNr + 1);
 }
 
-void buildNode(uint nodeIndex){
-    uint bufferSize = getBufferSize();
-    uint octtreeDepth = getOcttreeDepth();
-    uint depth = getNodeDepth(nodeIndex);
-
-    for (uint childNr = 0; childNr < 8; childNr++){
-        uint newChildIndex = 0;
-
-        if (octtreeDepth > depth) {
-            uint childId = getChildId(getNodeId(nodeIndex), childNr, octtreeDepth - depth);
-    
-            for (uint childIndex = 0; childIndex < bufferSize; childIndex++){
-                if (getNodeId(childIndex) == childId){
-                    newChildIndex = childIndex;
-                    break;
-                }
-            }
-
-            if (newChildIndex == 0){
-                newChildIndex = bufferSize;
-            }
-        }
-        
-        setChildIndex(nodeIndex, childNr, newChildIndex);
-
-        if (newChildIndex != 0 && newChildIndex != bufferSize) {
-            setParentIndex(newChildIndex, nodeIndex);
-        }
-    }
-}
-
 void main()
 {
     uint bufferSize = getBufferSize();
@@ -211,70 +184,9 @@ void main()
     uint transferBufferSize = getTransferBufferSize();
 
     uint root = 0;
-    uint head = getPNext(0);
+    uint head = getPLast(0);
 
-    bool reqestRunning = true;
-    uint reqestHead = 0;
-
-    // Check for needs Child Flags for Root.
-    for (uint childNr = 0; reqestRunning && childNr < 8; childNr++){
-
-        if (getNeedsChildrenFlag(0, childNr)){
-            uint childId = getChildId(getNodeId(0), childNr, octtreeDepth - getNodeDepth(0));
-            requestBuffer.nodes[reqestHead] = childId;
-
-            reqestHead++;
-            reqestRunning = reqestHead < transferBufferSize;
-        }
-    }
-
-    resetRenderFlag(0);
-    resetNeedsChildrenFlag(0);
-
-    uint counter = 0;
-    while (counter < bufferSize && head != 0){
-        uint next_head = getPNext(head);
-
-        // move node if renderd;
-        bool render = getRenderFlag(head);
-        if (render) {
-            extractNode(head);
-            insterNodeAfter(head, root);
-
-            // Check for needs Child Flags.
-            for (uint childNr = 0; reqestRunning && childNr < 8; childNr++){
-
-                if (getNeedsChildrenFlag(head, childNr)){
-
-                    
-
-
-                    uint childId = getChildId(getNodeId(head), childNr, octtreeDepth - getNodeDepth(head));
-                    requestBuffer.nodes[reqestHead] = childId;
-
-                    reqestHead++;
-                    reqestRunning = reqestHead < transferBufferSize;
-
-                    buildNode(head);
-                }
-            }
-
-            resetRenderFlag(head);
-            resetNeedsChildrenFlag(head);
-        }
-
-        head = next_head;
-        counter++;
-    }
-
-    while (reqestHead < transferBufferSize){
-        requestBuffer.nodes[reqestHead] = 0;
-        reqestHead++;
-    }
-
-    head = getPLast(0);
-    counter = 0;
-    while (counter < transferBufferSize){
+    for (uint counter = 0; counter < transferBufferSize; counter++){
         uint next_head = getPLast(head);
 
         Node newNode = transferBuffer.nodes[counter];
@@ -283,19 +195,79 @@ void main()
             break;
         }
 
+        uint parent_index = requestNoteBuffer.data[counter * 2];
+        uint parent_childNr = requestNoteBuffer.data[(counter * 2) + 1];
+
         uint old_parent = getParentIndex(head);
+        Node old_parent_node = getNode(old_parent);
+        for (uint i = 0; i < 8; i++){
+            if (getChildIndex(old_parent_node, i) == head){
+                setChildIndex(old_parent, i, bufferSize);
+                break;
+            }
+        }
 
         extractNode(head);
         setNode(head, newNode);
         insterNodeAfter(head, root);
 
+        setParentIndex(head, parent_index);
+
         resetRenderFlag(head);
         resetNeedsChildrenFlag(head);
 
-        buildNode(head);
-        buildNode(old_parent);
+        setChildIndex(parent_index, parent_childNr, head);
+        resetNeedsChildrenFlag(parent_index);
 
         head = next_head;
-        counter++;
+    }
+
+    
+    head = 0;
+
+    bool reqestRunning = true;
+    uint reqestHead = 0;
+
+    for (uint counter = 0; counter < bufferSize; counter++){
+        uint next_head = getPNext(head);
+
+        // move node if renderd;
+        bool render = getRenderFlag(head);
+        if (render) {
+            if (head != root){
+                extractNode(head);
+                insterNodeAfter(head, root);
+            }
+
+            // Check for needs Child Flags.
+            for (uint childNr = 0; reqestRunning && childNr < 8; childNr++){
+                if (getNeedsChildrenFlag(head, childNr)){
+                    uint childId = getChildId(getNodeId(head), childNr, octtreeDepth - getNodeDepth(head));
+
+                    requestBuffer.nodes[reqestHead] = childId;
+                    requestNoteBuffer.data[reqestHead * 2] = head;
+                    requestNoteBuffer.data[(reqestHead * 2) + 1] = childNr;
+
+                    reqestHead++;
+                    reqestRunning = reqestHead < transferBufferSize;
+                }
+            }
+        }
+
+        resetRenderFlag(head);
+        resetNeedsChildrenFlag(head);
+
+        head = next_head;
+        if (head == root){
+            break;
+        }
+    }
+
+    while (reqestHead < transferBufferSize){
+        requestBuffer.nodes[reqestHead] = 0;
+
+        requestNoteBuffer.data[reqestHead * 2] = 0;
+        requestNoteBuffer.data[(reqestHead * 2) + 1] = 0;
+        reqestHead++;
     }
 }
