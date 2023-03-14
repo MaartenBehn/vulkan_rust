@@ -10,7 +10,7 @@ use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo,
     DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
-    WriteDescriptorSet, WriteDescriptorSetKind, BufferBarrier,
+    WriteDescriptorSet, WriteDescriptorSetKind, BufferBarrier, MemoryBarrier,
 };
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
@@ -34,6 +34,7 @@ fn main() -> Result<()> {
 }
 struct RayCaster {
     total_time: Duration,
+    frameCounter: usize,
 
     render_ubo_buffer: Buffer,
     _render_descriptor_pool: DescriptorPool,
@@ -79,18 +80,17 @@ impl App for RayCaster {
             size_of::<ComputeUbo>() as _,
         )?;
 
-        let depth = 8;
+        let depth = 4;
         let mut octtree_controller = OcttreeController::new(
             Octtree::new(depth, 123), 
             50000, //Octtree::get_tree_size(depth),
             500,
-            1000,
         );
 
-        let octtree_buffer = create_gpu_only_buffer_from_data(
-            context,
-            vk::BufferUsageFlags::STORAGE_BUFFER,
-            octtree_controller.get_inital_buffer_data(),
+        let octtree_buffer = context.create_buffer(
+            vk::BufferUsageFlags::STORAGE_BUFFER, 
+            MemoryLocation::GpuOnly, 
+            (size_of::<u32>() * 4 * 3 * octtree_controller.buffer_size) as _,
         )?;
 
         let octtree_info_buffer = context.create_buffer(
@@ -387,6 +387,7 @@ impl App for RayCaster {
 
         Ok(Self {
             total_time: Duration::ZERO,
+            frameCounter: 0,
 
             render_ubo_buffer,
             _render_descriptor_pool: render_descriptor_pool,
@@ -427,10 +428,8 @@ impl App for RayCaster {
     ) -> Result<()> {
 
         self.total_time += delta_time;
-
-        self.octtree_controller.step();
+        
         self.octtree_info_buffer.copy_data_to_buffer(&[self.octtree_controller.octtree_info])?;
-
         self.render_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
@@ -441,8 +440,8 @@ impl App for RayCaster {
             fill_2: 0,
         }])?;
 
-        self.build_tree = gui.build;
-        self.load_tree = gui.load;
+        self.build_tree = gui.build || self.frameCounter == 0;
+        self.load_tree = gui.load && self.frameCounter != 0;
 
         if self.load_tree {
             let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size)?;
@@ -454,6 +453,10 @@ impl App for RayCaster {
         // Updateing Gui
         gui.pos = base.camera.position;
         gui.dir = base.camera.direction;
+
+
+        self.octtree_controller.step();
+        self.frameCounter += 1;
 
         Ok(())
     }
@@ -480,8 +483,7 @@ impl App for RayCaster {
                 1, 
                 1,
             );
-            buffer.pipeline_buffer_barriers(&[BufferBarrier {
-                buffer: &self.octtree_buffer,
+            buffer.pipeline_memory_barriers(&[MemoryBarrier {
                 src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
                 src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
                 dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
@@ -500,7 +502,7 @@ impl App for RayCaster {
             );
 
             buffer.dispatch(
-                (self.octtree_controller.build_size as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
+                (self.octtree_controller.buffer_size as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
                 1, 
                 1,
             );

@@ -24,7 +24,6 @@ pub struct OcttreeController{
 
     pub buffer_size: usize, 
     pub transfer_size: usize,
-    pub build_size: usize,
 }
 
 #[derive(Clone)]
@@ -38,14 +37,6 @@ pub struct Octtree{
 
 #[derive(Clone, Copy, Default)]
 pub struct OcttreeNode {
-    // Dynamic node Data (32 byte)
-    children: [u16; 8],
-
-    parent: u32,
-    p_next: u32,
-    p_last: u32,
-    bit_flags: u32,
-
     // Static node Data (16 byte)
     node_id_0: u32,
     node_id_1: u32,
@@ -63,14 +54,14 @@ pub struct OcttreeInfo {
     depth: u32,
 
     build_offset: u32,
-    fill_1: u32,
+    re_build: u32,
     fill_2: u32,
     fill_3: u32,
 }
 
 
 impl OcttreeController{
-    pub fn new(octtree: Octtree, buffer_size: usize, transfer_size: usize, build_size: usize) -> Self{
+    pub fn new(octtree: Octtree, buffer_size: usize, transfer_size: usize) -> Self{
 
         let depth = octtree.depth;
         let size = octtree.size;
@@ -83,33 +74,21 @@ impl OcttreeController{
                 transfer_buffer_size:   transfer_size as u32, 
                 depth:                  depth as u32, 
                 build_offset: 0, 
-                fill_1: 0, 
+                re_build: 1, 
                 fill_2: 0, 
                 fill_3: 0,
             },
             buffer_size:        buffer_size, 
             transfer_size:      transfer_size,
-            build_size:         build_size,
         }
     }
 
     pub fn step(& mut self){
-        self.octtree_info.build_offset = (self.octtree_info.build_offset + self.build_size as u32) % self.buffer_size as u32;
-    }
-
-    pub fn get_inital_buffer_data(&mut self) -> &[OcttreeNode] {
-        let nodes = &mut self.octtree.nodes[0 .. self.buffer_size];
-        nodes[0].p_last = (self.buffer_size - 1) as u32;
-        nodes[self.buffer_size - 1].p_next = 0 as u32;
-
-        nodes
+        self.octtree_info.re_build = 0;
+        //self.octtree_info.build_offset = (self.octtree_info.build_offset + self.build_size as u32) % self.buffer_size as u32;
     }
 
     pub fn get_requested_nodes(&mut self, requested_ids: Vec<u32>) -> Vec<OcttreeNode> {
-
-        let out = self.buffer_size as u16;
-        let new_children = [out, out, out, out,  out, out, out, out];
-        let new_children_zero = [0, 0, 0, 0,  0, 0, 0, 0];
 
         let mut nodes = vec![OcttreeNode::default(); self.transfer_size];
 
@@ -124,21 +103,11 @@ impl OcttreeController{
             }
 
             nodes[i] = self.octtree.nodes[*id as usize];
-
-            if nodes[i].depth < self.octtree.depth as u32{
-                nodes[i].children = new_children;
-            }
-            else{
-                nodes[i].children = new_children_zero;
-            }
         }
 
         nodes
     }
 }
-
-
-
 
 
 impl Octtree{
@@ -184,21 +153,12 @@ impl Octtree{
         if dist < radius {
             mat_id = 1;
         }
-        
-        let p_next = i + 1;
-        let p_last = if i > 0 { i - 1 } else { 0 };
 
         self.nodes.push(OcttreeNode { 
             node_id_0: i as u32, 
             node_id_1: 0,
             mat_id: mat_id, 
             depth: depth as u32,
-
-            children: [0 as u16; 8], 
-            parent: 0,
-            p_next: p_next as u32,
-            p_last: p_last as u32,
-            bit_flags: 0,
         });
 
         let mut new_i = i + 1;
@@ -208,7 +168,6 @@ impl Octtree{
                 let inverse_depth = u32::pow(2, (self.depth - depth - 1) as u32);
 
                 let child_index = Self::get_child_id(i as u32, j as u32, (self.depth - depth) as u32) as usize;
-                self.nodes[i].children[j] = child_index as u16;
                 
                 let new_pos = [
                     pos[0] + OCTTREE_CONFIG[j][0] * inverse_depth, 
@@ -218,7 +177,6 @@ impl Octtree{
                 
                 new_i = self.inital_fill(new_i, depth + 1, new_pos, rng);
 
-                self.nodes[child_index].parent = i as u32;
 
                 let child_material = self.nodes[child_index].mat_id;
                 if child_material != 0 {
@@ -231,11 +189,3 @@ impl Octtree{
     }
 
 }
-
-
-impl OcttreeNode{
-    pub fn get_ID(&self) -> u64{
-        return self.node_id_0 as u64 | (self.node_id_1 as u64) << 32;
-    }
-}
-

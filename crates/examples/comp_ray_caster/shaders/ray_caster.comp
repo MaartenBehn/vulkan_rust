@@ -27,7 +27,7 @@ uint getDebugScale(){
 
 struct Node{
     uint16_t children[8];
-    uvec4 dynamik_data;
+    uvec4 dynamik_data; 
     uvec4 static_data;
 };
 
@@ -110,7 +110,7 @@ void resetNeedsChildrenFlag(uint index){
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
-void setNode(uint index, Node node){
+void setNode(Node node, uint index){
     octtreeBuffer.octtree[index] = node;
 }
 
@@ -121,6 +121,9 @@ uint getNodeId(Node node){
 uint getNodeId(uint index){
     return octtreeBuffer.octtree[index].static_data[0];
 }
+void setNodeId(Node node, uint id){
+    node.static_data[0] = id;
+}
 
 uint getNodeMaterial(Node node){
     return node.static_data[2];
@@ -128,12 +131,18 @@ uint getNodeMaterial(Node node){
 uint getNodeMaterial(uint index){
     return octtreeBuffer.octtree[index].static_data[2];
 }
+void setNodeMaterial(Node node, uint index){
+    node.static_data[2] = index;
+}
 
 uint getNodeDepth(Node node){
     return node.static_data[3];
 }
 uint getNodeDepth(uint index){
     return octtreeBuffer.octtree[index].static_data[3];
+}
+void setNodeDepth(Node node, uint depth){
+    node.static_data[3] = depth;
 }
 
 // Octtree Info
@@ -151,6 +160,9 @@ uint getOcttreeDepth(){
 }
 uint getBuildOffset(){
     return octtreeInfo.data_1[0];
+}
+uint getReBuild(){
+    return octtreeInfo.data_1[1];
 }
 // Octtree End
 
@@ -399,7 +411,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             uint childNr = getChildFromPos(posDelta);
             uint newNodeIndex = getChildIndex(node, childNr);
 
-            if (newNodeIndex >= bufferSize){
+            if (newNodeIndex == 0){
                 setNeedsChildrenFlag(nodeIndex, childNr);
                 isLeave = true; // Child is not in Buffer
             }

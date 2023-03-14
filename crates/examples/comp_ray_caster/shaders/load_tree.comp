@@ -96,7 +96,7 @@ void resetNeedsChildrenFlag(uint index){
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
-void setNode(uint index, Node node){
+void setNode(Node node, uint index){
     octtreeBuffer.octtree[index] = node;
 }
 
@@ -107,6 +107,9 @@ uint getNodeId(Node node){
 uint getNodeId(uint index){
     return octtreeBuffer.octtree[index].static_data[0];
 }
+void setNodeId(Node node, uint id){
+    node.static_data[0] = id;
+}
 
 uint getNodeMaterial(Node node){
     return node.static_data[2];
@@ -114,12 +117,18 @@ uint getNodeMaterial(Node node){
 uint getNodeMaterial(uint index){
     return octtreeBuffer.octtree[index].static_data[2];
 }
+void setNodeMaterial(Node node, uint index){
+    node.static_data[2] = index;
+}
 
 uint getNodeDepth(Node node){
     return node.static_data[3];
 }
 uint getNodeDepth(uint index){
     return octtreeBuffer.octtree[index].static_data[3];
+}
+void setNodeDepth(Node node, uint depth){
+    node.static_data[3] = depth;
 }
 
 // Octtree Info
@@ -138,10 +147,13 @@ uint getOcttreeDepth(){
 uint getBuildOffset(){
     return octtreeInfo.data_1[0];
 }
+uint getReBuild(){
+    return octtreeInfo.data_1[1];
+}
 // Octtree End
 
 layout(binding = 2) buffer TransferBuffer {
-    Node nodes[];
+    uvec4 nodes[];
 } transferBuffer;
 
 layout(binding = 3) buffer RequestBuffer {
@@ -189,7 +201,12 @@ void main()
     for (uint counter = 0; counter < transferBufferSize; counter++){
         uint next_head = getPLast(head);
 
-        Node newNode = transferBuffer.nodes[counter];
+        uvec4 new_data = transferBuffer.nodes[counter];
+        Node newNode = Node(
+            uint16_t[8](uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0), uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0)),
+            uvec4(0, 0, 0, 0),
+            new_data
+        );
 
         if (getNodeId(newNode) == 0) {
             break;
@@ -214,13 +231,11 @@ void main()
         }
 
         extractNode(head);
-        setNode(head, newNode);
-        insterNodeAfter(head, root);
-
+        
+        setNode(newNode, head);
         setParentIndex(head, parent_index);
 
-        resetRenderFlag(head);
-        resetNeedsChildrenFlag(head);
+        insterNodeAfter(head, root);
 
         setChildIndex(parent_index, parent_childNr, head);
 

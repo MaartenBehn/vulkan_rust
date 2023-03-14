@@ -13,7 +13,7 @@ layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
 struct Node{
     uint16_t children[8];
-    uvec4 dynamik_data;
+    uvec4 dynamik_data; // 0: Parent Index, 1: PNext 2: PLast
     uvec4 static_data;
 };
 
@@ -96,7 +96,7 @@ void resetNeedsChildrenFlag(uint index){
 Node getNode(uint index){
     return octtreeBuffer.octtree[index];
 }
-void setNode(uint index, Node node){
+void setNode(Node node, uint index){
     octtreeBuffer.octtree[index] = node;
 }
 
@@ -107,6 +107,9 @@ uint getNodeId(Node node){
 uint getNodeId(uint index){
     return octtreeBuffer.octtree[index].static_data[0];
 }
+void setNodeId(Node node, uint id){
+    node.static_data[0] = id;
+}
 
 uint getNodeMaterial(Node node){
     return node.static_data[2];
@@ -114,12 +117,18 @@ uint getNodeMaterial(Node node){
 uint getNodeMaterial(uint index){
     return octtreeBuffer.octtree[index].static_data[2];
 }
+void setNodeMaterial(Node node, uint index){
+    node.static_data[2] = index;
+}
 
 uint getNodeDepth(Node node){
     return node.static_data[3];
 }
 uint getNodeDepth(uint index){
     return octtreeBuffer.octtree[index].static_data[3];
+}
+void setNodeDepth(Node node, uint depth){
+    node.static_data[3] = depth;
 }
 
 // Octtree Info
@@ -138,8 +147,28 @@ uint getOcttreeDepth(){
 uint getBuildOffset(){
     return octtreeInfo.data_1[0];
 }
+uint getReBuild(){
+    return octtreeInfo.data_1[1];
+}
 // Octtree End
 
+void reBuild(uint index){
+
+    uint bufferSize = getBufferSize();
+
+    uint is_start = uint(index == 0);
+    uint is_end = uint(index == bufferSize -1);
+
+    uint p_next = index + 1 * (1 - is_end);
+    uint p_last = index - 1 * (1 - is_start) + (bufferSize - 1) * is_start;
+
+    Node node = Node(
+        uint16_t[8](uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0), uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0)),
+        uvec4(bufferSize, p_next, p_last, 0),
+        uvec4(0, 0, 1, 0)
+    );
+    setNode(node, index);
+}
 
 uint getChildId(uint nodeId, uint childNr, uint depth){
     int childSize = int((1 - pow(8, depth)) / -7);
@@ -163,15 +192,11 @@ void buildNode(uint nodeIndex){
                     break;
                 }
             }
-
-            if (newChildIndex == 0){
-                newChildIndex = bufferSize;
-            }
         }
         
         setChildIndex(nodeIndex, childNr, newChildIndex);
 
-        if (newChildIndex != 0 && newChildIndex != bufferSize) {
+        if (newChildIndex != 0) {
             setParentIndex(newChildIndex, nodeIndex);
         }
     }
@@ -180,5 +205,10 @@ void buildNode(uint nodeIndex){
 void main()
 {
     uint nodeIndex = gl_GlobalInvocationID.x + getBuildOffset();
-    buildNode(nodeIndex);
+
+    if (getReBuild() == 1){
+        reBuild(nodeIndex);
+    }else{
+        buildNode(nodeIndex);
+    }
 }
