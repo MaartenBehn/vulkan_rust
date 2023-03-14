@@ -79,11 +79,11 @@ impl App for RayCaster {
             size_of::<ComputeUbo>() as _,
         )?;
 
-        let depth = 4;
+        let depth = 8;
         let mut octtree_controller = OcttreeController::new(
             Octtree::new(depth, 123), 
-            1000, //Octtree::get_tree_size(depth),
-            10,
+            50000, //Octtree::get_tree_size(depth),
+            500,
             1000,
         );
 
@@ -115,7 +115,7 @@ impl App for RayCaster {
         let octtree_request_note_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuOnly, 
-            (size_of::<u32>() * 2 * octtree_controller.transfer_size) as _,
+            (size_of::<u32>() * 4 * octtree_controller.transfer_size) as _,
         )?;
         
         let render_descriptor_pool = context.create_descriptor_pool(
@@ -559,7 +559,7 @@ impl app::Gui for Gui {
             dir: Vec3::default(),
             mode: 1,
             build: false,
-            load: false,
+            load: true,
             debug_scale: 1,
         })
     }

@@ -195,8 +195,14 @@ void main()
             break;
         }
 
-        uint parent_index = requestNoteBuffer.data[counter * 2];
-        uint parent_childNr = requestNoteBuffer.data[(counter * 2) + 1];
+        uint parent_index = requestNoteBuffer.data[counter * 4];
+        uint parent_childNr = requestNoteBuffer.data[(counter * 4) + 1];
+        uint check_parent_Id = requestNoteBuffer.data[(counter * 4) + 2];
+        uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
+
+        if (getNodeId(newNode) != check_child_Id || getNodeId(parent_index) != check_parent_Id){
+            continue;
+        }
 
         uint old_parent = getParentIndex(head);
         Node old_parent_node = getNode(old_parent);
@@ -217,7 +223,6 @@ void main()
         resetNeedsChildrenFlag(head);
 
         setChildIndex(parent_index, parent_childNr, head);
-        resetNeedsChildrenFlag(parent_index);
 
         head = next_head;
     }
@@ -245,8 +250,10 @@ void main()
                     uint childId = getChildId(getNodeId(head), childNr, octtreeDepth - getNodeDepth(head));
 
                     requestBuffer.nodes[reqestHead] = childId;
-                    requestNoteBuffer.data[reqestHead * 2] = head;
-                    requestNoteBuffer.data[(reqestHead * 2) + 1] = childNr;
+                    requestNoteBuffer.data[reqestHead * 4] = head;
+                    requestNoteBuffer.data[(reqestHead * 4) + 1] = childNr;
+                    requestNoteBuffer.data[(reqestHead * 4) + 2] = getNodeId(head);
+                    requestNoteBuffer.data[(reqestHead * 4) + 3] = childId;
 
                     reqestHead++;
                     reqestRunning = reqestHead < transferBufferSize;
@@ -266,8 +273,10 @@ void main()
     while (reqestHead < transferBufferSize){
         requestBuffer.nodes[reqestHead] = 0;
 
-        requestNoteBuffer.data[reqestHead * 2] = 0;
-        requestNoteBuffer.data[(reqestHead * 2) + 1] = 0;
+        requestNoteBuffer.data[reqestHead * 4] = bufferSize;
+        requestNoteBuffer.data[(reqestHead * 4) + 1] = bufferSize;
+        requestNoteBuffer.data[(reqestHead * 4) + 2] = bufferSize;
+        requestNoteBuffer.data[(reqestHead * 4) + 3] = bufferSize;
         reqestHead++;
     }
 }

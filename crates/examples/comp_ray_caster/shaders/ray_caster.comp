@@ -154,7 +154,7 @@ uint getBuildOffset(){
 }
 // Octtree End
 
-#define VIEW_MULTI 0.001
+#define VIEW_MULTI 0.01
 #define MAX_STEPS 1000
 #define RAY_POS_OFFSET 0.001
 
