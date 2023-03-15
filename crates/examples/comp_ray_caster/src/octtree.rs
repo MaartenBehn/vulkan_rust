@@ -36,6 +36,7 @@ pub struct Octtree{
 }
 
 #[derive(Clone, Copy, Default)]
+#[allow(dead_code)]
 pub struct OcttreeNode {
     // Static node Data (16 byte)
     node_id_0: u32,
@@ -58,6 +59,8 @@ pub struct OcttreeInfo {
     fill_2: u32,
     fill_3: u32,
 }
+
+
 
 
 impl OcttreeController{

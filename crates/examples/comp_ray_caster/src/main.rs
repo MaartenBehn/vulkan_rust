@@ -19,6 +19,8 @@ use gui::imgui::{Condition, Ui};
 mod octtree;
 use octtree::*;
 
+mod materials;
+
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
