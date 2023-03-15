@@ -157,10 +157,10 @@ void reBuild(uint index){
     uint bufferSize = getBufferSize();
 
     uint is_start = uint(index == 0);
-    uint is_end = uint(index == bufferSize -1);
+    uint is_end = uint(index >= bufferSize - 1);
 
-    uint p_next = index + 1 * (1 - is_end);
-    uint p_last = index - 1 * (1 - is_start) + (bufferSize - 1) * is_start;
+    uint p_next = (index + 1) * (1 - is_end);
+    uint p_last = (index - 1) * (1 - is_start) + (bufferSize - 1) * is_start;
 
     Node node = Node(
         uint16_t[8](uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0), uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0)),

@@ -28,6 +28,7 @@ const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
 const LOAD_DISPATCH_GROUP_SIZE: u32 = 32;
 const BUILD_DISPATCH_GROUP_SIZE: u32 = 32;
+const LOAD_DEBUG_DATA_SIZE: usize = 2;
 
 fn main() -> Result<()> {
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
@@ -80,11 +81,11 @@ impl App for RayCaster {
             size_of::<ComputeUbo>() as _,
         )?;
 
-        let depth = 4;
+        let depth = 7;
         let mut octtree_controller = OcttreeController::new(
             Octtree::new(depth, 123), 
             50000, //Octtree::get_tree_size(depth),
-            500,
+            1000,
         );
 
         let octtree_buffer = context.create_buffer(
@@ -98,7 +99,6 @@ impl App for RayCaster {
             MemoryLocation::CpuToGpu,
             size_of::<OcttreeInfo>() as _,
         )?;
-        
 
         let octtree_transfer_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
@@ -109,7 +109,7 @@ impl App for RayCaster {
         let octtree_request_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuToCpu, 
-            (size_of::<u32>() * octtree_controller.transfer_size) as _,
+            (size_of::<u32>() * (octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)) as _,
         )?;
 
         let octtree_request_note_buffer = context.create_buffer(
@@ -444,15 +444,25 @@ impl App for RayCaster {
         self.load_tree = gui.load && self.frameCounter != 0;
 
         if self.load_tree {
-            let request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size)?;
+            let mut request_data: Vec<u32> = self.octtree_request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)?;
+
+            // Debug data from load shader
+            gui.render_counter = request_data[self.octtree_controller.transfer_size] as usize;
+            gui.needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
+            request_data.truncate(self.octtree_controller.transfer_size);
+
             //log::debug!("{:?}", request_data);
-            let requested_nodes = self.octtree_controller.get_requested_nodes(request_data);
+            let (requested_nodes, counter) = self.octtree_controller.get_requested_nodes(request_data);
             self.octtree_transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
+
+            gui.transfer_counter = counter;
         }
 
         // Updateing Gui
         gui.pos = base.camera.position;
         gui.dir = base.camera.direction;
+        gui.octtree_buffer_size = self.octtree_controller.buffer_size;
+        gui.transfer_buffer_size = self.octtree_controller.transfer_size;
 
 
         self.octtree_controller.step();
@@ -551,7 +561,14 @@ struct Gui {
     mode: u32,
     build: bool,
     load: bool,
-    debug_scale: u32
+    debug_scale: u32,
+
+    render_counter: usize,
+    needs_children_counter: usize,
+    octtree_buffer_size: usize,
+
+    transfer_counter: usize,
+    transfer_buffer_size: usize
 }
 
 impl app::Gui for Gui {
@@ -563,13 +580,19 @@ impl app::Gui for Gui {
             build: false,
             load: true,
             debug_scale: 1,
+
+            render_counter: 0,
+            needs_children_counter: 0,
+            octtree_buffer_size: 0,
+            transfer_counter: 0,
+            transfer_buffer_size: 0,
         })
     }
 
     fn build(&mut self, ui: &Ui) {
         ui.window("Ray caster")
             .position([5.0, 150.0], Condition::FirstUseEver)
-            .size([300.0, 150.0], Condition::FirstUseEver)
+            .size([300.0, 300.0], Condition::FirstUseEver)
             .resizable(false)
             .movable(false)
             .build(|| {
@@ -600,6 +623,18 @@ impl app::Gui for Gui {
                     load = !load;
                 }
                 self.load = load;
+
+                let render_counter = self.render_counter;
+                let percent = (self.render_counter as f32 / self.octtree_buffer_size as f32) * 100.0; 
+                ui.text(format!("Rendered Nodes: {render_counter} ({:.0}%)", percent));
+
+                let needs_children = self.needs_children_counter;
+                ui.text(format!("Needs Children: {needs_children}"));
+
+
+                let transfer_counter = self.transfer_counter;
+                let percent = (self.transfer_counter as f32 / self.transfer_buffer_size as f32) * 100.0; 
+                ui.text(format!("Transfered Nodes: {transfer_counter} ({:.0}%)", percent));
 
             });
     }

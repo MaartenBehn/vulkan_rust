@@ -88,10 +88,11 @@ impl OcttreeController{
         //self.octtree_info.build_offset = (self.octtree_info.build_offset + self.build_size as u32) % self.buffer_size as u32;
     }
 
-    pub fn get_requested_nodes(&mut self, requested_ids: Vec<u32>) -> Vec<OcttreeNode> {
+    pub fn get_requested_nodes(&mut self, requested_ids: Vec<u32>) -> (Vec<OcttreeNode>, usize) {
 
         let mut nodes = vec![OcttreeNode::default(); self.transfer_size];
 
+        let mut counter = 0;
         for (i, id) in requested_ids.iter().enumerate() {
 
             if *id >= self.octtree.size as u32 {
@@ -101,11 +102,12 @@ impl OcttreeController{
             if *id <= 0 || *id >= self.octtree.size as u32 {
                 continue;
             }
+            counter += 1;
 
             nodes[i] = self.octtree.nodes[*id as usize];
         }
 
-        nodes
+        (nodes, counter)
     }
 }
 

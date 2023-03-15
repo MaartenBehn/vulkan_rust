@@ -3,6 +3,7 @@
 #extension GL_AMD_gpu_shader_int16: enable
 #extension GL_EXT_shader_explicit_arithmetic_types: enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int16: enable
+#extension GL_EXT_debug_printf : enable
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
@@ -218,6 +219,7 @@ void main()
         uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
 
         if (getNodeId(newNode) != check_child_Id || getNodeId(parent_index) != check_parent_Id){
+            debugPrintfEXT("Node transfer skipped!!!");
             continue;
         }
 
@@ -225,8 +227,7 @@ void main()
         Node old_parent_node = getNode(old_parent);
         for (uint i = 0; i < 8; i++){
             if (getChildIndex(old_parent_node, i) == head){
-                setChildIndex(old_parent, i, bufferSize);
-                break;
+                setChildIndex(old_parent, i, 0);
             }
         }
 
@@ -242,11 +243,12 @@ void main()
         head = next_head;
     }
 
-    
     head = 0;
 
     bool reqestRunning = true;
     uint reqestHead = 0;
+    uint renderedCounter = 0;
+    uint needsChilrenCounter = 0;
 
     for (uint counter = 0; counter < bufferSize; counter++){
         uint next_head = getPNext(head);
@@ -254,6 +256,8 @@ void main()
         // move node if renderd;
         bool render = getRenderFlag(head);
         if (render) {
+            renderedCounter++;
+
             if (head != root){
                 extractNode(head);
                 insterNodeAfter(head, root);
@@ -262,6 +266,9 @@ void main()
             // Check for needs Child Flags.
             for (uint childNr = 0; reqestRunning && childNr < 8; childNr++){
                 if (getNeedsChildrenFlag(head, childNr)){
+                    needsChilrenCounter++;
+
+
                     uint childId = getChildId(getNodeId(head), childNr, octtreeDepth - getNodeDepth(head));
 
                     requestBuffer.nodes[reqestHead] = childId;
@@ -294,4 +301,7 @@ void main()
         requestNoteBuffer.data[(reqestHead * 4) + 3] = bufferSize;
         reqestHead++;
     }
+
+    requestBuffer.nodes[transferBufferSize] = renderedCounter;
+    requestBuffer.nodes[transferBufferSize + 1] = needsChilrenCounter;
 }
