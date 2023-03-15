@@ -84,7 +84,7 @@ impl App for RayCaster {
         let depth = 7;
         let mut octtree_controller = OcttreeController::new(
             Octtree::new(depth, 123), 
-            50000, //Octtree::get_tree_size(depth),
+            u16::MAX as usize, //Octtree::get_tree_size(depth),
             1000,
         );
 
