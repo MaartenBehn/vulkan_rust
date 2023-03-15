@@ -27,8 +27,8 @@ uint getDebugScale(){
 
 struct Node{
     uint16_t children[8];
-    uvec4 dynamik_data; 
-    uvec4 static_data;
+    uvec4 dynamik_data; // 0: Parent 1: PNext 2: PLast     3:
+    uvec4 static_data;  // 0: Id     1:       2: Material  3: Depth
 };
 
 layout(std430, binding = 2) buffer OcttreeBuffer {
@@ -40,131 +40,89 @@ layout(binding = 3) uniform OcttreeInfo {
     uvec4 data_1;
 } octtreeInfo;
 
-// Dynamik Data
-uint getChildIndex(Node node, uint childIndex){
-    return node.children[childIndex];
-}
-uint getChildIndex(uint index, uint childIndex){
-    return octtreeBuffer.octtree[index].children[childIndex];
-}
-void setChildIndex(uint index, uint childIndex, uint newIndex){
-    octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
-}
+// Node
+#define GET_NODE(index) octtreeBuffer.octtree[index]
+#define SET_NODE(node, index) octtreeBuffer.octtree[index] = node
 
-uint getParentIndex(Node node){
-    return node.dynamik_data[0];
-}
-uint getParentIndex(uint index){
-    return octtreeBuffer.octtree[index].dynamik_data[0];
-}
-uint setParentIndex(uint index, uint parentIndex){
-    return octtreeBuffer.octtree[index].dynamik_data[0] = parentIndex;
-}
 
-uint getPNext(Node node){
-    return node.dynamik_data[1];
-}
-uint getPNext(uint index){
-    return octtreeBuffer.octtree[index].dynamik_data[1];
-}
-void setPNext(uint index, uint pNext){
-    octtreeBuffer.octtree[index].dynamik_data[1] = pNext;
-}
+// Child Index
+#define GET_CHILD_INDEX(node, childNr) node.children[childNr]
+#define SET_CHILD_INDEX(node, childNr, childIndex) node.children[childNr] = uint16_t(childIndex)
 
-uint getPLast(Node node){
-    return node.dynamik_data[2];
-}
-uint getPLast(uint index){
-    return octtreeBuffer.octtree[index].dynamik_data[2];
-}
-void setPLast(uint index, uint pLast){
-    octtreeBuffer.octtree[index].dynamik_data[2] = pLast;
-}
+#define GET_CHILD_INDEX_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].children[childNr]
+#define SET_CHILD_INDEX_BY_INDEX(index, childNr, childIndex) octtreeBuffer.octtree[index].children[childNr] = uint16_t(childIndex)
 
-bool getRenderFlag(Node node){
-    return bool(node.dynamik_data[3] & 1);
-}
-bool getRenderFlag(uint index){
-    return bool(octtreeBuffer.octtree[index].dynamik_data[3] & 1);
-}
-void setRenderFlag(uint index){
-    octtreeBuffer.octtree[index].dynamik_data[3] |= 1;
-}
-void resetRenderFlag(uint index){
-    octtreeBuffer.octtree[index].dynamik_data[3] &= ~1;
-}
+// Parent Index
+#define GET_PARENT_INDEX(node) node.dynamik_data[0]
+#define SET_PARENT_INDEX(node, parentIndex) node.dynamik_data[0] = parentIndex
 
-bool getNeedsChildrenFlag(Node node, uint childNr){
-    return bool(node.dynamik_data[3] & (1 << (16 + childNr)));
-}
-bool getNeedsChildrenFlag(uint index, uint childNr){
-    return bool(octtreeBuffer.octtree[index].dynamik_data[3] & (1 << (16 + childNr)));
-}
-void setNeedsChildrenFlag(uint index, uint childNr){
-    octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr));
-}
-void resetNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_16_MAX << 16);
-}
+#define GET_PARENT_INDEX_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[0]
+#define SET_PARENT_INDEX_BY_INDEX(index, parentIndex) octtreeBuffer.octtree[index].dynamik_data[0] = parentIndex
 
-Node getNode(uint index){
-    return octtreeBuffer.octtree[index];
-}
-void setNode(Node node, uint index){
-    octtreeBuffer.octtree[index] = node;
-}
+// P Next
+#define GET_P_NEXT(node) node.dynamik_data[1]
+#define SET_P_NEXT(node, pNext) node.dynamik_data[1] = pNext
 
-// Static Data
-uint getNodeId(Node node){
-    return node.static_data[0];
-}
-uint getNodeId(uint index){
-    return octtreeBuffer.octtree[index].static_data[0];
-}
-void setNodeId(Node node, uint id){
-    node.static_data[0] = id;
-}
+#define GET_P_NEXT_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[1]
+#define SET_P_NEXT_BY_INDEX(index, pNext) octtreeBuffer.octtree[index].dynamik_data[1] = pNext
 
-uint getNodeMaterial(Node node){
-    return node.static_data[2];
-}
-uint getNodeMaterial(uint index){
-    return octtreeBuffer.octtree[index].static_data[2];
-}
-void setNodeMaterial(Node node, uint index){
-    node.static_data[2] = index;
-}
+// P Last
+#define GET_P_LAST(node) node.dynamik_data[2]
+#define SET_P_LAST(node, pLast) node.dynamik_data[2] = pLast
 
-uint getNodeDepth(Node node){
-    return node.static_data[3];
-}
-uint getNodeDepth(uint index){
-    return octtreeBuffer.octtree[index].static_data[3];
-}
-void setNodeDepth(Node node, uint depth){
-    node.static_data[3] = depth;
-}
+#define GET_P_LAST_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[2]
+#define SET_P_LAST_BY_INDEX(index, pLast) octtreeBuffer.octtree[index].dynamik_data[2] = pLast
+
+// Render Flag
+#define GET_RENDER_FLAG(node) bool(node.dynamik_data[3] & 1)
+#define SET_RENDER_FLAG(node) node.dynamik_data[3] |= 1
+#define RESET_RENDER_FLAG(node) node.dynamik_data[3] &= ~1
+
+#define GET_RENDER_FLAG_BY_INDEX(index) bool(octtreeBuffer.octtree[index].dynamik_data[3] & 1)
+#define SET_RENDER_FLAG_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] |= 1
+#define RESET_RENDER_FLAG_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~1
+
+// Needs Child
+#define GET_NEEDS_CHILD(node, childNr) bool(node.dynamik_data[3] & (1 << (16 + childNr)))
+#define SET_NEEDS_CHILD(node, childNr) node.dynamik_data[3] |= (1 << (16 + childNr))
+#define RESET_NEEDS_CHILDREN(node) node.dynamik_data[3] &= ~(Bit_16_MAX << 16)
+
+#define GET_NEEDS_CHILD_BY_INDEX(index, childNr) bool(octtreeBuffer.octtree[index].dynamik_data[3] & (1 << (16 + childNr)))
+#define SET_NEEDS_CHILD_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr))
+#define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_16_MAX << 16)
+
+// ID
+#define GET_NODE_ID(node) node.static_data[0]
+#define SET_NODE_ID(node, id) node.static_data[0] = id
+
+#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define SET_NODE_ID_BY_INDEX(index, id) octtreeBuffer.octtree[index].static_data[0] = id
+
+// Material
+#define GET_MATERIAL_ID(node) node.static_data[2]
+#define SET_MATERIAL_ID(node, material) node.static_data[2] = material
+
+#define GET_MATERIAL_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[2]
+#define SET_MATERIAL_ID_BY_INDEX(index, material) octtreeBuffer.octtree[index].static_data[2] = material
+
+// Depth
+#define GET_NODE_DEPTH(node) node.static_data[3]
+#define SET_NODE_DEPTH(node, depth) node.static_data[3] = depth
+
+#define GET_NODE_DEPTH_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[3]
+#define SET_NODE_DEPTH_BY_INDEX(index, depth) octtreeBuffer.octtree[index].static_data[3] = depth
+
 
 // Octtree Info
-uint getTreeSize(){
-    return octtreeInfo.data_0[0];
-}
-uint getBufferSize(){
-    return octtreeInfo.data_0[1];
-}
-uint getTransferBufferSize(){
-    return octtreeInfo.data_0[2];
-}
-uint getOcttreeDepth(){
-    return octtreeInfo.data_0[3];
-}
-uint getBuildOffset(){
-    return octtreeInfo.data_1[0];
-}
-uint getReBuild(){
-    return octtreeInfo.data_1[1];
-}
+#define TREE_SIZE octtreeInfo.data_0[0]
+#define BUFFER_SIZE octtreeInfo.data_0[1]
+#define TRANSFER_SIZE octtreeInfo.data_0[2]
+#define OCTTREE_DEPTH octtreeInfo.data_0[3]
+
+#define BUILD_OFFSET octtreeInfo.data_1[0]
+#define RE_BUILD octtreeInfo.data_1[1]
 // Octtree End
+
 
 #define VIEW_MULTI 0.01
 #define MAX_STEPS 1000
@@ -190,91 +148,91 @@ vec3 draw_buffer_debuger(){
 
 
     uint nodeIndex = gl_GlobalInvocationID.x / getDebugScale();
-    Node node = getNode(nodeIndex);
+    Node node = GET_NODE(nodeIndex);
 
     if (getMode() == 4) {
         uint head = 0;
         for (int i = 0; i < nodeIndex; i++){
-            head = getPNext(head);
+            head = GET_P_NEXT_BY_INDEX(head);
         }
-        node = getNode(head);
+        node = GET_NODE(head);
     }
     
     vec3 color = vec3(0);
     // Static Data
     if (uv.y < 0.1) {
-        color = getColorGradient(float(getNodeId(node)) / float(getTreeSize()));
+        color = getColorGradient(float(GET_NODE_ID(node)) / float(TRANSFER_SIZE));
     }
     else if (uv.y < 0.15) {
-        color = vec3(getNodeMaterial(node));
+        color = vec3(GET_MATERIAL_ID(node));
     }
     else if (uv.y < 0.2) {
-        color = getColorGradient(float(getNodeDepth(node)) / float(getOcttreeDepth()));
+        color = getColorGradient(float(GET_NODE_DEPTH(node)) / float(OCTTREE_DEPTH));
     }
 
     // Dynamik Data
     else if (uv.y < 0.25) {
-        color = getColorGradient(float(getChildIndex(node, 0)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 0)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.3) {
-        color = getColorGradient(float(getChildIndex(node, 1)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 1)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.35) {
-        color = getColorGradient(float(getChildIndex(node, 2)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 2)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.4) {
-        color = getColorGradient(float(getChildIndex(node, 3)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 3)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.45) {
-        color = getColorGradient(float(getChildIndex(node, 4)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 4)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.5) {
-        color = getColorGradient(float(getChildIndex(node, 5)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 5)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.55) {
-        color = getColorGradient(float(getChildIndex(node, 6)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 6)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.6) {
-        color = getColorGradient(float(getChildIndex(node, 7)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_CHILD_INDEX(node, 7)) / float(BUFFER_SIZE));
     }
 
     else if (uv.y < 0.65) {
-        color = getColorGradient(float(getParentIndex(node)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_PARENT_INDEX(node)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.7) {
-        color = getColorGradient(float(getPNext(node)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_P_NEXT(node)) / float(BUFFER_SIZE));
     }
     else if (uv.y < 0.75) {
-        color = getColorGradient(float(getPLast(node)) / float(getBufferSize()));
+        color = getColorGradient(float(GET_P_LAST(node)) / float(BUFFER_SIZE));
     }
 
     // Flags
     else if (uv.y < 0.9) {
-        color = vec3(getRenderFlag(node));
+        color = vec3(GET_RENDER_FLAG(node));
     }
     else if (uv.y < 0.91) {
-        color = vec3(getNeedsChildrenFlag(node, 0));
+        color = vec3(GET_NEEDS_CHILD(node, 0));
     }
     else if (uv.y < 0.92) {
-        color = vec3(getNeedsChildrenFlag(node, 1));
+        color = vec3(GET_NEEDS_CHILD(node, 1));
     }
     else if (uv.y < 0.93) {
-        color = vec3(getNeedsChildrenFlag(node, 2));
+        color = vec3(GET_NEEDS_CHILD(node, 2));
     }
     else if (uv.y < 0.94) {
-        color = vec3(getNeedsChildrenFlag(node, 3));
+        color = vec3(GET_NEEDS_CHILD(node, 3));
     }
     else if (uv.y < 0.95) {
-        color = vec3(getNeedsChildrenFlag(node, 4));
+        color = vec3(GET_NEEDS_CHILD(node, 4));
     }
     else if (uv.y < 0.96) {
-        color = vec3(getNeedsChildrenFlag(node, 5));
+        color = vec3(GET_NEEDS_CHILD(node, 5));
     }
     else if (uv.y < 0.97) {
-        color = vec3(getNeedsChildrenFlag(node, 6));
+        color = vec3(GET_NEEDS_CHILD(node, 6));
     }
     else if (uv.y < 0.98) {
-        color = vec3(getNeedsChildrenFlag(node, 7));
+        color = vec3(GET_NEEDS_CHILD(node, 7));
     }
 
     return color;
@@ -359,7 +317,7 @@ uint getChildFromPos(uvec3 pos){
 }
 
 uint getSizeFromDepth(uint depth){
-    return uint(pow(2, getOcttreeDepth() - depth));
+    return uint(pow(2, OCTTREE_DEPTH - depth));
 }
 
 bool hitOctree(in Ray ray, out vec3 color, out uint counter){
@@ -385,10 +343,10 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     // Loop
     uint depth = 0;
     uint size = rootSize;
-    uint bufferSize = getBufferSize();
+    uint bufferSize = BUFFER_SIZE;
 
-    setRenderFlag(0);
-    Node root = getNode(0);
+    SET_RENDER_FLAG_BY_INDEX(0);
+    Node root = GET_NODE(0);
     Node node = root;
     uint nodeIndex = 0;
     uvec3 nodePos = uvec3(0);
@@ -397,8 +355,8 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     counter = 0;
     
     while(counter < MAX_STEPS){
-        bool isEmpty = getNodeMaterial(node) == 0;
-        bool isLeave = depth >= (getOcttreeDepth() - (rayLen * VIEW_MULTI));
+        bool isEmpty = GET_MATERIAL_ID(node) == 0;
+        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * VIEW_MULTI));
 
         if (!isEmpty && !isLeave){
             depth += 1;
@@ -409,16 +367,16 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             nodePos = newNodePos;
 
             uint childNr = getChildFromPos(posDelta);
-            uint newNodeIndex = getChildIndex(node, childNr);
+            uint newNodeIndex = GET_CHILD_INDEX(node, childNr);
 
             if (newNodeIndex == 0){
-                setNeedsChildrenFlag(nodeIndex, childNr);
+                SET_NEEDS_CHILD_BY_INDEX(nodeIndex, childNr);
                 isLeave = true; // Child is not in Buffer
             }
             else{
                 nodeIndex = newNodeIndex;
-                setRenderFlag(newNodeIndex);
-                node = getNode(newNodeIndex);
+                SET_RENDER_FLAG_BY_INDEX(newNodeIndex);
+                node = GET_NODE(newNodeIndex);
             }
         }
         else if (isEmpty){

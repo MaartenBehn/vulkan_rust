@@ -14,8 +14,8 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 struct Node{
     uint16_t children[8];
-    uvec4 dynamik_data;
-    uvec4 static_data;
+    uvec4 dynamik_data; // 0: Parent 1: PNext 2: PLast     3:
+    uvec4 static_data;  // 0: Id     1:       2: Material  3: Depth
 };
 
 layout(std430, binding = 0) buffer OcttreeBuffer {
@@ -27,130 +27,87 @@ layout(binding = 1) uniform OcttreeInfo {
     uvec4 data_1;
 } octtreeInfo;
 
-// Dynamik Data
-uint getChildIndex(Node node, uint childIndex){
-    return node.children[childIndex];
-}
-uint getChildIndex(uint index, uint childIndex){
-    return octtreeBuffer.octtree[index].children[childIndex];
-}
-void setChildIndex(uint index, uint childIndex, uint newIndex){
-    octtreeBuffer.octtree[index].children[childIndex] = uint16_t(newIndex);
-}
+// Node
+#define GET_NODE(index) octtreeBuffer.octtree[index]
+#define SET_NODE(node, index) octtreeBuffer.octtree[index] = node
 
-uint getParentIndex(Node node){
-    return node.dynamik_data[0];
-}
-uint getParentIndex(uint index){
-    return octtreeBuffer.octtree[index].dynamik_data[0];
-}
-uint setParentIndex(uint index, uint parentIndex){
-    return octtreeBuffer.octtree[index].dynamik_data[0] = parentIndex;
-}
 
-uint getPNext(Node node){
-    return node.dynamik_data[1];
-}
-uint getPNext(uint index){
-    return octtreeBuffer.octtree[index].dynamik_data[1];
-}
-void setPNext(uint index, uint pNext){
-    octtreeBuffer.octtree[index].dynamik_data[1] = pNext;
-}
+// Child Index
+#define GET_CHILD_INDEX(node, childNr) node.children[childNr]
+#define SET_CHILD_INDEX(node, childNr, childIndex) node.children[childNr] = uint16_t(childIndex)
 
-uint getPLast(Node node){
-    return node.dynamik_data[2];
-}
-uint getPLast(uint index){
-    return octtreeBuffer.octtree[index].dynamik_data[2];
-}
-void setPLast(uint index, uint pLast){
-    octtreeBuffer.octtree[index].dynamik_data[2] = pLast;
-}
+#define GET_CHILD_INDEX_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].children[childNr]
+#define SET_CHILD_INDEX_BY_INDEX(index, childNr, childIndex) octtreeBuffer.octtree[index].children[childNr] = uint16_t(childIndex)
 
-bool getRenderFlag(Node node){
-    return bool(node.dynamik_data[3] & 1);
-}
-bool getRenderFlag(uint index){
-    return bool(octtreeBuffer.octtree[index].dynamik_data[3] & 1);
-}
-void setRenderFlag(uint index){
-    octtreeBuffer.octtree[index].dynamik_data[3] |= 1;
-}
-void resetRenderFlag(uint index){
-    octtreeBuffer.octtree[index].dynamik_data[3] &= ~1;
-}
+// Parent Index
+#define GET_PARENT_INDEX(node) node.dynamik_data[0]
+#define SET_PARENT_INDEX(node, parentIndex) node.dynamik_data[0] = parentIndex
 
-bool getNeedsChildrenFlag(Node node, uint childNr){
-    return bool(node.dynamik_data[3] & (1 << (16 + childNr)));
-}
-bool getNeedsChildrenFlag(uint index, uint childNr){
-    return bool(octtreeBuffer.octtree[index].dynamik_data[3] & (1 << (16 + childNr)));
-}
-void setNeedsChildrenFlag(uint index, uint childNr){
-    octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr));
-}
-void resetNeedsChildrenFlag(uint index){
-    octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_16_MAX << 16);
-}
+#define GET_PARENT_INDEX_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[0]
+#define SET_PARENT_INDEX_BY_INDEX(index, parentIndex) octtreeBuffer.octtree[index].dynamik_data[0] = parentIndex
 
-Node getNode(uint index){
-    return octtreeBuffer.octtree[index];
-}
-void setNode(Node node, uint index){
-    octtreeBuffer.octtree[index] = node;
-}
+// P Next
+#define GET_P_NEXT(node) node.dynamik_data[1]
+#define SET_P_NEXT(node, pNext) node.dynamik_data[1] = pNext
 
-// Static Data
-uint getNodeId(Node node){
-    return node.static_data[0];
-}
-uint getNodeId(uint index){
-    return octtreeBuffer.octtree[index].static_data[0];
-}
-void setNodeId(Node node, uint id){
-    node.static_data[0] = id;
-}
+#define GET_P_NEXT_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[1]
+#define SET_P_NEXT_BY_INDEX(index, pNext) octtreeBuffer.octtree[index].dynamik_data[1] = pNext
 
-uint getNodeMaterial(Node node){
-    return node.static_data[2];
-}
-uint getNodeMaterial(uint index){
-    return octtreeBuffer.octtree[index].static_data[2];
-}
-void setNodeMaterial(Node node, uint index){
-    node.static_data[2] = index;
-}
+// P Last
+#define GET_P_LAST(node) node.dynamik_data[2]
+#define SET_P_LAST(node, pLast) node.dynamik_data[2] = pLast
 
-uint getNodeDepth(Node node){
-    return node.static_data[3];
-}
-uint getNodeDepth(uint index){
-    return octtreeBuffer.octtree[index].static_data[3];
-}
-void setNodeDepth(Node node, uint depth){
-    node.static_data[3] = depth;
-}
+#define GET_P_LAST_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[2]
+#define SET_P_LAST_BY_INDEX(index, pLast) octtreeBuffer.octtree[index].dynamik_data[2] = pLast
+
+// Render Flag
+#define GET_RENDER_FLAG(node) bool(node.dynamik_data[3] & 1)
+#define SET_RENDER_FLAG(node) node.dynamik_data[3] |= 1
+#define RESET_RENDER_FLAG(node) node.dynamik_data[3] &= ~1
+
+#define GET_RENDER_FLAG_BY_INDEX(index) bool(octtreeBuffer.octtree[index].dynamik_data[3] & 1)
+#define SET_RENDER_FLAG_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] |= 1
+#define RESET_RENDER_FLAG_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~1
+
+// Needs Child
+#define GET_NEEDS_CHILD(node, childNr) bool(node.dynamik_data[3] & (1 << (16 + childNr)))
+#define SET_NEEDS_CHILD(node, childNr) node.dynamik_data[3] |= (1 << (16 + childNr))
+#define RESET_NEEDS_CHILDREN(node) node.dynamik_data[3] &= ~(Bit_16_MAX << 16)
+
+#define GET_NEEDS_CHILD_BY_INDEX(index, childNr) bool(octtreeBuffer.octtree[index].dynamik_data[3] & (1 << (16 + childNr)))
+#define SET_NEEDS_CHILD_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr))
+#define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_16_MAX << 16)
+
+// ID
+#define GET_NODE_ID(node) node.static_data[0]
+#define SET_NODE_ID(node, id) node.static_data[0] = id
+
+#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define SET_NODE_ID_BY_INDEX(index, id) octtreeBuffer.octtree[index].static_data[0] = id
+
+// Material
+#define GET_MATERIAL_ID(node) node.static_data[2]
+#define SET_MATERIAL_ID(node, material) node.static_data[2] = material
+
+#define GET_MATERIAL_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[2]
+#define SET_MATERIAL_ID_BY_INDEX(index, material) octtreeBuffer.octtree[index].static_data[2] = material
+
+// Depth
+#define GET_NODE_DEPTH(node) node.static_data[3]
+#define SET_NODE_DEPTH(node, depth) node.static_data[3] = depth
+
+#define GET_NODE_DEPTH_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[3]
+#define SET_NODE_DEPTH_BY_INDEX(index, depth) octtreeBuffer.octtree[index].static_data[3] = depth
+
 
 // Octtree Info
-uint getTreeSize(){
-    return octtreeInfo.data_0[0];
-}
-uint getBufferSize(){
-    return octtreeInfo.data_0[1];
-}
-uint getTransferBufferSize(){
-    return octtreeInfo.data_0[2];
-}
-uint getOcttreeDepth(){
-    return octtreeInfo.data_0[3];
-}
-uint getBuildOffset(){
-    return octtreeInfo.data_1[0];
-}
-uint getReBuild(){
-    return octtreeInfo.data_1[1];
-}
+#define TREE_SIZE octtreeInfo.data_0[0]
+#define BUFFER_SIZE octtreeInfo.data_0[1]
+#define TRANSFER_SIZE octtreeInfo.data_0[2]
+#define OCTTREE_DEPTH octtreeInfo.data_0[3]
+
+#define BUILD_OFFSET octtreeInfo.data_1[0]
+#define RE_BUILD octtreeInfo.data_1[1]
 // Octtree End
 
 layout(binding = 2) buffer TransferBuffer {
@@ -168,21 +125,21 @@ layout(binding = 4) buffer RequestNoteBuffer {
 
 // Linked List Operations
 void extractNode(uint nodeIndex){
-    uint p_last = getPLast(nodeIndex);
-    uint p_next = getPNext(nodeIndex);
+    uint p_last = GET_P_LAST_BY_INDEX(nodeIndex);
+    uint p_next = GET_P_NEXT_BY_INDEX(nodeIndex);
 
-    setPNext(p_last, p_next);
-    setPLast(p_next, p_last);
+    SET_P_NEXT_BY_INDEX(p_last, p_next);
+    SET_P_LAST_BY_INDEX(p_next, p_last);
 }
 
 void insterNodeAfter(uint nodeIndex, uint afterIndex){
-    uint after_p_next = getPNext(afterIndex);
+    uint after_p_next = GET_P_NEXT_BY_INDEX(afterIndex);
     
-    setPNext(afterIndex, nodeIndex);
-    setPLast(nodeIndex, afterIndex);
+    SET_P_NEXT_BY_INDEX(afterIndex, nodeIndex);
+    SET_P_LAST_BY_INDEX(nodeIndex, afterIndex);
 
-    setPNext(nodeIndex, after_p_next);
-    setPLast(after_p_next, nodeIndex);
+    SET_P_NEXT_BY_INDEX(nodeIndex, after_p_next);
+    SET_P_LAST_BY_INDEX(after_p_next, nodeIndex);
 }
 
 uint getChildId(uint nodeId, uint childNr, uint depth){
@@ -192,15 +149,15 @@ uint getChildId(uint nodeId, uint childNr, uint depth){
 
 void main()
 {
-    uint bufferSize = getBufferSize();
-    uint octtreeDepth = getOcttreeDepth();
-    uint transferBufferSize = getTransferBufferSize();
+    uint bufferSize = BUFFER_SIZE;
+    uint octtreeDepth = OCTTREE_DEPTH;
+    uint transferBufferSize = TRANSFER_SIZE;
 
     uint root = 0;
-    uint head = getPLast(0);
+    uint head = GET_P_LAST_BY_INDEX(0);
 
     for (uint counter = 0; counter < transferBufferSize; counter++){
-        uint next_head = getPLast(head);
+        uint next_head = GET_P_LAST_BY_INDEX(head);
 
         uvec4 new_data = transferBuffer.nodes[counter];
         Node newNode = Node(
@@ -209,7 +166,7 @@ void main()
             new_data
         );
 
-        if (getNodeId(newNode) == 0) {
+        if (GET_NODE_ID(newNode) == 0) {
             break;
         }
 
@@ -218,27 +175,27 @@ void main()
         uint check_parent_Id = requestNoteBuffer.data[(counter * 4) + 2];
         uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
 
-        if (getNodeId(newNode) != check_child_Id || getNodeId(parent_index) != check_parent_Id){
+        if (GET_NODE_ID(newNode) != check_child_Id || GET_NODE_ID_BY_INDEX(parent_index) != check_parent_Id){
             debugPrintfEXT("Node transfer skipped!!!");
             continue;
         }
 
-        uint old_parent = getParentIndex(head);
-        Node old_parent_node = getNode(old_parent);
+        uint old_parent = GET_PARENT_INDEX_BY_INDEX(head);
+        Node old_parent_node = GET_NODE(old_parent);
         for (uint i = 0; i < 8; i++){
-            if (getChildIndex(old_parent_node, i) == head){
-                setChildIndex(old_parent, i, 0);
+            if (GET_CHILD_INDEX(old_parent_node, i) == head){
+                SET_CHILD_INDEX_BY_INDEX(old_parent, i, 0);
             }
         }
 
         extractNode(head);
         
-        setNode(newNode, head);
-        setParentIndex(head, parent_index);
+        SET_NODE(newNode, head);
+        SET_PARENT_INDEX_BY_INDEX(head, parent_index);
 
         insterNodeAfter(head, root);
 
-        setChildIndex(parent_index, parent_childNr, head);
+        SET_CHILD_INDEX_BY_INDEX(parent_index, parent_childNr, head);
 
         head = next_head;
     }
@@ -251,10 +208,10 @@ void main()
     uint needsChilrenCounter = 0;
 
     for (uint counter = 0; counter < bufferSize; counter++){
-        uint next_head = getPNext(head);
+        uint next_head = GET_P_NEXT_BY_INDEX(head);
 
         // move node if renderd;
-        bool render = getRenderFlag(head);
+        bool render = GET_RENDER_FLAG_BY_INDEX(head);
         if (render) {
             renderedCounter++;
 
@@ -265,16 +222,16 @@ void main()
 
             // Check for needs Child Flags.
             for (uint childNr = 0; reqestRunning && childNr < 8; childNr++){
-                if (getNeedsChildrenFlag(head, childNr)){
+                if (GET_NEEDS_CHILD_BY_INDEX(head, childNr)){
                     needsChilrenCounter++;
 
 
-                    uint childId = getChildId(getNodeId(head), childNr, octtreeDepth - getNodeDepth(head));
+                    uint childId = getChildId(GET_NODE_ID_BY_INDEX(head), childNr, octtreeDepth - GET_NODE_DEPTH_BY_INDEX(head));
 
                     requestBuffer.nodes[reqestHead] = childId;
                     requestNoteBuffer.data[reqestHead * 4] = head;
                     requestNoteBuffer.data[(reqestHead * 4) + 1] = childNr;
-                    requestNoteBuffer.data[(reqestHead * 4) + 2] = getNodeId(head);
+                    requestNoteBuffer.data[(reqestHead * 4) + 2] = GET_NODE_ID_BY_INDEX(head);
                     requestNoteBuffer.data[(reqestHead * 4) + 3] = childId;
 
                     reqestHead++;
@@ -283,8 +240,8 @@ void main()
             }
         }
 
-        resetRenderFlag(head);
-        resetNeedsChildrenFlag(head);
+        RESET_RENDER_FLAG_BY_INDEX(head);
+        RESET_NEEDS_CHILDREN_BY_INDEX(head);
 
         head = next_head;
         if (head == root){
