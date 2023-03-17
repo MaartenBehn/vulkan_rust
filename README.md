@@ -2,10 +2,13 @@
 ## Examples
 |  |  |
 -------------------------|-------------------------
-**Raytracing Mirror** | **Global Ilumination**
+**Dynamik Voxel loader and raycasting** | 
+`sh scripts/run.sh comp_ray_caster` | 
+![Pic](assets/screenshots/ray_caster.png)  |  
+**Mirror scene with raytracing** | **Global ilumination scene raytracing**
 `sh scripts/run.sh rt_mirror` | `sh scripts/run.sh rt_global_ilumination`
 ![Pic](assets/screenshots/mirror.png)  |  ![Pic](assets/screenshots/global_ilumination.png) 
-**GPU Particles**  | **Mandelbrot** 
+**Particle Simulation**  | **Mandelbrot Compute Shader** 
 `sh scripts/run.sh gpu_particles` | `sh scripts/run.sh mandelbrot`
 ![Pic](assets/screenshots/particles.png)  |  ![Pic](assets/screenshots/mandelbrot.png)
 
@@ -19,7 +22,7 @@
 - pkg-config
 - glslangValidator
 - vulkan
-
+- 
 
 ### Installing Dependecies on Ubuntu LTS 20.04
 - [Rust](https://www.rust-lang.org/tools/install)
