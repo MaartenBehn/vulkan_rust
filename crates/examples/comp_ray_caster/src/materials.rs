@@ -40,7 +40,7 @@ impl Default for MaterialController{
                 for b in 0..255 {
                     materials.push(Material { 
                         color: Vec3::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0), 
-                        reflective: 1.0 
+                        reflective: 1.0
                     }
                     )
                 }

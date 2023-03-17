@@ -108,6 +108,7 @@ layout(binding = 1) uniform OcttreeInfo {
 
 #define BUILD_OFFSET octtreeInfo.data_1[0]
 #define RE_BUILD octtreeInfo.data_1[1]
+#define LODER_SIZE octtreeInfo.data_1[2]
 // Octtree End
 
 layout(binding = 2) buffer TransferBuffer {
@@ -152,6 +153,7 @@ void main()
     uint bufferSize = BUFFER_SIZE;
     uint octtreeDepth = OCTTREE_DEPTH;
     uint transferBufferSize = TRANSFER_SIZE;
+    uint loaderSize = LODER_SIZE;
 
     uint root = 0;
     uint head = GET_P_LAST_BY_INDEX(0);
@@ -200,14 +202,14 @@ void main()
         head = next_head;
     }
 
-    head = 0;
+    head = requestNoteBuffer.data[transferBufferSize * 4];
 
     bool reqestRunning = true;
     uint reqestHead = 0;
-    uint renderedCounter = 0;
-    uint needsChilrenCounter = 0;
+    uint renderedCounter = requestBuffer.nodes[transferBufferSize];
+    uint needsChilrenCounter = requestBuffer.nodes[transferBufferSize + 1];
 
-    for (uint counter = 0; counter < bufferSize; counter++){
+    for (uint counter = 0; reqestRunning && counter < loaderSize; counter++){
         uint next_head = GET_P_NEXT_BY_INDEX(head);
 
         // move node if renderd;
@@ -243,11 +245,15 @@ void main()
         RESET_RENDER_FLAG_BY_INDEX(head);
         RESET_NEEDS_CHILDREN_BY_INDEX(head);
 
-        head = next_head;
-        if (head == root){
-            break;
+        head = next_head;        
+        
+        if (head == 0){
+            renderedCounter = 0;
+            needsChilrenCounter = 0;
         }
     }
+
+    requestNoteBuffer.data[transferBufferSize * 4] = head;
 
     while (reqestHead < transferBufferSize){
         requestBuffer.nodes[reqestHead] = 0;
