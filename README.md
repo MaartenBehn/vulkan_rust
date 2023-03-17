@@ -1,3 +1,8 @@
+# Vulkan
+
+A side repo where I try a bunch of different rendering technics and Ideas with vulkan in rust.
+
+
 
 ## Examples
 |  |  |
@@ -22,27 +27,29 @@
 - pkg-config
 - glslangValidator
 - vulkan
-- 
+
+
+
 
 ### Installing Dependecies on Ubuntu LTS 20.04
-- [Rust](https://www.rust-lang.org/tools/install)
+#### [Rust](https://www.rust-lang.org/tools/install)
 ```shell
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-- cmake
-```shell
+#### cmake
+```bash
 sudo apt install cmake
 ```
-- pkg-config
-```shell
+#### pkg-config
+```bash
 sudo apt install libfontconfig-dev
 ```
-- glslangValidator
-```shell
+#### glslangValidator
+```bash
 sudo apt-get install glslang-tools
 ```
-- [Vulkan](https://vulkan.lunarg.com/doc/view/latest/linux/getting_started_ubuntu.html)
-```shell
+#### [Vulkan](https://vulkan.lunarg.com/doc/view/latest/linux/getting_started_ubuntu.html)
+```bash
 wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
 sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
 sudo apt update
