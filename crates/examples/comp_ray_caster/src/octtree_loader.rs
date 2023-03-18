@@ -10,6 +10,7 @@ use crate::RayCaster;
 use crate::octtree::{OcttreeNode};
 use crate::octtree_controller::OcttreeController;
 
+const LOAD_DISPATCH_GROUP_SIZE: u32 = 32;
 pub const LOAD_DEBUG_DATA_SIZE: usize = 2;
 
 pub struct OcttreeLoader {
@@ -39,10 +40,15 @@ impl OcttreeLoader {
             (size_of::<OcttreeNode>() * octtree_controller.transfer_size) as _,
         )?;
 
+        #[cfg(not(debug_assertions))]
+        let request_size = octtree_controller.transfer_size;
+        #[cfg(debug_assertions)]
+        let request_size = octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE;
+
         let request_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuToCpu, 
-            (size_of::<u32>() * (octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)) as _,
+            (size_of::<u32>() * request_size) as _,
         )?;
 
         let request_note_buffer = context.create_buffer(
@@ -203,7 +209,5 @@ impl OcttreeLoader {
 
         Ok(())
     }
-
-
     
 }

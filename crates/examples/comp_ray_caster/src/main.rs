@@ -1,17 +1,10 @@
-use std::mem::size_of;
-use std::thread;
-use std::time::{Duration, self};
+
+use std::time::{Duration};
 
 use app::anyhow::Result;
 use app::glam::{Vec3};
 use app::vulkan::ash::vk::{self};
-use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
-use app::vulkan::{
-    Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo,
-    DescriptorPool, DescriptorSet, DescriptorSetLayout, PipelineLayout, 
-    WriteDescriptorSet, WriteDescriptorSetKind, BufferBarrier, MemoryBarrier,
-};
+use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
 
@@ -29,12 +22,9 @@ use materials::*;
 mod renderer;
 use renderer::*;
 
-
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
-
-const LOAD_DISPATCH_GROUP_SIZE: u32 = 32;
 
 
 fn main() -> Result<()> {
@@ -42,7 +32,7 @@ fn main() -> Result<()> {
 }
 pub struct RayCaster {
     total_time: Duration,
-    frameCounter: usize,
+    frame_counter: usize,
 
     octtree_controller: OcttreeController,
     renderer: Renderer,
@@ -59,7 +49,7 @@ impl App for RayCaster {
         let images = &base.swapchain.images;
         let images_len = images.len() as u32;
 
-        let depth = 7;
+        let depth = 8;
         let mut octtree_controller = OcttreeController::new(
             context,
             Octtree::new(depth, 123), 
@@ -96,7 +86,7 @@ impl App for RayCaster {
 
         Ok(Self {
             total_time: Duration::ZERO,
-            frameCounter: 0,
+            frame_counter: 0,
 
             octtree_controller,
             renderer,
@@ -126,18 +116,29 @@ impl App for RayCaster {
             fill_2: 0,
         }])?;
 
-        self.builder.build_tree = gui.build || self.frameCounter == 0;
-        self.loader.load_tree = gui.load && self.frameCounter != 0;
+        self.builder.build_tree = gui.build || self.frame_counter == 0;
+        self.loader.load_tree = gui.load && self.frame_counter != 0;
 
         if  self.loader.load_tree {
             let mut request_data: Vec<u32> = self.loader.request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)?;
 
-            // Debug data from load shader
-            gui.render_counter = request_data[self.octtree_controller.transfer_size] as usize;
-            gui.needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
-            request_data.truncate(self.octtree_controller.transfer_size);
+            #[cfg(debug_assertions)]
+            {
+                // Debug data from load shader
+                let render_counter = request_data[self.octtree_controller.transfer_size] as usize;
+                let needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
 
-            //log::debug!("{:?}", request_data);
+                log::debug!("Render Counter: {:?}", render_counter);
+                log::debug!("Needs Children Counter: {:?}", needs_children_counter);
+
+                gui.render_counter = render_counter;
+                gui.needs_children_counter = needs_children_counter;
+
+                request_data.truncate(self.octtree_controller.transfer_size);
+                log::debug!("Request Data: {:?}", request_data);
+            }
+
+            
             let (requested_nodes, counter) = self.octtree_controller.get_requested_nodes(request_data);
             self.loader.transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
 
@@ -152,7 +153,7 @@ impl App for RayCaster {
 
 
         self.octtree_controller.step();
-        self.frameCounter += 1;
+        self.frame_counter += 1;
 
         Ok(())
     }

@@ -30,7 +30,7 @@ pub struct OcttreeInfo {
     build_offset: u32,
     re_build: u32,
     loader_size: u32,
-    fill_3: u32,
+    debug: u32,
 }
 
 
@@ -58,6 +58,12 @@ impl OcttreeController{
             size_of::<OcttreeInfo>() as _,
         )?;
 
+        #[cfg(not(debug_assertions))]
+        let debug = 0;
+
+        #[cfg(debug_assertions)]
+        let debug = 1;
+
         Ok(OcttreeController { 
             octtree, 
             octtree_info: OcttreeInfo { 
@@ -68,7 +74,7 @@ impl OcttreeController{
                 build_offset: 0, 
                 re_build: 1, 
                 loader_size:            loader_size as u32, 
-                fill_3: 0,
+                debug,
             },
 
             buffer_size:        buffer_size, 

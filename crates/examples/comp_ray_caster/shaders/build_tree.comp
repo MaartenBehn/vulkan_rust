@@ -107,6 +107,8 @@ layout(binding = 1) uniform OcttreeInfo {
 
 #define BUILD_OFFSET octtreeInfo.data_1[0]
 #define RE_BUILD octtreeInfo.data_1[1]
+#define LODER_SIZE octtreeInfo.data_1[2]
+#define DEBUG bool(octtreeInfo.data_1[3])
 // Octtree End
 
 void reBuild(uint index){
