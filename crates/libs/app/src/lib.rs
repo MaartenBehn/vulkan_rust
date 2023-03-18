@@ -3,7 +3,7 @@ pub extern crate glam;
 pub extern crate log;
 pub extern crate vulkan;
 
-mod camera;
+pub mod camera;
 
 use anyhow::Result;
 use ash::vk::{self};
@@ -51,7 +51,7 @@ pub trait App: Sized {
 
     fn update(
         &mut self,
-        base: &BaseApp<Self>,
+        base: &mut BaseApp<Self>,
         gui: &mut Self::Gui,
         image_index: usize,
         delta_time: Duration,

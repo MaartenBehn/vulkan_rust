@@ -22,9 +22,15 @@ use materials::*;
 mod renderer;
 use renderer::*;
 
+mod debug;
+use debug::*;
+
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
+
+const DEBUG_LOADING: bool = false;
+const MOVEMENT_DEBUG_READ: bool = true;
 
 
 fn main() -> Result<()> {
@@ -38,6 +44,8 @@ pub struct RayCaster {
     renderer: Renderer,
     builder: OcttreeBuilder,
     loader: OcttreeLoader,
+
+    movement_debug: MovementDebug,
 }
 
 impl App for RayCaster {
@@ -80,9 +88,10 @@ impl App for RayCaster {
             &octtree_controller.octtree_info_buffer,
         )?;
 
-        base.camera.position = Vec3::new(-5.0, 0.0, 0.0);
+        base.camera.position = Vec3::new(-50.0, 120.0, 120.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
+
 
         Ok(Self {
             total_time: Duration::ZERO,
@@ -91,13 +100,15 @@ impl App for RayCaster {
             octtree_controller,
             renderer,
             builder,
-            loader
+            loader,
+
+            movement_debug: MovementDebug::new(MOVEMENT_DEBUG_READ)?,
         })
     }
 
     fn update(
         &mut self,
-        base: &BaseApp<Self>,
+        base: &mut BaseApp<Self>,
         gui: &mut <Self as App>::Gui,
         _: usize,
         delta_time: Duration,
@@ -122,27 +133,33 @@ impl App for RayCaster {
         if  self.loader.load_tree {
             let mut request_data: Vec<u32> = self.loader.request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)?;
 
-            #[cfg(debug_assertions)]
+            let mut render_counter = 0;
+            let mut needs_children_counter = 0;
+
+            if cfg!(debug_assertions) && DEBUG_LOADING
             {
                 // Debug data from load shader
-                let render_counter = request_data[self.octtree_controller.transfer_size] as usize;
-                let needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
-
-                log::debug!("Render Counter: {:?}", render_counter);
-                log::debug!("Needs Children Counter: {:?}", needs_children_counter);
+                render_counter = request_data[self.octtree_controller.transfer_size] as usize;
+                needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
 
                 gui.render_counter = render_counter;
                 gui.needs_children_counter = needs_children_counter;
 
                 request_data.truncate(self.octtree_controller.transfer_size);
-                log::debug!("Request Data: {:?}", request_data);
             }
-
             
-            let (requested_nodes, counter) = self.octtree_controller.get_requested_nodes(request_data);
+            let (requested_nodes, transfer_counter) = self.octtree_controller.get_requested_nodes(&request_data);
             self.loader.transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
+            
+            if cfg!(debug_assertions) && DEBUG_LOADING
+            {
+                gui.transfer_counter = transfer_counter;
 
-            gui.transfer_counter = counter;
+                log::debug!("Render Counter: {:?}", &render_counter);
+                log::debug!("Needs Children Counter: {:?}", &needs_children_counter);
+                log::debug!("Transfer Counter: {:?}", &transfer_counter);
+                log::debug!("Request Data: {:?}", &request_data);
+            }
         }
 
         // Updateing Gui
@@ -151,8 +168,17 @@ impl App for RayCaster {
         gui.octtree_buffer_size = self.octtree_controller.buffer_size;
         gui.transfer_buffer_size = self.octtree_controller.transfer_size;
 
-
         self.octtree_controller.step();
+
+
+        if MOVEMENT_DEBUG_READ {
+            self.movement_debug.read(&mut base.camera, self.frame_counter)?;
+        }
+        else{
+            self.movement_debug.write(&base.camera)?;
+        }
+        
+
         self.frame_counter += 1;
 
         Ok(())

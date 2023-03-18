@@ -5,6 +5,7 @@ use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::{log, vulkan::Context};
 use app::anyhow::Result;
+use crate::DEBUG_LOADING;
 use crate::octtree::{Octtree, OcttreeNode};
 
 
@@ -58,11 +59,7 @@ impl OcttreeController{
             size_of::<OcttreeInfo>() as _,
         )?;
 
-        #[cfg(not(debug_assertions))]
-        let debug = 0;
-
-        #[cfg(debug_assertions)]
-        let debug = 1;
+        let debug = (cfg!(debug_assertions) && DEBUG_LOADING) as u32;
 
         Ok(OcttreeController { 
             octtree, 
@@ -71,10 +68,10 @@ impl OcttreeController{
                 buffer_size:            buffer_size as u32, 
                 transfer_buffer_size:   transfer_size as u32, 
                 depth:                  depth as u32, 
-                build_offset: 0, 
-                re_build: 1, 
+                build_offset:           0, 
+                re_build:               1, 
                 loader_size:            loader_size as u32, 
-                debug,
+                debug:                  debug,
             },
 
             buffer_size:        buffer_size, 
@@ -90,7 +87,7 @@ impl OcttreeController{
         //self.octtree_info.build_offset = (self.octtree_info.build_offset + self.build_size as u32) % self.buffer_size as u32;
     }
 
-    pub fn get_requested_nodes(&mut self, requested_ids: Vec<u32>) -> (Vec<OcttreeNode>, usize) {
+    pub fn get_requested_nodes(&mut self, requested_ids: &Vec<u32>) -> (Vec<OcttreeNode>, usize) {
 
         let mut nodes = vec![OcttreeNode::default(); self.transfer_size];
 

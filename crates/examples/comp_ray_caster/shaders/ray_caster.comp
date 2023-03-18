@@ -125,7 +125,6 @@ layout(binding = 3) uniform OcttreeInfo {
 #define DEBUG bool(octtreeInfo.data_1[3])
 // Octtree End
 
-
 #define VIEW_MULTI 0.01
 #define MAX_STEPS 1000
 #define RAY_POS_OFFSET 0.001
