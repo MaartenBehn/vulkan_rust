@@ -57,7 +57,7 @@ impl App for RayCaster {
         let images = &base.swapchain.images;
         let images_len = images.len() as u32;
 
-        let depth = 8;
+        let depth = 6;
         let mut octtree_controller = OcttreeController::new(
             context,
             Octtree::new(depth, 123), 
@@ -88,7 +88,7 @@ impl App for RayCaster {
             &octtree_controller.octtree_info_buffer,
         )?;
 
-        base.camera.position = Vec3::new(-50.0, 120.0, 120.0);
+        base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
 
@@ -163,6 +163,7 @@ impl App for RayCaster {
         }
 
         // Updateing Gui
+        gui.frame = self.frame_counter;
         gui.pos = base.camera.position;
         gui.dir = base.camera.direction;
         gui.octtree_buffer_size = self.octtree_controller.buffer_size;
@@ -177,7 +178,7 @@ impl App for RayCaster {
         else{
             self.movement_debug.write(&base.camera)?;
         }
-        
+
 
         self.frame_counter += 1;
 
@@ -254,6 +255,7 @@ impl App for RayCaster {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Gui {
+    frame: usize,
     pos: Vec3,
     dir: Vec3,
     mode: u32,
@@ -272,6 +274,7 @@ pub struct Gui {
 impl app::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
+            frame : 0,
             pos: Vec3::default(),
             dir: Vec3::default(),
             mode: 1,
@@ -294,6 +297,9 @@ impl app::Gui for Gui {
             .resizable(false)
             .movable(false)
             .build(|| {
+                let frame = self.frame;
+                ui.text(format!("Frame: {frame}"));
+
                 let pos = self.pos;
                 ui.text(format!("Pos: {pos}"));
 

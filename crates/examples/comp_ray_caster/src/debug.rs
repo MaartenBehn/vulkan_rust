@@ -58,7 +58,7 @@ impl MovementDebug {
 
     pub fn read(&mut self, camera: &mut Camera, index: usize) -> Result<()> {
 
-        if self.lines.len() > index {
+        if self.lines.len() < index {
             return Ok(())
         }
 

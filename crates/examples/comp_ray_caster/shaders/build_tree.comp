@@ -59,6 +59,9 @@ layout(binding = 1) uniform OcttreeInfo {
 #define GET_P_LAST_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[2]
 #define SET_P_LAST_BY_INDEX(index, pLast) octtreeBuffer.octtree[index].dynamik_data[2] = pLast
 
+// Flags
+#define RESET_FLAGS(index) octtreeBuffer.octtree[index].dynamik_data[3] = 0
+
 // Render Flag
 #define GET_RENDER_FLAG(node) bool(node.dynamik_data[3] & 1)
 #define SET_RENDER_FLAG(node) node.dynamik_data[3] |= 1
@@ -71,11 +74,11 @@ layout(binding = 1) uniform OcttreeInfo {
 // Needs Child
 #define GET_NEEDS_CHILD(node, childNr) bool(node.dynamik_data[3] & (1 << (16 + childNr)))
 #define SET_NEEDS_CHILD(node, childNr) node.dynamik_data[3] |= (1 << (16 + childNr))
-#define RESET_NEEDS_CHILDREN(node) node.dynamik_data[3] &= ~(Bit_16_MAX << 16)
+#define RESET_NEEDS_CHILDREN(node) node.dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 #define GET_NEEDS_CHILD_BY_INDEX(index, childNr) bool(octtreeBuffer.octtree[index].dynamik_data[3] & (1 << (16 + childNr)))
 #define SET_NEEDS_CHILD_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr))
-#define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_16_MAX << 16)
+#define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 // ID
 #define GET_NODE_ID(node) node.static_data[0]
