@@ -30,8 +30,7 @@ const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
 
 const DEBUG_LOADING: bool = false;
-const MOVEMENT_DEBUG_READ: bool = true;
-
+const MOVEMENT_DEBUG_READ: bool = false;
 
 fn main() -> Result<()> {
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
