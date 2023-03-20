@@ -56,6 +56,7 @@ impl App for RayCaster {
         let images = &base.swapchain.images;
         let images_len = images.len() as u32;
 
+        log::info!("Creating Octtree");
         let depth = 6;
         let mut octtree_controller = OcttreeController::new(
             context,
@@ -65,6 +66,7 @@ impl App for RayCaster {
             5000
         )?;
 
+        log::info!("Creating Renderer");
         let renderer = Renderer::new(
             context, 
             images_len, 
@@ -73,6 +75,7 @@ impl App for RayCaster {
             &octtree_controller.octtree_info_buffer,
         )?;
 
+        log::info!("Creating Builder");
         let builder = OcttreeBuilder::new(
             context, 
             &octtree_controller.octtree_buffer, 
@@ -80,6 +83,7 @@ impl App for RayCaster {
             octtree_controller.buffer_size,
         )?;
 
+        log::info!("Creating Loader");
         let loader = OcttreeLoader::new(
             context, 
             &octtree_controller, 
@@ -87,11 +91,13 @@ impl App for RayCaster {
             &octtree_controller.octtree_info_buffer,
         )?;
 
+        log::info!("Setting inital camera pos");
         base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
 
 
+        log::info!("Init done");
         Ok(Self {
             total_time: Duration::ZERO,
             frame_counter: 0,

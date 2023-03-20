@@ -1,15 +1,16 @@
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_void, CStr, CString, c_char};
 
-use anyhow::Result;
-use ash::{extensions::ext::DebugUtils, vk, Entry, Instance as AshInstance};
+use anyhow::{Result, ensure};
+use ash::{extensions::ext::DebugUtils, vk::{self, DebugUtilsMessengerEXT}, Entry, Instance as AshInstance};
 use raw_window_handle::HasRawDisplayHandle;
 
 use crate::{physical_device::PhysicalDevice, surface::Surface, Version};
 
+const REQUIRED_DEBUG_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
+
 pub struct Instance {
     pub(crate) inner: AshInstance,
-    debug_utils: DebugUtils,
-    debug_utils_messenger: vk::DebugUtilsMessengerEXT,
+    debug_report_callback: Option<(DebugUtils, DebugUtilsMessengerEXT)>,
     physical_devices: Vec<PhysicalDevice>,
 }
 
@@ -27,39 +28,47 @@ impl Instance {
             .application_name(app_name.as_c_str())
             .api_version(api_version.make_api_version());
 
+
         let mut extension_names =
             ash_window::enumerate_required_extensions(display_handle.raw_display_handle())?
                 .to_vec();
+
+        // Validation
+        #[cfg(debug_assertions)]
         extension_names.push(DebugUtils::name().as_ptr());
 
-        let instance_create_info = vk::InstanceCreateInfo::builder()
+        let mut instance_create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_extension_names(&extension_names);
 
-        let inner = unsafe { entry.create_instance(&instance_create_info, None)? };
 
-        // Vulkan debug report
-        let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-            .flags(vk::DebugUtilsMessengerCreateFlagsEXT::empty())
-            .message_severity(
-                vk::DebugUtilsMessageSeverityFlagsEXT::INFO
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
-            )
-            .message_type(
-                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                    | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                    | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
-            )
-            .pfn_user_callback(Some(vulkan_debug_callback));
-        let debug_utils = DebugUtils::new(entry, &inner);
-        let debug_utils_messenger =
-            unsafe { debug_utils.create_debug_utils_messenger(&create_info, None)? };
+        // Validation
+        #[cfg(debug_assertions)]
+        let (_layer_names, layer_names_ptrs) = get_validation_layer_names_and_pointers();
+        #[cfg(debug_assertions)]
+        {
+            check_validation_layer_support(&entry)?;
+            instance_create_info = instance_create_info.enabled_layer_names(&layer_names_ptrs);
+        }
+
+        // Debug Printing
+        #[cfg(debug_assertions)]
+        let mut validation_features = vk::ValidationFeaturesEXT::builder()
+                .enabled_validation_features(&[vk::ValidationFeatureEnableEXT::DEBUG_PRINTF]);
+        #[cfg(debug_assertions)]
+        {
+            instance_create_info = instance_create_info.push_next(&mut validation_features);
+        }
+        
+        // Creating Instance
+        let inner = unsafe { entry.create_instance(&instance_create_info, None)? };
+        
+        // Validation
+        let debug_report_callback = setup_debug_messenger(&entry, &inner);
 
         Ok(Self {
             inner,
-            debug_utils,
-            debug_utils_messenger,
+            debug_report_callback,
             physical_devices: vec![],
         })
     }
@@ -89,6 +98,46 @@ impl Instance {
     }
 }
 
+
+/// Get the pointers to the validation layers names.
+/// Also return the corresponding `CString` to avoid dangling pointers.
+pub fn get_validation_layer_names_and_pointers() -> (Vec<CString>, Vec<*const c_char>) {
+    let layer_names = REQUIRED_DEBUG_LAYERS
+        .iter()
+        .map(|name| CString::new(*name).unwrap())
+        .collect::<Vec<_>>();
+    let layer_names_ptrs = layer_names
+        .iter()
+        .map(|name| name.as_ptr())
+        .collect::<Vec<_>>();
+    (layer_names, layer_names_ptrs)
+}
+
+/// Check if the required validation set in `REQUIRED_LAYERS`
+/// are supported by the Vulkan instance.
+///
+/// # Panics
+///
+/// Panic if at least one on the layer is not supported.
+pub fn check_validation_layer_support(entry: &Entry) -> Result<()> {
+    for required in REQUIRED_DEBUG_LAYERS.iter() {
+        let found = entry
+            .enumerate_instance_layer_properties()
+            .unwrap()
+            .iter()
+            .any(|layer| {
+                let name = unsafe { CStr::from_ptr(layer.layer_name.as_ptr()) };
+                let name = name.to_str().expect("Failed to get layer name pointer");
+                required == &name
+            });
+
+        ensure!(found, "Validation layer not supported: {}", required);
+    }
+
+    Ok(())
+}
+
+
 unsafe extern "system" fn vulkan_debug_callback(
     flag: vk::DebugUtilsMessageSeverityFlagsEXT,
     typ: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -99,7 +148,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 
     let message = CStr::from_ptr((*p_callback_data).p_message);
     match flag {
-        Flag::VERBOSE => log::debug!("{:?} - {:?}", typ, message),
+        Flag::VERBOSE => log::trace!("{:?} - {:?}", typ, message),
         Flag::INFO => log::info!("{:?} - {:?}", typ, message),
         Flag::WARNING => log::warn!("{:?} - {:?}", typ, message),
         _ => log::error!("{:?} - {:?}", typ, message),
@@ -107,12 +156,47 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
+/// Setup the debug message if validation layers are enabled.
+pub fn setup_debug_messenger(
+    entry: &Entry,
+    instance: &AshInstance,
+) -> Option<(DebugUtils, vk::DebugUtilsMessengerEXT)> {
+
+    #[cfg(not(debug_assertions))]
+    return None;
+
+    let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+        .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE | 
+            vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
+            vk::DebugUtilsMessageSeverityFlagsEXT::WARNING |
+            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR)
+        .message_type(vk::DebugUtilsMessageTypeFlagsEXT::GENERAL | 
+            vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE | 
+            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION)
+        .pfn_user_callback(Some(vulkan_debug_callback));
+
+
+    let debug_utils = DebugUtils::new(entry, instance);
+    let debug_utils_messenger = unsafe {
+        debug_utils
+            .create_debug_utils_messenger(&create_info, None)
+            .unwrap()
+    };
+
+    Some((debug_utils, debug_utils_messenger))
+}
+
 impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
-            self.debug_utils
-                .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
+            if let Some((utils, messenger)) = self.debug_report_callback.take() {
+                utils.destroy_debug_utils_messenger(messenger, None);
+            }
             self.inner.destroy_instance(None);
         }
     }
 }
+
+
+
+

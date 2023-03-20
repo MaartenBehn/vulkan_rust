@@ -144,7 +144,7 @@ pub fn run<A: App + 'static>(
     #[cfg(debug_assertions)]
     CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Trace,
+            LevelFilter::Debug,
             Config::default(),
             TerminalMode::Mixed,
             ColorChoice::Auto,
@@ -295,6 +295,9 @@ impl<B: App> BaseApp<B> {
             required_extensions.push("VK_KHR_acceleration_structure");
             required_extensions.push("VK_KHR_deferred_host_operations");
         }
+
+        #[cfg(debug_assertions)]
+        required_extensions.push("VK_KHR_shader_non_semantic_info");
 
         let mut context = ContextBuilder::new(window, window)
             .vulkan_version(VERSION_1_3)

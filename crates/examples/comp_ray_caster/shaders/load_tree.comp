@@ -127,10 +127,6 @@ layout(binding = 4) buffer RequestNoteBuffer {
     uint data[];
 } requestNoteBuffer;
 
-layout(binding = 5) buffer Lol {
-    uint data[];
-} lol;
-
 
 // Linked List Operations
 void extractNode(uint nodeIndex){
@@ -186,7 +182,7 @@ void main()
         uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
 
         if (GET_NODE_ID(newNode) != check_child_Id || GET_NODE_ID_BY_INDEX(parent_index) != check_parent_Id){
-            debugPrintfEXT("Node transfer skipped!!!");
+            //debugPrintfEXT("Node transfer skipped!!!");
             continue;
         }
 

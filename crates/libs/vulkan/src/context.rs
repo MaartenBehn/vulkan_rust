@@ -17,6 +17,8 @@ use crate::{
     CommandBuffer, CommandPool, RayTracingContext, Version, VERSION_1_0,
 };
 
+pub const DEBUG_GPU_ALLOCATOR: bool = false;
+
 pub struct Context {
     pub allocator: Arc<Mutex<Allocator>>,
     pub command_pool: CommandPool,
@@ -161,9 +163,12 @@ impl Context {
             device: device.inner.clone(),
             physical_device: physical_device.inner,
             debug_settings: AllocatorDebugSettings {
-                log_allocations: true,
-                log_frees: true,
-                ..Default::default()
+                log_allocations: DEBUG_GPU_ALLOCATOR,
+                log_frees: DEBUG_GPU_ALLOCATOR,
+                log_memory_information: DEBUG_GPU_ALLOCATOR,
+                log_leaks_on_shutdown: true,
+                store_stack_traces: false,
+                log_stack_traces: false,
             },
             buffer_device_address: required_device_features.buffer_device_address,
         })?;
