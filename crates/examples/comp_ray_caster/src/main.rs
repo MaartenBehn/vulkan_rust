@@ -29,7 +29,7 @@ const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
 
-const DEBUG_LOADING: bool = false;
+const PRINT_DEBUG_LOADING: bool = false;
 const MOVEMENT_DEBUG_READ: bool = false;
 
 fn main() -> Result<()> {
@@ -57,13 +57,21 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Octtree");
-        let depth = 6;
+        let depth = 8;
         let mut octtree_controller = OcttreeController::new(
             context,
             Octtree::new(depth, 123), 
-            50000,
-            100,
+            100000,
+            1000,
             5000
+        )?;
+
+        log::info!("Creating Loader");
+        let loader = OcttreeLoader::new(
+            context, 
+            &octtree_controller, 
+            &octtree_controller.octtree_buffer, 
+            &octtree_controller.octtree_info_buffer,
         )?;
 
         log::info!("Creating Renderer");
@@ -83,13 +91,7 @@ impl App for RayCaster {
             octtree_controller.buffer_size,
         )?;
 
-        log::info!("Creating Loader");
-        let loader = OcttreeLoader::new(
-            context, 
-            &octtree_controller, 
-            &octtree_controller.octtree_buffer, 
-            &octtree_controller.octtree_info_buffer,
-        )?;
+        
 
         log::info!("Setting inital camera pos");
         base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
@@ -143,7 +145,7 @@ impl App for RayCaster {
             let mut render_counter = 0;
             let mut needs_children_counter = 0;
 
-            if cfg!(debug_assertions) && DEBUG_LOADING
+            if cfg!(debug_assertions)
             {
                 // Debug data from load shader
                 render_counter = request_data[self.octtree_controller.transfer_size] as usize;
@@ -158,14 +160,16 @@ impl App for RayCaster {
             let (requested_nodes, transfer_counter) = self.octtree_controller.get_requested_nodes(&request_data);
             self.loader.transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
             
-            if cfg!(debug_assertions) && DEBUG_LOADING
+            if cfg!(debug_assertions)
             {
                 gui.transfer_counter = transfer_counter;
 
-                log::debug!("Render Counter: {:?}", &render_counter);
-                log::debug!("Needs Children Counter: {:?}", &needs_children_counter);
-                log::debug!("Transfer Counter: {:?}", &transfer_counter);
-                log::debug!("Request Data: {:?}", &request_data);
+                if PRINT_DEBUG_LOADING{
+                    log::debug!("Render Counter: {:?}", &render_counter);
+                    log::debug!("Needs Children Counter: {:?}", &needs_children_counter);
+                    log::debug!("Transfer Counter: {:?}", &transfer_counter);
+                    log::debug!("Request Data: {:?}", &request_data);
+                }
             }
         }
 

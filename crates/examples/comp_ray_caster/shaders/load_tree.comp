@@ -161,8 +161,6 @@ void main()
     for (uint counter = 0; counter < transferBufferSize; counter++){
         uint next_head = GET_P_LAST_BY_INDEX(head);
 
-        debugPrintfEXT("Head: %d Next Head: %d", head, next_head);
-
         uvec4 new_data = transferBuffer.nodes[counter];
         Node newNode = Node(
             uint[8](0, 0, 0, 0,  0, 0, 0, 0),
@@ -179,10 +177,8 @@ void main()
         uint check_parent_Id = requestNoteBuffer.data[(counter * 4) + 2];
         uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
 
-        debugPrintfEXT("Loading Node... Node ID: %d Supposed Node ID: %d Parent ID: %d Supposed Parent ID: %d Head Index: %d Parent Index: %d", GET_NODE_ID(newNode), check_child_Id, GET_NODE_ID_BY_INDEX(parent_index), check_parent_Id, head, parent_index);
-
         if (GET_NODE_ID(newNode) != check_child_Id || GET_NODE_ID_BY_INDEX(parent_index) != check_parent_Id){
-            debugPrintfEXT("Invalid Node load!");
+            debugPrintfEXT("Invalid Node load! Node ID: %d Supposed Node ID: %d Parent ID: %d Supposed Parent ID: %d Head Index: %d Parent Index: %d", GET_NODE_ID(newNode), check_child_Id, GET_NODE_ID_BY_INDEX(parent_index), check_parent_Id, head, parent_index);
             continue;
         }
 

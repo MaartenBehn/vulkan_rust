@@ -332,12 +332,15 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     // Inital Check
     if (getNodePos(ray.pos, rootSize) != uvec3(0)){
         bool initalHit = checkHit(ray, vec3(0, 0, 0), rootSize, tMin, tMax);
+        vec3 nextPos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);
 
-        if (!initalHit || (tMin < 0) || (tMax < 0)){
+        if (!initalHit || (tMin < 0) || (tMax < 0) 
+            || (nextPos.x < 0) || (nextPos.y < 0) || (nextPos.z < 0) 
+            || (nextPos.x >= rootSize) || (nextPos.y >= rootSize) || (nextPos.z >= rootSize)){
             return false;
         }
         else{
-            ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);
+            ray.pos = nextPos;
             rayLen += tMin;
         }
     }
@@ -365,19 +368,24 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             size = getSizeFromDepth(depth);
 
             uvec3 newNodePos = getNodePos(ray.pos, size);
-            uvec3 posDelta = (newNodePos - nodePos) / (size); 
+            uvec3 posDelta = (newNodePos - nodePos) / size; 
             nodePos = newNodePos;
 
             uint childNr = getChildFromPos(posDelta);
             uint newNodeIndex = GET_CHILD_INDEX(node, childNr);
 
-            if (newNodeIndex == 0){
+            if (childNr > 7){
+                debugPrintfEXT("Invalid ChildNr: %d", childNr);
+                debugPrintfEXT("Depth: %d Size: %d", depth, size);
+                debugPrintfEXT("Ray pos: %f %f %f Ray Dir %f %f %f", ray.pos.x, ray.pos.y, ray.pos.z, ray.dir.x, ray.dir.y, ray.dir.z);
+                debugPrintfEXT("Note pos: %d %d %d", newNodePos.x, newNodePos.y, newNodePos.z);
+                debugPrintfEXT("Pos Delta: %d %d %d", posDelta.x, posDelta.y, posDelta.z);
+                return false;
+            }
+
+            if (newNodeIndex == 0 && childNr <= 7){
                 SET_NEEDS_CHILD_BY_INDEX(nodeIndex, childNr);
                 isLeave = true; // Child is not in Buffer
-                
-                if (childNr > 7){
-                    debugPrintfEXT("Invalid ChildNr: %d", childNr);
-                }
             }
             else{
                 nodeIndex = newNodeIndex;
@@ -390,7 +398,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);
             rayLen += tMax;
 
-            if (getNodePos(ray.pos, rootSize) == uvec3(0)){
+            if (getNodePos(ray.pos, rootSize) == ivec3(0)){
                 nodeIndex = 0;
                 node = root;
                 depth = 0;
