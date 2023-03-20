@@ -119,6 +119,8 @@ impl App for RayCaster {
         delta_time: Duration,
     ) -> Result<()> {
 
+        log::info!("Frame: {:?}", &self.frame_counter);
+
         self.total_time += delta_time;
         
         self.octtree_controller.octtree_info_buffer.copy_data_to_buffer(&[self.octtree_controller.octtree_info])?;

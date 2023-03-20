@@ -1,8 +1,4 @@
 #version 450
-
-#extension GL_AMD_gpu_shader_int16: enable
-#extension GL_EXT_shader_explicit_arithmetic_types: enable
-#extension GL_EXT_shader_explicit_arithmetic_types_int16: enable
 #extension GL_EXT_debug_printf : enable
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -13,7 +9,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 #define Bit_16_MAX 65535
 
 struct Node{
-    uint16_t children[8];
+    uint children[8];
     uvec4 dynamik_data; // 0: Parent 1: PNext 2: PLast     3:
     uvec4 static_data;  // 0: Id     1:       2: Material  3: Depth
 };
@@ -34,10 +30,10 @@ layout(binding = 1) uniform OcttreeInfo {
 
 // Child Index
 #define GET_CHILD_INDEX(node, childNr) node.children[childNr]
-#define SET_CHILD_INDEX(node, childNr, childIndex) node.children[childNr] = uint16_t(childIndex)
+#define SET_CHILD_INDEX(node, childNr, childIndex) node.children[childNr] = childIndex
 
 #define GET_CHILD_INDEX_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].children[childNr]
-#define SET_CHILD_INDEX_BY_INDEX(index, childNr, childIndex) octtreeBuffer.octtree[index].children[childNr] = uint16_t(childIndex)
+#define SET_CHILD_INDEX_BY_INDEX(index, childNr, childIndex) octtreeBuffer.octtree[index].children[childNr] = childIndex
 
 // Parent Index
 #define GET_PARENT_INDEX(node) node.dynamik_data[0]
@@ -165,9 +161,11 @@ void main()
     for (uint counter = 0; counter < transferBufferSize; counter++){
         uint next_head = GET_P_LAST_BY_INDEX(head);
 
+        debugPrintfEXT("Head: %d Next Head: %d", head, next_head);
+
         uvec4 new_data = transferBuffer.nodes[counter];
         Node newNode = Node(
-            uint16_t[8](uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0), uint16_t(0),uint16_t(0),uint16_t(0),uint16_t(0)),
+            uint[8](0, 0, 0, 0,  0, 0, 0, 0),
             uvec4(0, 0, 0, 0),
             new_data
         );
@@ -181,8 +179,10 @@ void main()
         uint check_parent_Id = requestNoteBuffer.data[(counter * 4) + 2];
         uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
 
+        debugPrintfEXT("Loading Node... Node ID: %d Supposed Node ID: %d Parent ID: %d Supposed Parent ID: %d Head Index: %d Parent Index: %d", GET_NODE_ID(newNode), check_child_Id, GET_NODE_ID_BY_INDEX(parent_index), check_parent_Id, head, parent_index);
+
         if (GET_NODE_ID(newNode) != check_child_Id || GET_NODE_ID_BY_INDEX(parent_index) != check_parent_Id){
-            //debugPrintfEXT("Node transfer skipped!!!");
+            debugPrintfEXT("Invalid Node load!");
             continue;
         }
 
