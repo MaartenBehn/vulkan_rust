@@ -40,6 +40,7 @@ pub struct RayCaster {
     frame_counter: usize,
 
     octtree_controller: OcttreeController,
+    material_controller: MaterialController,
     renderer: Renderer,
     builder: OcttreeBuilder,
     loader: OcttreeLoader,
@@ -66,6 +67,9 @@ impl App for RayCaster {
             5000
         )?;
 
+        log::info!("Creating Materials");
+        let mut material_controller = MaterialController::new(MaterialList::default(), context)?;
+
         log::info!("Creating Loader");
         let loader = OcttreeLoader::new(
             context, 
@@ -81,6 +85,7 @@ impl App for RayCaster {
             &base.storage_images, 
             &octtree_controller.octtree_buffer, 
             &octtree_controller.octtree_info_buffer,
+            &material_controller.material_buffer,
         )?;
 
         log::info!("Creating Builder");
@@ -92,7 +97,6 @@ impl App for RayCaster {
         )?;
 
         
-
         log::info!("Setting inital camera pos");
         base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
@@ -105,6 +109,7 @@ impl App for RayCaster {
             frame_counter: 0,
 
             octtree_controller,
+            material_controller,
             renderer,
             builder,
             loader,

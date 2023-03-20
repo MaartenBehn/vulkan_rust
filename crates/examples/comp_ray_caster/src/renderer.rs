@@ -40,7 +40,8 @@ impl Renderer {
         images_len: u32, 
         storage_images: &Vec<ImageAndView>, 
         octtree_buffer: &Buffer, 
-        octtree_info_buffer: &Buffer
+        octtree_info_buffer: &Buffer,
+        material_buffer: &Buffer,
     ) -> Result<Self> {
 
         let ubo_buffer = context.create_buffer(
@@ -51,7 +52,7 @@ impl Renderer {
 
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 4,
+            images_len * 5,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_IMAGE,
@@ -67,6 +68,10 @@ impl Renderer {
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
+                    descriptor_count: images_len,
+                },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
                     descriptor_count: images_len,
                 },
             ],
@@ -98,6 +103,13 @@ impl Renderer {
                 binding: 3,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 4,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -133,6 +145,12 @@ impl Renderer {
                     binding: 3,
                     kind: WriteDescriptorSetKind::UniformBuffer {  
                         buffer: &octtree_info_buffer
+                    },
+                },
+                WriteDescriptorSet {
+                    binding: 4,
+                    kind: WriteDescriptorSetKind::StorageBuffer { 
+                        buffer: &material_buffer
                     },
                 },
             ]);

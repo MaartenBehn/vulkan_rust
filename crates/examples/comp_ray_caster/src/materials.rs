@@ -8,30 +8,39 @@ pub struct Material{
     reflective: f32,
 }
 
-pub struct MaterialController{
-    pub materials: Vec<Material>,
-    pub material_buffer: Option<Buffer>,
+pub struct MaterialList{
+    pub materials: Vec<Material>
 }
 
+pub struct MaterialController{
+    pub material_list: MaterialList,
+    pub material_buffer: Buffer,
+}
 
 impl MaterialController{
-    pub fn new(materials: Vec<Material>) -> Self{
-        MaterialController { 
-            materials: materials, 
-            material_buffer: None
-        }
-    }
+    pub fn new(material_list: MaterialList, context: &Context) -> Result<Self> {
 
-    pub fn create_buffer(& mut self, context: &Context) -> Result<()> {
+        let material_buffer: Buffer = create_gpu_only_buffer_from_data(
+            context, 
+            vk::BufferUsageFlags::STORAGE_BUFFER, 
+            &material_list.materials)?;
 
-        let buffer: Buffer = create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::STORAGE_BUFFER, &self.materials)?;
-        self.material_buffer = Some(buffer);
-
-        Ok(())
+        Ok(MaterialController { 
+            material_list, 
+            material_buffer
+        })
     }
 }
 
-impl Default for MaterialController{
+impl MaterialList {
+    pub fn new(materials: Vec<Material>) -> Self {
+        MaterialList {
+            materials,
+        }
+    }
+}
+
+impl Default for MaterialList{
     fn default() -> Self {
         let mut materials = Vec::new();
 

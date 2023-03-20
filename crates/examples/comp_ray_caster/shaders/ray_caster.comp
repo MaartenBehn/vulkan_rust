@@ -127,6 +127,11 @@ layout(binding = 3) uniform OcttreeInfo {
 #define DEBUG bool(octtreeInfo.data_1[3])
 // Octtree End
 
+layout(std430, binding = 4) buffer MaterialBuffer {
+    vec4 materials[];
+} materialBuffer;
+
+
 #define VIEW_MULTI 0.01
 #define MAX_STEPS 1000
 #define RAY_POS_OFFSET 0.001
@@ -411,7 +416,9 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
         }
 
         if (!isEmpty && isLeave){
-            color = vec3(0.5, 0.5, 0.5);
+
+            uint materialId = GET_MATERIAL_ID(node);
+            color = materialBuffer.materials[materialId].xyz;
             return true; // Ray Hit Node to Render
         }
 

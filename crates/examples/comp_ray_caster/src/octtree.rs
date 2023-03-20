@@ -74,7 +74,7 @@ impl Octtree{
 
         let mut mat_id = 0;
         if dist < radius {
-            mat_id = 1;
+            mat_id = ((pos[0] % 255) * 255 * 255 + (pos[1] % 255) * 255 + (pos[2] % 255)) - 1;
         }
 
         self.nodes.push(OcttreeNode { 

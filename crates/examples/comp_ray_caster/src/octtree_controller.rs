@@ -5,7 +5,6 @@ use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::{log, vulkan::Context};
 use app::anyhow::Result;
-use crate::PRINT_DEBUG_LOADING;
 use crate::octtree::{Octtree, OcttreeNode};
 
 
@@ -34,7 +33,6 @@ pub struct OcttreeInfo {
     debug: u32,
 }
 
-
 impl OcttreeController{
     pub fn new(
         context: &Context, 
@@ -58,6 +56,7 @@ impl OcttreeController{
             MemoryLocation::CpuToGpu,
             size_of::<OcttreeInfo>() as _,
         )?;
+
 
         let debug = cfg!(debug_assertions) as u32;
 
