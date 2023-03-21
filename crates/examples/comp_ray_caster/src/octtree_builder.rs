@@ -111,9 +111,9 @@ impl OcttreeBuilder{
 
     pub fn render(
         &self, 
-        base: &BaseApp<RayCaster>,
+        _base: &BaseApp<RayCaster>,
         buffer: &CommandBuffer,
-        image_index: usize
+        _image_index: usize
     ) -> Result<()> {
         buffer.bind_compute_pipeline(&self.pipeline);
 

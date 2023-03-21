@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use ash::vk::{self, MemoryBarrier2};
+use ash::vk;
 
 use crate::{
     device::Device, Buffer, ComputePipeline, Context, DescriptorSet, GraphicsPipeline, Image,

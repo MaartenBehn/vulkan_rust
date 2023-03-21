@@ -14,6 +14,11 @@ const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [1, 1, 1],
 ];
 
+pub enum OcttreeFill {
+    Sphere,
+    SpareseTree,
+}
+
 #[derive(Clone)]
 pub struct Octtree{
     pub nodes: Vec<OcttreeNode>,
@@ -34,7 +39,7 @@ pub struct OcttreeNode {
 }
 
 impl Octtree{
-    pub fn new(depth: usize, mut seed: u64) -> Self {
+    pub fn new(depth: usize, mut seed: u64, fill_kind: OcttreeFill) -> Self {
         let mut octtree = Octtree{
             nodes: Vec::new(),
             depth: depth,
@@ -49,7 +54,14 @@ impl Octtree{
         log::info!("Octtree Seed: {:?}", seed);
         let mut rng = StdRng::seed_from_u64(seed);
        
-        octtree.inital_fill(0, 0, [0, 0, 0], &mut rng);
+        match fill_kind {
+            OcttreeFill::Sphere => {
+                octtree.inital_fill_sphere(0, 0, [0, 0, 0]); 
+            },
+            OcttreeFill::SpareseTree => {
+                octtree.inital_fill_sparse_tree(0, 0, [0, 0, 0], &mut rng, true);
+            },
+        }
 
         return octtree;
     }
@@ -63,7 +75,7 @@ impl Octtree{
         return (node_id + child_size * child_nr + 1) as u32;
     }
 
-    fn inital_fill(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng) -> usize {
+    fn inital_fill_sphere(&mut self, i: usize, depth: usize, pos: [u32; 3]) -> usize {
 
         let radius = f32::powf(2.0, self.depth as f32) / 2.0;
         let dist = Vec3::new(
@@ -98,7 +110,53 @@ impl Octtree{
                     pos[2] + OCTTREE_CONFIG[j][2] * inverse_depth,
                     ];
                 
-                new_i = self.inital_fill(new_i, depth + 1, new_pos, rng);
+                new_i = self.inital_fill_sphere(new_i, depth + 1, new_pos);
+
+
+                let child_material = self.nodes[child_index].mat_id;
+                if child_material != 0 {
+                    self.nodes[i].mat_id = child_material;
+                }
+            }
+        }
+
+        return new_i;
+    }
+
+    fn inital_fill_sparse_tree(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng, parent_filled: bool) -> usize {
+
+        let rand_float: f32 = rng.gen();
+        let filled = parent_filled && rand_float > 0.15;
+
+        let pos_mult = 5;
+        let mat_id = if filled {
+            ((pos[0] * pos_mult) % 255) * 255 * 255 + ((pos[1] * pos_mult * 2) % 255) * 255 + ((pos[2] * pos_mult * 3) % 255)
+        }else{
+            0
+        };
+
+        self.nodes.push(OcttreeNode { 
+            node_id_0: i as u32, 
+            node_id_1: 0,
+            mat_id: mat_id, 
+            depth: depth as u32,
+        });
+
+        let mut new_i = i + 1;
+        if depth < self.depth {
+            for j in 0..8 {
+                
+                let inverse_depth = u32::pow(2, (self.depth - depth - 1) as u32);
+
+                let child_index = Self::get_child_id(i as u32, j as u32, (self.depth - depth) as u32) as usize;
+                
+                let new_pos = [
+                    pos[0] + OCTTREE_CONFIG[j][0] * inverse_depth, 
+                    pos[1] + OCTTREE_CONFIG[j][1] * inverse_depth, 
+                    pos[2] + OCTTREE_CONFIG[j][2] * inverse_depth,
+                    ];
+                
+                new_i = self.inital_fill_sparse_tree(new_i, depth + 1, new_pos, rng, filled);
 
 
                 let child_material = self.nodes[child_index].mat_id;

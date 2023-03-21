@@ -35,6 +35,8 @@ const MOVEMENT_DEBUG_READ: bool = false;
 fn main() -> Result<()> {
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
 }
+
+#[allow(dead_code)]
 pub struct RayCaster {
     total_time: Duration,
     frame_counter: usize,
@@ -59,16 +61,16 @@ impl App for RayCaster {
 
         log::info!("Creating Octtree");
         let depth = 8;
-        let mut octtree_controller = OcttreeController::new(
+        let octtree_controller = OcttreeController::new(
             context,
-            Octtree::new(depth, 123), 
+            Octtree::new(depth, 123, OcttreeFill::SpareseTree), 
             100000,
             1000,
-            5000
+            10000
         )?;
 
         log::info!("Creating Materials");
-        let mut material_controller = MaterialController::new(MaterialList::default(), context)?;
+        let material_controller = MaterialController::new(MaterialList::default(), context)?;
 
         log::info!("Creating Loader");
         let loader = OcttreeLoader::new(

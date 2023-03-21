@@ -10,7 +10,6 @@ use crate::{RayCaster, PRINT_DEBUG_LOADING};
 use crate::octtree::{OcttreeNode};
 use crate::octtree_controller::OcttreeController;
 
-const LOAD_DISPATCH_GROUP_SIZE: u32 = 32;
 pub const LOAD_DEBUG_DATA_SIZE: usize = 2;
 
 pub struct OcttreeLoader {
@@ -184,9 +183,9 @@ impl OcttreeLoader {
 
     pub fn render(
         &self, 
-        base: &BaseApp<RayCaster>,
+        _base: &BaseApp<RayCaster>,
         buffer: &CommandBuffer,
-        image_index: usize
+        _image_index: usize
     ) -> Result<()> {
         buffer.bind_compute_pipeline(&self.pipeline);
 

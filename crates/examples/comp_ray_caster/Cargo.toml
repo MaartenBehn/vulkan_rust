@@ -10,6 +10,7 @@ authors.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 shuffle.workspace = true
+noise.workspace = true
 
 app = { path = "../../libs/app" }
 gui = { path = "../../libs/gui" }
