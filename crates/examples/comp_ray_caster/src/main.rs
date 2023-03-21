@@ -63,7 +63,7 @@ impl App for RayCaster {
         let depth = 8;
         let octtree_controller = OcttreeController::new(
             context,
-            Octtree::new(depth, 123, OcttreeFill::SpareseTree), 
+            Octtree::new(depth, 0, OcttreeFill::SpareseTree), 
             100000,
             1000,
             10000

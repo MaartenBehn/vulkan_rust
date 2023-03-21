@@ -43,7 +43,7 @@ impl OcttreeController{
     ) -> Result<Self> {
 
         let depth = octtree.depth;
-        let size = octtree.size;
+        let size = octtree.max_size;
 
         let octtree_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
@@ -93,18 +93,26 @@ impl OcttreeController{
         let mut counter = 0;
         for (i, id) in requested_ids.iter().enumerate() {
 
-            if *id >= self.octtree.size as u32 {
+            if *id >= self.octtree.max_size as u32 {
                 log::error!("Requested Child ID: {:?}", id);
             }
 
-            if *id <= 0 || *id >= self.octtree.size as u32 {
+            if *id <= 0 || *id >= self.octtree.max_size as u32 {
                 continue;
             }
             counter += 1;
 
-            nodes[i] = self.octtree.nodes[*id as usize];
+            let seek = *id as u64;
+            let r = self.octtree.nodes.binary_search_by(|node| node.get_node_id().cmp(&seek));
+            match r {
+                Ok(_) => nodes[i] = self.octtree.nodes[r.unwrap()],
+                Err(_) => {
+                    log::error!("Requested Node {:?} not found!", id);
+                    continue
+                },
+            };
         }
 
-        (nodes, counter)
+        (nodes, counter) 
     }
 }

@@ -2,6 +2,8 @@ use app::glam::Vec3;
 use app::log;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use noise::{NoiseFn, Perlin, Seedable};
+use palette::{Gradient, LinSrgb};
 
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
@@ -24,8 +26,8 @@ pub struct Octtree{
     pub nodes: Vec<OcttreeNode>,
 
     pub depth: usize,
+    pub max_size: usize,
     pub size: usize,
-    
 }
 
 #[derive(Clone, Copy, Default)]
@@ -35,7 +37,7 @@ pub struct OcttreeNode {
     node_id_0: u32,
     node_id_1: u32,
     mat_id: u32,
-    depth: u32,
+    bit_field: u32,
 }
 
 impl Octtree{
@@ -43,7 +45,8 @@ impl Octtree{
         let mut octtree = Octtree{
             nodes: Vec::new(),
             depth: depth,
-            size: Self::get_tree_size(depth),
+            max_size: Self::get_max_tree_size(depth),
+            size: 0,
         };
 
         if seed == 0 {
@@ -59,14 +62,18 @@ impl Octtree{
                 octtree.inital_fill_sphere(0, 0, [0, 0, 0]); 
             },
             OcttreeFill::SpareseTree => {
-                octtree.inital_fill_sparse_tree(0, 0, [0, 0, 0], &mut rng, true);
+
+                let perlin = Perlin::new(seed as u32);
+                octtree.inital_fill_sparse_tree(0, 0, [0, 0, 0], &mut rng, &perlin, true);
             },
         }
+
+        octtree.size = octtree.nodes.len();
 
         return octtree;
     }
 
-    pub fn get_tree_size(depth: usize) -> usize {
+    pub fn get_max_tree_size(depth: usize) -> usize {
         (1 - i32::pow(8, (depth + 1) as u32) / (1 - 8) - 1) as usize
     }
 
@@ -89,12 +96,7 @@ impl Octtree{
             mat_id = ((pos[0] % 255) * 255 * 255 + (pos[1] % 255) * 255 + (pos[2] % 255)) - 1;
         }
 
-        self.nodes.push(OcttreeNode { 
-            node_id_0: i as u32, 
-            node_id_1: 0,
-            mat_id: mat_id, 
-            depth: depth as u32,
-        });
+        self.nodes.push(OcttreeNode::new(i as u64, mat_id, depth as u16, depth >= self.depth));
 
         let mut new_i = i + 1;
         if depth < self.depth {
@@ -112,7 +114,6 @@ impl Octtree{
                 
                 new_i = self.inital_fill_sphere(new_i, depth + 1, new_pos);
 
-
                 let child_material = self.nodes[child_index].mat_id;
                 if child_material != 0 {
                     self.nodes[i].mat_id = child_material;
@@ -123,27 +124,35 @@ impl Octtree{
         return new_i;
     }
 
-    fn inital_fill_sparse_tree(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng, parent_filled: bool) -> usize {
+    fn inital_fill_sparse_tree(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng, perlin: &Perlin, parent_filled: bool) {
 
         let rand_float: f32 = rng.gen();
         let filled = parent_filled && rand_float > 0.15;
 
-        let pos_mult = 5;
+        let pos_mult = 0.05;
         let mat_id = if filled {
-            ((pos[0] * pos_mult) % 255) * 255 * 255 + ((pos[1] * pos_mult * 2) % 255) * 255 + ((pos[2] * pos_mult * 3) % 255)
+
+            let a = perlin.get([
+                (pos[0] as f64 * pos_mult) + 0.1, 
+                (pos[1] as f64 * pos_mult * 2.0) + 0.2, 
+                (pos[2] as f64 * pos_mult * 3.0) + 0.3]).abs();
+
+            let gradient = Gradient::new(vec![
+                LinSrgb::new(1.0, 0.56, 0.0),
+                LinSrgb::new(0.4, 0.4, 0.4),
+            ]);
+
+            let color = gradient.get(a);
+
+            ((color.red * 255.0) as u32) * 255 * 255 + ((color.green * 255.0) as u32) * 255 + ((color.blue * 255.0) as u32) 
         }else{
             0
         };
 
-        self.nodes.push(OcttreeNode { 
-            node_id_0: i as u32, 
-            node_id_1: 0,
-            mat_id: mat_id, 
-            depth: depth as u32,
-        });
+        let is_leaf = !filled || depth >= self.depth;
+        self.nodes.push(OcttreeNode::new(i as u64, mat_id, depth as u16, is_leaf));
 
-        let mut new_i = i + 1;
-        if depth < self.depth {
+        if !is_leaf {
             for j in 0..8 {
                 
                 let inverse_depth = u32::pow(2, (self.depth - depth - 1) as u32);
@@ -156,17 +165,54 @@ impl Octtree{
                     pos[2] + OCTTREE_CONFIG[j][2] * inverse_depth,
                     ];
                 
-                new_i = self.inital_fill_sparse_tree(new_i, depth + 1, new_pos, rng, filled);
-
-
-                let child_material = self.nodes[child_index].mat_id;
-                if child_material != 0 {
-                    self.nodes[i].mat_id = child_material;
-                }
+                self.inital_fill_sparse_tree(child_index, depth + 1, new_pos, rng, perlin, filled);
             }
         }
-
-        return new_i;
     }
 
+}
+
+const UPPER16BITS: u32 = (u16::MAX as u32) << 16;
+const LOWER16BITS: u32 = u16::MAX as u32;
+
+impl OcttreeNode{
+    fn new(node_id: u64, mat_id: u32, depth: u16, leaf: bool) -> Self {
+        let mut node = OcttreeNode{
+            node_id_0: 0,
+            node_id_1: 0,
+            mat_id: mat_id,
+            bit_field: 0,
+        };
+
+        node.set_node_id(node_id);
+        node.set_depth(depth);
+        node.set_leaf(leaf);
+
+        node
+    }
+
+    fn set_node_id(&mut self, node_id: u64){
+        self.node_id_0 = node_id as u32;
+        self.node_id_1 = (node_id >> 32) as u32;
+    }
+
+    pub fn get_node_id(&self) -> u64{
+        (self.node_id_0 as u64) + ((self.node_id_1 as u64) >> 32)
+    }
+
+    fn set_depth(&mut self, depth: u16) {
+        self.bit_field = (depth as u32) + (self.bit_field & UPPER16BITS);
+    }
+
+    pub fn get_depth(&self) -> u16 {
+        self.bit_field as u16
+    }
+
+    fn set_leaf(&mut self, leaf: bool) {
+        self.bit_field = ((leaf as u32) << 16) + (self.bit_field & LOWER16BITS);
+    }
+
+    pub fn get_leaf(&self) -> bool {
+        ((self.bit_field >> 16) & 1) == 1
+    }
 }

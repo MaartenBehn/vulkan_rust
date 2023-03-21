@@ -80,24 +80,19 @@ layout(binding = 1) uniform OcttreeInfo {
 
 // ID
 #define GET_NODE_ID(node) node.static_data[0]
-#define SET_NODE_ID(node, id) node.static_data[0] = id
-
 #define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
-#define SET_NODE_ID_BY_INDEX(index, id) octtreeBuffer.octtree[index].static_data[0] = id
 
 // Material
 #define GET_MATERIAL_ID(node) node.static_data[2]
-#define SET_MATERIAL_ID(node, material) node.static_data[2] = material
-
 #define GET_MATERIAL_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[2]
-#define SET_MATERIAL_ID_BY_INDEX(index, material) octtreeBuffer.octtree[index].static_data[2] = material
 
 // Depth
-#define GET_NODE_DEPTH(node) node.static_data[3]
-#define SET_NODE_DEPTH(node, depth) node.static_data[3] = depth
+#define GET_NODE_DEPTH(node) node.static_data[3] & Bit_16_MAX
+#define GET_NODE_DEPTH_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[3] & Bit_16_MAX
 
-#define GET_NODE_DEPTH_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[3]
-#define SET_NODE_DEPTH_BY_INDEX(index, depth) octtreeBuffer.octtree[index].static_data[3] = depth
+// Leaf
+#define GET_NODE_LEAF(node) (node.static_data[3] >> 16) & 1
+#define GET_NODE_LEAF_BY_INDEX(node) (octtreeBuffer.octtree[index].static_data[3] >> 16) & 1
 
 
 // Octtree Info
