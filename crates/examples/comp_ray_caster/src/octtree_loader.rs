@@ -28,27 +28,27 @@ pub struct OcttreeLoader {
 impl OcttreeLoader {
     pub fn new(
         context: &Context, 
-        octtree_controller: &OcttreeController,
         octtree_buffer: &Buffer, 
         octtree_info_buffer: &Buffer,
+        transfer_size: usize,
     ) -> Result<Self> {
 
         let transfer_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::CpuToGpu, 
-            (size_of::<OcttreeNode>() * octtree_controller.transfer_size) as _,
+            (size_of::<OcttreeNode>() * transfer_size) as _,
         )?;
 
         let request_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuToCpu, 
-            (size_of::<u64>() * (octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)) as _,
+            (size_of::<u64>() * (transfer_size + LOAD_DEBUG_DATA_SIZE)) as _,
         )?;
 
         let request_note_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuOnly, 
-            (size_of::<u32>() * (2 * octtree_controller.transfer_size + 1)) as _,
+            (size_of::<u32>() * (2 * transfer_size + 1)) as _,
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
@@ -121,13 +121,13 @@ impl OcttreeLoader {
             WriteDescriptorSet {
                 binding: 0,
                 kind: WriteDescriptorSetKind::StorageBuffer { 
-                    buffer: &octtree_buffer
+                    buffer: octtree_buffer
                 } 
             },
             WriteDescriptorSet {
                 binding: 1,
                 kind: WriteDescriptorSetKind::UniformBuffer {  
-                    buffer: &octtree_info_buffer
+                    buffer: octtree_info_buffer
                 } 
             },
             WriteDescriptorSet {

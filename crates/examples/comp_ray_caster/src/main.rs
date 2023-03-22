@@ -75,14 +75,6 @@ impl App for RayCaster {
         log::info!("Creating Materials");
         let material_controller = MaterialController::new(MaterialList::default(), context)?;
 
-        log::info!("Creating Loader");
-        let loader = OcttreeLoader::new(
-            context, 
-            &octtree_controller, 
-            &octtree_controller.octtree_buffer, 
-            &octtree_controller.octtree_info_buffer,
-        )?;
-
         log::info!("Creating Renderer");
         let renderer = Renderer::new(
             context, 
@@ -101,12 +93,18 @@ impl App for RayCaster {
             octtree_controller.buffer_size,
         )?;
 
-        
+        log::info!("Creating Loader");
+        let loader = OcttreeLoader::new(
+            context, 
+            &octtree_controller.octtree_buffer, 
+            &octtree_controller.octtree_info_buffer,
+            octtree_controller.transfer_size,
+        )?;
+
         log::info!("Setting inital camera pos");
         base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
         base.camera.z_far = 100.0;
-
 
         log::info!("Init done");
         Ok(Self {
@@ -152,12 +150,9 @@ impl App for RayCaster {
         if  self.loader.load_tree {
             let mut request_data: Vec<u64> = self.loader.request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)?;
 
-            let mut render_counter = 0;
-            let mut needs_children_counter = 0;
-
             // Debug data from load shader
-            render_counter = request_data[self.octtree_controller.transfer_size] as usize;
-            needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
+            let render_counter = request_data[self.octtree_controller.transfer_size] as usize;
+            let needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
 
             gui.render_counter = render_counter;
             gui.needs_children_counter = needs_children_counter;

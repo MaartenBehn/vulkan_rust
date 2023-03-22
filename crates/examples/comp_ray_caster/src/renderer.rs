@@ -138,19 +138,19 @@ impl Renderer {
                 WriteDescriptorSet {
                     binding: 2,
                     kind: WriteDescriptorSetKind::StorageBuffer { 
-                        buffer: &octtree_buffer
+                        buffer: octtree_buffer
                     },
                 },
                 WriteDescriptorSet {
                     binding: 3,
                     kind: WriteDescriptorSetKind::UniformBuffer {  
-                        buffer: &octtree_info_buffer
+                        buffer: octtree_info_buffer
                     },
                 },
                 WriteDescriptorSet {
                     binding: 4,
                     kind: WriteDescriptorSetKind::StorageBuffer { 
-                        buffer: &material_buffer
+                        buffer: material_buffer
                     },
                 },
             ]);

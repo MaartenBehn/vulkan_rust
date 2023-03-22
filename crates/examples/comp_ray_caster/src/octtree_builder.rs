@@ -61,29 +61,13 @@ impl OcttreeBuilder{
             WriteDescriptorSet {
                 binding: 0,
                 kind: WriteDescriptorSetKind::StorageBuffer { 
-                    buffer: &octtree_buffer
+                    buffer: octtree_buffer
                 } 
             },
             WriteDescriptorSet {
                 binding: 1,
                 kind: WriteDescriptorSetKind::UniformBuffer {  
-                    buffer: &octtree_info_buffer
-                } 
-            },
-        ]);
-
-        let descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
-        descriptor_set.update(&[
-            WriteDescriptorSet {
-                binding: 0,
-                kind: WriteDescriptorSetKind::StorageBuffer { 
-                    buffer: &octtree_buffer
-                } 
-            },
-            WriteDescriptorSet {
-                binding: 1,
-                kind: WriteDescriptorSetKind::UniformBuffer {  
-                    buffer: &octtree_info_buffer
+                    buffer: octtree_info_buffer
                 } 
             },
         ]);
