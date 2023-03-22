@@ -1,5 +1,6 @@
 #version 450
 #extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64: enable
 
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
@@ -94,8 +95,8 @@ layout(binding = 3) uniform OcttreeInfo {
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 // ID
-#define GET_NODE_ID(node) node.static_data[0]
-#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define GET_NODE_ID(node) (uint64_t(node.static_data[0]) + (uint64_t(node.static_data[1]) << 32))
+#define GET_NODE_ID_BY_INDEX(index) (uint64_t(octtreeBuffer.octtree[index].static_data[0]) + (uint64_t(octtreeBuffer.octtree[index].static_data[1]) << 32))
 
 // Material
 #define GET_MATERIAL_ID(node) node.static_data[2]

@@ -6,7 +6,7 @@ use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::vulkan::{DescriptorPool, DescriptorSetLayout, DescriptorSet, PipelineLayout, ComputePipeline, Context, Buffer, WriteDescriptorSet, WriteDescriptorSetKind, ComputePipelineCreateInfo, CommandBuffer, MemoryBarrier};
 
-use crate::{RayCaster, PRINT_DEBUG_LOADING};
+use crate::RayCaster;
 use crate::octtree::{OcttreeNode};
 use crate::octtree_controller::OcttreeController;
 
@@ -39,23 +39,16 @@ impl OcttreeLoader {
             (size_of::<OcttreeNode>() * octtree_controller.transfer_size) as _,
         )?;
 
-        let request_size = if cfg!(debug_assertions) && PRINT_DEBUG_LOADING {
-            octtree_controller.transfer_size
-        }
-        else{
-            octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE
-        };
-
         let request_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuToCpu, 
-            (size_of::<u32>() * request_size) as _,
+            (size_of::<u64>() * (octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)) as _,
         )?;
 
         let request_note_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::GpuOnly, 
-            (size_of::<u32>() * (4 * octtree_controller.transfer_size + 1)) as _,
+            (size_of::<u32>() * (2 * octtree_controller.transfer_size + 1)) as _,
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(

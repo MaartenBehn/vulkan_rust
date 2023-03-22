@@ -1,6 +1,7 @@
 #version 450
 
 #extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64: enable
 
 layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
@@ -79,8 +80,8 @@ layout(binding = 1) uniform OcttreeInfo {
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 // ID
-#define GET_NODE_ID(node) node.static_data[0]
-#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define GET_NODE_ID(node) (uint64_t(node.static_data[0]) + (uint64_t(node.static_data[1]) << 32))
+#define GET_NODE_ID_BY_INDEX(index) (uint64_t(octtreeBuffer.octtree[index].static_data[0]) + (uint64_t(octtreeBuffer.octtree[index].static_data[1]) << 32))
 
 // Material
 #define GET_MATERIAL_ID(node) node.static_data[2]
@@ -125,9 +126,9 @@ void reBuild(uint index){
     SET_NODE(node, index);
 }
 
-uint getChildId(uint nodeId, uint childNr, uint depth){
-    int childSize = int((1 - pow(8, depth)) / -7);
-    return uint(nodeId + childSize * childNr + 1);
+uint64_t getChildId(uint64_t nodeId, uint childNr, uint depth){
+    int64_t childSize = (int64_t(1) - int64_t(pow(8, depth))) / int64_t(-7);
+    return uint64_t(nodeId + childSize * childNr + 1);
 }
 
 void buildNode(uint nodeIndex){
@@ -137,13 +138,13 @@ void buildNode(uint nodeIndex){
     Node node = GET_NODE(nodeIndex);
 
     uint depth = GET_NODE_DEPTH(node);
-    uint id = GET_NODE_ID(node);
+    uint64_t id = GET_NODE_ID(node);
 
     for (uint childNr = 0; childNr < 8; childNr++){
         uint newChildIndex = 0;
 
         if (octtreeDepth > depth) {
-            uint childId = getChildId(id, childNr, octtreeDepth - depth);
+            uint64_t childId = getChildId(id, childNr, octtreeDepth - depth);
     
             for (uint childIndex = 0; childIndex < bufferSize; childIndex++){
                 if (GET_NODE_ID_BY_INDEX(childIndex) == childId){

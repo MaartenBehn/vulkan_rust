@@ -1,5 +1,6 @@
 #version 450
 #extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64: enable
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
@@ -78,8 +79,8 @@ layout(binding = 1) uniform OcttreeInfo {
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 // ID
-#define GET_NODE_ID(node) node.static_data[0]
-#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define GET_NODE_ID(node) (uint64_t(node.static_data[0]) + (uint64_t(node.static_data[1]) << 32))
+#define GET_NODE_ID_BY_INDEX(index) (uint64_t(octtreeBuffer.octtree[index].static_data[0]) + (uint64_t(octtreeBuffer.octtree[index].static_data[1]) << 32))
 
 // Material
 #define GET_MATERIAL_ID(node) node.static_data[2]
@@ -138,9 +139,9 @@ void insterNodeAfter(uint nodeIndex, uint afterIndex){
     SET_P_LAST_BY_INDEX(after_p_next, nodeIndex);
 }
 
-uint getChildId(uint nodeId, uint childNr, uint depth){
-    int childSize = int((1 - pow(8, depth)) / -7);
-    return uint(nodeId + childSize * childNr + 1);
+uint64_t getChildId(uint64_t nodeId, uint childNr, uint depth){
+    int64_t childSize = (int64_t(1) - int64_t(pow(8, depth))) / int64_t(-7);
+    return uint64_t(nodeId + childSize * childNr + 1);
 }
 
 void main()
@@ -167,15 +168,8 @@ void main()
             break;
         }
 
-        uint parent_index = requestNoteBuffer.data[counter * 4];
-        uint parent_childNr = requestNoteBuffer.data[(counter * 4) + 1];
-        uint check_parent_Id = requestNoteBuffer.data[(counter * 4) + 2];
-        uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
-
-        if (GET_NODE_ID(newNode) != check_child_Id || GET_NODE_ID_BY_INDEX(parent_index) != check_parent_Id){
-            debugPrintfEXT("Invalid Node load! Node ID: %d Supposed Node ID: %d Parent ID: %d Supposed Parent ID: %d Head Index: %d Parent Index: %d", GET_NODE_ID(newNode), check_child_Id, GET_NODE_ID_BY_INDEX(parent_index), check_parent_Id, head, parent_index);
-            continue;
-        }
+        uint parent_index = requestNoteBuffer.data[counter * 2];
+        uint parent_childNr = requestNoteBuffer.data[counter * 2 + 1];
 
         uint old_parent = GET_PARENT_INDEX_BY_INDEX(head);
         Node old_parent_node = GET_NODE(old_parent);
@@ -197,12 +191,13 @@ void main()
         head = next_head;
     }
 
-    head = requestNoteBuffer.data[transferBufferSize * 4];
+    head = requestNoteBuffer.data[transferBufferSize * 2];
 
     bool reqestRunning = true;
     uint reqestHead = 0;
-    uint renderedCounter = requestBuffer.nodes[transferBufferSize];
-    uint needsChilrenCounter = requestBuffer.nodes[transferBufferSize + 1];
+
+    uint renderedCounter = requestBuffer.nodes[transferBufferSize * 2];
+    uint needsChilrenCounter = requestBuffer.nodes[transferBufferSize * 2 + 2];
 
     for (uint counter = 0; reqestRunning && counter < loaderSize; counter++){
         uint next_head = GET_P_NEXT_BY_INDEX(head);
@@ -223,13 +218,13 @@ void main()
                     needsChilrenCounter++;
 
 
-                    uint childId = getChildId(GET_NODE_ID_BY_INDEX(head), childNr, octtreeDepth - GET_NODE_DEPTH_BY_INDEX(head));
+                    uint64_t childId = getChildId(GET_NODE_ID_BY_INDEX(head), childNr, octtreeDepth - GET_NODE_DEPTH_BY_INDEX(head));
 
-                    requestBuffer.nodes[reqestHead] = childId;
-                    requestNoteBuffer.data[reqestHead * 4] = head;
-                    requestNoteBuffer.data[(reqestHead * 4) + 1] = childNr;
-                    requestNoteBuffer.data[(reqestHead * 4) + 2] = GET_NODE_ID_BY_INDEX(head);
-                    requestNoteBuffer.data[(reqestHead * 4) + 3] = childId;
+                    requestBuffer.nodes[reqestHead * 2] = uint(childId);
+                    requestBuffer.nodes[reqestHead * 2 + 1] = uint(childId >> 32);
+
+                    requestNoteBuffer.data[reqestHead * 2] = head;
+                    requestNoteBuffer.data[reqestHead * 2 + 1] = childNr;
 
                     reqestHead++;
                     reqestRunning = reqestHead < transferBufferSize;
@@ -248,20 +243,17 @@ void main()
         }
     }
 
-    requestNoteBuffer.data[transferBufferSize * 4] = head;
+    requestNoteBuffer.data[transferBufferSize * 2] = head;
 
     while (reqestHead < transferBufferSize){
-        requestBuffer.nodes[reqestHead] = 0;
+        requestBuffer.nodes[reqestHead * 2] = 0;
+        requestBuffer.nodes[reqestHead * 2 + 1] = 0;
 
-        requestNoteBuffer.data[reqestHead * 4] = bufferSize;
-        requestNoteBuffer.data[(reqestHead * 4) + 1] = bufferSize;
-        requestNoteBuffer.data[(reqestHead * 4) + 2] = bufferSize;
-        requestNoteBuffer.data[(reqestHead * 4) + 3] = bufferSize;
+        requestNoteBuffer.data[reqestHead * 2] = bufferSize;
+        requestNoteBuffer.data[reqestHead * 2 + 1] = bufferSize;
         reqestHead++;
     }
 
-    if (DEBUG) {
-        requestBuffer.nodes[transferBufferSize] = renderedCounter;
-        requestBuffer.nodes[transferBufferSize + 1] = needsChilrenCounter;
-    }
+    requestBuffer.nodes[transferBufferSize * 2] = renderedCounter;
+    requestBuffer.nodes[transferBufferSize * 2 + 2] = needsChilrenCounter;
 }
