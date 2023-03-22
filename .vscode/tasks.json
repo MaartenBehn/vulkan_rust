@@ -1,26 +1,48 @@
 {
     "version": "2.0.0",
-    "tasks": [{
-        "label": "build",
-        "command": "sh scripts/debug.sh comp_ray_caster",
-        "type": "shell",
-        "dependsOn": [
-            "compile_shader"
-        ]
-    },
-    {
-        "label": "build_release",
-        "command": "sh scripts/release.sh comp_ray_caster",
-        "type": "shell",
-        "dependsOn": [
-            "compile_shader"
-        ]
-    },
-    {
-        "label": "compile_shader",
-        "command": "sh scripts/compile_shaders_selected.sh comp_ray_caster",
-        "type": "shell",
-    }
+    "tasks": 
+    [
+        {
+            "label": "build_debug",
+            "command": "sh scripts/build_debug.sh comp_ray_caster",
+            "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            }
+        },
+        {
+            "label": "build_release",
+            "command": "sh scripts/build_release.sh comp_ray_caster",
+            "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            }
+        },
+        {
+            "label": "compile_shader",
+            "command": "sh scripts/compile_shaders_selected.sh comp_ray_caster",
+            "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            }
+        },
+        {
+            "label": "profile",
+            "command": "sh scripts/profile.sh comp_ray_caster",
+            "type": "shell",
+        },
+        {
+            "label": "run",
+            "command": "sh scripts/run.sh comp_ray_caster",
+            "type": "shell",
+        },
+    ]
 }
 
 

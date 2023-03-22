@@ -1,8 +1,10 @@
 use app::glam::Vec3;
 use app::log;
+use palette::encoding::{Linear, Srgb};
+use palette::rgb::Rgb;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
-use noise::{NoiseFn, Perlin, Seedable};
+use noise::{NoiseFn, Perlin};
 use palette::{Gradient, LinSrgb};
 
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
@@ -62,9 +64,12 @@ impl Octtree{
                 octtree.inital_fill_sphere(0, 0, [0, 0, 0]); 
             },
             OcttreeFill::SpareseTree => {
-
                 let perlin = Perlin::new(seed as u32);
-                octtree.inital_fill_sparse_tree(0, 0, [0, 0, 0], &mut rng, &perlin, true);
+                let gradient = Gradient::new(vec![
+                    LinSrgb::new(1.0, 0.56, 0.0),
+                    LinSrgb::new(0.4, 0.4, 0.4),
+                ]);
+                octtree.inital_fill_sparse_tree(0, 0, [0, 0, 0], &mut rng, &perlin, &gradient, true);
             },
         }
 
@@ -124,7 +129,15 @@ impl Octtree{
         return new_i;
     }
 
-    fn inital_fill_sparse_tree(&mut self, i: usize, depth: usize, pos: [u32; 3], rng: &mut impl Rng, perlin: &Perlin, parent_filled: bool) {
+    fn inital_fill_sparse_tree(
+        &mut self, 
+        i: usize, 
+        depth: usize, 
+        pos: [u32; 3], 
+        rng: &mut impl Rng, 
+        perlin: &Perlin, 
+        gradient: &Gradient<Rgb<Linear<Srgb>, f64>, Vec<(f64, Rgb<Linear<Srgb>, f64>)>>, 
+        parent_filled: bool) {
 
         let rand_float: f32 = rng.gen();
         let filled = parent_filled && rand_float > 0.15;
@@ -136,11 +149,6 @@ impl Octtree{
                 (pos[0] as f64 * pos_mult) + 0.1, 
                 (pos[1] as f64 * pos_mult * 2.0) + 0.2, 
                 (pos[2] as f64 * pos_mult * 3.0) + 0.3]).abs();
-
-            let gradient = Gradient::new(vec![
-                LinSrgb::new(1.0, 0.56, 0.0),
-                LinSrgb::new(0.4, 0.4, 0.4),
-            ]);
 
             let color = gradient.get(a);
 
@@ -165,7 +173,7 @@ impl Octtree{
                     pos[2] + OCTTREE_CONFIG[j][2] * inverse_depth,
                     ];
                 
-                self.inital_fill_sparse_tree(child_index, depth + 1, new_pos, rng, perlin, filled);
+                self.inital_fill_sparse_tree(child_index, depth + 1, new_pos, rng, perlin, gradient, filled);
             }
         }
     }

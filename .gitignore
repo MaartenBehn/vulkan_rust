@@ -3,3 +3,4 @@
 *.spv
 *log*
 movement.txt
+perf*

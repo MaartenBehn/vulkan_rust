@@ -35,3 +35,7 @@ gpu-allocator = { version = "0.21", default-features = false, features = ["vulka
 imgui = "0.9"
 imgui-winit-support = "0.9"
 imgui-rs-vulkan-renderer = { version = "1.6", features = ["gpu-allocator", "dynamic-rendering"] }
+
+[profile.release]
+debug = true
+

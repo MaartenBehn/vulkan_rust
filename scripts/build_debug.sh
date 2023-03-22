@@ -1,3 +1,7 @@
+#!/bin/bash
+
+sh ./scripts/compile_shaders_selected.sh $1
+
 rm ./target/debug/$1
 
 export VK_LAYER_PATH=$VULKAN_SDK/Bin

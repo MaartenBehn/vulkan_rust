@@ -8,16 +8,7 @@
             "program": "${workspaceRoot}/target/debug/comp_ray_caster",
             "args": [],
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "build",
-        },
-        {
-            "name": "Release",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceRoot}/target/release/comp_ray_caster",
-            "args": [],
-            "cwd": "${workspaceRoot}",
-            "preLaunchTask": "build_release",
-        },
+            "preLaunchTask": "build_debug",
+        }
     ]
 }
