@@ -9,6 +9,15 @@
             "args": [],
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "build_debug",
+        },
+        {
+            "name": "Release",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/release/comp_ray_caster",
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_release",
         }
     ]
 }

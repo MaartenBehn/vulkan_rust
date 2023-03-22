@@ -1,7 +1,7 @@
 
 use std::time::{Duration};
 
-use app::anyhow::Result;
+use app::anyhow::{Result, ensure};
 use app::glam::{Vec3};
 use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
@@ -33,6 +33,9 @@ const PRINT_DEBUG_LOADING: bool = false;
 const MOVEMENT_DEBUG_READ: bool = false;
 
 fn main() -> Result<()> {
+
+    ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
+
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
 }
 
@@ -63,7 +66,7 @@ impl App for RayCaster {
         let depth = 8;
         let octtree_controller = OcttreeController::new(
             context,
-            Octtree::new(depth, 0, OcttreeFill::SpareseTree), 
+            Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree), 
             100000,
             1000,
             10000
@@ -152,31 +155,25 @@ impl App for RayCaster {
             let mut render_counter = 0;
             let mut needs_children_counter = 0;
 
-            if cfg!(debug_assertions)
-            {
-                // Debug data from load shader
-                render_counter = request_data[self.octtree_controller.transfer_size] as usize;
-                needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
+            // Debug data from load shader
+            render_counter = request_data[self.octtree_controller.transfer_size] as usize;
+            needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
 
-                gui.render_counter = render_counter;
-                gui.needs_children_counter = needs_children_counter;
+            gui.render_counter = render_counter;
+            gui.needs_children_counter = needs_children_counter;
 
-                request_data.truncate(self.octtree_controller.transfer_size);
-            }
+            request_data.truncate(self.octtree_controller.transfer_size);
             
             let (requested_nodes, transfer_counter) = self.octtree_controller.get_requested_nodes(&request_data);
             self.loader.transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
             
-            if cfg!(debug_assertions)
-            {
-                gui.transfer_counter = transfer_counter;
+            gui.transfer_counter = transfer_counter;
 
-                if PRINT_DEBUG_LOADING{
-                    log::debug!("Render Counter: {:?}", &render_counter);
-                    log::debug!("Needs Children Counter: {:?}", &needs_children_counter);
-                    log::debug!("Transfer Counter: {:?}", &transfer_counter);
-                    log::debug!("Request Data: {:?}", &request_data);
-                }
+            if PRINT_DEBUG_LOADING{
+                log::debug!("Render Counter: {:?}", &render_counter);
+                log::debug!("Needs Children Counter: {:?}", &needs_children_counter);
+                log::debug!("Transfer Counter: {:?}", &transfer_counter);
+                log::debug!("Request Data: {:?}", &request_data);
             }
         }
 

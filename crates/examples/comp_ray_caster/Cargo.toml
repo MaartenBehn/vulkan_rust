@@ -12,6 +12,7 @@ rand_chacha.workspace = true
 shuffle.workspace = true
 noise.workspace = true
 palette.workspace = true
+indicatif.workspace = true
 
 app = { path = "../../libs/app" }
 gui = { path = "../../libs/gui" }

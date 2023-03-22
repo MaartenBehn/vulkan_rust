@@ -6,6 +6,7 @@ use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use noise::{NoiseFn, Perlin};
 use palette::{Gradient, LinSrgb};
+use indicatif::ProgressBar;
 
 const OCTTREE_CONFIG: [[u32; 3]; 8] = [
     [0, 0, 0],
@@ -42,6 +43,13 @@ pub struct OcttreeNode {
     bit_field: u32,
 }
 
+pub struct CreateSparceOcttreeData{
+    rng: StdRng,
+    perlin: Perlin,
+    gradient: Gradient<Rgb<Linear<Srgb>, f64>, Vec<(f64, Rgb<Linear<Srgb>, f64>)>>,
+    bar: ProgressBar,
+}
+
 impl Octtree{
     pub fn new(depth: usize, mut seed: u64, fill_kind: OcttreeFill) -> Self {
         let mut octtree = Octtree{
@@ -55,21 +63,18 @@ impl Octtree{
             let mut seed_rng= rand::thread_rng();
             seed = seed_rng.gen();
         }
-       
+
         log::info!("Octtree Seed: {:?}", seed);
-        let mut rng = StdRng::seed_from_u64(seed);
-       
+        
+        
         match fill_kind {
             OcttreeFill::Sphere => {
+                log::info!("Building Sphere.");
                 octtree.inital_fill_sphere(0, 0, [0, 0, 0]); 
             },
             OcttreeFill::SpareseTree => {
-                let perlin = Perlin::new(seed as u32);
-                let gradient = Gradient::new(vec![
-                    LinSrgb::new(1.0, 0.56, 0.0),
-                    LinSrgb::new(0.4, 0.4, 0.4),
-                ]);
-                octtree.inital_fill_sparse_tree(0, 0, [0, 0, 0], &mut rng, &perlin, &gradient, true);
+                log::info!("Building Sparse Octtree:");
+                octtree.inital_fill_sparse_tree(0, 0, [0, 0, 0], true, &mut CreateSparceOcttreeData::new(seed, octtree.max_size));
             },
         }
 
@@ -79,10 +84,10 @@ impl Octtree{
     }
 
     pub fn get_max_tree_size(depth: usize) -> usize {
-        (1 - i32::pow(8, (depth + 1) as u32) / (1 - 8) - 1) as usize
+        ((i64::pow(8, (depth + 1) as u32) - 1) / 7)as usize
     }
 
-    fn get_child_id(node_id: u32, child_nr: u32, depth: u32) -> u32{
+    pub fn get_child_id(node_id: u32, child_nr: u32, depth: u32) -> u32{
         let child_size = ((1 - i32::pow(8, depth)) / -7) as u32;
         return (node_id + child_size * child_nr + 1) as u32;
     }
@@ -133,24 +138,25 @@ impl Octtree{
         &mut self, 
         i: usize, 
         depth: usize, 
-        pos: [u32; 3], 
-        rng: &mut impl Rng, 
-        perlin: &Perlin, 
-        gradient: &Gradient<Rgb<Linear<Srgb>, f64>, Vec<(f64, Rgb<Linear<Srgb>, f64>)>>, 
-        parent_filled: bool) {
+        pos: [u32; 3],  
+        parent_filled: bool,
+        data: &mut CreateSparceOcttreeData,
+    ) {
 
-        let rand_float: f32 = rng.gen();
+        data.bar.set_position(i as u64);
+
+        let rand_float: f32 = data.rng.gen();
         let filled = parent_filled && rand_float > 0.15;
 
         let pos_mult = 0.05;
         let mat_id = if filled {
 
-            let a = perlin.get([
+            let a = data.perlin.get([
                 (pos[0] as f64 * pos_mult) + 0.1, 
                 (pos[1] as f64 * pos_mult * 2.0) + 0.2, 
                 (pos[2] as f64 * pos_mult * 3.0) + 0.3]).abs();
 
-            let color = gradient.get(a);
+            let color = data.gradient.get(a);
 
             ((color.red * 255.0) as u32) * 255 * 255 + ((color.green * 255.0) as u32) * 255 + ((color.blue * 255.0) as u32) 
         }else{
@@ -173,7 +179,7 @@ impl Octtree{
                     pos[2] + OCTTREE_CONFIG[j][2] * inverse_depth,
                     ];
                 
-                self.inital_fill_sparse_tree(child_index, depth + 1, new_pos, rng, perlin, gradient, filled);
+                self.inital_fill_sparse_tree(child_index, depth + 1, new_pos, filled, data);
             }
         }
     }
@@ -224,3 +230,18 @@ impl OcttreeNode{
         ((self.bit_field >> 16) & 1) == 1
     }
 }
+
+impl CreateSparceOcttreeData{
+    fn new(seed: u64, max_tree_size: usize) -> Self {
+        Self { 
+            rng: StdRng::seed_from_u64(seed), 
+            perlin: Perlin::new(seed as u32), 
+            gradient: Gradient::new(vec![
+                LinSrgb::new(1.0, 0.56, 0.0),
+                LinSrgb::new(0.4, 0.4, 0.4),
+            ]),
+            bar: ProgressBar::new(max_tree_size as u64),
+        }
+    }
+}
+

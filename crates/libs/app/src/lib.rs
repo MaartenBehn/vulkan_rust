@@ -142,9 +142,14 @@ pub fn run<A: App + 'static>(
 ) -> Result<()> {
     
     #[cfg(debug_assertions)]
+    let log_level = LevelFilter::Debug;
+
+    #[cfg(not(debug_assertions))]
+    let log_level = LevelFilter::Info;
+
     CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Debug,
+            log_level,
             Config::default(),
             TerminalMode::Mixed,
             ColorChoice::Auto,

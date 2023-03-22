@@ -38,8 +38,13 @@
             "type": "shell",
         },
         {
-            "label": "run",
+            "label": "run_release",
             "command": "sh scripts/run.sh comp_ray_caster",
+            "type": "shell",
+        },
+        {
+            "label": "run_debug",
+            "command": "sh scripts/run_debug.sh comp_ray_caster",
             "type": "shell",
         },
     ]
