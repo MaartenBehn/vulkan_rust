@@ -180,6 +180,13 @@ impl OcttreeLoader {
         buffer: &CommandBuffer,
         _image_index: usize
     ) -> Result<()> {
+        buffer.pipeline_memory_barriers(&[MemoryBarrier {
+            src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+            src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+            dst_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+            dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
+        }]);
+
         buffer.bind_compute_pipeline(&self.pipeline);
 
         buffer.bind_descriptor_sets(
@@ -194,6 +201,7 @@ impl OcttreeLoader {
             1, 
             1,
         );
+        
         buffer.pipeline_memory_barriers(&[MemoryBarrier {
             src_access_mask: vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
             src_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,

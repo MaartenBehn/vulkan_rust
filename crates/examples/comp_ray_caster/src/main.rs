@@ -63,7 +63,7 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Octtree");
-        let depth = 8;
+        let depth = 10;
         let octtree_controller = OcttreeController::new(
             context,
             Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree), 
