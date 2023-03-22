@@ -80,6 +80,13 @@ impl Octtree{
 
         octtree.size = octtree.nodes.len();
 
+        /* 
+        for i in 0..20{
+            let max_tree = Self::get_max_tree_size(i);
+            log::info!("{}: {}", i, max_tree)
+        }
+        */
+
         return octtree;
     }
 
@@ -87,9 +94,9 @@ impl Octtree{
         ((i64::pow(8, (depth + 1) as u32) - 1) / 7)as usize
     }
 
-    pub fn get_child_id(node_id: u32, child_nr: u32, depth: u32) -> u32{
-        let child_size = ((1 - i32::pow(8, depth)) / -7) as u32;
-        return (node_id + child_size * child_nr + 1) as u32;
+    pub fn get_child_id(node_id: usize, child_nr: usize, depth: usize) -> usize {
+        let child_size = Self::get_max_tree_size(depth - 1);
+        return node_id + child_size * child_nr + 1;
     }
 
     fn inital_fill_sphere(&mut self, i: usize, depth: usize, pos: [u32; 3]) -> usize {
@@ -114,7 +121,7 @@ impl Octtree{
                 
                 let inverse_depth = u32::pow(2, (self.depth - depth - 1) as u32);
 
-                let child_index = Self::get_child_id(i as u32, j as u32, (self.depth - depth) as u32) as usize;
+                let child_index = Self::get_child_id(i, j , self.depth - depth);
                 
                 let new_pos = [
                     pos[0] + OCTTREE_CONFIG[j][0] * inverse_depth, 
@@ -171,7 +178,7 @@ impl Octtree{
                 
                 let inverse_depth = u32::pow(2, (self.depth - depth - 1) as u32);
 
-                let child_index = Self::get_child_id(i as u32, j as u32, (self.depth - depth) as u32) as usize;
+                let child_index = Self::get_child_id(i, j, self.depth - depth);
                 
                 let new_pos = [
                     pos[0] + OCTTREE_CONFIG[j][0] * inverse_depth, 

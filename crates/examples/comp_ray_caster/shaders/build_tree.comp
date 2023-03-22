@@ -126,8 +126,20 @@ void reBuild(uint index){
 }
 
 uint getChildId(uint nodeId, uint childNr, uint depth){
-    int childSize = int((1 - pow(8, depth)) / -7);
-    return uint(nodeId + childSize * childNr + 1);
+    uint treeSizes[11] = uint[](
+        1,
+        9,
+        73,
+        585,
+        4681,
+        37449,
+        299593,
+        2396745,
+        19173961,
+        153391689,
+        1227133513
+    );
+    return uint(nodeId + treeSizes[depth - 1] * childNr + 1);
 }
 
 void buildNode(uint nodeIndex){
