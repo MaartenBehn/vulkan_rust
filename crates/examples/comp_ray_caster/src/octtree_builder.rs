@@ -26,7 +26,7 @@ impl OcttreeBuilder{
     ) -> Result<Self> {
 
         let descriptor_pool = context.create_descriptor_pool(
-            2,
+            4,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,

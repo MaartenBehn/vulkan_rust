@@ -1,7 +1,7 @@
 
 use std::time::{Duration};
 
-use app::anyhow::{Result, ensure};
+use app::anyhow::{Result, ensure, Ok};
 use app::glam::{Vec3};
 use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
@@ -32,11 +32,18 @@ const APP_NAME: &str = "Ray Caster";
 const PRINT_DEBUG_LOADING: bool = false;
 const MOVEMENT_DEBUG_READ: bool = false;
 
-fn main() -> Result<()> {
 
+fn start() -> Result<()>{
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
-    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)
+    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
+    Ok(())
+}
+fn main() {
+    let result = start();
+    if result.is_err() {
+        log::error!("{}", result.unwrap_err());
+    }
 }
 
 #[allow(dead_code)]
@@ -63,13 +70,13 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Octtree");
-        let depth = 10;
+        let depth = 4;
         let octtree_controller = OcttreeController::new(
             context,
             Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree), 
-            100000,
-            1000,
-            10000
+            10000,
+            100,
+            1000
         )?;
 
         log::info!("Creating Materials");
