@@ -1,9 +1,9 @@
 - [x] Adding Compute Pipeline
     - [x] Compute Render Example
 
-- [ ] Voxel Rendering
-    - [ ] Simple Ray Caster
-    - [ ] Voxle Octtree
-    - [ ] LOD?
-    - [ ] Voxel streaming
+- [x] Voxel Rendering
+    - [x] Simple Ray Caster
+    - [x] Voxle Octtree
+    - [x] LOD?
+    - [x] Voxel streaming
     - [ ] Ray casting and mirrors?
