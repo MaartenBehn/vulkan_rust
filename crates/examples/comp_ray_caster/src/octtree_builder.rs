@@ -26,7 +26,7 @@ impl OcttreeBuilder{
     ) -> Result<Self> {
 
         let descriptor_pool = context.create_descriptor_pool(
-            4,
+            2,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,
@@ -55,22 +55,6 @@ impl OcttreeBuilder{
                 ..Default::default()
             },
         ])?;
-
-        let descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
-        descriptor_set.update(&[
-            WriteDescriptorSet {
-                binding: 0,
-                kind: WriteDescriptorSetKind::StorageBuffer { 
-                    buffer: &octtree_buffer
-                } 
-            },
-            WriteDescriptorSet {
-                binding: 1,
-                kind: WriteDescriptorSetKind::UniformBuffer {  
-                    buffer: &octtree_info_buffer
-                } 
-            },
-        ]);
 
         let descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
         descriptor_set.update(&[
