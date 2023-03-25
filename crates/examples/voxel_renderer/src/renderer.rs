@@ -28,7 +28,7 @@ pub struct ComputeUbo {
     pub debug_scale: u32,
 
     pub pos: Vec3,
-    pub fill_1: u32,
+    pub use_branchless: u32,
 
     pub dir: Vec3,
     pub fill_2: u32,

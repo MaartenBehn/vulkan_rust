@@ -145,7 +145,7 @@ impl App for RayCaster {
             mode: gui.mode,
             debug_scale: gui.debug_scale,
             pos: base.camera.position,
-            fill_1: 0,
+            use_branchless: gui.use_branchless as u32,
             dir: base.camera.direction,
             fill_2: 0,
         }])?;
@@ -284,7 +284,9 @@ pub struct Gui {
     octtree_buffer_size: usize,
 
     transfer_counter: usize,
-    transfer_buffer_size: usize
+    transfer_buffer_size: usize,
+
+    use_branchless: bool,
 }
 
 impl app::Gui for Gui {
@@ -303,6 +305,8 @@ impl app::Gui for Gui {
             octtree_buffer_size: 0,
             transfer_counter: 0,
             transfer_buffer_size: 0,
+
+            use_branchless: false,
         })
     }
 
@@ -351,11 +355,15 @@ impl app::Gui for Gui {
                 let needs_children = self.needs_children_counter;
                 ui.text(format!("Needs Children: {needs_children}"));
 
-
                 let transfer_counter = self.transfer_counter;
                 let percent = (self.transfer_counter as f32 / self.transfer_buffer_size as f32) * 100.0; 
                 ui.text(format!("Transfered Nodes: {transfer_counter} ({:.0}%)", percent));
 
+                let mut use_branchless = self.use_branchless;
+                if ui.radio_button_bool("Use Branchless", use_branchless){
+                    use_branchless = !use_branchless;
+                }
+                self.use_branchless = use_branchless;
             });
     }
 }

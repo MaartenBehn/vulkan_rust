@@ -7,8 +7,8 @@ layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 layout(binding = 0, rgba8) uniform writeonly image2D img;
 
 layout(binding = 1) uniform UniformBufferObject {
-    vec4 screen_size; // z is mode as u32, w debug scale
-    vec3 pos;
+    vec4 screen_size;   // z is mode as u32, w debug scale
+    vec4 pos;           // w is use branchless
     vec3 dir;
 } ubo;
 
@@ -19,6 +19,8 @@ uint getMode(){
 uint getDebugScale(){
     return uint(floatBitsToUint(ubo.screen_size.w));
 }
+
+#define USE_BRANCHLESS bool(floatBitsToUint(ubo.pos.w))
 
 // Octtree Start
 #define Bit_8_MAX 255
@@ -84,6 +86,8 @@ layout(binding = 3) uniform OcttreeInfo {
 #define SET_RENDER_FLAG_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] |= 1
 #define RESET_RENDER_FLAG_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~1
 
+#define SET_RENDER_FLAG_BY_INDEX_BRANCHLESS(index, flag) octtreeBuffer.octtree[index].dynamik_data[3] |= (1 * flag)
+
 // Needs Child
 #define GET_NEEDS_CHILD(node, childNr) bool(node.dynamik_data[3] & (1 << (16 + childNr)))
 #define SET_NEEDS_CHILD(node, childNr) node.dynamik_data[3] |= (1 << (16 + childNr))
@@ -92,6 +96,8 @@ layout(binding = 3) uniform OcttreeInfo {
 #define GET_NEEDS_CHILD_BY_INDEX(index, childNr) bool(octtreeBuffer.octtree[index].dynamik_data[3] & (1 << (16 + childNr)))
 #define SET_NEEDS_CHILD_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr))
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
+
+#define SET_NEEDS_CHILD_BY_INDEX_BRANCHLESS(index, childNr, flag) octtreeBuffer.octtree[index].dynamik_data[3] |= ((1 * flag) << (16 + childNr)) 
 
 // ID
 #define GET_NODE_ID(node) uvec2(node.static_data[0], node.static_data[1])
@@ -107,7 +113,7 @@ layout(binding = 3) uniform OcttreeInfo {
 
 // Leaf
 #define GET_NODE_LEAF(node) (node.static_data[3] >> 16) & 1
-#define GET_NODE_LEAF_BY_INDEX(node) (octtreeBuffer.octtree[index].static_data[3] >> 16) & 1
+#define GET_NODE_LEAF_BY_INDEX(index) (octtreeBuffer.octtree[index].static_data[3] >> 16) & 1
 
 
 // Octtree Info
@@ -125,7 +131,7 @@ layout(std430, binding = 4) buffer MaterialBuffer {
 
 
 #define VIEW_MULTI 0.01
-#define MAX_STEPS 1000
+#define MAX_STEPS 100
 #define RAY_POS_OFFSET 0.001
 
 vec3 getColorGradient(float x){
@@ -318,7 +324,7 @@ uint getChildFromPos(uvec3 pos){
     return pos.x * 4 + pos.y * 2 + pos.z;
 }
 
-uint getSizeFromDepth(uint depth){
+uint getSizeFromDepth(uint depth, uint octtree_depth){
     uint nodeSizes[20] = uint[](
         1,
         2,
@@ -341,15 +347,16 @@ uint getSizeFromDepth(uint depth){
         262144,
         524288
     );
-    return nodeSizes[OCTTREE_DEPTH - depth];
+    return nodeSizes[octtree_depth - depth];
 }
 
 bool hitOctree(in Ray ray, out vec3 color, out uint counter){
 
+    uint octtree_depth = OCTTREE_DEPTH;
     float tMin;
     float tMax;
     float rayLen = 0;
-    uint rootSize = getSizeFromDepth(0);
+    uint rootSize = getSizeFromDepth(0, octtree_depth);
     
     // Inital Check
     if (getNodePos(ray.pos, rootSize) != uvec3(0)){
@@ -383,19 +390,21 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     
     while(counter < MAX_STEPS){
         bool isEmpty = GET_MATERIAL_ID(node) == 0;
-        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF(node));
+        bool isLeave = depth >= (octtree_depth - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF(node));
 
         if (!isEmpty && !isLeave){
-            depth += 1;
-            size = getSizeFromDepth(depth);
+
+            depth += 1;                                                        
+            size = getSizeFromDepth(depth, octtree_depth);                      
 
             uvec3 newNodePos = getNodePos(ray.pos, size);
             uvec3 posDelta = (newNodePos - nodePos) / size; 
-            nodePos = newNodePos;
+            nodePos = newNodePos;                                               
 
             uint childNr = getChildFromPos(posDelta);
             uint newNodeIndex = GET_CHILD_INDEX(node, childNr);
 
+            // DEBUG
             if (childNr > 7){
                 debugPrintfEXT("Invalid ChildNr: %d", childNr);
                 debugPrintfEXT("Depth: %d Size: %d", depth, size);
@@ -405,38 +414,165 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
                 return false;
             }
 
-            if (newNodeIndex == 0 && childNr <= 7){
-                SET_NEEDS_CHILD_BY_INDEX(nodeIndex, childNr);
-                isLeave = true; // Child is not in Buffer
+            if (newNodeIndex == 0){
+                SET_NEEDS_CHILD_BY_INDEX(nodeIndex, childNr);                   
+                isLeave = true; // Child is not in Buffer                       
             }
             else{
-                nodeIndex = newNodeIndex;
-                SET_RENDER_FLAG_BY_INDEX(newNodeIndex);
-                node = GET_NODE(newNodeIndex);
+                nodeIndex = newNodeIndex;                                       
+                SET_RENDER_FLAG_BY_INDEX(newNodeIndex);                         
+                node = GET_NODE(newNodeIndex);                                  
             }
         }
         else if (isEmpty){
-            checkHit(ray, vec3(nodePos), size, tMin, tMax);
-            ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);
-            rayLen += tMax;
+            checkHit(ray, vec3(nodePos), size, tMin, tMax);                     
+            ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);              
+            rayLen += tMax;                                                          
 
             if (getNodePos(ray.pos, rootSize) == ivec3(0)){
-                nodeIndex = 0;
-                node = root;
-                depth = 0;
-                size = rootSize;
-                nodePos = uvec3(0);
+
+                nodeIndex = 0;                                                  
+                node = root;                                                    
+                depth = 0;                                                      
+                size = rootSize;   
+                nodePos = uvec3(0);                                             
             }
             else{
-                return false; // Ray left Tree.
+                return false; // Ray left Tree.                                 
             }
         }
 
         if (!isEmpty && isLeave){
+            uint materialId = GET_MATERIAL_ID(node);                            
+            color = materialBuffer.materials[materialId].xyz;                   
+            return true; // Ray Hit Node to Render                              
+        }
 
-            uint materialId = GET_MATERIAL_ID(node);
-            color = materialBuffer.materials[materialId].xyz;
-            return true; // Ray Hit Node to Render
+        counter++;
+    }
+
+    return false; // Stopped loop
+}
+
+bool hitOctreeBranchless(in Ray ray, out vec3 color, out uint counter){
+
+    uint octtree_depth = OCTTREE_DEPTH;
+    float tMin;
+    float tMax;
+    float rayLen = 0;
+    uint rootSize = getSizeFromDepth(0, octtree_depth);
+    
+    // Inital Check
+    if (getNodePos(ray.pos, rootSize) != uvec3(0)){
+        bool initalHit = checkHit(ray, vec3(0, 0, 0), rootSize, tMin, tMax);
+        vec3 nextPos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);
+
+        if (!initalHit || (tMin < 0) || (tMax < 0) 
+            || (nextPos.x < 0) || (nextPos.y < 0) || (nextPos.z < 0) 
+            || (nextPos.x >= rootSize) || (nextPos.y >= rootSize) || (nextPos.z >= rootSize)){
+            return false;
+        }
+        else{
+            ray.pos = nextPos;
+            rayLen += tMin;
+        }
+    }
+
+    // Loop
+    uint depth = 0;
+    uint size = rootSize;
+    uint bufferSize = BUFFER_SIZE;
+
+    SET_RENDER_FLAG_BY_INDEX(0);
+    uint nodeIndex = 0;
+    uvec3 nodePos = uvec3(0);
+
+    color = vec3(0);
+    counter = 0;
+    
+    while(counter < MAX_STEPS){
+        bool isEmpty = GET_MATERIAL_ID_BY_INDEX(nodeIndex) == 0;
+        bool isLeave = depth >= (octtree_depth - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF_BY_INDEX(nodeIndex));
+
+        // --- Go Down --- (!isEmpty && !isLeave)
+        uint goDown = uint(!isEmpty && !isLeave);
+        uint notGoDown = 1 - goDown;
+
+            uint newDepth = depth + 1;
+            uint newSize = getSizeFromDepth(newDepth, octtree_depth);
+
+            uvec3 newNodePos = getNodePos(ray.pos, newSize);
+            uvec3 posDelta = (newNodePos - nodePos) / newSize;           
+
+            uint childNr = getChildFromPos(posDelta);
+            // DEBUG
+            if (childNr > 7 && goDown == 1){
+                debugPrintfEXT("Invalid ChildNr: %d", childNr);
+                debugPrintfEXT("Depth: %d Size: %d", depth, size);
+                debugPrintfEXT("Ray pos: %f %f %f Ray Dir %f %f %f", ray.pos.x, ray.pos.y, ray.pos.z, ray.dir.x, ray.dir.y, ray.dir.z);
+                debugPrintfEXT("Note pos: %d %d %d", newNodePos.x, newNodePos.y, newNodePos.z);
+                debugPrintfEXT("Pos Delta: %d %d %d", posDelta.x, posDelta.y, posDelta.z);
+                return false;
+            }
+
+            uint newNodeIndex = GET_CHILD_INDEX_BY_INDEX(nodeIndex, childNr);
+
+            depth = newDepth * goDown + depth * notGoDown;
+            size = newSize * goDown + size * notGoDown;
+            nodePos = newNodePos * goDown + nodePos * nodePos * notGoDown;
+
+            // --- No Child --- (newNodeIndex == 0 && !isEmpty && !isLeave)
+            uint notHasChild = uint(newNodeIndex == 0) * goDown;
+
+                SET_NEEDS_CHILD_BY_INDEX_BRANCHLESS(nodeIndex, childNr, notHasChild);
+                isLeave = true && (notHasChild == 1); // Child is not in Buffer    
+            
+            // --- Has Child --- (newNodeIndex != 0 && !isEmpty && !isLeave)
+            uint hasChild = uint(newNodeIndex != 0) * goDown;
+            notHasChild = 1- hasChild;
+
+                nodeIndex = newNodeIndex * hasChild + nodeIndex * notHasChild;
+                SET_RENDER_FLAG_BY_INDEX_BRANCHLESS(newNodeIndex, hasChild); 
+
+        // --- Move Next --- (isEmpty)
+        uint moveNext = uint(isEmpty);
+        uint notMoveNext = 1 - moveNext;
+
+            float newTMin;
+            float newTMax;
+            checkHit(ray, vec3(nodePos), size, newTMin, newTMax);
+
+            vec3 newRayPos = ray.pos + ray.dir * (newTMax + RAY_POS_OFFSET);
+            float newRayLen = rayLen + newTMax;
+            
+            ray.pos = newRayPos * moveNext + ray.pos * notMoveNext;
+            rayLen = newRayLen * moveNext + rayLen * notMoveNext;
+
+            newNodePos = getNodePos(ray.pos, rootSize);
+
+            // --- In Root --- (newNodePos == uvec3(0) && isEmpty)
+            uint inRoot = uint(newNodePos == uvec3(0)) * moveNext;
+            uint notInRoot = 1 - inRoot;
+
+                depth = depth * notInRoot;
+                size = rootSize * inRoot + size * notInRoot;
+                nodeIndex = nodeIndex * notInRoot;
+                nodePos = nodePos * notInRoot;
+
+            // --- Not In Root --- (newNodePos != uvec3(0) && isEmpty)
+            notInRoot = uint(newNodePos != uvec3(0)) * moveNext;
+
+            if (notInRoot == 1){
+                return false; // Ray left Tree.   
+            }
+
+        // --- Hit Node ---
+        uint hitNode = uint(!isEmpty && isLeave);
+
+        if (hitNode == 1){
+            uint materialId = GET_MATERIAL_ID_BY_INDEX(nodeIndex);                            
+            color = materialBuffer.materials[materialId].xyz;                   
+            return true; // Ray Hit Node to Render                              
         }
 
         counter++;
@@ -450,7 +586,14 @@ void main () {
 
     vec3 color;
     uint counter;
-    bool hit = hitOctree(ray, color, counter);
+
+    bool hit = false;
+    if (USE_BRANCHLESS) {
+        hit = hitOctreeBranchless(ray, color, counter);
+    }
+    else{
+        hit = hitOctree(ray, color, counter);
+    }
 
     if (getMode() == 2) {
         color = getColorGradient((float(counter) / MAX_STEPS));
