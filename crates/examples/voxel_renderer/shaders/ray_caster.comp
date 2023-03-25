@@ -129,7 +129,7 @@ layout(std430, binding = 4) buffer MaterialBuffer {
 
 
 #define VIEW_MULTI 0.01
-#define MAX_STEPS 1000
+#define MAX_STEPS 100
 #define RAY_POS_OFFSET 0.001
 
 vec3 getColorGradient(float x){
@@ -418,26 +418,31 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             }
             else{
                 nodeIndex = newNodeIndex;                                       
-                SET_RENDER_FLAG_BY_INDEX(newNodeIndex);                         
-                node = GET_NODE(newNodeIndex);                                  
+                SET_RENDER_FLAG_BY_INDEX(nodeIndex);                         
+                node = GET_NODE(nodeIndex);                                  
             }
         }
         else if (isEmpty){
             checkHit(ray, vec3(nodePos), size, tMin, tMax);                     
             ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);              
-            rayLen += tMax;                                                          
+            rayLen += tMax; 
 
-            if (getNodePos(ray.pos, rootSize) == ivec3(0)){
+            while (true) {
+                
+                depth -= 1;
 
-                nodeIndex = 0;                                                  
-                node = root;                                                    
-                depth = 0;                                                      
-                size = rootSize;   
-                nodePos = uvec3(0);                                             
-            }
-            else{
-                return false; // Ray left Tree.                                 
-            }
+                size = getSizeFromDepth(depth, octtree_depth);    
+                nodePos = getNodePos(ray.pos, size);
+                nodeIndex = GET_PARENT_INDEX(node);
+                node = GET_NODE(nodeIndex);
+
+                if (nodePos == ivec3(0)){
+                    break;                                          
+                }
+                else if (depth == 0){
+                    return false; // Ray left Tree.                                 
+                }
+            }                                             
         }
 
         if (!isEmpty && isLeave){
