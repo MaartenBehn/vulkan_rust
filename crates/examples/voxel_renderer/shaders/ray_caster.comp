@@ -106,8 +106,12 @@ layout(binding = 3) uniform OcttreeInfo {
 #define GET_NODE_DEPTH_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[3] & Bit_16_MAX
 
 // Leaf
-#define GET_NODE_LEAF(node) (node.static_data[3] >> 16) & 1
-#define GET_NODE_LEAF_BY_INDEX(node) (octtreeBuffer.octtree[index].static_data[3] >> 16) & 1
+#define GET_NODE_LEAF(node) bool((node.static_data[3] >> 16) & 1)
+#define GET_NODE_LEAF_BY_INDEX(node) bool((octtreeBuffer.octtree[index].static_data[3] >> 16) & 1)
+
+// Empty
+#define GET_NODE_EMPTY(node) bool((node.static_data[3] >> 17) & 1)
+#define GET_NODE_EMPTY_BY_INDEX(node) bool((octtreeBuffer.octtree[index].static_data[3] >> 17) & 1)
 
 
 // Octtree Info
@@ -383,11 +387,11 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     counter = 0;
     
     while(counter < MAX_STEPS){
-        bool isEmpty = GET_MATERIAL_ID(node) == 0;
-        bool isLeave = depth >= (octtree_depth - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF(node));
+        bool isEmpty = GET_NODE_EMPTY(node);
+        bool isLeave = GET_NODE_LEAF(node) || depth >= (octtree_depth - (rayLen * VIEW_MULTI));
 
         if (!isEmpty && !isLeave){
-
+            
             depth += 1;                                                        
             size = getSizeFromDepth(depth, octtree_depth);                      
 

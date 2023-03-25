@@ -5,6 +5,8 @@ use crate::{Octtree, octtree_node::OcttreeNode, OCTTREE_CONFIG};
 impl Octtree{
     pub fn inital_fill_sphere(&mut self, id: u64, depth: u16, pos: [u64; 3]) -> u64 {
 
+        let mat_id = (pos[0] % 255) * 255 * 255 + (pos[1] % 255) * 255 + (pos[2] % 255);
+
         let radius = f64::powf(2.0, self.depth as f64) / 2.0;
         let dist = DVec3::new(
             pos[0] as f64 - radius, 
@@ -12,12 +14,7 @@ impl Octtree{
             pos[2] as f64 - radius
         ).length();
 
-        let mut mat_id = 0;
-        if dist < radius {
-            mat_id = (pos[0] % 255) * 255 * 255 + (pos[1] % 255) * 255 + (pos[2] % 255);
-        }
-
-        self.nodes.push(OcttreeNode::new(id as u64, mat_id as u32, depth as u16, depth >= self.depth));
+        self.nodes.push(OcttreeNode::new(id as u64, mat_id as u32, depth as u16, depth >= self.depth, dist < radius));
 
         let mut new_id = id + 1;
         if depth < self.depth {
@@ -35,10 +32,12 @@ impl Octtree{
                 
                 new_id = self.inital_fill_sphere(new_id, depth + 1, new_pos);
 
-                let child_material = self.nodes[child_index as usize].get_mat_id();
-                if child_material != 0 {
-                    self.nodes[id as usize].set_mat_id(child_material);
+                if !self.nodes[child_index as usize].get_empty() {
+                    self.nodes[id as usize].set_empty(false);
                 }
+
+                let child_material = self.nodes[child_index as usize].get_mat_id();
+                self.nodes[id as usize].set_mat_id(child_material);
             }
         }
 

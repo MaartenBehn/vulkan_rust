@@ -31,22 +31,17 @@ impl Octtree{
         let filled = parent_filled && rand_float > 0.15;
 
         let pos_mult = 0.05;
-        let mat_id = if filled {
 
-            let a = data.perlin.get([
-                (pos[0] as f64 * pos_mult) + 0.1, 
-                (pos[1] as f64 * pos_mult * 2.0) + 0.2, 
-                (pos[2] as f64 * pos_mult * 3.0) + 0.3]).abs();
-
-            let color = data.gradient.get(a);
-
-            ((color.red * 255.0) as u32) * 255 * 255 + ((color.green * 255.0) as u32) * 255 + ((color.blue * 255.0) as u32) 
-        }else{
-            0
-        };
+        let a = data.perlin.get([
+            (pos[0] as f64 * pos_mult) + 0.1, 
+            (pos[1] as f64 * pos_mult * 2.0) + 0.2, 
+            (pos[2] as f64 * pos_mult * 3.0) + 0.3]).abs();
+        
+        let color = data.gradient.get(a);
+        let mat_id = ((color.red * 255.0) as u32) * 255 * 255 + ((color.green * 255.0) as u32) * 255 + ((color.blue * 255.0) as u32);
 
         let is_leaf = !filled || depth >= self.depth;
-        self.nodes.push(OcttreeNode::new(id, mat_id, depth, is_leaf));
+        self.nodes.push(OcttreeNode::new(id, mat_id, depth, is_leaf, !filled));
 
         if !is_leaf {
             for j in 0..8 {

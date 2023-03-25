@@ -15,7 +15,7 @@ pub struct OcttreeNode {
 }
 
 impl OcttreeNode{
-    pub fn new(node_id: u64, mat_id: u32, depth: u16, leaf: bool) -> Self {
+    pub fn new(node_id: u64, mat_id: u32, depth: u16, leaf: bool, empty: bool) -> Self {
         let mut node = OcttreeNode{
             node_id_0: 0,
             node_id_1: 0,
@@ -26,6 +26,7 @@ impl OcttreeNode{
         node.set_node_id(node_id);
         node.set_depth(depth);
         node.set_leaf(leaf);
+        node.set_empty(empty);
 
         node
     }
@@ -52,11 +53,19 @@ impl OcttreeNode{
     }
 
     pub fn set_leaf(&mut self, leaf: bool) {
-        self.bit_field = ((leaf as u32) << 16) + (self.bit_field & LOWER16BITS);
+        self.bit_field = ((leaf as u32) << 16) + (self.bit_field & !(1 << 16));
     }
 
     pub fn get_leaf(&self) -> bool {
         ((self.bit_field >> 16) & 1) == 1
+    }
+
+    pub fn set_empty(&mut self, empty: bool) {
+        self.bit_field = ((empty as u32) << 17) + (self.bit_field & !(1 << 17));
+    }
+
+    pub fn get_empty(&self) -> bool {
+        ((self.bit_field >> 17) & 1) == 1
     }
 
     pub fn set_mat_id(&mut self, mat_id: u32) {
