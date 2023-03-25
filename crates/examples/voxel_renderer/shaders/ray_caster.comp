@@ -318,7 +318,7 @@ uint getChildFromPos(uvec3 pos){
     return pos.x * 4 + pos.y * 2 + pos.z;
 }
 
-uint getSizeFromDepth(uint depth){
+uint getSizeFromDepth(uint depth, uint octtree_depth){
     uint nodeSizes[20] = uint[](
         1,
         2,
@@ -341,15 +341,16 @@ uint getSizeFromDepth(uint depth){
         262144,
         524288
     );
-    return nodeSizes[OCTTREE_DEPTH - depth];
+    return nodeSizes[octtree_depth - depth];
 }
 
 bool hitOctree(in Ray ray, out vec3 color, out uint counter){
 
+    uint octtree_depth = OCTTREE_DEPTH;
     float tMin;
     float tMax;
     float rayLen = 0;
-    uint rootSize = getSizeFromDepth(0);
+    uint rootSize = getSizeFromDepth(0, octtree_depth);
     
     // Inital Check
     if (getNodePos(ray.pos, rootSize) != uvec3(0)){
@@ -383,19 +384,21 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     
     while(counter < MAX_STEPS){
         bool isEmpty = GET_MATERIAL_ID(node) == 0;
-        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF(node));
+        bool isLeave = depth >= (octtree_depth - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF(node));
 
         if (!isEmpty && !isLeave){
-            depth += 1;
-            size = getSizeFromDepth(depth);
+
+            depth += 1;                                                        
+            size = getSizeFromDepth(depth, octtree_depth);                      
 
             uvec3 newNodePos = getNodePos(ray.pos, size);
             uvec3 posDelta = (newNodePos - nodePos) / size; 
-            nodePos = newNodePos;
+            nodePos = newNodePos;                                               
 
             uint childNr = getChildFromPos(posDelta);
             uint newNodeIndex = GET_CHILD_INDEX(node, childNr);
 
+            // DEBUG
             if (childNr > 7){
                 debugPrintfEXT("Invalid ChildNr: %d", childNr);
                 debugPrintfEXT("Depth: %d Size: %d", depth, size);
@@ -405,38 +408,38 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
                 return false;
             }
 
-            if (newNodeIndex == 0 && childNr <= 7){
-                SET_NEEDS_CHILD_BY_INDEX(nodeIndex, childNr);
-                isLeave = true; // Child is not in Buffer
+            if (newNodeIndex == 0){
+                SET_NEEDS_CHILD_BY_INDEX(nodeIndex, childNr);                   
+                isLeave = true; // Child is not in Buffer                       
             }
             else{
-                nodeIndex = newNodeIndex;
-                SET_RENDER_FLAG_BY_INDEX(newNodeIndex);
-                node = GET_NODE(newNodeIndex);
+                nodeIndex = newNodeIndex;                                       
+                SET_RENDER_FLAG_BY_INDEX(newNodeIndex);                         
+                node = GET_NODE(newNodeIndex);                                  
             }
         }
         else if (isEmpty){
-            checkHit(ray, vec3(nodePos), size, tMin, tMax);
-            ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);
-            rayLen += tMax;
+            checkHit(ray, vec3(nodePos), size, tMin, tMax);                     
+            ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);              
+            rayLen += tMax;                                                          
 
             if (getNodePos(ray.pos, rootSize) == ivec3(0)){
-                nodeIndex = 0;
-                node = root;
-                depth = 0;
-                size = rootSize;
-                nodePos = uvec3(0);
+
+                nodeIndex = 0;                                                  
+                node = root;                                                    
+                depth = 0;                                                      
+                size = rootSize;   
+                nodePos = uvec3(0);                                             
             }
             else{
-                return false; // Ray left Tree.
+                return false; // Ray left Tree.                                 
             }
         }
 
         if (!isEmpty && isLeave){
-
-            uint materialId = GET_MATERIAL_ID(node);
-            color = materialBuffer.materials[materialId].xyz;
-            return true; // Ray Hit Node to Render
+            uint materialId = GET_MATERIAL_ID(node);                            
+            color = materialBuffer.materials[materialId].xyz;                   
+            return true; // Ray Hit Node to Render                              
         }
 
         counter++;
