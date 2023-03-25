@@ -2,6 +2,7 @@
 .idea
 *.spv
 *log*
+
 movement.txt
 perf*
 graph.png

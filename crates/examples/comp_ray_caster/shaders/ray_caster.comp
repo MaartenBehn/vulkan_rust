@@ -94,8 +94,8 @@ layout(binding = 3) uniform OcttreeInfo {
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 // ID
-#define GET_NODE_ID(node) node.static_data[0]
-#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define GET_NODE_ID(node) uvec2(node.static_data[0], node.static_data[1])
+#define GET_NODE_ID_BY_INDEX(index) uvec2(octtreeBuffer.octtree[index].static_data[0], octtreeBuffer.octtree[index].static_data[1])
 
 // Material
 #define GET_MATERIAL_ID(node) node.static_data[2]
@@ -111,15 +111,12 @@ layout(binding = 3) uniform OcttreeInfo {
 
 
 // Octtree Info
-#define TREE_SIZE octtreeInfo.data_0[0]
-#define BUFFER_SIZE octtreeInfo.data_0[1]
-#define TRANSFER_SIZE octtreeInfo.data_0[2]
-#define OCTTREE_DEPTH octtreeInfo.data_0[3]
+#define TREE_SIZE uvec2(octtreeInfo.data_0[0], octtreeInfo.data_0[1])
+#define BUFFER_SIZE octtreeInfo.data_0[2]
+#define TRANSFER_SIZE octtreeInfo.data_0[3]
 
-#define BUILD_OFFSET octtreeInfo.data_1[0]
-#define RE_BUILD octtreeInfo.data_1[1]
-#define LODER_SIZE octtreeInfo.data_1[2]
-#define DEBUG bool(octtreeInfo.data_1[3])
+#define OCTTREE_DEPTH octtreeInfo.data_1[0]
+#define LODER_SIZE octtreeInfo.data_1[1]
 // Octtree End
 
 layout(std430, binding = 4) buffer MaterialBuffer {
@@ -163,8 +160,11 @@ vec3 draw_buffer_debuger(){
     
     vec3 color = vec3(0);
     // Static Data
-    if (uv.y < 0.1) {
-        color = getColorGradient(float(GET_NODE_ID(node)) / float(TRANSFER_SIZE));
+    if (uv.y < 0.05) {
+        color = getColorGradient(float(GET_NODE_ID(node)[0]) / float(TREE_SIZE[0]));
+    }
+    else if (uv.y < 0.1) {
+        color = getColorGradient(float(GET_NODE_ID(node)[1]) / float(TREE_SIZE[1]));
     }
     else if (uv.y < 0.15) {
         color = vec3(GET_MATERIAL_ID(node));
@@ -361,7 +361,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     
     while(counter < MAX_STEPS){
         bool isEmpty = GET_MATERIAL_ID(node) == 0;
-        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF(node));
+        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * VIEW_MULTI)); // || bool(GET_NODE_LEAF(node));
 
         if (!isEmpty && !isLeave){
             depth += 1;

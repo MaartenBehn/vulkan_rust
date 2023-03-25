@@ -79,8 +79,8 @@ layout(binding = 1) uniform OcttreeInfo {
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 // ID
-#define GET_NODE_ID(node) node.static_data[0]
-#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define GET_NODE_ID(node) uvec2(node.static_data[0], node.static_data[1])
+#define GET_NODE_ID_BY_INDEX(index) uvec2(octtreeBuffer.octtree[index].static_data[0], octtreeBuffer.octtree[index].static_data[1])
 
 // Material
 #define GET_MATERIAL_ID(node) node.static_data[2]
@@ -96,15 +96,12 @@ layout(binding = 1) uniform OcttreeInfo {
 
 
 // Octtree Info
-#define TREE_SIZE octtreeInfo.data_0[0]
-#define BUFFER_SIZE octtreeInfo.data_0[1]
-#define TRANSFER_SIZE octtreeInfo.data_0[2]
-#define OCTTREE_DEPTH octtreeInfo.data_0[3]
+#define TREE_SIZE uvec2(octtreeInfo.data_0[0], octtreeInfo.data_0[1])
+#define BUFFER_SIZE octtreeInfo.data_0[2]
+#define TRANSFER_SIZE octtreeInfo.data_0[3]
 
-#define BUILD_OFFSET octtreeInfo.data_1[0]
-#define RE_BUILD octtreeInfo.data_1[1]
-#define LODER_SIZE octtreeInfo.data_1[2]
-#define DEBUG bool(octtreeInfo.data_1[3])
+#define OCTTREE_DEPTH octtreeInfo.data_1[0]
+#define LODER_SIZE octtreeInfo.data_1[1]
 // Octtree End
 
 void reBuild(uint index){
@@ -125,63 +122,9 @@ void reBuild(uint index){
     SET_NODE(node, index);
 }
 
-uint getChildId(uint nodeId, uint childNr, uint depth){
-    uint treeSizes[11] = uint[](
-        1,
-        9,
-        73,
-        585,
-        4681,
-        37449,
-        299593,
-        2396745,
-        19173961,
-        153391689,
-        1227133513
-    );
-    return uint(nodeId + treeSizes[depth - 1] * childNr + 1);
-}
-
-void buildNode(uint nodeIndex){
-    uint bufferSize = BUFFER_SIZE;
-    uint octtreeDepth = OCTTREE_DEPTH;
-
-    Node node = GET_NODE(nodeIndex);
-
-    uint depth = GET_NODE_DEPTH(node);
-    uint id = GET_NODE_ID(node);
-
-    for (uint childNr = 0; childNr < 8; childNr++){
-        uint newChildIndex = 0;
-
-        if (octtreeDepth > depth) {
-            uint childId = getChildId(id, childNr, octtreeDepth - depth);
-    
-            for (uint childIndex = 0; childIndex < bufferSize; childIndex++){
-                if (GET_NODE_ID_BY_INDEX(childIndex) == childId){
-                    newChildIndex = childIndex;
-                    break;
-                }
-            }
-        }
-        
-        SET_CHILD_INDEX(node, childNr, newChildIndex);
-
-        if (newChildIndex != 0) {
-            SET_PARENT_INDEX_BY_INDEX(newChildIndex, nodeIndex);
-        }
-    }
-
-    SET_NODE(node, nodeIndex);
-}
-
 void main()
 {
-    uint nodeIndex = gl_GlobalInvocationID.x + BUILD_OFFSET;
+    uint nodeIndex = gl_GlobalInvocationID.x;
 
-    if (RE_BUILD == 1){
-        reBuild(nodeIndex);
-    }else{
-        buildNode(nodeIndex);
-    }
+    reBuild(nodeIndex);
 }

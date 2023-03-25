@@ -1,4 +1,3 @@
-
 use std::time::{Duration};
 
 use app::anyhow::{Result, ensure, Ok};
@@ -7,10 +6,8 @@ use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
+use octtree::{Octtree, OcttreeFill};
 
-
-mod octtree;
-use octtree::*;
 mod octtree_controller;
 use octtree_controller::*;
 mod octtree_builder;
@@ -64,19 +61,20 @@ impl App for RayCaster {
     type Gui = Gui;
 
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
+
         let context = &mut base.context;
 
         let images = &base.swapchain.images;
         let images_len = images.len() as u32;
 
         log::info!("Creating Octtree");
-        let depth = 4;
+        let depth = 9;
         let octtree_controller = OcttreeController::new(
             context,
             Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree), 
-            10000,
-            100,
-            1000
+            50000,
+            1000,
+            10000
         )?;
 
         log::info!("Creating Materials");
@@ -157,19 +155,16 @@ impl App for RayCaster {
         self.loader.load_tree = gui.load && self.frame_counter != 0;
 
         if  self.loader.load_tree {
-            let mut request_data: Vec<u32> = self.loader.request_buffer.get_data_from_buffer(self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)?;
-
-            let mut render_counter = 0;
-            let mut needs_children_counter = 0;
+            let mut request_data: Vec<u32> = self.loader.request_buffer.get_data_from_buffer(REQUEST_STEP * self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)?;
 
             // Debug data from load shader
-            render_counter = request_data[self.octtree_controller.transfer_size] as usize;
-            needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
+            let render_counter = request_data[self.octtree_controller.transfer_size] as usize;
+            let needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
 
             gui.render_counter = render_counter;
             gui.needs_children_counter = needs_children_counter;
 
-            request_data.truncate(self.octtree_controller.transfer_size);
+            request_data.truncate(REQUEST_STEP * self.octtree_controller.transfer_size);
             
             let (requested_nodes, transfer_counter) = self.octtree_controller.get_requested_nodes(&request_data);
             self.loader.transfer_buffer.copy_data_to_buffer(&requested_nodes)?;

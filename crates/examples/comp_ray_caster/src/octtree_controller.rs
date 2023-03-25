@@ -5,7 +5,10 @@ use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::{log, vulkan::Context};
 use app::anyhow::Result;
-use crate::octtree::{Octtree, OcttreeNode};
+use octtree::Octtree;
+use octtree::octtree_node::OcttreeNode;
+
+use crate::octtree_loader::REQUEST_STEP;
 
 
 pub struct OcttreeController{
@@ -22,15 +25,15 @@ pub struct OcttreeController{
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub struct OcttreeInfo {
-    tree_size: u32,
+    tree_size_0: u32,
+    tree_size_1: u32,
     buffer_size: u32,
     transfer_buffer_size: u32,
-    depth: u32,
 
-    build_offset: u32,
-    re_build: u32,
+    depth: u32,
     loader_size: u32,
-    debug: u32,
+    fill_0: u32,
+    fill_1: u32,
 }
 
 impl OcttreeController{
@@ -57,20 +60,18 @@ impl OcttreeController{
             size_of::<OcttreeInfo>() as _,
         )?;
 
-
-        let debug = cfg!(debug_assertions) as u32;
-
         Ok(OcttreeController { 
             octtree, 
             octtree_info: OcttreeInfo { 
-                tree_size:              size as u32, 
+                tree_size_0:            size as u32, 
+                tree_size_1:            (size >> 32) as u32,
                 buffer_size:            buffer_size as u32, 
                 transfer_buffer_size:   transfer_size as u32, 
+
                 depth:                  depth as u32, 
-                build_offset:           0, 
-                re_build:               1, 
                 loader_size:            loader_size as u32, 
-                debug:                  debug,
+                fill_0:                 0,
+                fill_1:                 0,
             },
 
             buffer_size:        buffer_size, 
@@ -82,27 +83,26 @@ impl OcttreeController{
     }
 
     pub fn step(& mut self){
-        self.octtree_info.re_build = 0;
-        //self.octtree_info.build_offset = (self.octtree_info.build_offset + self.build_size as u32) % self.buffer_size as u32;
+        
+        
     }
 
-    pub fn get_requested_nodes(&mut self, requested_ids: &Vec<u32>) -> (Vec<OcttreeNode>, usize) {
+    pub fn get_requested_nodes(&mut self, requested_data: &Vec<u32>) -> (Vec<OcttreeNode>, usize) {
 
         let mut nodes = vec![OcttreeNode::default(); self.transfer_size];
 
         let mut counter = 0;
-        for (i, id) in requested_ids.iter().enumerate() {
+        for i in 0..self.transfer_size {
+            let id = (requested_data[i * REQUEST_STEP] as u64) + ((requested_data[i * REQUEST_STEP + 1] as u64) << 32);
+            let child_nr = requested_data[i * REQUEST_STEP + 2] as usize;
+            let depth = requested_data[i * REQUEST_STEP + 3] as u16;
 
-            if *id >= self.octtree.max_size as u32 {
-                log::error!("Requested Child ID: {:?}", id);
-            }
-
-            if *id <= 0 || *id >= self.octtree.max_size as u32 {
-                continue;
+            if id >= self.octtree.max_size {
+                break;
             }
             counter += 1;
 
-            let seek = *id as u64;
+            let seek = self.octtree.get_child_id(id, child_nr, depth);
             let r = self.octtree.nodes.binary_search_by(|node| node.get_node_id().cmp(&seek));
             match r {
                 Ok(_) => nodes[i] = self.octtree.nodes[r.unwrap()],

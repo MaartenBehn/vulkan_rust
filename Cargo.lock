@@ -283,12 +283,7 @@ version = "0.1.0"
 dependencies = [
  "app",
  "gui",
- "indicatif",
- "noise",
- "palette",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "shuffle",
+ "octtree",
 ]
 
 [[package]]
@@ -1249,6 +1244,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "octtree"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "indicatif",
+ "noise",
+ "palette",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "shuffle",
 ]
 
 [[package]]

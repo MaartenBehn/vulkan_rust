@@ -78,8 +78,8 @@ layout(binding = 1) uniform OcttreeInfo {
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
 // ID
-#define GET_NODE_ID(node) node.static_data[0]
-#define GET_NODE_ID_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[0]
+#define GET_NODE_ID(node) uvec2(node.static_data[0], node.static_data[1])
+#define GET_NODE_ID_BY_INDEX(index) uvec2(octtreeBuffer.octtree[index].static_data[0], octtreeBuffer.octtree[index].static_data[1])
 
 // Material
 #define GET_MATERIAL_ID(node) node.static_data[2]
@@ -95,25 +95,24 @@ layout(binding = 1) uniform OcttreeInfo {
 
 
 // Octtree Info
-#define TREE_SIZE octtreeInfo.data_0[0]
-#define BUFFER_SIZE octtreeInfo.data_0[1]
-#define TRANSFER_SIZE octtreeInfo.data_0[2]
-#define OCTTREE_DEPTH octtreeInfo.data_0[3]
+#define TREE_SIZE uvec2(octtreeInfo.data_0[0], octtreeInfo.data_0[1])
+#define BUFFER_SIZE octtreeInfo.data_0[2]
+#define TRANSFER_SIZE octtreeInfo.data_0[3]
 
-#define BUILD_OFFSET octtreeInfo.data_1[0]
-#define RE_BUILD octtreeInfo.data_1[1]
-#define LODER_SIZE octtreeInfo.data_1[2]
-#define DEBUG bool(octtreeInfo.data_1[3])
+#define OCTTREE_DEPTH octtreeInfo.data_1[0]
+#define LODER_SIZE octtreeInfo.data_1[1]
 // Octtree End
 
 layout(binding = 2) buffer TransferBuffer {
     uvec4 nodes[];
 } transferBuffer;
 
+#define REQUEST_STEP 4 // node id 1, node id 2, child Nr, depth
 layout(binding = 3) buffer RequestBuffer {
-    uint nodes[];
+    uint data[]; 
 } requestBuffer;
 
+#define REQUEST_NOTE_STEP 4 // parent index, child Nr, parent id 1, parent id 2
 layout(binding = 4) buffer RequestNoteBuffer {
     uint data[];
 } requestNoteBuffer;
@@ -180,6 +179,7 @@ uint getChildId(uint nodeId, uint childNr, uint depth){
 
 void main()
 {
+    uvec2 treeSize = TREE_SIZE;
     uint bufferSize = BUFFER_SIZE;
     uint octtreeDepth = OCTTREE_DEPTH;
     uint transferBufferSize = TRANSFER_SIZE;
@@ -198,17 +198,16 @@ void main()
             new_data
         );
 
-        if (GET_NODE_ID(newNode) == 0) {
+        if (GET_NODE_ID(newNode) == uvec2(0)) {
             break;
         }
 
         uint parent_index = requestNoteBuffer.data[counter * 4];
         uint parent_childNr = requestNoteBuffer.data[(counter * 4) + 1];
-        uint check_parent_Id = requestNoteBuffer.data[(counter * 4) + 2];
-        uint check_child_Id = requestNoteBuffer.data[(counter * 4) + 3];
+        uvec2 check_parent_Id = uvec2(requestNoteBuffer.data[(counter * 4) + 2], requestNoteBuffer.data[(counter * 4) + 3]);
 
-        if (GET_NODE_ID(newNode) != check_child_Id || GET_NODE_ID_BY_INDEX(parent_index) != check_parent_Id){
-            debugPrintfEXT("Invalid Node load! Node ID: %d Supposed Node ID: %d Parent ID: %d Supposed Parent ID: %d Head Index: %d Parent Index: %d", GET_NODE_ID(newNode), check_child_Id, GET_NODE_ID_BY_INDEX(parent_index), check_parent_Id, head, parent_index);
+        if (GET_NODE_ID_BY_INDEX(parent_index) != check_parent_Id){
+            debugPrintfEXT("Invalid Node load! Parent ID: %d Supposed Parent ID: %d Head Index: %d Parent Index: %d", GET_NODE_ID_BY_INDEX(parent_index), check_parent_Id, head, parent_index);
             continue;
         }
 
@@ -236,8 +235,8 @@ void main()
 
     bool reqestRunning = true;
     uint reqestHead = 0;
-    uint renderedCounter = requestBuffer.nodes[transferBufferSize];
-    uint needsChilrenCounter = requestBuffer.nodes[transferBufferSize + 1];
+    uint renderedCounter = requestBuffer.data[transferBufferSize];          // DEBUG DATA
+    uint needsChilrenCounter = requestBuffer.data[transferBufferSize + 1];  // DEBUG DATA
 
     for (uint counter = 0; reqestRunning && counter < loaderSize; counter++){
         uint next_head = GET_P_NEXT_BY_INDEX(head);
@@ -257,14 +256,17 @@ void main()
                 if (GET_NEEDS_CHILD_BY_INDEX(head, childNr)){
                     needsChilrenCounter++;
 
+                    uvec2 nodeID = GET_NODE_ID_BY_INDEX(head);
 
-                    uint childId = getChildId(GET_NODE_ID_BY_INDEX(head), childNr, octtreeDepth - GET_NODE_DEPTH_BY_INDEX(head));
+                    requestBuffer.data[reqestHead * REQUEST_STEP + 0] = nodeID[0];
+                    requestBuffer.data[reqestHead * REQUEST_STEP + 1] = nodeID[1];
+                    requestBuffer.data[reqestHead * REQUEST_STEP + 2] = childNr;
+                    requestBuffer.data[reqestHead * REQUEST_STEP + 3] = GET_NODE_DEPTH_BY_INDEX(head);
 
-                    requestBuffer.nodes[reqestHead] = childId;
-                    requestNoteBuffer.data[reqestHead * 4] = head;
-                    requestNoteBuffer.data[(reqestHead * 4) + 1] = childNr;
-                    requestNoteBuffer.data[(reqestHead * 4) + 2] = GET_NODE_ID_BY_INDEX(head);
-                    requestNoteBuffer.data[(reqestHead * 4) + 3] = childId;
+                    requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 0] = head;
+                    requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 1] = childNr;
+                    requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 2] = nodeID[0];
+                    requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 3] = nodeID[1];
 
                     reqestHead++;
                     reqestRunning = reqestHead < transferBufferSize;
@@ -286,15 +288,18 @@ void main()
     requestNoteBuffer.data[transferBufferSize * 4] = head;
 
     while (reqestHead < transferBufferSize){
-        requestBuffer.nodes[reqestHead] = 0;
+        requestBuffer.data[reqestHead * REQUEST_STEP + 0] = treeSize[0];
+        requestBuffer.data[reqestHead * REQUEST_STEP + 1] = treeSize[1];
+        requestBuffer.data[reqestHead * REQUEST_STEP + 2] = 0;
+        requestBuffer.data[reqestHead * REQUEST_STEP + 3] = 0;
 
-        requestNoteBuffer.data[reqestHead * 4] = bufferSize;
-        requestNoteBuffer.data[(reqestHead * 4) + 1] = bufferSize;
-        requestNoteBuffer.data[(reqestHead * 4) + 2] = bufferSize;
-        requestNoteBuffer.data[(reqestHead * 4) + 3] = bufferSize;
+        requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 0] = bufferSize;
+        requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 1] = 0;
+        requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 2] = 0;
+        requestNoteBuffer.data[reqestHead * REQUEST_NOTE_STEP + 3] = 0;
         reqestHead++;
     }
 
-    requestBuffer.nodes[transferBufferSize] = renderedCounter;
-    requestBuffer.nodes[transferBufferSize + 1] = needsChilrenCounter;
+    requestBuffer.data[transferBufferSize] = renderedCounter;          // DEBUG DATA
+    requestBuffer.data[transferBufferSize + 1] = needsChilrenCounter;  // DEBUG DATA
 }

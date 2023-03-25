@@ -7,12 +7,7 @@ authors.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand.workspace = true
-rand_chacha.workspace = true
-shuffle.workspace = true
-noise.workspace = true
-palette.workspace = true
-indicatif.workspace = true
 
 app = { path = "../../libs/app" }
 gui = { path = "../../libs/gui" }
+octtree = { path = "../../libs/octtree" }
