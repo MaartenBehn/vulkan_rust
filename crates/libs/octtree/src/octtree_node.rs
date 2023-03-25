@@ -2,7 +2,6 @@ use app::log;
 
 
 const UPPER16BITS: u32 = (u16::MAX as u32) << 16;
-const LOWER16BITS: u32 = u16::MAX as u32;
 
 #[derive(Clone, Copy, Default)]
 #[allow(dead_code)]

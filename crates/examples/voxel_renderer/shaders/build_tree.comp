@@ -91,8 +91,12 @@ layout(binding = 1) uniform OcttreeInfo {
 #define GET_NODE_DEPTH_BY_INDEX(index) octtreeBuffer.octtree[index].static_data[3] & Bit_16_MAX
 
 // Leaf
-#define GET_NODE_LEAF(node) (node.static_data[3] >> 16) & 1
-#define GET_NODE_LEAF_BY_INDEX(node) (octtreeBuffer.octtree[index].static_data[3] >> 16) & 1
+#define GET_NODE_LEAF(node) bool((node.static_data[3] >> 16) & 1)
+#define GET_NODE_LEAF_BY_INDEX(node) bool((octtreeBuffer.octtree[index].static_data[3] >> 16) & 1)
+
+// Empty
+#define GET_NODE_EMPTY(node) bool((node.static_data[3] >> 17) & 1)
+#define GET_NODE_EMPTY_BY_INDEX(node) bool((octtreeBuffer.octtree[index].static_data[3] >> 17) & 1)
 
 
 // Octtree Info
