@@ -18,6 +18,15 @@
             "args": [],
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "build_release",
-        }
+        },
+        {
+            "name": "Debug Octtree Builder",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/octtree_builder",
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_debug_octtree_builder",
+        },
     ]
 }

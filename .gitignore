@@ -2,6 +2,7 @@
 .idea
 *.spv
 *log*
+*.nodes
 
 movement.txt
 perf*

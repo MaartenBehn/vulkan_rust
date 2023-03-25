@@ -144,8 +144,10 @@ impl App for RayCaster {
             screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
             mode: gui.mode,
             debug_scale: gui.debug_scale,
+
             pos: base.camera.position,
-            fill_1: 0,
+            step_to_root: gui.step_to_root as u32,
+
             dir: base.camera.direction,
             fill_2: 0,
         }])?;
@@ -201,6 +203,34 @@ impl App for RayCaster {
         Ok(())
     }
 
+    fn record_raytracing_commands(
+        &self,
+        base: &BaseApp<Self>,
+        buffer: &CommandBuffer,
+        image_index: usize,
+    ) -> Result<()> {
+        // prevents reports of unused parameters without needing to use #[allow]
+        let _ = base;
+        let _ = buffer;
+        let _ = image_index;
+
+        Ok(())
+    }
+
+    fn record_raster_commands(
+        &self,
+        base: &BaseApp<Self>,
+        buffer: &CommandBuffer,
+        image_index: usize,
+    ) -> Result<()> {
+        // prevents reports of unused parameters without needing to use #[allow]
+        let _ = base;
+        let _ = buffer;
+        let _ = image_index;
+
+        Ok(())
+    }
+
     fn record_compute_commands(
         &self,
         base: &BaseApp<Self>,
@@ -239,34 +269,6 @@ impl App for RayCaster {
 
         Ok(())
     }
-
-    fn record_raytracing_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
-        image_index: usize,
-    ) -> Result<()> {
-        // prevents reports of unused parameters without needing to use #[allow]
-        let _ = base;
-        let _ = buffer;
-        let _ = image_index;
-
-        Ok(())
-    }
-
-    fn record_raster_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
-        image_index: usize,
-    ) -> Result<()> {
-        // prevents reports of unused parameters without needing to use #[allow]
-        let _ = base;
-        let _ = buffer;
-        let _ = image_index;
-
-        Ok(())
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -284,7 +286,9 @@ pub struct Gui {
     octtree_buffer_size: usize,
 
     transfer_counter: usize,
-    transfer_buffer_size: usize
+    transfer_buffer_size: usize,
+
+    step_to_root: bool,
 }
 
 impl app::Gui for Gui {
@@ -303,6 +307,8 @@ impl app::Gui for Gui {
             octtree_buffer_size: 0,
             transfer_counter: 0,
             transfer_buffer_size: 0,
+
+            step_to_root: true,
         })
     }
 
@@ -355,6 +361,12 @@ impl app::Gui for Gui {
                 let transfer_counter = self.transfer_counter;
                 let percent = (self.transfer_counter as f32 / self.transfer_buffer_size as f32) * 100.0; 
                 ui.text(format!("Transfered Nodes: {transfer_counter} ({:.0}%)", percent));
+
+                let mut step_to_root = self.step_to_root;
+                if ui.radio_button_bool("Step to Root", step_to_root){
+                    step_to_root = !step_to_root;
+                }
+                self.step_to_root = step_to_root;
 
             });
     }

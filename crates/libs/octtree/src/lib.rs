@@ -7,6 +7,7 @@ use crate::{sparce_tree::CreateSparceOcttreeData};
 pub mod octtree_node;
 mod sphere;
 mod sparce_tree;
+mod file;
 
 const OCTTREE_CONFIG: [[u64; 3]; 8] = [
     [0, 0, 0],
@@ -25,7 +26,7 @@ pub enum OcttreeFill {
 }
 
 #[derive(Clone)]
-pub struct Octtree{
+pub struct Octtree {
     pub nodes: Vec<OcttreeNode>,
 
     pub depth: u16,

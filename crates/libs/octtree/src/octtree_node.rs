@@ -1,6 +1,5 @@
 use app::log;
 
-
 const UPPER16BITS: u32 = (u16::MAX as u32) << 16;
 
 #[derive(Clone, Copy, Default)]

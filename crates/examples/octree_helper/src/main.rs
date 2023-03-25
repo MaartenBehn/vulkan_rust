@@ -6,7 +6,7 @@ const MAX_DEPTH: u16 = 20;
 fn start() -> Result<()>{
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
-    log_init("octree_builder.log");
+    log_init("octree_helper.log");
 
 
     log::info!("Max tree size:");

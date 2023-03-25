@@ -1,14 +1,21 @@
 use app::{log, anyhow::ensure, anyhow::Result, logger::log_init};
+use octtree::{Octtree, OcttreeFill};
+
+const SAVE_FOLDER: &str = "./assets/octtree";
 
 fn start() -> Result<()>{
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
     log_init("octree_builder.log");
 
-    
+    let depth = 8;
+    let octtree = Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree);
+
+    octtree.save_to_file(SAVE_FOLDER, 100000)?;
     
     Ok(())
 }
+
 fn main() {
     let result = start();
     if result.is_err() {

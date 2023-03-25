@@ -53,6 +53,17 @@
             "command": "sh scripts/run_debug.sh octtree_helper",
             "type": "shell",
         },
+
+        {
+            "label": "build_debug_octtree_builder",
+            "command": "sh scripts/build_debug.sh octtree_builder",
+            "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            }
+        },
     ]
 }
 

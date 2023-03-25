@@ -8,7 +8,7 @@ layout(binding = 0, rgba8) uniform writeonly image2D img;
 
 layout(binding = 1) uniform UniformBufferObject {
     vec4 screen_size; // z is mode as u32, w debug scale
-    vec3 pos;
+    vec4 pos;
     vec3 dir;
 } ubo;
 
@@ -19,6 +19,8 @@ uint getMode(){
 uint getDebugScale(){
     return uint(floatBitsToUint(ubo.screen_size.w));
 }
+
+#define STEP_TO_ROOT bool(floatBitsToUint(ubo.pos.w))
 
 // Octtree Start
 #define Bit_8_MAX 255
@@ -376,6 +378,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     uint depth = 0;
     uint size = rootSize;
     uint bufferSize = BUFFER_SIZE;
+    bool stepToRoot = STEP_TO_ROOT;
 
     SET_RENDER_FLAG_BY_INDEX(0);
     Node root = GET_NODE(0);
@@ -427,22 +430,37 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);              
             rayLen += tMax; 
 
-            while (true) {
-                
-                depth -= 1;
+            if (stepToRoot){
+                if (getNodePos(ray.pos, rootSize) == ivec3(0)){
 
-                size = getSizeFromDepth(depth, octtree_depth);    
-                nodePos = getNodePos(ray.pos, size);
-                nodeIndex = GET_PARENT_INDEX(node);
-                node = GET_NODE(nodeIndex);
-
-                if (nodePos == ivec3(0)){
-                    break;                                          
+                    nodeIndex = 0;                                                  
+                    node = root;                                                    
+                    depth = 0;                                                      
+                    size = rootSize;   
+                    nodePos = uvec3(0);                                             
                 }
-                else if (depth == 0){
+                else{
                     return false; // Ray left Tree.                                 
                 }
-            }                                             
+            }
+            else{
+                while (true) {
+                
+                    depth -= 1;
+
+                    size = getSizeFromDepth(depth, octtree_depth);    
+                    nodePos = getNodePos(ray.pos, size);
+                    nodeIndex = GET_PARENT_INDEX(node);
+                    node = GET_NODE(nodeIndex);
+
+                    if (nodePos == ivec3(0)){
+                        break;                                          
+                    }
+                    else if (depth == 0){
+                        return false; // Ray left Tree.                                 
+                    }
+                }                     
+            }           
         }
 
         if (!isEmpty && isLeave){
