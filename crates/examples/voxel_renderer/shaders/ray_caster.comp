@@ -97,7 +97,7 @@ layout(binding = 3) uniform OcttreeInfo {
 #define SET_NEEDS_CHILD_BY_INDEX(index, childNr) octtreeBuffer.octtree[index].dynamik_data[3] |= (1 << (16 + childNr))
 #define RESET_NEEDS_CHILDREN_BY_INDEX(index) octtreeBuffer.octtree[index].dynamik_data[3] &= ~(Bit_8_MAX << 16)
 
-#define SET_NEEDS_CHILD_BY_INDEX_BRANCHLESS(index, childNr, flag) octtreeBuffer.octtree[index].dynamik_data[3] |= ((1 * flag) << (16 + childNr)) 
+#define SET_NEEDS_CHILD_BY_INDEX_BRANCHLESS(index, childNr, flag) octtreeBuffer.octtree[index].dynamik_data[3] |= ((1 << (16 + childNr)) * flag)
 
 // ID
 #define GET_NODE_ID(node) uvec2(node.static_data[0], node.static_data[1])
@@ -489,6 +489,8 @@ bool hitOctreeBranchless(in Ray ray, out vec3 color, out uint counter){
 
     color = vec3(0);
     counter = 0;
+
+    uint done = 0;
     
     while(counter < MAX_STEPS){
         bool isEmpty = GET_MATERIAL_ID_BY_INDEX(nodeIndex) == 0;
@@ -506,14 +508,16 @@ bool hitOctreeBranchless(in Ray ray, out vec3 color, out uint counter){
 
             uint childNr = getChildFromPos(posDelta);
             // DEBUG
-            if (childNr > 7 && goDown == 1){
+            /*
+            if (childNr > 7 && goDown == 1 && done == 0){
                 debugPrintfEXT("Invalid ChildNr: %d", childNr);
-                debugPrintfEXT("Depth: %d Size: %d", depth, size);
+                debugPrintfEXT("Depth: %d Size: %d", depth, newSize);
                 debugPrintfEXT("Ray pos: %f %f %f Ray Dir %f %f %f", ray.pos.x, ray.pos.y, ray.pos.z, ray.dir.x, ray.dir.y, ray.dir.z);
                 debugPrintfEXT("Note pos: %d %d %d", newNodePos.x, newNodePos.y, newNodePos.z);
                 debugPrintfEXT("Pos Delta: %d %d %d", posDelta.x, posDelta.y, posDelta.z);
                 return false;
             }
+            */
 
             uint newNodeIndex = GET_CHILD_INDEX_BY_INDEX(nodeIndex, childNr);
 
@@ -525,7 +529,7 @@ bool hitOctreeBranchless(in Ray ray, out vec3 color, out uint counter){
             uint notHasChild = uint(newNodeIndex == 0) * goDown;
 
                 SET_NEEDS_CHILD_BY_INDEX_BRANCHLESS(nodeIndex, childNr, notHasChild);
-                isLeave = true && (notHasChild == 1); // Child is not in Buffer    
+                isLeave = (notHasChild == 1); // Child is not in Buffer    
             
             // --- Has Child --- (newNodeIndex != 0 && !isEmpty && !isLeave)
             uint hasChild = uint(newNodeIndex != 0) * goDown;
@@ -533,17 +537,16 @@ bool hitOctreeBranchless(in Ray ray, out vec3 color, out uint counter){
 
                 nodeIndex = newNodeIndex * hasChild + nodeIndex * notHasChild;
                 SET_RENDER_FLAG_BY_INDEX_BRANCHLESS(newNodeIndex, hasChild); 
+        
 
         // --- Move Next --- (isEmpty)
         uint moveNext = uint(isEmpty);
         uint notMoveNext = 1 - moveNext;
 
-            float newTMin;
-            float newTMax;
-            checkHit(ray, vec3(nodePos), size, newTMin, newTMax);
+            checkHit(ray, vec3(nodePos), size, tMin, tMax);
 
-            vec3 newRayPos = ray.pos + ray.dir * (newTMax + RAY_POS_OFFSET);
-            float newRayLen = rayLen + newTMax;
+            vec3 newRayPos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);
+            float newRayLen = rayLen + tMax;
             
             ray.pos = newRayPos * moveNext + ray.pos * notMoveNext;
             rayLen = newRayLen * moveNext + rayLen * notMoveNext;
@@ -562,18 +565,15 @@ bool hitOctreeBranchless(in Ray ray, out vec3 color, out uint counter){
             // --- Not In Root --- (newNodePos != uvec3(0) && isEmpty)
             notInRoot = uint(newNodePos != uvec3(0)) * moveNext;
 
-            if (notInRoot == 1){
-                return false; // Ray left Tree.   
-            }
+            done = (1 - done) * notInRoot;
 
         // --- Hit Node ---
-        uint hitNode = uint(!isEmpty && isLeave);
+        uint hitNode = uint(!isEmpty && isLeave) * (1 - done);
+        uint notHitNode = 1 - hitNode;
 
-        if (hitNode == 1){
-            uint materialId = GET_MATERIAL_ID_BY_INDEX(nodeIndex);                            
-            color = materialBuffer.materials[materialId].xyz;                   
-            return true; // Ray Hit Node to Render                              
-        }
+        uint materialId = GET_MATERIAL_ID_BY_INDEX(nodeIndex); 
+
+        color = materialBuffer.materials[materialId].xyz * hitNode + color * notHitNode; 
 
         counter++;
     }
