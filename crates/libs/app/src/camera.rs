@@ -3,7 +3,6 @@ use std::time::Duration;
 use glam::{vec3, Mat3, Mat4, Quat, Vec3};
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, WindowEvent};
 
-const MOVE_SPEED: f32 = 50.0;
 const ANGLE_PER_POINT: f32 = 0.001745;
 
 const FORWARD_SCANCODE: u32 = 17;
@@ -23,6 +22,7 @@ pub struct Camera {
     pub aspect_ratio: f32,
     pub z_near: f32,
     pub z_far: f32,
+    pub speed: f32,
 }
 
 impl Camera {
@@ -41,6 +41,7 @@ impl Camera {
             aspect_ratio,
             z_near,
             z_far,
+            speed: 3.0,
         }
     }
 
@@ -88,7 +89,7 @@ impl Camera {
         };
 
         Self {
-            position: self.position + direction * MOVE_SPEED * delta_time,
+            position: self.position + direction * self.speed * delta_time,
             direction: new_direction,
             ..self
         }

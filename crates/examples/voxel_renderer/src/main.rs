@@ -68,7 +68,7 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Octtree");
-        let depth = 9;
+        let depth = 8;
         let octtree_controller = OcttreeController::new(
             context,
             Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree), 
@@ -110,8 +110,7 @@ impl App for RayCaster {
         log::info!("Setting inital camera pos");
         base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
         base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
-        base.camera.z_far = 100.0;
-
+        base.camera.speed = 50.0;
 
         log::info!("Init done");
         Ok(Self {

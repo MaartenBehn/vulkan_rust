@@ -319,7 +319,29 @@ uint getChildFromPos(uvec3 pos){
 }
 
 uint getSizeFromDepth(uint depth){
-    return uint(pow(2, OCTTREE_DEPTH - depth));
+    uint nodeSizes[20] = uint[](
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        8192,
+        16384,
+        32768,
+        65536,
+        131072,
+        262144,
+        524288
+    );
+    return nodeSizes[OCTTREE_DEPTH - depth];
 }
 
 bool hitOctree(in Ray ray, out vec3 color, out uint counter){
@@ -361,7 +383,7 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     
     while(counter < MAX_STEPS){
         bool isEmpty = GET_MATERIAL_ID(node) == 0;
-        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * VIEW_MULTI)); // || bool(GET_NODE_LEAF(node));
+        bool isLeave = depth >= (OCTTREE_DEPTH - (rayLen * VIEW_MULTI)) || bool(GET_NODE_LEAF(node));
 
         if (!isEmpty && !isLeave){
             depth += 1;

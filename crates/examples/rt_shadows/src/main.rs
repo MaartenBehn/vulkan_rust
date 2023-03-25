@@ -78,7 +78,7 @@ impl App for Shadows {
 
     fn update(
         &mut self,
-        base: &BaseApp<Self>,
+        base: &mut BaseApp<Self>,
         gui: &mut <Self as App>::Gui,
         _image_index: usize,
         _: Duration,

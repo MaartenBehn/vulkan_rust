@@ -1,5 +1,5 @@
 [package]
-name = "comp_ray_caster"
+name = "voxel_renderer"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

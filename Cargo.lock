@@ -278,15 +278,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "comp_ray_caster"
-version = "0.1.0"
-dependencies = [
- "app",
- "gui",
- "octtree",
-]
-
-[[package]]
 name = "console"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1260,6 +1251,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "octtree_builder"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "octtree",
+]
+
+[[package]]
+name = "octtree_helper"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "octtree",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1902,6 +1909,15 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "voxel_renderer"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "gui",
+ "octtree",
+]
 
 [[package]]
 name = "vulkan"

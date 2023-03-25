@@ -137,46 +137,6 @@ void insterNodeAfter(uint nodeIndex, uint afterIndex){
     SET_P_LAST_BY_INDEX(after_p_next, nodeIndex);
 }
 
-/*
-0: 1
-1: 9
-2: 73
-3: 585
-4: 4681
-5: 37449
-6: 299593
-7: 2396745
-8: 19173961
-9: 153391689
-10: 1227133513
-11: 9817068105
-12: 78536544841
-13: 628292358729
-14: 5026338869833
-15: 40210710958665
-16: 321685687669321
-17: 2573485501354569
-18: 20587884010836553
-19: 164703072086692425
-*/
-
-uint getChildId(uint nodeId, uint childNr, uint depth){
-    uint treeSizes[11] = uint[](
-        1,
-        9,
-        73,
-        585,
-        4681,
-        37449,
-        299593,
-        2396745,
-        19173961,
-        153391689,
-        1227133513
-    );
-    return uint(nodeId + treeSizes[depth - 1] * childNr + 1);
-}
-
 void main()
 {
     uvec2 treeSize = TREE_SIZE;

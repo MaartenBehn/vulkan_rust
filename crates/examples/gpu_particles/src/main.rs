@@ -183,7 +183,7 @@ impl App for Particles {
 
     fn update(
         &mut self,
-        base: &BaseApp<Self>,
+        base: &mut BaseApp<Self>,
         gui: &mut <Self as App>::Gui,
         _: usize,
         delta_time: Duration,

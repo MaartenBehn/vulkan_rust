@@ -4,7 +4,7 @@
     [
         {
             "label": "build_debug",
-            "command": "sh scripts/build_debug.sh comp_ray_caster",
+            "command": "sh scripts/build_debug.sh voxel_renderer",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -14,7 +14,7 @@
         },
         {
             "label": "build_release",
-            "command": "sh scripts/build_release.sh comp_ray_caster",
+            "command": "sh scripts/build_release.sh voxel_renderer",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -24,7 +24,7 @@
         },
         {
             "label": "compile_shader",
-            "command": "sh scripts/compile_shaders_selected.sh comp_ray_caster",
+            "command": "sh scripts/compile_shaders_selected.sh voxel_renderer",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -34,17 +34,23 @@
         },
         {
             "label": "profile",
-            "command": "sh scripts/profile.sh comp_ray_caster",
+            "command": "sh scripts/profile.sh voxel_renderer",
             "type": "shell",
         },
         {
             "label": "run_release",
-            "command": "sh scripts/run.sh comp_ray_caster",
+            "command": "sh scripts/run.sh voxel_renderer",
             "type": "shell",
         },
         {
             "label": "run_debug",
-            "command": "sh scripts/run_debug.sh comp_ray_caster",
+            "command": "sh scripts/run_debug.sh voxel_renderer",
+            "type": "shell",
+        },
+
+        {
+            "label": "oct_helper",
+            "command": "sh scripts/run_debug.sh octtree_helper",
             "type": "shell",
         },
     ]

@@ -49,7 +49,6 @@ impl Octtree{
 
         log::info!("Octtree Seed: {:?}", seed);
         
-        
         match fill_kind {
             OcttreeFill::Sphere => {
                 log::info!("Building Sphere.");
@@ -63,13 +62,6 @@ impl Octtree{
 
         octtree.size = octtree.nodes.len() as u64;
 
-        /* 
-        for i in 0..20{
-            let max_tree = Self::get_max_tree_size(i);
-            log::info!("{}: {}", i, max_tree)
-        }
-        */
-
         return octtree;
     }
 
@@ -80,6 +72,10 @@ impl Octtree{
     pub fn get_child_id(&self, node_id: u64, child_nr: usize, depth: u16) -> u64 {
         let child_size = Self::get_max_tree_size(self.depth - depth - 1);
         return node_id + child_size * (child_nr as u64) + 1;
+    }
+
+    pub fn get_node_size(depth: u16) -> u64 {
+        i64::pow(2, depth as u32) as u64
     }
 }
 

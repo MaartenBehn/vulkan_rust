@@ -4,6 +4,7 @@ pub extern crate log;
 pub extern crate vulkan;
 
 pub mod camera;
+pub mod logger;
 
 use anyhow::Result;
 use ash::vk::{self};
@@ -15,10 +16,10 @@ use gui::{
     imgui_rs_vulkan_renderer::Renderer,
     GuiContext,
 };
-use simplelog::*;
+use logger::log_init;
 use std::{
     marker::PhantomData,
-    time::{Duration, Instant}, fs::File,
+    time::{Duration, Instant},
 };
 use vulkan::*;
 use winit::{
@@ -141,27 +142,7 @@ pub fn run<A: App + 'static>(
     enabled_compute_rendering: bool,
 ) -> Result<()> {
     
-    #[cfg(debug_assertions)]
-    let log_level = LevelFilter::Debug;
-
-    #[cfg(not(debug_assertions))]
-    let log_level = LevelFilter::Info;
-
-    CombinedLogger::init(vec![
-        TermLogger::new(
-            log_level,
-            Config::default(),
-            TerminalMode::Mixed,
-            ColorChoice::Auto,
-        ),
-        WriteLogger::new(
-            LevelFilter::Trace,
-            Config::default(),
-            File::create("vulkan_rust.log").unwrap(),
-        ),
-    ])
-    .unwrap();
-    
+    log_init("app_log.log");
     
     let (window, event_loop) = create_window(app_name, width, height);
 

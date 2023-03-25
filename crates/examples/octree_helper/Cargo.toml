@@ -1,0 +1,12 @@
+[package]
+name = "octtree_helper"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+app = { path = "../../libs/app" }
+octtree = { path = "../../libs/octtree" }
