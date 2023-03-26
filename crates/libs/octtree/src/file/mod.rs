@@ -1,3 +1,4 @@
 
-mod metadata;
+pub mod metadata;
 pub mod save;
+pub mod load;

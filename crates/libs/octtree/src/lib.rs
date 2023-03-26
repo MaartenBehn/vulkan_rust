@@ -28,8 +28,8 @@ pub enum TreeType {
 pub trait Tree {
     fn tree_type(&self) -> TreeType;
 
-    fn get_node(&self, id: u64) -> Result<OcttreeNode>;
-    fn get_node_by_index(&self, index: usize) -> Result<OcttreeNode>;
+    fn get_node(&mut self, id: u64) -> Result<OcttreeNode>;
+    fn get_node_by_index(&mut self, index: usize) -> Result<OcttreeNode>;
 
     fn get_depth(&self) -> u16;
     fn get_size(&self) -> u64;

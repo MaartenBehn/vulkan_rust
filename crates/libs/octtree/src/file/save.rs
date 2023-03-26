@@ -60,7 +60,7 @@ pub fn save_tree(tree: &impl Tree, folder_path: &str, batch_size: usize) -> Resu
     batches.push(BatchMetadata::new(file_counter, file_start_id, file_end_id, nodes_in_file));
 
 
-    let metadata = Metadata::new(tree, batches);
+    let metadata = Metadata::new(tree, batches, batch_size);
     metadata.save(folder_path)?;
     
     Ok(())

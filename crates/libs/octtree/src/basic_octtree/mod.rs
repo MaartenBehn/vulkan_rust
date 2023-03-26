@@ -59,7 +59,7 @@ impl Tree for BasicOcttree {
         TreeType::Basic
     }
 
-    fn get_node(&self, id: u64) -> Result<OcttreeNode> {
+    fn get_node(&mut self, id: u64) -> Result<OcttreeNode> {
 
         let r = self.nodes.binary_search_by(|node| node.get_node_id().cmp(&id));
         match r {
@@ -68,7 +68,7 @@ impl Tree for BasicOcttree {
         }
     }
 
-    fn get_node_by_index(&self, index: usize) -> Result<OcttreeNode> {
+    fn get_node_by_index(&mut self, index: usize) -> Result<OcttreeNode> {
         Ok(self.nodes[index])
     }
 

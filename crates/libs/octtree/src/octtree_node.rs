@@ -29,6 +29,8 @@ impl OcttreeNode{
         node
     }
 
+    pub fn from_data(node_id_0: u32, node_id_1: u32, mat_id: u32, bit_field: u32) -> Self{ Self { node_id_0, node_id_1, mat_id, bit_field } }
+
     pub fn set_node_id(&mut self, node_id: u64){
         self.node_id_0 = node_id as u32;
         self.node_id_1 = (node_id >> 32) as u32;

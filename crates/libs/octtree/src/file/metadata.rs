@@ -2,37 +2,38 @@ use std::{fs::{self, OpenOptions}, io::Write};
 
 use crate::Tree;
 
-use app::anyhow::Ok;
+use app::anyhow::{Ok, format_err};
 use::app::anyhow::Result;
 
 use serde::{Deserialize, Serialize};
 
 const METADAT_FILE_NAME: &str = "metadata";
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Metadata{
-    depth: u16,
-    size: u64,
-    max_size: u64,
-    batches: Vec<BatchMetadata>,
+    pub depth: u16,
+    pub size: u64,
+    pub max_size: u64,
+    pub batch_size: usize,
+    pub batches: Vec<BatchMetadata>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct BatchMetadata{
-    index: u64, 
-    start: u64,
-    end: u64,
-    size: u64,
+    pub index: u64, 
+    pub start: u64,
+    pub end: u64,
+    pub size: u64,
 }
-
 
 impl Metadata {
-    pub fn new(tree: &impl Tree, batches: Vec<BatchMetadata>) -> Self {
+    pub fn new(tree: &impl Tree, batches: Vec<BatchMetadata>, batch_size: usize) -> Self {
         Self { 
             depth: tree.get_depth(), 
             size: tree.get_size(), 
             max_size: tree.get_max_size(), 
-            batches: batches, 
+            batch_size,
+            batches,
         }
     }
 
@@ -56,6 +57,10 @@ impl Metadata {
         let metadata: Metadata = serde_json::from_str(&json)?;
 
         Ok(metadata)
+    }
+
+    pub fn get_batch_metadata(&self, index: usize) -> Result<BatchMetadata> {
+        self.batches.into_iter().find(|b| b.index == (index as u64)).ok_or(format_err!("Batch metadata with {index} not found!"))
     }
 }
 

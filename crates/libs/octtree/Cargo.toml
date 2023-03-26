@@ -16,5 +16,6 @@ indicatif.workspace = true
 
 serde.workspace = true
 serde_json.workspace = true
+byteorder.workspace = true
 
 app = { path = "../../libs/app" }
