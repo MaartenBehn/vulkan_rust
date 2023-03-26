@@ -16,7 +16,7 @@ impl BasicOcttree{
             pos[2] as f64 - radius
         ).length();
 
-        self.nodes.push(OcttreeNode::new(id as u64, mat_id as u32, depth as u16, depth >= self.depth, dist < radius));
+        self.nodes.push(OcttreeNode::new(id as u64, mat_id as u32, depth as u16, depth >= self.depth, dist > radius));
 
         let mut new_id = id + 1;
         if depth < self.depth {

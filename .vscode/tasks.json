@@ -23,6 +23,16 @@
             }
         },
         {
+            "label": "build_debug_octtree_builder",
+            "command": "sh scripts/build_debug.sh octtree_builder",
+            "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            }
+        },
+        {
             "label": "compile_shader",
             "command": "sh scripts/compile_shaders_selected.sh voxel_renderer",
             "type": "shell",
@@ -32,9 +42,10 @@
                 }
             }
         },
+        
         {
-            "label": "profile",
-            "command": "sh scripts/profile.sh voxel_renderer",
+            "label": "run_debug",
+            "command": "sh scripts/run_debug.sh voxel_renderer",
             "type": "shell",
         },
         {
@@ -43,26 +54,19 @@
             "type": "shell",
         },
         {
-            "label": "run_debug",
-            "command": "sh scripts/run_debug.sh voxel_renderer",
+            "label": "profile",
+            "command": "sh scripts/profile.sh voxel_renderer",
             "type": "shell",
         },
-
         {
             "label": "oct_helper",
             "command": "sh scripts/run_debug.sh octtree_helper",
             "type": "shell",
         },
-
         {
-            "label": "build_debug_octtree_builder",
-            "command": "sh scripts/build_debug.sh octtree_builder",
+            "label": "oct_builder",
+            "command": "sh scripts/run_debug.sh octtree_builder",
             "type": "shell",
-            "options": {
-                "statusbar": {
-                    "hide" : true
-                }
-            }
         },
     ]
 }

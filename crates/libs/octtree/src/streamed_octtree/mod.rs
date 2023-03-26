@@ -68,7 +68,7 @@ impl Tree for StreamedOcttree {
 
         let r = batch.nodes.binary_search_by(|node| node.get_node_id().cmp(&id));
         match r {
-            Ok(_) => Ok(batch.nodes[r.unwrap()]),
+            Ok(i) => Ok(batch.nodes[i]),
             Err(_) => Err(format_err!("Requested Node {:?} not found!", id)),
         }
     }

@@ -9,6 +9,7 @@ use gui::imgui::{Condition, Ui};
 use octtree::basic_octtree::{BasicOcttree, InitalFill};
 
 mod octtree_controller;
+use octtree::streamed_octtree::StreamedOcttree;
 use octtree_controller::*;
 mod octtree_builder;
 use octtree_builder::*;
@@ -28,7 +29,7 @@ const APP_NAME: &str = "Ray Caster";
 
 const PRINT_DEBUG_LOADING: bool = false;
 const MOVEMENT_DEBUG_READ: bool = false;
-
+const SAVE_FOLDER: &str = "./assets/octtree";
 
 fn start() -> Result<()>{
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
@@ -69,9 +70,10 @@ impl App for RayCaster {
 
         log::info!("Creating Octtree");
         let depth = 8;
+        let octtree = StreamedOcttree::new(SAVE_FOLDER, 1000)?;
         let octtree_controller = OcttreeController::new(
             context,
-            Box::new(BasicOcttree::new(depth, 11261474734820965911, InitalFill::SpareseTree)), 
+            Box::new(octtree), 
             50000,
             1000,
             10000

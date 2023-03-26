@@ -41,7 +41,7 @@ pub trait Tree {
         return node_id + child_size * (child_nr as u64) + 1;
     }
 
-    fn save(&self, folder_path: &str, batch_size: usize) -> Result<()> where Self: Sized {
+    fn save(&mut self, folder_path: &str, batch_size: usize) -> Result<()> where Self: Sized {
         save_tree(self, folder_path, batch_size)?;
         Ok(())
     }

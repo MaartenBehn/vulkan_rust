@@ -6,7 +6,7 @@ use indicatif::ProgressBar;
 
 use crate::{Tree, file::{metadata::{BatchMetadata, Metadata}, self}};
 
-pub fn save_tree(tree: &impl Tree, folder_path: &str, batch_size: usize) -> Result<()> {
+pub fn save_tree(tree: &mut impl Tree, folder_path: &str, batch_size: usize) -> Result<()> {
 
     log::info!("Saving Tree:");
 

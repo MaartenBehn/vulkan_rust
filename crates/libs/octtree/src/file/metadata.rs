@@ -59,8 +59,8 @@ impl Metadata {
         Ok(metadata)
     }
 
-    pub fn get_batch_metadata(&self, index: usize) -> Result<BatchMetadata> {
-        self.batches.into_iter().find(|b| b.index == (index as u64)).ok_or(format_err!("Batch metadata with {index} not found!"))
+    pub fn get_batch_metadata(&self, index: usize) -> Result<&BatchMetadata> {
+        self.batches.iter().find(|b| b.index == (index as u64)).ok_or(format_err!("Batch metadata with {index} not found!"))
     }
 }
 
