@@ -1,8 +1,10 @@
 use app::glam::{DVec3};
 
-use crate::{Octtree, octtree_node::OcttreeNode, OCTTREE_CONFIG};
+use crate::{octtree_node::OcttreeNode, OCTTREE_CONFIG, Tree};
 
-impl Octtree{
+use super::BasicOcttree;
+
+impl BasicOcttree{
     pub fn inital_fill_sphere(&mut self, id: u64, depth: u16, pos: [u64; 3]) -> u64 {
 
         let mat_id = (pos[0] % 255) * 255 * 255 + (pos[1] % 255) * 255 + (pos[2] % 255);

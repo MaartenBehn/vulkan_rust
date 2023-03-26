@@ -1,5 +1,5 @@
 use app::{log, anyhow::ensure, anyhow::Result, logger::log_init};
-use octtree::{Octtree, OcttreeFill};
+use octtree::{self, basic_octtree::{BasicOcttree, InitalFill}, Tree};
 
 const SAVE_FOLDER: &str = "./assets/octtree";
 
@@ -9,7 +9,7 @@ fn start() -> Result<()>{
     log_init("octree_builder.log");
 
     let depth = 8;
-    let octtree = Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree);
+    let octtree = BasicOcttree::new(depth, 11261474734820965911, InitalFill::SpareseTree);
 
     octtree.save_to_file(SAVE_FOLDER, 100000)?;
     

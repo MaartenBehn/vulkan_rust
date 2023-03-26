@@ -4,8 +4,9 @@ use palette::{Gradient, rgb::Rgb, encoding::{Linear, Srgb}, LinSrgb};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-use crate::{Octtree, octtree_node::OcttreeNode, OCTTREE_CONFIG};
+use crate::{octtree_node::OcttreeNode, OCTTREE_CONFIG, Tree};
 
+use super::BasicOcttree;
 
 pub struct CreateSparceOcttreeData{
     rng: StdRng,
@@ -14,8 +15,7 @@ pub struct CreateSparceOcttreeData{
     bar: ProgressBar,
 }
 
-
-impl Octtree{
+impl BasicOcttree{
     pub fn inital_fill_sparse_tree(
         &mut self, 
         id: u64, 

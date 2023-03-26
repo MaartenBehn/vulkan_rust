@@ -6,7 +6,7 @@ use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
-use octtree::{Octtree, OcttreeFill};
+use octtree::basic_octtree::{BasicOcttree, InitalFill};
 
 mod octtree_controller;
 use octtree_controller::*;
@@ -71,7 +71,7 @@ impl App for RayCaster {
         let depth = 8;
         let octtree_controller = OcttreeController::new(
             context,
-            Octtree::new(depth, 11261474734820965911, OcttreeFill::SpareseTree), 
+            Box::new(BasicOcttree::new(depth, 11261474734820965911, InitalFill::SpareseTree)), 
             50000,
             1000,
             10000
@@ -167,7 +167,7 @@ impl App for RayCaster {
 
             request_data.truncate(REQUEST_STEP * self.octtree_controller.transfer_size);
             
-            let (requested_nodes, transfer_counter) = self.octtree_controller.get_requested_nodes(&request_data);
+            let (requested_nodes, transfer_counter) = self.octtree_controller.get_requested_nodes(&request_data)?;
             self.loader.transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
             
             gui.transfer_counter = transfer_counter;

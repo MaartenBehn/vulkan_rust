@@ -1,5 +1,5 @@
 use app::{log, anyhow::ensure, anyhow::Result, logger::log_init};
-use octtree::Octtree;
+use octtree::{get_max_tree_size, get_node_size};
 
 const MAX_DEPTH: u16 = 20;
 
@@ -14,7 +14,7 @@ fn start() -> Result<()>{
     let mut print_bigger = true;
     for i in 0..MAX_DEPTH{
 
-        let size = Octtree::get_max_tree_size(i);
+        let size = get_max_tree_size(i);
 
         if size > u32::MAX as u64 && print_bigger{
             log::info!("Bigger than u32");
@@ -28,7 +28,7 @@ fn start() -> Result<()>{
 
     print_bigger = true;
     for i in 0..MAX_DEPTH{
-        let size = Octtree::get_node_size(i);
+        let size = get_node_size(i);
 
         if size > u32::MAX as u64 && print_bigger{
             log::info!("Bigger than u32");

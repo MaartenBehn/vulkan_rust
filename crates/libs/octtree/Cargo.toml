@@ -13,7 +13,6 @@ shuffle.workspace = true
 noise.workspace = true
 palette.workspace = true
 indicatif.workspace = true
-serde.workspace = true
-postcard.workspace = true
+json.workspace = true
 
 app = { path = "../../libs/app" }

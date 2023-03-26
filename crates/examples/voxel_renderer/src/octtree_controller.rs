@@ -5,14 +5,14 @@ use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::{log, vulkan::Context};
 use app::anyhow::Result;
-use octtree::Octtree;
+use octtree::Tree;
 use octtree::octtree_node::OcttreeNode;
 
 use crate::octtree_loader::REQUEST_STEP;
 
 
 pub struct OcttreeController{
-    pub octtree: Octtree,
+    pub octtree: Box<dyn Tree>,
     pub octtree_info: OcttreeInfo,
 
     pub buffer_size: usize, 
@@ -39,14 +39,14 @@ pub struct OcttreeInfo {
 impl OcttreeController{
     pub fn new(
         context: &Context, 
-        octtree: Octtree, 
+        octtree: Box<dyn Tree>, 
         buffer_size: usize, 
         transfer_size: usize,
         loader_size: usize,
     ) -> Result<Self> {
 
-        let depth = octtree.depth;
-        let size = octtree.max_size;
+        let depth = octtree.get_depth();
+        let size = octtree.get_max_size();
 
         let octtree_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
@@ -87,7 +87,7 @@ impl OcttreeController{
         
     }
 
-    pub fn get_requested_nodes(&mut self, requested_data: &Vec<u32>) -> (Vec<OcttreeNode>, usize) {
+    pub fn get_requested_nodes(&mut self, requested_data: &Vec<u32>) -> Result<(Vec<OcttreeNode>, usize)> {
 
         let mut nodes = vec![OcttreeNode::default(); self.transfer_size];
 
@@ -97,22 +97,15 @@ impl OcttreeController{
             let child_nr = requested_data[i * REQUEST_STEP + 2] as usize;
             let depth = requested_data[i * REQUEST_STEP + 3] as u16;
 
-            if id >= self.octtree.max_size {
+            if id >= self.octtree.get_max_size() {
                 break;
             }
             counter += 1;
 
             let seek = self.octtree.get_child_id(id, child_nr, depth);
-            let r = self.octtree.nodes.binary_search_by(|node| node.get_node_id().cmp(&seek));
-            match r {
-                Ok(_) => nodes[i] = self.octtree.nodes[r.unwrap()],
-                Err(_) => {
-                    log::error!("Requested Node {:?} not found!", id);
-                    continue
-                },
-            };
+            nodes[i] = self.octtree.get_node(seek)?;
         }
 
-        (nodes, counter) 
+        Ok((nodes, counter)) 
     }
 }

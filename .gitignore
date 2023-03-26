@@ -2,8 +2,8 @@
 .idea
 *.spv
 *log*
-*.nodes
+perf*
+assets/octtree/*
 
 movement.txt
-perf*
 graph.png
