@@ -3,7 +3,7 @@ use std::mem::size_of;
 use app::vulkan::Buffer;
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
-use app::{log, vulkan::Context};
+use app::{vulkan::Context};
 use app::anyhow::Result;
 use octtree::Tree;
 use octtree::octtree_node::OcttreeNode;

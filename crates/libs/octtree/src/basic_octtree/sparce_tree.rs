@@ -15,7 +15,7 @@ pub struct CreateSparceOcttreeData{
     bar: ProgressBar,
 }
 
-impl BasicOcttree{
+impl BasicOcttree {
     pub fn inital_fill_sparse_tree(
         &mut self, 
         id: u64, 
@@ -28,7 +28,7 @@ impl BasicOcttree{
         data.bar.set_position(id);
 
         let rand_float: f32 = data.rng.gen();
-        let filled = parent_filled && rand_float > 0.15;
+        let filled = parent_filled && rand_float < 0.6;
 
         let pos_mult = 0.05;
 

@@ -54,7 +54,7 @@ impl BasicOcttree {
     }
 }
 
-impl Tree for BasicOcttree{
+impl Tree for BasicOcttree {
     fn tree_type(&self) -> TreeType {
         TreeType::Basic
     }

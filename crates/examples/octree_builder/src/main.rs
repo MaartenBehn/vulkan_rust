@@ -11,7 +11,7 @@ fn start() -> Result<()>{
     let depth = 8;
     let octtree = BasicOcttree::new(depth, 11261474734820965911, InitalFill::SpareseTree);
 
-    octtree.save_to_file(SAVE_FOLDER, 100000)?;
+    octtree.save(SAVE_FOLDER, 100000)?;
     
     Ok(())
 }
