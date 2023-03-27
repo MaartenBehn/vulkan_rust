@@ -24,7 +24,6 @@ impl BasicOcttree {
         parent_filled: bool,
         data: &mut CreateSparceOcttreeData,
     ) {
-
         data.bar.set_position(id);
 
         let rand_float: f32 = data.rng.gen();
