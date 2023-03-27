@@ -55,7 +55,7 @@
         },
         {
             "label": "profile",
-            "command": "sh scripts/profile.sh voxel_renderer",
+            "command": "sh scripts/profile.sh octtree_builder",
             "type": "shell",
         },
         {

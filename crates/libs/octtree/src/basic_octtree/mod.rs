@@ -63,7 +63,7 @@ impl Tree for BasicOcttree {
 
         let r = self.nodes.binary_search_by(|node| node.get_node_id().cmp(&id));
         match r {
-            Ok(_) => Ok(self.nodes[r.unwrap()]),
+            Ok(index) => Ok(self.nodes[index]),
             Err(_) => Err(format_err!("Requested Node {:?} not found!", id)),
         }
     }

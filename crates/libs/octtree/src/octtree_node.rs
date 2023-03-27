@@ -1,8 +1,12 @@
 use app::log;
 
+use serde::{Deserialize, Serialize};
+
 const UPPER16BITS: u32 = (u16::MAX as u32) << 16;
 
 #[derive(Clone, Copy, Default)]
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct OcttreeNode {
     // Static node Data (16 byte)

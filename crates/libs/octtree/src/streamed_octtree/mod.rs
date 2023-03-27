@@ -41,7 +41,7 @@ impl StreamedOcttree {
     }
 
     fn load_batch(&mut self, index: usize) -> Result<&Batch> {
-        let nodes = load_batch(&self.folder_path, index, self.metadata.get_batch_metadata(index)?.size)?;
+        let nodes = load_batch(&self.folder_path, index, self.metadata.get_batch_metadata(index)?.size as usize)?;
 
         let batch = Batch{index, nodes};
         self.batches.push_back(batch);

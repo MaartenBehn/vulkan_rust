@@ -27,7 +27,7 @@ shuffle = "0.1.7"
 noise = "0.8.2"
 palette = "0.6.1"
 indicatif = "0.17.3"
-byteorder = "1.4"
+bincode = "1.3"
 
 gltf = "1.0.0"
 glam = { version = "0.22", features = ["serde"] }
