@@ -6,6 +6,7 @@ use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
+use octtree::Tree;
 use octtree::basic_octtree::{BasicOcttree, InitalFill};
 
 mod octtree_controller;
@@ -49,13 +50,15 @@ pub struct RayCaster {
     total_time: Duration,
     frame_counter: usize,
 
-    octtree_controller: OcttreeController,
+    octtree_controller: OcttreeController<StreamedOcttree>,
     material_controller: MaterialController,
     renderer: Renderer,
     builder: OcttreeBuilder,
     loader: OcttreeLoader,
 
     movement_debug: MovementDebug,
+
+    max_loaded_batches: usize,
 }
 
 impl App for RayCaster {
@@ -69,10 +72,12 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Octtree");
-        let octtree = StreamedOcttree::new(SAVE_FOLDER, 1000)?;
+
+        let max_loaded_batches = 100;
+        let octtree = StreamedOcttree::new(SAVE_FOLDER, max_loaded_batches)?;
         let octtree_controller = OcttreeController::new(
             context,
-            Box::new(octtree), 
+            octtree, 
             50000,
             1000,
             10000
@@ -124,6 +129,8 @@ impl App for RayCaster {
             loader,
 
             movement_debug: MovementDebug::new(MOVEMENT_DEBUG_READ)?,
+
+            max_loaded_batches,
         })
     }
 
@@ -186,6 +193,7 @@ impl App for RayCaster {
         gui.dir = base.camera.direction;
         gui.octtree_buffer_size = self.octtree_controller.buffer_size;
         gui.transfer_buffer_size = self.octtree_controller.transfer_size;
+        gui.loaded_batches = ((self.octtree_controller.octtree.get_loaded_size() * 100) / self.octtree_controller.octtree.get_loaded_max_size()) as u32;
 
         self.octtree_controller.step();
 
@@ -289,6 +297,8 @@ pub struct Gui {
     transfer_buffer_size: usize,
 
     step_to_root: bool,
+
+    loaded_batches: u32,
 }
 
 impl app::Gui for Gui {
@@ -309,6 +319,8 @@ impl app::Gui for Gui {
             transfer_buffer_size: 0,
 
             step_to_root: true,
+
+            loaded_batches: 0,
         })
     }
 
@@ -367,6 +379,9 @@ impl app::Gui for Gui {
                     step_to_root = !step_to_root;
                 }
                 self.step_to_root = step_to_root;
+
+                let loaded_batches = self.loaded_batches;
+                ui.text(format!("Loaded Batches: {loaded_batches}"));
 
             });
     }

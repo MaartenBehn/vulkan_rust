@@ -5,6 +5,7 @@ use app::anyhow::{Result, Ok};
 use app::glam::Vec3;
 use app::vulkan::{WriteDescriptorSet, WriteDescriptorSetKind, ComputePipelineCreateInfo, CommandBuffer};
 use app::vulkan::{Context, Buffer, DescriptorPool, DescriptorSetLayout, DescriptorSet, PipelineLayout, ComputePipeline, gpu_allocator::MemoryLocation, ash::vk};
+use octtree::Tree;
 
 use crate::RayCaster;
 

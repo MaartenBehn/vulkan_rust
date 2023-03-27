@@ -38,10 +38,6 @@ impl OcttreeNode{
     pub fn set_node_id(&mut self, node_id: u64){
         self.node_id_0 = node_id as u32;
         self.node_id_1 = (node_id >> 32) as u32;
-
-        if self.node_id_1 != 0 {
-            log::info!("debug");
-        }
     }
 
     pub fn get_node_id(&self) -> u64{

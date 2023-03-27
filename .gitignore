@@ -3,7 +3,7 @@
 *.spv
 *log*
 perf*
-assets/octtree/*
+assets/octtree*
 
 movement.txt
 graph.png

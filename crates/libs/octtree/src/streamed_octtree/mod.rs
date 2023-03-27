@@ -10,7 +10,7 @@ pub struct StreamedOcttree {
     pub metadata: Metadata,
     pub batches: VecDeque<Batch>,
     pub folder_path: String,
-    pub loaded_batches: usize,
+    pub loaded_max_size: usize,
 }
 
 #[derive(Clone)]
@@ -20,7 +20,7 @@ pub struct Batch {
 }
 
 impl StreamedOcttree {
-    pub fn new(folder_path: &str, loaded_batches: usize) -> Result<Self> {
+    pub fn new(folder_path: &str, loaded_max_size: usize) -> Result<Self> {
         let metadata = Metadata::load(folder_path)?;
         let batches = VecDeque::new();
 
@@ -28,14 +28,20 @@ impl StreamedOcttree {
             metadata, 
             batches, 
             folder_path: folder_path.to_owned(),
-            loaded_batches,
+            loaded_max_size,
         })
     }
 
-    fn get_batch(&self, index: usize ) -> Result<&Batch> {
-        let r =  self.batches.iter().find(|b| b.index == index);
+    fn get_batch(&mut self, index: usize ) -> Result<&Batch> {
+        let r =  self.batches.iter().position(|b| b.index == index);
         match r {
-            Some(batch) => return Ok(batch),
+            Some(index) => {
+                
+                let batch = self.batches.swap_remove_front(index).unwrap();
+                self.batches.push_front(batch);
+
+                return Ok(&self.batches.front().unwrap())
+            },
             None => return Err(format_err!("Batch {index} no loaded.")),
         };
     }
@@ -44,9 +50,19 @@ impl StreamedOcttree {
         let nodes = load_batch(&self.folder_path, index, self.metadata.get_batch_metadata(index)?.size as usize)?;
 
         let batch = Batch{index, nodes};
-        self.batches.push_back(batch);
+        self.batches.push_front(batch);
 
-        Ok(&self.batches.back().unwrap())
+        self.batches.truncate(self.loaded_max_size);
+
+        Ok(&self.batches.front().unwrap())
+    }
+
+    pub fn get_loaded_size(&self) -> usize {
+        self.batches.len()
+    }
+
+    pub fn get_loaded_max_size(&self) -> usize {
+        self.loaded_max_size
     }
 }
 
@@ -86,7 +102,7 @@ impl Tree for StreamedOcttree {
     }
 
     fn get_max_size(&self) -> u64 {
-        self.metadata.size
+        self.metadata.max_size
     }
     
 }

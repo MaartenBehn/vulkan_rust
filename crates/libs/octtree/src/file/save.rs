@@ -49,7 +49,7 @@ pub fn save_tree(tree: &mut impl Tree, folder_path: &str, batch_size: usize) -> 
         
         // Saving Metadata
         let file_start_id = file_counter * (batch_size as u64);
-        let file_end_id = u64::min((file_counter + 1) * (batch_size as u64) - 1, tree.get_max_size());
+        let file_end_id = u64::min((file_counter + 1) * (batch_size as u64) - 1, tree.get_max_size() - 1);
         batches.push(BatchMetadata::new(file_counter, file_start_id, file_end_id, nodes_in_file));
 
         nodes_in_file = 0;

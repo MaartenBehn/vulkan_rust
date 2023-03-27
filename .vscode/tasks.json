@@ -65,7 +65,7 @@
         },
         {
             "label": "oct_builder",
-            "command": "sh scripts/run_debug.sh octtree_builder",
+            "command": "sh scripts/run.sh octtree_builder",
             "type": "shell",
         },
     ]

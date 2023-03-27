@@ -1,5 +1,6 @@
 use std::mem::size_of;
 
+use app::log;
 use app::vulkan::Buffer;
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
@@ -11,8 +12,8 @@ use octtree::octtree_node::OcttreeNode;
 use crate::octtree_loader::REQUEST_STEP;
 
 
-pub struct OcttreeController{
-    pub octtree: Box<dyn Tree>,
+pub struct OcttreeController<T: Tree>{
+    pub octtree: T,
     pub octtree_info: OcttreeInfo,
 
     pub buffer_size: usize, 
@@ -36,10 +37,10 @@ pub struct OcttreeInfo {
     fill_1: u32,
 }
 
-impl OcttreeController{
+impl<T: Tree> OcttreeController<T> {
     pub fn new(
         context: &Context, 
-        octtree: Box<dyn Tree>, 
+        octtree: T, 
         buffer_size: usize, 
         transfer_size: usize,
         loader_size: usize,
@@ -103,7 +104,11 @@ impl OcttreeController{
             counter += 1;
 
             let seek = self.octtree.get_child_id(id, child_nr, depth);
-            nodes[i] = self.octtree.get_node(seek)?;
+            let r = self.octtree.get_node(seek);
+            match r {
+                Ok(node) => nodes[i] = node,
+                Err(e) => log::error!("{}", e),
+            }
         }
 
         Ok((nodes, counter)) 

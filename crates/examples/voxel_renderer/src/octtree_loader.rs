@@ -5,6 +5,7 @@ use app::anyhow::{Result, Ok};
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::vulkan::{DescriptorPool, DescriptorSetLayout, DescriptorSet, PipelineLayout, ComputePipeline, Context, Buffer, WriteDescriptorSet, WriteDescriptorSetKind, ComputePipelineCreateInfo, CommandBuffer, MemoryBarrier};
+use octtree::Tree;
 use octtree::octtree_node::OcttreeNode;
 
 use crate::RayCaster;
@@ -28,9 +29,9 @@ pub struct OcttreeLoader {
 }
 
 impl OcttreeLoader {
-    pub fn new(
+    pub fn new<T: Tree>(
         context: &Context, 
-        octtree_controller: &OcttreeController,
+        octtree_controller: &OcttreeController<T>,
         octtree_buffer: &Buffer, 
         octtree_info_buffer: &Buffer,
     ) -> Result<Self> {
