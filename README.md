@@ -3,7 +3,6 @@
 A side repo where I try a bunch of different rendering technics and Ideas with vulkan in rust.
 
 
-
 ## Examples
 |  |  |
 -------------------------|-------------------------
