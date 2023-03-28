@@ -1,5 +1,3 @@
-use app::log;
-
 use serde::{Deserialize, Serialize};
 
 const UPPER16BITS: u32 = (u16::MAX as u32) << 16;

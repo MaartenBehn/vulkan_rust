@@ -27,7 +27,7 @@ impl BasicOcttree {
         data.bar.set_position(id);
 
         let rand_float: f32 = data.rng.gen();
-        let filled = parent_filled && rand_float < 0.7;
+        let filled = parent_filled && rand_float < 0.7 || depth < 2;
 
         let pos_mult = 0.05;
 

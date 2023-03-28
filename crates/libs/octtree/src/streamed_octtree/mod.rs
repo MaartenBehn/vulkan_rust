@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use app::anyhow::{format_err};
 use::app::anyhow::Result;
 
-use crate::{Tree, TreeType, octtree_node::OcttreeNode, file::{metadata::{Metadata, self}, load::load_batch}};
+use crate::{Tree, TreeType, octtree_node::OcttreeNode, file::{metadata::Metadata, load::load_batch}};
 
 #[derive(Clone)]
 pub struct StreamedOcttree {
@@ -89,8 +89,8 @@ impl Tree for StreamedOcttree {
         }
     }
 
-    fn get_node_by_index(&mut self, index: usize) -> Result<OcttreeNode> {
-        todo!()
+    fn get_node_by_index(&mut self, _index: usize) -> Result<OcttreeNode> {
+        todo!("Find a good solution for this")
     }
 
     fn get_depth(&self) -> u16 {
