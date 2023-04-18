@@ -17,17 +17,18 @@ pub fn coord_to_hex(coord: Vec2) -> IVec2 {
 
 pub fn hex_to_chunk_part_pos(hex: IVec2) -> IVec2 {
     IVec2::new(
-        hex.x / CHUNK_PART_SIZE - (hex.x < 0) as i32, 
-        hex.y / CHUNK_PART_SIZE - (hex.y < 0) as i32)
+        hex.x / CHUNK_PART_SIZE - (hex.x % CHUNK_PART_SIZE < 0) as i32, 
+        hex.y / CHUNK_PART_SIZE - (hex.y % CHUNK_PART_SIZE < 0) as i32)
 }
 
 pub fn hex_to_in_chunk_part_pos(hex: IVec2) -> usize {
-    let p = ivec2(hex.x % CHUNK_PART_SIZE, hex.y % CHUNK_PART_SIZE);
-    let flip = ivec2(
-        CHUNK_PART_SIZE * (p.x < 0) as i32,  
-        CHUNK_PART_SIZE * (p.y < 0) as i32);
 
-    ((p.x + flip.x) * CHUNK_PART_SIZE + (p.y + flip.y)) as usize
+    let chunk_part = hex_to_chunk_part_pos(hex);
+    let p = ivec2(hex.x - chunk_part.x * CHUNK_PART_SIZE, hex.y - chunk_part.y * CHUNK_PART_SIZE);
+   
+    let res = ((p.x) * CHUNK_PART_SIZE + (p.y)) as usize;
+    debug_assert!(res < (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize);
+    res
 }
 
 const CHUNK_PART_SIZE_VEC2: Vec2 = Vec2::new(CHUNK_PART_SIZE as f32, CHUNK_PART_SIZE as f32);

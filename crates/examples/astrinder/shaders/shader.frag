@@ -50,5 +50,5 @@ void main() {
 
     float draw = float(dist < 0.4 && material != 0); 
 
-    finalColor = vec4(vec3(1.0 - draw), 1.0);
+    finalColor = vec4(vec3(1.0 - draw - 0.1), 1.0);
 }

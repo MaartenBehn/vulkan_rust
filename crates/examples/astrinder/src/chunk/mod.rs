@@ -19,7 +19,7 @@ impl ChunkController {
     pub fn new() -> Self {
         let mut chunks = Vec::new();
 
-        chunks.push(Chunk::new_circle(Vec2::ZERO, 0.0, 5));
+        chunks.push(Chunk::new_circle(Vec2::ZERO, 0.0, 15));
 
         Self { 
             chunks: chunks 
