@@ -6,8 +6,6 @@ use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
 use app::{App, BaseApp, log};
 use gui::imgui::{Condition, Ui};
-use octtree::Tree;
-use octtree::basic_octtree::{BasicOcttree, InitalFill};
 
 mod octtree_controller;
 use octtree::streamed_octtree::StreamedOcttree;

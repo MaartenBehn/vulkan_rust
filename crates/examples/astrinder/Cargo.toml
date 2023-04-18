@@ -1,0 +1,10 @@
+[package]
+name = "astrinder"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+app = { path = "../../libs/app" }
+
+flat_spatial.workspace = true

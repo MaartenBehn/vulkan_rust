@@ -4,7 +4,7 @@
     [
         {
             "label": "build_debug",
-            "command": "sh scripts/build_debug.sh voxel_renderer",
+            "command": "sh scripts/build_debug.sh astrinder",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -14,7 +14,7 @@
         },
         {
             "label": "build_release",
-            "command": "sh scripts/build_release.sh voxel_renderer",
+            "command": "sh scripts/build_release.sh astrinder",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -34,7 +34,7 @@
         },
         {
             "label": "compile_shader",
-            "command": "sh scripts/compile_shaders_selected.sh voxel_renderer",
+            "command": "sh scripts/compile_shaders_selected.sh astrinder",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -45,28 +45,38 @@
         
         {
             "label": "run_debug",
-            "command": "sh scripts/run_debug.sh voxel_renderer",
+            "command": "sh scripts/run_debug.sh astrinder",
             "type": "shell",
         },
         {
             "label": "run_release",
-            "command": "sh scripts/run.sh voxel_renderer",
+            "command": "sh scripts/run.sh astrinder",
             "type": "shell",
         },
         {
             "label": "profile",
-            "command": "sh scripts/profile.sh octtree_builder",
+            "command": "sh scripts/profile.sh astrinder",
             "type": "shell",
         },
         {
             "label": "oct_helper",
             "command": "sh scripts/run_debug.sh octtree_helper",
             "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            }
         },
         {
             "label": "oct_builder",
             "command": "sh scripts/run.sh octtree_builder",
             "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            }
         },
     ]
 }

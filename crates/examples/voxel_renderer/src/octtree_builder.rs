@@ -2,7 +2,6 @@ use app::BaseApp;
 use app::anyhow::Result;
 use app::vulkan::ash::vk;
 use app::vulkan::{Context, DescriptorPool, DescriptorSetLayout, DescriptorSet, PipelineLayout, ComputePipeline, Buffer, WriteDescriptorSet, WriteDescriptorSetKind, ComputePipelineCreateInfo, CommandBuffer};
-use octtree::Tree;
 
 use crate::RayCaster;
 
