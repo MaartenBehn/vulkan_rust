@@ -1,12 +1,10 @@
-use app::glam::{UVec2, IVec2, Vec2, ivec2};
+use app::glam::{UVec2, IVec2, ivec2};
 
-use super::{Chunk, particle::Particle};
-
-
+use super::{Chunk, particle::Particle, transform::Transform};
 
 #[allow(dead_code)]
 impl Chunk {
-    pub fn new_cube(pos: Vec2, rot: f32, size: UVec2) -> Self {
+    pub fn new_cube(trans: Transform, vel_trans: Transform, size: UVec2) -> Self {
 
         let mut particles = Vec::new();
 
@@ -18,10 +16,10 @@ impl Chunk {
             }
         }
 
-        Self::new(pos, rot, particles)
+        Self::new(trans, vel_trans, particles)
     }
 
-    pub fn new_circle(pos: Vec2, rot: f32, layers: u32) -> Self {
+    pub fn new_hexagon(trans: Transform, vel_trans: Transform, layers: u32) -> Self {
 
         let mut particles = Vec::new();
 
@@ -49,6 +47,6 @@ impl Chunk {
             }
         }
 
-        Self::new(pos, rot, particles)
+        Self::new(trans, vel_trans, particles)
     }
 }

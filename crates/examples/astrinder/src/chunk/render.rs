@@ -1,13 +1,15 @@
 use std::mem::size_of;
 
-use app::{glam::{Vec2, vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
+use app::{glam::{Vec2, vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
 
 use crate::camera::Camera;
 
-use super::{particle::Particle, CHUNK_PART_SIZE, ChunkController, math::part_pos_to_world};
+use super::{particle::Particle, CHUNK_PART_SIZE, ChunkController, math::{part_pos_to_world, part_corners}, Chunk, transform::Transform};
 
 pub struct ChunkRenderer {
+    loaded_parts: usize,
+
     vertex_buffer: Buffer,
     index_buffer: Buffer,
 
@@ -31,6 +33,7 @@ impl ChunkRenderer {
         context: &Context,
         color_attachment_format: vk::Format,
         images_len: u32,
+        loaded_parts: usize,
     ) -> Result<Self> {
         let (vertices, indecies) = create_mesh();
 
@@ -47,7 +50,6 @@ impl ChunkRenderer {
             size_of::<RenderUBO>() as _,
         )?;
 
-        let loaded_parts = 100;
         let part_ubo = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
@@ -63,10 +65,9 @@ impl ChunkRenderer {
         let mut part_ubo_data = Vec::new();
         let mut particle_buffer_data = Vec::new();
         for i in 0..loaded_parts {
-            part_ubo_data.push(PartUBO::new(part_pos_to_world(vec2(0.0, 0.0), ivec2(i as i32, 0)), 0.0));
+            part_ubo_data.push(PartUBO::new(part_pos_to_world(Transform::default(), ivec2(i as i32, 0), Vec2::ZERO)));
             particle_buffer_data.extend_from_slice(&[Particle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])
         }
-
         part_ubo.copy_data_to_buffer(&part_ubo_data)?;
         particles_ssbo.copy_data_to_buffer(&particle_buffer_data)?;
 
@@ -143,6 +144,19 @@ impl ChunkRenderer {
 
         let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout])?;
 
+        let color_blending = vk::PipelineColorBlendAttachmentState::builder()
+            .color_write_mask(ColorComponentFlags::RGBA)
+            .blend_enable(true)
+
+            .src_color_blend_factor(BlendFactor::ONE)
+            .dst_color_blend_factor(BlendFactor::ONE)
+            .color_blend_op(BlendOp::MIN)
+
+            .src_alpha_blend_factor(BlendFactor::ONE)
+            .dst_alpha_blend_factor(BlendFactor::ZERO)
+            .alpha_blend_op(BlendOp::ADD)
+            .build();
+
         let pipeline = context.create_graphics_pipeline::<Vertex>(
             &pipeline_layout,
             GraphicsPipelineCreateInfo {
@@ -159,12 +173,14 @@ impl ChunkRenderer {
                 primitive_topology: vk::PrimitiveTopology::TRIANGLE_LIST,
                 extent: None,
                 color_attachment_format,
-                color_attachment_blend: None,
+                color_attachment_blend: Some(color_blending),
                 dynamic_states: Some(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT]),
             },
         )?;
 
         Ok(Self { 
+            loaded_parts: loaded_parts,
+
             vertex_buffer: vertex_buffer, 
             index_buffer: index_buffer,
 
@@ -184,6 +200,34 @@ impl ChunkRenderer {
         })
     }
 
+    pub fn update_all_parts (
+        &mut self, 
+        chunk_controller: &ChunkController
+    ) -> Result<()> {
+
+        let mut i = 0;
+        'outer: for chunk in  &chunk_controller.chunks {
+            for part in &chunk.parts {
+                self.part_ubo_data[i] = PartUBO::new(part.transform);
+
+                let start_index = i * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
+                let end_index = (i + 1) * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
+                self.particle_buffer_data.splice(start_index..end_index, part.particles.iter().cloned());
+
+                i += 1;
+
+                if i >= self.loaded_parts {
+                    break 'outer;
+                }
+            }
+        }         
+
+        self._part_ubo.copy_data_to_buffer(&self.part_ubo_data)?;
+        self._particles_ssbo.copy_data_to_buffer(&self.particle_buffer_data)?;
+
+        Ok(())
+    }
+
     pub fn update (
         &mut self, 
         camera: &Camera,
@@ -192,21 +236,7 @@ impl ChunkRenderer {
         
         self._render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())])?;
 
-        let chunk = &chunk_controller.chunks[0];
-
-        let mut i = 0;
-        for part in &chunk.parts {
-            self.part_ubo_data[i] = PartUBO::new(part_pos_to_world(chunk.pos, part.pos), chunk.rot);
-
-            let start_index = i * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
-            let end_index = (i + 1) * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
-            self.particle_buffer_data.splice(start_index..end_index, part.particles.iter().cloned());
-
-            i += 1;
-        }
-
-        self._part_ubo.copy_data_to_buffer(&self.part_ubo_data)?;
-        self._particles_ssbo.copy_data_to_buffer(&self.particle_buffer_data)?;
+        self.update_all_parts(chunk_controller)?;
 
         Ok(())
     }
@@ -236,20 +266,19 @@ impl ChunkRenderer {
 }
 
 fn create_mesh() -> (Vec<Vertex>, Vec<u32>) {
-
-    let one = CHUNK_PART_SIZE as f32;
+    let corners = part_corners();
     let vertices = vec![
         Vertex {
-            position: Vec2::new(0.0, 0.0),
+            position: corners[0],
         },
         Vertex {
-            position: Vec2::new(one * 0.5, one),
+            position: corners[1],
         },
         Vertex {
-            position: Vec2::new(one, 0.0),
+            position: corners[2],
         },
         Vertex {
-            position: Vec2::new(one * 1.5, one),
+            position: corners[3],
         },
     ];
     let indecies = vec![2, 1, 0, 1, 2, 3];
@@ -297,18 +326,15 @@ impl RenderUBO {
 
 #[derive(Clone, Copy)]
 struct PartUBO {
-    pos: Vec2,
-    rot: f32,
+    transform: Transform,
     fill: f32,
 }
 
 impl PartUBO {
-    pub fn new (pos: Vec2, rot: f32) -> Self {
+    pub fn new (transform: Transform) -> Self {
         Self { 
-            pos: pos, 
-            rot: rot, 
+            transform: transform,
             fill: 0.0
         }
     }
 }
-

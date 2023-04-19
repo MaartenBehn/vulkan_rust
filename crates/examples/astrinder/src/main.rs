@@ -1,14 +1,8 @@
-use std::mem::size_of;
 use std::time::Duration;
 
 use app::anyhow::Result;
-use app::glam::Vec2;
 use app::vulkan::ash::vk;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
-use app::vulkan::{
-    Buffer, CommandBuffer, Context, GraphicsPipeline, GraphicsPipelineCreateInfo,
-    GraphicsShaderCreateInfo, PipelineLayout,
-};
+use app::vulkan::{CommandBuffer};
 use app::{App, BaseApp};
 use camera::Camera;
 use chunk::ChunkController;
@@ -42,7 +36,8 @@ impl App for Astrinder {
         let chunk_renderer = ChunkRenderer::new(
             context, 
             base.swapchain.format,
-            base.swapchain.images.len() as u32)?;
+            base.swapchain.images.len() as u32,
+            100)?;
 
         let camera = Camera::new(base.swapchain.extent);
 
@@ -62,9 +57,9 @@ impl App for Astrinder {
         _: &mut BaseApp<Self>,
         _: &mut <Self as App>::Gui,
         _: usize,
-        _: Duration,
+        duration: Duration,
     ) -> Result<()> {
-
+        self.chunk_controller.update_physics(duration.as_secs_f32());
         self.chunk_renderer.update(&self.camera, &self.chunk_controller)?;
 
         Ok(())

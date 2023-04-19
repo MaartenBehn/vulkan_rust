@@ -48,7 +48,7 @@ void main() {
 
     uint material = GET_PARTICLE_MATERIAL(particle_pos, index);
 
-    float draw = float(dist < 0.4 && material != 0); 
+    float draw = float(dist < 0.5 && material != 0); 
 
-    finalColor = vec4(vec3(1.0 - draw - 0.1), 1.0);
+    finalColor = vec4(vec3(1.0 - draw), 1.0);
 }
