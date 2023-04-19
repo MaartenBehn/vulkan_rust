@@ -1,16 +1,19 @@
 use std::time::Duration;
 
 use app::anyhow::Result;
+use app::glam::vec2;
 use app::vulkan::ash::vk;
 use app::vulkan::{CommandBuffer};
 use app::{App, BaseApp};
 use camera::Camera;
 use chunk::ChunkController;
 use chunk::render::ChunkRenderer;
+use debug::render::DebugRenderer;
 
 mod chunk;
 mod aabb;
 mod camera;
+mod debug;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -22,7 +25,8 @@ fn main() -> Result<()> {
 struct Astrinder {
     chunk_controller: ChunkController,
     chunk_renderer: ChunkRenderer,
-    camera: Camera
+    camera: Camera,
+    debug_renderer: DebugRenderer,
 }
 
 impl App for Astrinder {
@@ -41,10 +45,16 @@ impl App for Astrinder {
 
         let camera = Camera::new(base.swapchain.extent);
 
+        let debug_renderer = DebugRenderer::new(context, 
+            base.swapchain.format,
+            base.swapchain.images.len() as u32,
+            10000)?;
+
         Ok(Self {
             chunk_controller,
             chunk_renderer,
             camera,
+            debug_renderer,
         })
     }
 
@@ -61,6 +71,8 @@ impl App for Astrinder {
     ) -> Result<()> {
         self.chunk_controller.update_physics(duration.as_secs_f32());
         self.chunk_renderer.update(&self.camera, &self.chunk_controller)?;
+
+        self.debug_renderer.update(&self.camera, &self.chunk_controller)?;
 
         Ok(())
     }
@@ -79,6 +91,8 @@ impl App for Astrinder {
         );
         
         self.chunk_renderer.render(buffer, image_index, base.swapchain.extent);
+
+        self.debug_renderer.render(buffer, image_index, base.swapchain.extent);
         
         buffer.end_rendering();
 

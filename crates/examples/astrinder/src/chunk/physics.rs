@@ -41,7 +41,7 @@ impl ChunkController {
         for (i, chunk) in self.chunks.iter_mut().enumerate() {
             chunk.velocity_transform += accelerations[i];
 
-            chunk.apply_velocity(time_step)
+            //chunk.apply_velocity(time_step)
         }
     }
 
@@ -101,15 +101,20 @@ impl Chunk {
                     let t0 = transform(part.transform);
                     let t1 = transform(other_part.transform);
 
-                    let result = gjk.intersect(
-                        &part.collider, 
-                        &t0, 
-                        &other_part.collider, 
-                        &t1);
                     
-                    if result.is_some() {
-                        return true;
-                    }
+                    for collider0 in part.colliders.iter() {
+                        for collider1 in other_part.colliders.iter() {
+                            let result = gjk.intersect(
+                                collider0, 
+                                &t0, 
+                                collider1, 
+                                &t1);
+                            
+                            if result.is_some() {
+                                return true;
+                            }
+                        }
+                    }  
                 }
             } 
         }

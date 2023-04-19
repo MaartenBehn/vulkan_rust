@@ -7,17 +7,17 @@ use geo::ConvexHull;
 
 use self::{particle::{Particle}, transform::Transform};
 
-mod math;
-mod particle;
-mod shapes;
+pub mod math;
+pub mod particle;
+pub mod shapes;
 pub mod render;
 pub mod physics;
-mod transform;
+pub mod transform;
 
 const CHUNK_PART_SIZE: i32 = 10;
 
 pub struct ChunkController {
-    chunks: Vec<Chunk>
+    pub chunks: Vec<Chunk>
 }
 
 impl ChunkController {
@@ -27,9 +27,9 @@ impl ChunkController {
         chunks.push(Chunk::new_hexagon(
             Transform::new(vec2(0.0, 0.0), 0.0), 
             Transform::new(vec2(0., 0.), 0.0),
-            25));
+            10));
         chunks.push(Chunk::new_hexagon(
-            Transform::new(vec2(40.0, 0.0), 0.0), 
+            Transform::new(vec2(30.0, 0.0), 0.0), 
             Transform::new(vec2(0.0, -20.0), 0.0),
             2));
 
@@ -40,20 +40,20 @@ impl ChunkController {
 }
 
 pub struct Chunk { 
-    parts: Vec<ChunkPart>, 
+    pub parts: Vec<ChunkPart>, 
 
-    mass: f32,
+    pub mass: f32,
 
-    aabb: AABB,
+    pub aabb: AABB,
     particle_max_dist_to_transform: Vec2,
     
-    transform: Transform,
-    render_to_transform: Vec2,
+    pub transform: Transform,
+    pub render_to_transform: Vec2,
 
     particle_counter: usize,
     particle_pos_sum: Vec2,
    
-    velocity_transform: Transform,
+    pub velocity_transform: Transform,
 }
 
 #[allow(dead_code)]
@@ -154,11 +154,11 @@ impl Chunk {
 
 #[derive(Clone)]
 pub struct ChunkPart{
-    pos: IVec2,
-    particles: [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
-    transform: Transform,
+    pub pos: IVec2,
+    pub particles: [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
+    pub transform: Transform,
 
-    collider: ConvexPolygon<f32>
+    pub colliders: Vec<ConvexPolygon<f32>>
 }
 
 impl ChunkPart {
@@ -168,7 +168,7 @@ impl ChunkPart {
             particles: [Particle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
             transform: Transform::default(),
 
-            collider: ConvexPolygon::new(Vec::new())
+            colliders: Vec::new(),
         }
     }   
 
@@ -221,14 +221,16 @@ impl ChunkPart {
             LineString::from(outside_particles),
             vec![],
         );
-        let res = polygon.convex_hull();
 
-        let mut result_vec = Vec::new();
-        for point in res.exterior().points(){
-            result_vec.push(Point2::<f32>::new(point.x(), point.y()))
-        }
+        self.colliders.clear();
+        for trinagle in polygon.exterior().triangles() {
+            let points = trinagle.to_array(); 
 
-        self.collider = ConvexPolygon::new(result_vec);
+            self.colliders.push(ConvexPolygon::new(vec![
+                Point2::<f32>::new(points[0].x, points[0].y),
+                Point2::<f32>::new(points[1].x, points[1].y),
+                Point2::<f32>::new(points[2].x, points[2].y)]));
+        }        
     }
 }
 

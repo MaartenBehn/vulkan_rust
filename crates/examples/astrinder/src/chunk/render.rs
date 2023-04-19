@@ -162,11 +162,11 @@ impl ChunkRenderer {
             GraphicsPipelineCreateInfo {
                 shaders: &[
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../shaders/shader.vert.spv")[..],
+                        source: &include_bytes!("../../shaders/chunk.vert.spv")[..],
                         stage: vk::ShaderStageFlags::VERTEX,
                     },
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../shaders/shader.frag.spv")[..],
+                        source: &include_bytes!("../../shaders/chunk.frag.spv")[..],
                         stage: vk::ShaderStageFlags::FRAGMENT,
                     },
                 ],
@@ -314,7 +314,7 @@ impl app::vulkan::Vertex for Vertex {
 }
 
 #[derive(Clone, Copy)]
-struct RenderUBO {
+pub struct RenderUBO {
     camera: Camera,
 }
 
