@@ -14,7 +14,6 @@ pub mod transform;
 pub mod debug;
 
 const CHUNK_PART_SIZE: i32 = 10;
-const MAX_COLLIDER_LEN_DIFF: usize = 100;
 
 pub struct ChunkController {
     pub chunks: Vec<Chunk>
@@ -178,8 +177,6 @@ impl ChunkPart {
 
         struct ColliderBuilder {
             corners: [IVec2; 6],
-            lens: [usize; 3],
-            longest_len: usize
         }
 
         let mut search_x = 0;
@@ -269,8 +266,6 @@ impl ChunkPart {
 
             let mut cb = ColliderBuilder { 
                 corners: [ivec2(current_x, current_y); 6],
-                lens: [1; 3],
-                longest_len: 0,
             };
             set_point_used(current_x, current_y, &mut used_points);
 
@@ -308,16 +303,6 @@ impl ChunkPart {
                     };
     
                     if expand {
-                        let new_len = cb.lens[i] + 1;
-                        if cb.longest_len < new_len {
-                            if (new_len * new_len) > (cb.lens[(i+1) % 3] + cb.lens[(i+2) % 3]) * MAX_COLLIDER_LEN_DIFF {
-                                continue;
-                            }
-
-                            cb.longest_len = new_len;
-                        }
-                        cb.lens[i] = new_len;
-
                         for point in points {
                             set_point_used(point.x, point.y, &mut used_points);
                         }
@@ -325,7 +310,6 @@ impl ChunkPart {
                         cb.corners[data.corner0] = start;
                         cb.corners[data.corner1] = middle;
                         cb.corners[data.corner2] = end;
-                        cb.lens[i] = new_len;
 
                         expaned = true;
                     }
