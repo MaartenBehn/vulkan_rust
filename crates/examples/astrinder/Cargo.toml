@@ -9,4 +9,4 @@ app = { path = "../../libs/app" }
 
 collision.workspace = true
 cgmath.workspace = true
-geo.workspace = true
+noise.workspace = true

@@ -9,6 +9,8 @@ use crate::{camera::{Camera, self}, chunk::{ChunkController, ChunkPart, Chunk, t
 pub struct DebugRenderer {
     max_lines: usize,
 
+    lines: Vec<f32>,
+
     vertex_buffer: Buffer,
     _render_ubo: Buffer,
 
@@ -114,6 +116,9 @@ impl DebugRenderer {
 
         Ok(Self { 
             max_lines: max_lines,
+
+            lines: Vec::new(),
+
             vertex_buffer: vertex_buffer,
             _render_ubo: render_ubo, 
 
@@ -126,48 +131,27 @@ impl DebugRenderer {
         })
     }
 
+    pub fn add_line (&mut self, x: Vec2, y: Vec2){
+        self.lines.push(x.x);
+        self.lines.push(x.y);
+        self.lines.push(y.x);
+        self.lines.push(y.y);
+    }
+
+    pub fn clear_lines (&mut self){
+        self.lines.clear();
+    }
+
     pub fn update (
         &mut self, 
         camera: &Camera,
-        chunk_controller: &ChunkController,
     ) -> Result<()>{
 
-        let mut vertex = Vec::new();
-        let mut counter = 0;
-
-        let push_line = |a: Point2<f32>, b: Point2<f32>, vertex: &mut Vec<f32>, part_transform: Transform, counter: &mut usize| {
-            let pos0 = vec2(a.x, a.y);
-            let pos1 = vec2(b.x, b.y);
-
-            let angle_vec = Vec2::from_angle(part_transform.rot);
-            let r_pos0 = Vec2::rotate(angle_vec, pos0);
-            let r_pos1 = Vec2::rotate(angle_vec, pos1);
-
-            vertex.push(r_pos0.x + part_transform.pos.x);
-            vertex.push(r_pos0.y + part_transform.pos.y);
-            vertex.push(r_pos1.x + part_transform.pos.x);
-            vertex.push(r_pos1.y + part_transform.pos.y);
-
-            *counter += 4;
-        };
-
-        for chunk in chunk_controller.chunks.iter() {
-            for part in chunk.parts.iter() {
-                let part_transform = part_pos_to_world(chunk.transform, part.pos, chunk.render_to_transform);
-
-                for collider in part.colliders.iter() {
-                    push_line(collider.vertices[0], collider.vertices[1], &mut vertex, part_transform, &mut counter);
-                    push_line(collider.vertices[1], collider.vertices[2], &mut vertex, part_transform, &mut counter);
-                    push_line(collider.vertices[2], collider.vertices[0], &mut vertex, part_transform, &mut counter);
-                }
-            }
+        for _ in 0..(self.max_lines * 2 - self.lines.len()) {
+            self.lines.push(0.0);
         }
 
-        for _ in 0..(self.max_lines * 2 - counter) {
-            vertex.push(0.0);
-        }
-
-        self.vertex_buffer.copy_data_to_buffer(&vertex)?;
+        self.vertex_buffer.copy_data_to_buffer(&self.lines)?;
 
         self._render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())])?;
         

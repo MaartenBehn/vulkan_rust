@@ -72,7 +72,10 @@ impl App for Astrinder {
         self.chunk_controller.update_physics(duration.as_secs_f32());
         self.chunk_renderer.update(&self.camera, &self.chunk_controller)?;
 
-        self.debug_renderer.update(&self.camera, &self.chunk_controller)?;
+        self.debug_renderer.clear_lines();
+        self.chunk_controller.debug_colliders(&mut self.debug_renderer);
+
+        self.debug_renderer.update(&self.camera)?;
 
         Ok(())
     }
