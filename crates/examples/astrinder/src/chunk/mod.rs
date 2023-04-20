@@ -1,4 +1,5 @@
 use app::glam::{UVec2, Vec2, IVec2, uvec2, vec2, ivec2};
+use cgmath::Point2;
 use collision::primitive::ConvexPolygon;
 use crate::{aabb::AABB, chunk::math::*};
 
@@ -13,6 +14,7 @@ pub mod transform;
 pub mod debug;
 
 const CHUNK_PART_SIZE: i32 = 10;
+const MAX_COLLIDER_LEN_DIFF: usize = 100;
 
 pub struct ChunkController {
     pub chunks: Vec<Chunk>
@@ -25,7 +27,7 @@ impl ChunkController {
         chunks.push(Chunk::new_noise_hexagon(
             Transform::new(vec2(0.0, 0.0), 0.0), 
             Transform::new(vec2(0., 0.), 0.0),
-            10));
+            10)); 
         chunks.push(Chunk::new_noise_hexagon(
             Transform::new(vec2(30.0, 0.0), 0.0), 
             Transform::new(vec2(0.0, -20.0), 0.0),
@@ -78,7 +80,7 @@ impl Chunk {
         }
 
         for part in chunk.parts.iter_mut() {
-            //part.update_collider();
+            part.update_colliders();
         }
 
         chunk.render_to_transform = chunk.particle_pos_sum / Vec2::new(
@@ -170,100 +172,181 @@ impl ChunkPart {
         }
     }   
 
-    pub fn get_colliders(&self) -> Vec<(u8, Vec<IVec2>)> {
+    pub fn update_colliders(&mut self) {
 
-        let mut active_colliders: Vec<(u8, Vec<IVec2>)> = Vec::new();
+        self.colliders.clear();
 
-        let mut last_new_collider_instert = None;
-        let mut last_exsiting_collider_instert = None;
-        let add_new_collider = |x, y, last_insert_in_line,  active_colliders: &mut Vec<(u8, Vec<IVec2>)>| {
-            if last_insert_in_line == Some(ivec2(x - 1, y)) {
-                active_colliders.last_mut().unwrap().1.push(ivec2(x, y));
-            }
-            else {
-                active_colliders.push((get_valid_dir_bits(true, true, true), vec![ivec2(x, y)]));
-            }
-        };
-
-        for y in 0..CHUNK_PART_SIZE  {
-            for x in 0..CHUNK_PART_SIZE {
-
-                /*
-                println!("");
-                for collider in active_colliders.iter() {
-                    println!("{:?}", collider);
-                }
-                */
-               
-                let index = get_index(x, y);
-                let material = self.particles[index].material;
-                let is_empty = material == 0;
-                
-                if !is_empty {
-                    if y == 0 {
-                        add_new_collider(x, y, last_new_collider_instert, &mut active_colliders);
-                        last_new_collider_instert = Some(ivec2(x, y));
-                        continue;
-                    }
-
-                    let case_0 = ivec2(x, y - 1);
-                    let case_1 = if x != CHUNK_PART_SIZE - 1 {Some(ivec2(x + 1, y - 1))} else { None };
-                    let case_2 = if x != CHUNK_PART_SIZE - 1 {Some((ivec2(x, y - 1), ivec2(x + 1, y + - 1)))} else { None }; 
-
-                    let mut found = false;
-                    for (valid_dirs, points) in active_colliders.iter_mut() {
-
-                        let mut test_valid_dirs = 0;
-                        let l = points.len();
-
-                        for (i, point) in points.iter().rev().enumerate() {
-                            if point.y < y - 1 {
-                                break;
-                            }
-
-                            test_valid_dirs |= get_valid_dir_bits(
-                                point.x == case_0.x,
-                                case_1.is_some() 
-                                    && point.x == case_1.unwrap().x,
-                                case_2.is_some() 
-                                    && point.x == case_2.unwrap().1.x 
-                                    && l >= 2 && l >= (i + 2)
-                                    && points[l - (i + 2)].x == case_2.unwrap().0.x,
-                            );
-                        }
-
-                        let res_valid_dirs = *valid_dirs & test_valid_dirs;                   
-                        if res_valid_dirs != 0 {
-                            if (res_valid_dirs & 1) != 0 && 
-                                last_exsiting_collider_instert.is_some() && 
-                                last_exsiting_collider_instert.unwrap() != ivec2(x - 1, y) {
-                                // Remove case 1.
-                                *valid_dirs &= !2;
-                            }
-
-                            if (res_valid_dirs & 2) != 0 && 
-                                self.particles[get_index(x + 1, y)].material == 0 {
-                                // Remove case 0.
-                                *valid_dirs &= !1;
-                            }
-
-                            points.push(ivec2(x, y));
-                            last_exsiting_collider_instert = Some(ivec2(x, y));
-
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if !found {
-                        add_new_collider(x, y, last_new_collider_instert, &mut active_colliders);
-                        last_new_collider_instert = Some(ivec2(x, y));
-                    }
-                }
-            }     
+        struct ColliderBuilder {
+            corners: [IVec2; 6],
+            lens: [usize; 3],
+            longest_len: usize
         }
 
-        active_colliders
+        let mut search_x = 0;
+        let mut search_y = 0;
+
+        let mut current_x = 0;
+        let mut current_y = 0;
+
+        struct ExpandData {
+            corner0: usize,
+            corner1: usize,
+            corner2: usize,
+
+            offset: IVec2,
+            dir0: IVec2,
+            dir1: IVec2,
+        }
+
+        let expand_data = [
+            ExpandData {
+                corner0: 1,
+                corner1: 2,
+                corner2: 3,
+
+                offset: ivec2(-1, 1),
+                dir0: ivec2(0, 1),
+                dir1: ivec2(1, 0),
+            },
+            ExpandData {
+                corner0: 2,
+                corner1: 3,
+                corner2: 4,
+
+                offset: ivec2(0, 1),
+                dir0: ivec2(1, 0),
+                dir1: ivec2(1, -1),
+            },
+            ExpandData {
+                corner0: 3,
+                corner1: 4,
+                corner2: 5,
+
+                offset: ivec2(1, 0),
+                dir0: ivec2(1, -1),
+                dir1: ivec2(0, -1),
+            },
+        ];
+
+        let mut used_points = vec![false; self.particles.len()];
+        fn set_point_used(x: i32, y: i32, used_points: &mut Vec<bool>) {
+            used_points[get_index(x, y)] = true;
+        }
+
+        fn check_point(x: i32, y: i32, part: &ChunkPart, used_points: &Vec<bool>) -> bool {
+            if x < 0 || x >= CHUNK_PART_SIZE || y < 0 || y >= CHUNK_PART_SIZE  {
+                return false;
+            }
+
+            let index = get_index(x, y); 
+            part.particles[index].material != 0 && !used_points[index]
+        }
+
+        'outer: loop {
+            'search: loop {
+                if search_y >= CHUNK_PART_SIZE {
+                    break 'outer;
+                }
+
+                loop {
+                    if search_x >= CHUNK_PART_SIZE {
+                        search_y += 1;
+                        search_x = 0;
+                        break;
+                    }
+
+                    if check_point(search_x, search_y, self, &used_points) {
+                        current_x = search_x;
+                        current_y = search_y;
+                        search_x += 1;
+
+                        break 'search;
+                    }
+
+                    search_x += 1;
+                }
+            }
+
+            let mut cb = ColliderBuilder { 
+                corners: [ivec2(current_x, current_y); 6],
+                lens: [1; 3],
+                longest_len: 0,
+            };
+            set_point_used(current_x, current_y, &mut used_points);
+
+            loop {
+                let mut expaned = false;
+                for (i, data) in expand_data.iter().enumerate() {
+
+                    let corner0 = cb.corners[data.corner0];
+                    let corner1 = cb.corners[data.corner1];
+                    let corner2 = cb.corners[data.corner2];
+    
+                    let start = corner0 + data.offset;
+                    let middle = corner1 + data.offset;
+                    let end = corner2 + data.offset;
+
+                    let mut dir = data.dir0;
+                    let mut pos = start;
+    
+                    let mut points = Vec::new();
+                    let expand = loop {
+                        if !check_point(pos.x, pos.y, self, &used_points) {
+                            break false;
+                        }
+                        points.push(pos);
+
+                        if pos == middle {
+                            dir = data.dir1;
+                        }
+    
+                        if pos == end {
+                            break true;
+                        }
+
+                        pos += dir;
+                    };
+    
+                    if expand {
+                        let new_len = cb.lens[i] + 1;
+                        if cb.longest_len < new_len {
+                            if (new_len * new_len) > (cb.lens[(i+1) % 3] + cb.lens[(i+2) % 3]) * MAX_COLLIDER_LEN_DIFF {
+                                continue;
+                            }
+
+                            cb.longest_len = new_len;
+                        }
+                        cb.lens[i] = new_len;
+
+                        for point in points {
+                            set_point_used(point.x, point.y, &mut used_points);
+                        }
+                        
+                        cb.corners[data.corner0] = start;
+                        cb.corners[data.corner1] = middle;
+                        cb.corners[data.corner2] = end;
+                        cb.lens[i] = new_len;
+
+                        expaned = true;
+                    }
+                }
+
+                if !expaned {
+
+                    let mut vertex = Vec::new();
+                    for corner in cb.corners {
+                        let pos = hex_to_coord(corner);
+
+                        vertex.push(Point2::new(pos.x, pos.y));
+                    }
+
+                    let collider = ConvexPolygon::new(vertex);
+
+                    self.colliders.push(collider);
+                    break;
+                }
+            }
+        }
     }
 }
 

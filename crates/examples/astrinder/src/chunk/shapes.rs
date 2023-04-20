@@ -35,7 +35,7 @@ impl Chunk {
         let points = hexagon_points(layers);
         let mut particles = Vec::new();
 
-        let hasher = PermutationTable::new(3);
+        let hasher = PermutationTable::new(10);
 
         for point in points {
             if perlin_2d((point.as_dvec2() * 0.1).into(), &hasher) < 0.0 {
