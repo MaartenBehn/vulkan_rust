@@ -1,4 +1,4 @@
-use app::glam::{Vec2, IVec2, ivec2, vec2, uvec2};
+use app::glam::{Vec2, IVec2, ivec2, vec2};
 
 use super::{CHUNK_PART_SIZE, transform::Transform};
 
@@ -48,4 +48,22 @@ pub fn part_corners() -> [Vec2; 4] {
         vec2(one, 0.0),
         vec2(one * 1.5, one),
     ]
+}
+
+
+pub fn point2_to_vec2(point: cgmath::Point2<f32>) -> Vec2 {
+    vec2(point.x, point.y)
+}
+
+pub fn vec2_to_point2(vec: Vec2) -> cgmath::Point2<f32> {
+    cgmath::Point2::new(vec.x, vec.y)
+}
+
+pub fn vector2_to_vec2(point: cgmath::Vector2<f32>) -> Vec2 {
+    vec2(point.x, point.y)
+}
+
+
+pub fn cross2d(p1: Vec2, p2: Vec2) -> f32 {
+    p1.x * p2.y - p2.x * p1.y
 }

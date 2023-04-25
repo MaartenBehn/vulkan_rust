@@ -18,6 +18,7 @@ mod debug;
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Astrinder";
+const ENABLE_DEBUG_RENDER: bool = true;
 
 fn main() -> Result<()> {
     app::run::<Astrinder>(APP_NAME, WIDTH, HEIGHT, false, false)
@@ -72,10 +73,15 @@ impl App for Astrinder {
         self.chunk_controller.update_physics(duration.as_secs_f32());
         self.chunk_renderer.update(&self.camera, &self.chunk_controller)?;
 
-        self.debug_renderer.clear_lines();
-        self.chunk_controller.debug_colliders(&mut self.debug_renderer);
+        if ENABLE_DEBUG_RENDER {
+            self.debug_renderer.clear_lines();
+            self.chunk_controller.debug_colliders(&mut self.debug_renderer);
+            self.chunk_controller.debug_chunk_transforms(&mut self.debug_renderer);
+            self.chunk_controller.debug_parts_borders(&mut self.debug_renderer);
+            self.chunk_controller.debug_chunk_velocity(&mut self.debug_renderer);
 
-        self.debug_renderer.update(&self.camera)?;
+            self.debug_renderer.update(&self.camera)?;
+        }
 
         Ok(())
     }
@@ -95,7 +101,9 @@ impl App for Astrinder {
         
         self.chunk_renderer.render(buffer, image_index, base.swapchain.extent);
 
-        self.debug_renderer.render(buffer, image_index, base.swapchain.extent);
+        if ENABLE_DEBUG_RENDER {
+            self.debug_renderer.render(buffer, image_index, base.swapchain.extent);
+        }
         
         buffer.end_rendering();
 

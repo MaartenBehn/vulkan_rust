@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use app::{glam::{Vec2, vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
+use app::{glam::{Vec2, vec2, ivec2, Vec3}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
 use cgmath::Point2;
 
@@ -9,7 +9,7 @@ use crate::{camera::{Camera, self}, chunk::{ChunkController, ChunkPart, Chunk, t
 pub struct DebugRenderer {
     max_lines: usize,
 
-    lines: Vec<f32>,
+    lines: Vec<Vertex>,
 
     vertex_buffer: Buffer,
     _render_ubo: Buffer,
@@ -131,11 +131,9 @@ impl DebugRenderer {
         })
     }
 
-    pub fn add_line (&mut self, x: Vec2, y: Vec2){
-        self.lines.push(x.x);
-        self.lines.push(x.y);
-        self.lines.push(y.x);
-        self.lines.push(y.y);
+    pub fn add_line (&mut self, x: Vec2, y: Vec2, color: Vec3){
+        self.lines.push(Vertex::new(x, color));
+        self.lines.push(Vertex::new(y, color));
     }
 
     pub fn clear_lines (&mut self){
@@ -148,7 +146,7 @@ impl DebugRenderer {
     ) -> Result<()>{
 
         for _ in 0..(self.max_lines * 2 - self.lines.len()) {
-            self.lines.push(0.0);
+            self.lines.push(Vertex::new(Vec2::ZERO, Vec3::ZERO));
         }
 
         self.vertex_buffer.copy_data_to_buffer(&self.lines)?;
@@ -185,7 +183,14 @@ impl DebugRenderer {
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 struct Vertex {
-    position: Vec2,
+    pos: Vec2,
+    color: Vec3,
+}
+
+impl Vertex {
+    fn new (pos: Vec2, color: Vec3) -> Self {
+        Self { pos, color }
+    }
 }
 
 impl app::vulkan::Vertex for Vertex {
@@ -204,6 +209,12 @@ impl app::vulkan::Vertex for Vertex {
                 location: 0,
                 format: vk::Format::R32G32_SFLOAT,
                 offset: 0,
+            },
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 1,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: 8,
             },
         ]
     }

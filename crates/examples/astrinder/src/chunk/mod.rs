@@ -23,14 +23,16 @@ impl ChunkController {
     pub fn new() -> Self {
         let mut chunks = Vec::new();
 
-        chunks.push(Chunk::new_noise_hexagon(
+        chunks.push(Chunk::new_hexagon(
             Transform::new(vec2(0.0, 0.0), 0.0), 
             Transform::new(vec2(0., 0.), 0.0),
-            10)); 
-        chunks.push(Chunk::new_noise_hexagon(
-            Transform::new(vec2(30.0, 0.0), 0.0), 
-            Transform::new(vec2(0.0, -20.0), 0.0),
-            2));
+            2)); 
+
+         
+        chunks.push(Chunk::new_hexagon(
+            Transform::new(vec2(1.0, 20.0), 0.0), 
+            Transform::new(vec2(0.0, -4.0), 0.0),
+            2)); 
 
         Self { 
             chunks: chunks 
@@ -53,6 +55,11 @@ pub struct Chunk {
     particle_pos_sum: Vec2,
    
     pub velocity_transform: Transform,
+
+
+    pub area: f32,
+    pub density: f32,
+    pub moment_of_inertia: f32,
 }
 
 #[allow(dead_code)]
@@ -72,22 +79,18 @@ impl Chunk {
             particle_pos_sum: Vec2::ZERO,
 
             velocity_transform: velocity_transform,
+
+            area: 0.0,
+            density: 0.0,
+            moment_of_inertia: 0.0,
         };
 
         for (p, hex_pos) in particles {
             chunk.add_particle(p, hex_pos)
         }
 
-        for part in chunk.parts.iter_mut() {
-            part.update_colliders();
-        }
-
-        chunk.render_to_transform = chunk.particle_pos_sum / Vec2::new(
-            chunk.particle_counter as f32, 
-            chunk.particle_counter as f32);
-
-
-        chunk.on_transform_update();
+        chunk.on_chunk_change();
+        chunk.on_transform_change();
 
         chunk
     }
@@ -134,7 +137,7 @@ impl Chunk {
         self.particle_counter += 1;
     }
 
-    fn on_transform_update (&mut self) {
+    fn on_transform_change(&mut self) {
         self.aabb = AABB::new(
             self.transform.pos - self.particle_max_dist_to_transform, 
             self.transform.pos + self.particle_max_dist_to_transform);
@@ -142,11 +145,109 @@ impl Chunk {
         self.update_part_tranforms();
     }
 
+    fn on_chunk_change(&mut self) {
+        self.render_to_transform = self.particle_pos_sum / Vec2::new(
+            self.particle_counter as f32, 
+            self.particle_counter as f32);
+
+        for part in self.parts.iter_mut() {
+            part.update_colliders();
+        }
+
+        self.update_area();
+        self.update_moment_of_inertia();
+    }
+
     pub fn update_part_tranforms(&mut self){
         for part in self.parts.iter_mut() {
             part.transform = part_pos_to_world(self.transform, part.pos, self.render_to_transform);
         }
     }
+
+    fn update_area(&mut self) {
+        // https://fotino.me/moment-of-inertia-algorithm/
+
+        self.area = 0.0;
+        for part in self.parts.iter() {
+            for collider in part.colliders.iter() {
+                for i in 0..collider.vertices.len() - 1 {
+                    let (p1, p2, p3) = (
+                        point2_to_vec2(collider.vertices[0]), 
+                        point2_to_vec2(collider.vertices[i]), 
+                        point2_to_vec2(collider.vertices[i + 1]));
+
+                    if p1 == p2 || p1 == p3 || p2 == p3 {
+                        continue;
+                    }
+    
+                    let v1 = p3 - p1; 
+                    let v2 = p2 - p1;
+                    self.area += cross2d(v1, v2) / 2.0;
+                }
+            }
+        }
+    }
+
+    fn update_moment_of_inertia(&mut self) {
+        // https://fotino.me/moment-of-inertia-algorithm/
+
+        let density = (self.mass / 100.0) / self.area;
+        let mut moment_of_inertia = 0.0;
+        for part in self.parts.iter() {
+            for collider in part.colliders.iter() {
+                for i in 0..collider.vertices.len() - 1 {
+                    let (p1, p2, p3) = (
+                        point2_to_vec2(collider.vertices[0]), 
+                        point2_to_vec2(collider.vertices[i]), 
+                        point2_to_vec2(collider.vertices[i + 1]));
+
+                    if p1 == p2 || p1 == p3 || p2 == p3 {
+                        continue;
+                    }
+
+                    let w = p1.distance(p2);
+    
+                    let w1 = ((p1 - p2).dot(p3 - p2) / w).abs();
+                    let w2 = (w - w1).abs();
+    
+                    let signed_tri_area = cross2d(p3 - p1, p2 - p1) / 2.0;
+                    let h = 2.0 * signed_tri_area.abs() / w;
+    
+                    let p4 = p2 + (p1 - p2) * (w1 / w);
+    
+                    let cm1 = (p2 + p3 + p4) / 3.0;
+                    let cm2 = (p1 + p3 + p4) / 3.0;
+    
+                    let i1 = density * w1 * h * ((h * h / 4.0) + (w1 * w1 / 12.0));
+                    let i2 = density * w2 * h * ((h * h / 4.0) + (w2 * w2 / 12.0));
+    
+                    let m1 = 0.5 * w1 * density;
+                    let m2 = 0.5 * w2 * density;
+                    
+                    let i1cm = i1 - (m1 * cm1.distance(p3).powf(2.0));
+                    let i2cm = i2 - (m2 * cm2.distance(p3).powf(2.0));
+    
+                    let moment_of_inertia_part1 = i1cm + (m1 * cm1.length().powf(2.0));
+                    let moment_of_inertia_part2 = i2cm + (m2 * cm2.length().powf(2.0));
+    
+                    if cross2d(p1 - p3, p4 - p3) > 0.0 {
+                        moment_of_inertia += moment_of_inertia_part1;
+                    } else {
+                        moment_of_inertia -= moment_of_inertia_part1;
+                    }
+    
+                    if cross2d(p4 - p3, p2 - p3) > 0.0 {
+                        moment_of_inertia += moment_of_inertia_part2;
+                    } else {
+                        moment_of_inertia -= moment_of_inertia_part2;
+                    }
+                }
+            }
+        }
+    
+        self.moment_of_inertia = moment_of_inertia.abs();
+    }
+
 }
 
 
@@ -239,6 +340,15 @@ impl ChunkPart {
             part.particles[index].material != 0 && !used_points[index]
         }
 
+        let offsets = [
+            vec2(-0.3, -0.5),
+            vec2(-0.5, 0.0),
+            vec2(-0.3, 0.5),
+            vec2(0.3, 0.5),
+            vec2(0.5, 0.0),
+            vec2(0.3, -0.5),
+            ]; 
+
         'outer: loop {
             'search: loop {
                 if search_y >= CHUNK_PART_SIZE {
@@ -318,10 +428,10 @@ impl ChunkPart {
                 if !expaned {
 
                     let mut vertex = Vec::new();
-                    for corner in cb.corners {
-                        let pos = hex_to_coord(corner);
+                    for (i, corner) in cb.corners.iter().enumerate() {
+                        let pos = hex_to_coord(*corner) + offsets[i];
 
-                        vertex.push(Point2::new(pos.x, pos.y));
+                        vertex.push(vec2_to_point2(pos));
                     }
 
                     let collider = ConvexPolygon::new(vertex);
