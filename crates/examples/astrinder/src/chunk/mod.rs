@@ -14,9 +14,11 @@ pub mod transform;
 pub mod debug;
 
 const CHUNK_PART_SIZE: i32 = 10;
+const MAX_AMMOUNT_OF_PARTS: usize = 1000;
 
 pub struct ChunkController {
-    pub chunks: Vec<Chunk>
+    pub chunks: Vec<Chunk>,
+    part_id_counter: usize,
 }
 
 impl ChunkController {
@@ -30,12 +32,13 @@ impl ChunkController {
 
          
         chunks.push(Chunk::new_hexagon(
-            Transform::new(vec2(1.0, 20.0), 0.0), 
+            Transform::new(vec2(0.0, 20.0), 0.0), 
             Transform::new(vec2(0.0, -4.0), 0.0),
             2)); 
 
         Self { 
-            chunks: chunks 
+            chunks: chunks,
+            part_id_counter: 0,
         }
     }
 }
@@ -110,7 +113,7 @@ impl Chunk {
         }
 
         if part.is_none() {
-            let new_part= ChunkPart::new(part_pos);
+            let new_part= ChunkPart::new(part_pos, self.particle_counter);
 
             self.parts.push(new_part);
 
@@ -254,6 +257,7 @@ impl Chunk {
 
 #[derive(Clone)]
 pub struct ChunkPart{
+    pub id: usize,
     pub pos: IVec2,
     pub particles: [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
     pub transform: Transform,
@@ -262,8 +266,9 @@ pub struct ChunkPart{
 }
 
 impl ChunkPart {
-    pub fn new(pos: IVec2) -> Self {
+    pub fn new(pos: IVec2, id: usize) -> Self {
         Self { 
+            id: id,
             pos: pos,
             particles: [Particle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
             transform: Transform::default(),

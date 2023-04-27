@@ -23,7 +23,7 @@ layout(binding = 2) buffer ParticleBuffer {
 } particle_buffer;
 
 #define GET_PARTICLE_INDEX(pos, instance) instance * CHUNK_SIZE * CHUNK_SIZE + pos.x * CHUNK_SIZE + pos.y
-#define GET_PARTICLE_MATERIAL(pos, instance) particle_buffer.data[GET_PARTICLE_INDEX(pos, instance)] & MAX_16_BIT
+#define GET_PARTICLE_MATERIAL(pos, instance) particle_buffer.data[GET_PARTICLE_INDEX(pos, instance)]
 
 layout(location = 0) out vec4 finalColor;
 

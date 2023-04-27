@@ -100,11 +100,11 @@ impl ChunkController {
             self.chunks[collision_search.chunk1_index].transform.pos += normal * mass0_fraction * res.penetration_depth;
 
             // Collision Response
-            self.chunks[collision_search.chunk0_index].velocity_transform.pos += vel0;
-            self.chunks[collision_search.chunk0_index].velocity_transform.rot += rot_vel0;
+            //self.chunks[collision_search.chunk0_index].velocity_transform.pos += vel0;
+            //self.chunks[collision_search.chunk0_index].velocity_transform.rot += rot_vel0;
 
-            self.chunks[collision_search.chunk1_index].velocity_transform.pos -= vel1;
-            self.chunks[collision_search.chunk1_index].velocity_transform.rot -= rot_vel1;
+            //self.chunks[collision_search.chunk1_index].velocity_transform.pos -= vel1;
+            //self.chunks[collision_search.chunk1_index].velocity_transform.rot -= rot_vel1;
         }
 
         for chunk in self.chunks.iter_mut() {

@@ -1,8 +1,8 @@
 
 #[derive(Copy, Clone)]
 pub struct Particle {
-    pub material: u16,
-    pub mass: u16,
+    pub material: u32,
+    pub mass: u32,
 }
 
 impl Particle {

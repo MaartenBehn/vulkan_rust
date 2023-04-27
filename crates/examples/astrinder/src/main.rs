@@ -1,13 +1,11 @@
 use std::time::Duration;
 
 use app::anyhow::Result;
-use app::glam::vec2;
 use app::vulkan::ash::vk;
 use app::vulkan::{CommandBuffer};
 use app::{App, BaseApp};
 use camera::Camera;
 use chunk::ChunkController;
-use chunk::render::ChunkRenderer;
 use debug::render::DebugRenderer;
 
 mod chunk;
@@ -71,6 +69,9 @@ impl App for Astrinder {
         duration: Duration,
     ) -> Result<()> {
         self.chunk_controller.update_physics(duration.as_secs_f32());
+
+
+        
         self.chunk_renderer.update(&self.camera, &self.chunk_controller)?;
 
         if ENABLE_DEBUG_RENDER {

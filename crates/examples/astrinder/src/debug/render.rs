@@ -4,7 +4,7 @@ use app::{glam::{Vec2, vec2, ivec2, Vec3}, vulkan::{Context, Buffer, utils::crea
 use app::anyhow::Result;
 use cgmath::Point2;
 
-use crate::{camera::{Camera, self}, chunk::{ChunkController, ChunkPart, Chunk, transform::Transform, math::part_pos_to_world, render::RenderUBO}};
+use crate::{camera::{Camera, self}, chunk::{ChunkController, ChunkPart, Chunk, transform::Transform, math::part_pos_to_world}};
 
 pub struct DebugRenderer {
     max_lines: usize,

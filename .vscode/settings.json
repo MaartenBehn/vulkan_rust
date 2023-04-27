@@ -1,5 +1,7 @@
 {
     "rust-analyzer.linkedProjects": [
+        "./crates/examples/astrinder/Cargo.toml",
         "./crates/examples/astrinder/Cargo.toml"
-    ]
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }

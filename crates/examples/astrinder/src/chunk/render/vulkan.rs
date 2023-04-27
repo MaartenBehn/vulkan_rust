@@ -3,22 +3,20 @@ use std::mem::size_of;
 use app::{glam::{Vec2, vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
 
-use crate::camera::Camera;
+use crate::{camera::Camera, chunk::{CHUNK_PART_SIZE, math::{part_pos_to_world, part_corners}, transform::Transform}};
 
-use super::{particle::Particle, CHUNK_PART_SIZE, ChunkController, math::{part_pos_to_world, part_corners}, Chunk, transform::Transform};
+use super::part::RenderParticle;
 
-pub struct ChunkRenderer {
-    loaded_parts: usize,
-
+pub struct ChunkRendererVulkan {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
 
-    part_ubo_data: Vec<PartUBO>,
-    particle_buffer_data: Vec<Particle>,
+    pub part_ubo_data: Vec<PartUBO>,
+    pub particle_buffer_data: Vec<RenderParticle>,
 
-    _render_ubo: Buffer,
-    _part_ubo: Buffer,
-    _particles_ssbo: Buffer,
+    pub render_ubo: Buffer,
+    pub part_ubo: Buffer,
+    pub particles_ssbo: Buffer,
 
     _descriptor_pool: DescriptorPool,
     _descriptor_layout: DescriptorSetLayout,
@@ -28,12 +26,12 @@ pub struct ChunkRenderer {
     pipeline: GraphicsPipeline,
 }
 
-impl ChunkRenderer {
+impl ChunkRendererVulkan {
     pub fn new (
         context: &Context,
         color_attachment_format: vk::Format,
         images_len: u32,
-        loaded_parts: usize,
+        rendered_parts: usize,
     ) -> Result<Self> {
         let (vertices, indecies) = create_mesh();
 
@@ -53,20 +51,20 @@ impl ChunkRenderer {
         let part_ubo = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
-            (size_of::<PartUBO>() * loaded_parts) as _,
+            (size_of::<PartUBO>() * rendered_parts) as _,
         )?;
 
         let particles_ssbo = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER, 
             MemoryLocation::CpuToGpu, 
-            (size_of::<Particle>() * loaded_parts * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize) as _,
+            (size_of::<RenderParticle>() * rendered_parts * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize) as _,
         )?;
 
         let mut part_ubo_data = Vec::new();
         let mut particle_buffer_data = Vec::new();
-        for i in 0..loaded_parts {
+        for i in 0..rendered_parts {
             part_ubo_data.push(PartUBO::new(part_pos_to_world(Transform::default(), ivec2(i as i32, 0), Vec2::ZERO)));
-            particle_buffer_data.extend_from_slice(&[Particle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])
+            particle_buffer_data.extend_from_slice(&[RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])
         }
         part_ubo.copy_data_to_buffer(&part_ubo_data)?;
         particles_ssbo.copy_data_to_buffer(&particle_buffer_data)?;
@@ -162,11 +160,11 @@ impl ChunkRenderer {
             GraphicsPipelineCreateInfo {
                 shaders: &[
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../shaders/chunk.vert.spv")[..],
+                        source: &include_bytes!("../../../shaders/chunk.vert.spv")[..],
                         stage: vk::ShaderStageFlags::VERTEX,
                     },
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../shaders/chunk.frag.spv")[..],
+                        source: &include_bytes!("../../../shaders/chunk.frag.spv")[..],
                         stage: vk::ShaderStageFlags::FRAGMENT,
                     },
                 ],
@@ -179,17 +177,15 @@ impl ChunkRenderer {
         )?;
 
         Ok(Self { 
-            loaded_parts: loaded_parts,
-
             vertex_buffer: vertex_buffer, 
             index_buffer: index_buffer,
 
             part_ubo_data: part_ubo_data,
             particle_buffer_data: particle_buffer_data,
 
-            _render_ubo: render_ubo,
-            _part_ubo: part_ubo,
-            _particles_ssbo: particles_ssbo,
+            render_ubo,
+            part_ubo,
+            particles_ssbo,
 
             _descriptor_pool: descriptor_pool,
             _descriptor_layout: descriptor_layout,
@@ -198,47 +194,6 @@ impl ChunkRenderer {
             _pipeline_layout: pipeline_layout,
             pipeline: pipeline, 
         })
-    }
-
-    pub fn update_all_parts (
-        &mut self, 
-        chunk_controller: &ChunkController
-    ) -> Result<()> {
-
-        let mut i = 0;
-        'outer: for chunk in  &chunk_controller.chunks {
-            for part in &chunk.parts {
-                self.part_ubo_data[i] = PartUBO::new(part.transform);
-
-                let start_index = i * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
-                let end_index = (i + 1) * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
-                self.particle_buffer_data.splice(start_index..end_index, part.particles.iter().cloned());
-
-                i += 1;
-
-                if i >= self.loaded_parts {
-                    break 'outer;
-                }
-            }
-        }         
-
-        self._part_ubo.copy_data_to_buffer(&self.part_ubo_data)?;
-        self._particles_ssbo.copy_data_to_buffer(&self.particle_buffer_data)?;
-
-        Ok(())
-    }
-
-    pub fn update (
-        &mut self, 
-        camera: &Camera,
-        chunk_controller: &ChunkController,
-    ) -> Result<()>{
-        
-        self._render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())])?;
-
-        self.update_all_parts(chunk_controller)?;
-
-        Ok(())
     }
 
     pub fn render(
@@ -325,7 +280,7 @@ impl RenderUBO {
 }
 
 #[derive(Clone, Copy)]
-struct PartUBO {
+pub struct PartUBO {
     transform: Transform,
     fill: f32,
 }
