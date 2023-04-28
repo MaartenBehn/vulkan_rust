@@ -5,7 +5,7 @@ use super::{Chunk, particle::Particle, transform::Transform};
 
 #[allow(dead_code)]
 impl Chunk {
-    pub fn new_cube(trans: Transform, vel_trans: Transform, size: UVec2) -> Self {
+    pub fn new_cube(trans: Transform, vel_trans: Transform, size: UVec2, part_id_counter: &mut usize,) -> Self {
 
         let mut particles = Vec::new();
 
@@ -17,10 +17,10 @@ impl Chunk {
             }
         }
 
-        Self::new(trans, vel_trans, particles)
+        Self::new(trans, vel_trans, particles, part_id_counter)
     }
 
-    pub fn new_hexagon(trans: Transform, vel_trans: Transform, layers: usize) -> Self {
+    pub fn new_hexagon(trans: Transform, vel_trans: Transform, layers: usize, part_id_counter: &mut usize,) -> Self {
 
         let points = hexagon_points(layers);
         let mut particles = Vec::new();
@@ -28,10 +28,10 @@ impl Chunk {
             particles.push((Particle::new(), point))
         }
 
-        Self::new(trans, vel_trans, particles)
+        Self::new(trans, vel_trans, particles, part_id_counter)
     }
 
-    pub fn new_noise_hexagon(trans: Transform, vel_trans: Transform, layers: usize) -> Self {
+    pub fn new_noise_hexagon(trans: Transform, vel_trans: Transform, layers: usize, part_id_counter: &mut usize,) -> Self {
         let points = hexagon_points(layers);
         let mut particles = Vec::new();
 
@@ -43,7 +43,7 @@ impl Chunk {
             }
         }
 
-        Self::new(trans, vel_trans, particles)
+        Self::new(trans, vel_trans, particles, part_id_counter)
     }
 }
 

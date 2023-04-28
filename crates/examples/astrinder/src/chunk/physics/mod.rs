@@ -5,8 +5,9 @@ use collision::{algorithm::minkowski::GJK2, CollisionStrategy, Contact};
 
 use crate::aabb::AABB;
 
+use super::chunk::ChunkPart;
 use super::math::vector2_to_vec2;
-use super::{ChunkController, Chunk, transform::Transform, math::{part_corners, point2_to_vec2, cross2d}, ChunkPart};
+use super::{ChunkController, Chunk, transform::Transform, math::{part_corners, point2_to_vec2, cross2d}};
 
 const GRAVITY_G: f32 = 0.01;
 const GRAVITY_MAX_FORCE: f32 = 1.0;
@@ -18,7 +19,6 @@ impl ChunkController {
     pub fn update_physics(&mut self, time_step: f32) {
         let mut accelerations = vec![Transform::default(); self.chunks.len()];
         let l = self.chunks.len();
-
 
         // Gravity
         if GRAVITY_ON {
@@ -65,46 +65,11 @@ impl ChunkController {
             let mass0_fraction = chunk0.mass / (chunk0.mass + chunk1.mass);
             let mass1_fraction = 1.0 - mass0_fraction;
 
-            // Collision Response
-            let r_a = point - chunk0.transform.pos;
-            let r_b = point - chunk1.transform.pos;
-            let r_a_cross_n = cross2d(r_a, normal);
-            let r_b_cross_n = cross2d(r_a, normal);
-            let r_a_cross_n_2 = r_a_cross_n.powf(2.0);
-            let r_b_cross_n_2 = r_b_cross_n.powf(2.0);
+            let offset0 = normal * mass1_fraction * -res.penetration_depth;
+            let offset1 = normal * mass0_fraction * res.penetration_depth;
 
-            let c = 0.0;
-
-            let j = (-1.0 - c) 
-                     * (chunk0.velocity_transform.pos.dot(normal) - chunk1.velocity_transform.pos.dot(normal)
-                      + chunk0.velocity_transform.rot * r_a_cross_n 
-                      - chunk1.velocity_transform.rot * r_b_cross_n)
-                     / (1.0 / chunk0.mass + 1.0 / chunk1.mass + r_a_cross_n_2)
-                     / chunk0.moment_of_inertia 
-                    + r_b_cross_n_2 / chunk1.moment_of_inertia;
-
-            if j < 0.0 {
-                continue;
-            }
-
-            let j_vec = normal * j;
-
-            let vel0 = j_vec / chunk0.mass;
-            let rot_vel0 = cross2d(r_a, j_vec) / chunk0.moment_of_inertia;
-
-            let vel1 = j_vec / chunk1.mass;
-            let rot_vel1 = cross2d(r_b, j_vec) / chunk1.moment_of_inertia;
-
-            // Resolve collsion
-            self.chunks[collision_search.chunk0_index].transform.pos -= normal * mass1_fraction * res.penetration_depth;
-            self.chunks[collision_search.chunk1_index].transform.pos += normal * mass0_fraction * res.penetration_depth;
-
-            // Collision Response
-            //self.chunks[collision_search.chunk0_index].velocity_transform.pos += vel0;
-            //self.chunks[collision_search.chunk0_index].velocity_transform.rot += rot_vel0;
-
-            //self.chunks[collision_search.chunk1_index].velocity_transform.pos -= vel1;
-            //self.chunks[collision_search.chunk1_index].velocity_transform.rot -= rot_vel1;
+            self.chunks[collision_search.chunk0_index].transform.pos += offset0;
+            self.chunks[collision_search.chunk1_index].transform.pos += offset1;
         }
 
         for chunk in self.chunks.iter_mut() {

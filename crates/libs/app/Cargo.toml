@@ -12,6 +12,7 @@ simplelog.workspace = true
 anyhow.workspace = true
 winit.workspace = true
 glam.workspace = true
+fps_clock.workspace = true
 
 vulkan = { path = "../vulkan" }
 gui = { path = "../gui" }

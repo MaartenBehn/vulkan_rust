@@ -19,7 +19,7 @@ use gui::{
 use logger::log_init;
 use std::{
     marker::PhantomData,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, thread,
 };
 use vulkan::*;
 use winit::{
@@ -161,8 +161,13 @@ pub fn run<A: App + 'static>(
 
     let mut controls = Controls::default();
     let mut is_swapchain_dirty = false;
+
     let mut last_frame = Instant::now();
+    let mut last_frame_start = Instant::now();
+
     let mut frame_stats = FrameStats::default();
+
+    let fps_as_duration = Duration::from_secs_f64(1.0 / 60.0);
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -174,12 +179,18 @@ pub fn run<A: App + 'static>(
 
         match event {
             Event::NewEvents(_) => {
-                let now = Instant::now();
-                let frame_time = now - last_frame;
-                gui_context.update_delta_time(frame_time);
-                last_frame = now;
+                let frame_start = Instant::now();
+                let frame_time = frame_start - last_frame;
+                let compute_time = frame_start- last_frame_start;
+                last_frame = frame_start;
+                
+                if fps_as_duration > compute_time {
+                    thread::sleep(fps_as_duration - compute_time)
+                };
+                last_frame_start = Instant::now();
 
-                frame_stats.set_frame_time(frame_time);
+                gui_context.update_delta_time(frame_time);
+                frame_stats.set_frame_time(frame_time, compute_time);
 
                 controls = controls.reset();
             }
@@ -211,6 +222,9 @@ pub fn run<A: App + 'static>(
                 is_swapchain_dirty = base_app
                     .draw(&window, app, &mut gui_context, &mut ui, &mut frame_stats)
                     .expect("Failed to tick");
+
+
+                
             }
             // Keyboard
             Event::WindowEvent {
@@ -485,9 +499,9 @@ impl<B: App> BaseApp<B> {
                     ui.text("Framerate");
                     ui.label_text("fps", frame_stats.fps_counter.to_string());
                     ui.text("Frametimes");
-                    ui.label_text("all", format!("{:?}", frame_stats.frame_time));
-                    ui.label_text("cpu", format!("{:?}", frame_stats.cpu_time));
-                    ui.label_text("gpu", format!("{:?}", frame_stats.gpu_time));
+                    ui.label_text("Frame", format!("{:?}", frame_stats.frame_time));
+                    ui.label_text("CPU", format!("{:?}", frame_stats.compute_time));
+                    ui.label_text("GPU", format!("{:?}", frame_stats.gpu_time));
                 });
         }
 
@@ -508,7 +522,7 @@ impl<B: App> BaseApp<B> {
                         .scale_max(SCALE_MAX)
                         .graph_size(graph_size)
                         .build();
-                    ui.plot_lines("CPU", &frame_stats.cpu_time_ms_log.0)
+                    ui.plot_lines("CPU", &frame_stats.compute_time_ms_log.0)
                         .scale_min(SCALE_MIN)
                         .scale_max(SCALE_MAX)
                         .graph_size(graph_size)
@@ -775,10 +789,11 @@ struct FrameStats {
     // so we keep frame times for the two last frames
     previous_frame_time: Duration,
     frame_time: Duration,
-    cpu_time: Duration,
+    previous_compute_time: Duration,
+    compute_time: Duration,
     gpu_time: Duration,
     frame_time_ms_log: Queue<f32>,
-    cpu_time_ms_log: Queue<f32>,
+    compute_time_ms_log: Queue<f32>,
     gpu_time_ms_log: Queue<f32>,
     total_frame_count: u32,
     frame_count: u32,
@@ -791,10 +806,11 @@ impl Default for FrameStats {
         Self {
             previous_frame_time: Default::default(),
             frame_time: Default::default(),
-            cpu_time: Default::default(),
+            previous_compute_time: Default::default(),
+            compute_time: Default::default(),
             gpu_time: Default::default(),
             frame_time_ms_log: Queue::new(FrameStats::MAX_LOG_SIZE),
-            cpu_time_ms_log: Queue::new(FrameStats::MAX_LOG_SIZE),
+            compute_time_ms_log: Queue::new(FrameStats::MAX_LOG_SIZE),
             gpu_time_ms_log: Queue::new(FrameStats::MAX_LOG_SIZE),
             total_frame_count: Default::default(),
             frame_count: Default::default(),
@@ -809,13 +825,11 @@ impl FrameStats {
     const MAX_LOG_SIZE: usize = 1000;
 
     fn tick(&mut self) {
-        // compute cpu time
-        self.cpu_time = self.previous_frame_time.saturating_sub(self.gpu_time);
 
         // push log
         self.frame_time_ms_log
             .push(self.previous_frame_time.as_millis() as _);
-        self.cpu_time_ms_log.push(self.cpu_time.as_millis() as _);
+        self.compute_time_ms_log.push(self.previous_compute_time.as_millis() as _);
         self.gpu_time_ms_log.push(self.gpu_time.as_millis() as _);
 
         // increment counter
@@ -831,9 +845,12 @@ impl FrameStats {
         }
     }
 
-    fn set_frame_time(&mut self, frame_time: Duration) {
+    fn set_frame_time(&mut self, frame_time: Duration, compute_time: Duration) {
         self.previous_frame_time = self.frame_time;
+        self.previous_compute_time = self.compute_time;
+
         self.frame_time = frame_time;
+        self.compute_time = compute_time;
     }
 
     fn set_gpu_time_time(&mut self, gpu_time: Duration) {

@@ -10,3 +10,4 @@ app = { path = "../../libs/app" }
 collision.workspace = true
 cgmath.workspace = true
 noise.workspace = true
+fps_clock.workspace = true
