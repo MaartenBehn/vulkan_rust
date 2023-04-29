@@ -3,7 +3,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign};
 use app::glam::{Vec2, Vec3, Vec3Swizzles};
 
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Transform{
     pub pos: Vec2,
     pub rot: f32,

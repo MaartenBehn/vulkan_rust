@@ -18,7 +18,7 @@ pub fn hex_to_chunk_part_pos(hex: IVec2) -> IVec2 {
         hex.y / CHUNK_PART_SIZE - (hex.y % CHUNK_PART_SIZE < 0) as i32)
 }
 
-pub fn hex_to_in_chunk_part_pos(hex: IVec2) -> usize {
+pub fn hex_to_particle_index(hex: IVec2) -> usize {
 
     let chunk_part = hex_to_chunk_part_pos(hex);
     let p = ivec2(hex.x - chunk_part.x * CHUNK_PART_SIZE, hex.y - chunk_part.y * CHUNK_PART_SIZE);
@@ -29,8 +29,6 @@ pub fn hex_to_in_chunk_part_pos(hex: IVec2) -> usize {
 }
 
 const CHUNK_PART_SIZE_VEC2: Vec2 = Vec2::new(CHUNK_PART_SIZE as f32, CHUNK_PART_SIZE as f32);
-
-
 pub fn part_pos_to_world(chunk_transform: Transform, part_pos: IVec2, render_to_transform: Vec2) -> Transform {
     let part_pos = Vec2::new(part_pos.x as f32 + part_pos.y as f32 * 0.5, part_pos.y as f32) * CHUNK_PART_SIZE_VEC2;
 
@@ -59,6 +57,28 @@ pub fn part_corners() -> [Vec2; 4] {
         vec2(one * 0.5, one),
         vec2(one, 0.0),
         vec2(one * 1.5, one),
+    ]
+}
+
+pub fn neigbor_hex_offsets() -> [IVec2; 6] {
+    [
+        ivec2(1, 0),
+        ivec2(0, 1),
+        ivec2(-1, 1),
+        ivec2(-1, 0),
+        ivec2(0, -1),
+        ivec2(1, -1),
+    ]
+}
+
+pub fn neigbor_pos_offsets() -> [Vec2; 6] {
+    [
+        vec2(-0.3, -0.5),
+        vec2(-0.5, 0.0),
+        vec2(-0.3, 0.5),
+        vec2(0.3, 0.5),
+        vec2(0.5, 0.0),
+        vec2(0.3, -0.5),
     ]
 }
 

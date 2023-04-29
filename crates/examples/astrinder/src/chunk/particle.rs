@@ -1,8 +1,11 @@
+use app::glam::Vec2;
 
-#[derive(Copy, Clone)]
+
+#[derive(Copy, Clone, PartialEq)]
 pub struct Particle {
     pub material: u32,
     pub mass: u32,
+    pub velocity: Vec2,
 }
 
 impl Particle {
@@ -10,6 +13,7 @@ impl Particle {
         Self { 
             mass: 1,
             material: 1,
+            velocity: Vec2::ZERO,
         }
     }
 }
@@ -19,6 +23,8 @@ impl Default for Particle {
         Self {  
             material: 0, 
             mass: 0,
+            velocity: Vec2::ZERO,
         }
     }
 }
+

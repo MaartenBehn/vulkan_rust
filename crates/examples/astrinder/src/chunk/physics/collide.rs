@@ -131,10 +131,12 @@ impl CollisionSearch{
         let t1 = transform(part1.transform);
         
         loop {
+            if self.collider0_index >= part0.colliders.len() { break; }
+
             let collider0 = &part0.colliders[self.collider0_index];
             
             loop {
-                if self.collider1_index >= part1.colliders.len() {break;}
+                if self.collider1_index >= part1.colliders.len() { break; }
 
                 let collider1 = &part1.colliders[self.collider1_index];
   
