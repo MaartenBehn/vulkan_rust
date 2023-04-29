@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use std::{mem::size_of, sync::mpsc::Receiver};
 
 use app::{glam::{Vec2, vec2, ivec2, Vec3}, vulkan::{Context, Buffer, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
@@ -19,6 +19,8 @@ pub struct DebugRenderer {
 
     _pipeline_layout: PipelineLayout,
     pipeline: GraphicsPipeline,
+
+    from_controller: Receiver<(Vec2, Vec2, Vec3)>
 }
 
 impl DebugRenderer {
@@ -27,6 +29,7 @@ impl DebugRenderer {
         color_attachment_format: vk::Format,
         images_len: u32,
         max_lines: usize,
+        from_controller: Receiver<(Vec2, Vec2, Vec3)>,
     ) -> Result<Self> {
        
         let vertex_buffer = context.create_buffer(
@@ -127,15 +130,17 @@ impl DebugRenderer {
 
             _pipeline_layout: pipeline_layout,
             pipeline: pipeline, 
+
+            from_controller,
         })
     }
 
-    pub fn add_line (&mut self, x: Vec2, y: Vec2, color: Vec3){
+    fn add_line (&mut self, x: Vec2, y: Vec2, color: Vec3){
         self.lines.push(Vertex::new(x, color));
         self.lines.push(Vertex::new(y, color));
     }
 
-    pub fn clear_lines (&mut self){
+    fn clear_lines (&mut self){
         self.lines.clear();
     }
 
@@ -144,10 +149,29 @@ impl DebugRenderer {
         camera: &Camera,
     ) -> Result<()>{
 
-        for _ in 0..(self.max_lines * 2 - self.lines.len()) {
-            self.lines.push(Vertex::new(Vec2::ZERO, Vec3::ZERO));
+        loop {
+            let result = self.from_controller.try_recv();
+            if result.is_err() {
+                break;
+            }
+
+            let (x, y, color) = result.unwrap();
+
+            if x.is_nan() && y.is_nan() && color.is_nan() {
+                self.clear_lines();
+                continue;
+            }
+
+            self.add_line(x, y, color);
         }
 
+        let left_lines = (self.max_lines * 2) as i32 - self.lines.len() as i32;
+        if left_lines > 0 {
+            for _ in 0..left_lines {
+                self.lines.push(Vertex::new(Vec2::ZERO, Vec3::ZERO));
+            }
+        }
+            
         self.vertex_buffer.copy_data_to_buffer(&self.lines)?;
 
         self._render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())])?;

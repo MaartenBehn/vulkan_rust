@@ -29,6 +29,8 @@ pub fn hex_to_in_chunk_part_pos(hex: IVec2) -> usize {
 }
 
 const CHUNK_PART_SIZE_VEC2: Vec2 = Vec2::new(CHUNK_PART_SIZE as f32, CHUNK_PART_SIZE as f32);
+
+
 pub fn part_pos_to_world(chunk_transform: Transform, part_pos: IVec2, render_to_transform: Vec2) -> Transform {
     let part_pos = Vec2::new(part_pos.x as f32 + part_pos.y as f32 * 0.5, part_pos.y as f32) * CHUNK_PART_SIZE_VEC2;
 
@@ -39,6 +41,16 @@ pub fn part_pos_to_world(chunk_transform: Transform, part_pos: IVec2, render_to_
         chunk_transform.pos + rotated_pos, 
         chunk_transform.rot)
 }
+
+
+pub fn world_pos_to_hex(part_transform: Transform, world_pos: Vec2) -> IVec2 {
+
+    let angle_vec = Vec2::from_angle(-part_transform.rot);
+    let rotated_pos = Vec2::rotate(angle_vec, world_pos);
+
+    coord_to_hex(rotated_pos - part_transform.pos)
+}
+
 
 pub fn part_corners() -> [Vec2; 4] {
     let one = CHUNK_PART_SIZE as f32;

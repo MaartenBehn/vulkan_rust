@@ -1,6 +1,6 @@
 use std::{sync::mpsc::{self, Sender}};
 
-use app::{glam::{UVec2, Vec2, IVec2, uvec2, vec2, ivec2}, vulkan::{ash::vk, Context}};
+use app::{glam::{UVec2, Vec2, IVec2, uvec2, vec2, ivec2, Vec3}, vulkan::{ash::vk, Context}};
 use app::anyhow::*;
 
 use self::{particle::{Particle}, transform::Transform, chunk::Chunk, render::{ChunkRenderer, part::RenderPart}};
@@ -20,7 +20,7 @@ pub mod shapes;
 
 const CHUNK_PART_SIZE: i32 = 10;
 const MAX_AMMOUNT_OF_PARTS: usize = 1000;
-const USE_FIXED_TIME_STEP: bool = true;
+const USE_FIXED_TIME_STEP: bool = false;
 const CONTROLLER_FRAME_RATE: u32 = 30;
 
 pub struct ChunkController {
@@ -29,12 +29,14 @@ pub struct ChunkController {
 
     to_render_transform: Sender<(usize, Transform)>,
     to_render_particles: Sender<(usize, [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
+    to_debug: Sender<(Vec2, Vec2, Vec3)>,
 }
 
 impl ChunkController {
     pub fn new(
         to_render_transform: Sender<(usize, Transform)>,
         to_render_particles: Sender<(usize, [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
+        to_debug: Sender<(Vec2, Vec2, Vec3)>,
         ) -> Self {
         let mut chunks = Vec::new();
 
@@ -59,6 +61,7 @@ impl ChunkController {
 
             to_render_transform,
             to_render_particles,
+            to_debug,
         }
     }
 
@@ -71,6 +74,8 @@ impl ChunkController {
 
             self.update_physics(time_step);
             let _ = self.send_parts();
+
+            self.send_debug();
 
             nanosecs_since_last_tick = fps.tick();
         }
@@ -86,5 +91,7 @@ impl ChunkController {
 
         Ok(())
     }
+
+
 }
 

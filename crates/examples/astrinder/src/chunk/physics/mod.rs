@@ -1,11 +1,9 @@
 use app::glam::{Vec2, vec2};
 use app::anyhow::*;
-use cgmath::{Decomposed, Rotation2, Vector2, Rad, Basis2, Point2};
-use collision::{algorithm::minkowski::GJK2, CollisionStrategy, Contact};
 
-use crate::aabb::AABB;
+use crate::chunk::math::{world_pos_to_hex, hex_to_in_chunk_part_pos};
+use crate::chunk::physics::collide::CollisionSearch;
 
-use super::chunk::ChunkPart;
 use super::math::vector2_to_vec2;
 use super::{ChunkController, Chunk, transform::Transform, math::{part_corners, point2_to_vec2, cross2d}};
 
@@ -13,6 +11,7 @@ const GRAVITY_G: f32 = 0.01;
 const GRAVITY_MAX_FORCE: f32 = 1.0;
 const GRAVITY_ON: bool = false;
 
+mod collide;
 
 
 impl ChunkController {
@@ -70,11 +69,34 @@ impl ChunkController {
 
             self.chunks[collision_search.chunk0_index].transform.pos += offset0;
             self.chunks[collision_search.chunk1_index].transform.pos += offset1;
+
+            self.chunks[collision_search.chunk0_index].on_transform_change();
+            self.chunks[collision_search.chunk1_index].on_transform_change();
         }
 
-        for chunk in self.chunks.iter_mut() {
-            chunk.on_transform_change();
+        for entry in collision_search.log.iter() {
+            for (i, (part0_index, part1_index)) in entry.parts.iter().enumerate() {
+                let chunk0 = &self.chunks[entry.chunk0_index];
+                let chunk1 = &self.chunks[entry.chunk1_index];
+
+                let part0 = &chunk0.parts[*part0_index];
+                let part1 = &chunk1.parts[*part1_index];
+
+                let point = entry.points[i];
+                let normal = entry.normals[i];
+
+                let hex_in_part0 = world_pos_to_hex(part0.transform, point - normal * 0.5);
+                let hex_in_part1 = world_pos_to_hex(part1.transform, point + normal * 0.5);
+
+                self.chunks[entry.chunk0_index].parts[*part0_index].particles[hex_to_in_chunk_part_pos(hex_in_part0)].material = 0;
+                self.chunks[entry.chunk1_index].parts[*part1_index].particles[hex_to_in_chunk_part_pos(hex_in_part1)].material = 0;
+
+                self.chunks[entry.chunk0_index].on_chunk_change();
+                self.chunks[entry.chunk1_index].on_chunk_change();
+            }   
         }
+
+
     }
 }
 
@@ -84,158 +106,4 @@ fn get_gravity_force(pos0: Vec2, pos1: Vec2, mass0: f32, mass1: f32) -> Vec2 {
     let force = f32::min((GRAVITY_G * mass0 * mass1) / (dist * dist), GRAVITY_MAX_FORCE);
 
     diff * (1.0 / dist) * force
-}
-
-
-#[derive(Clone)]
-struct CollisionSearch{
-    chunk0_index: usize,
-    chunk1_index: usize,
-
-    part0_index: usize,
-    part1_index: usize,
-    part_offset: Vec2,
-
-    collider0_index: usize,
-    collider1_index: usize,
-}
-
-
-
-struct CollisionSearchResult {
-    chunk0: usize,
-    chunk1: usize,
-
-    part0: usize,
-    part1: usize,
-
-    collider0: usize,
-    collider1: usize,
-}
-
-impl CollisionSearch{
-    fn new() -> Self {
-        Self { 
-            chunk0_index:   0, 
-            chunk1_index:   1, 
-            part0_index:    0, 
-            part1_index:    0, 
-            part_offset:    part_corners()[3], 
-            collider0_index: 0, 
-            collider1_index: 0, 
-        }
-    }
-
-    fn get_next_collision(&mut self, chunks: &Vec<Chunk>) -> Option<Contact<Point2<f32>>> {
-        self.get_next_broad_chunk_aabb_collision(chunks)
-    }
-
-    fn get_next_broad_chunk_aabb_collision(&mut self, chunks: &Vec<Chunk>) -> Option<Contact<Point2<f32>>> {
-        loop {
-            let chunk0 = &chunks[self.chunk0_index];
-
-            loop {
-                let chunk1 = &chunks[self.chunk1_index];
-
-                if chunk0.aabb.collides(chunk1.aabb) {
-                    let res = self.get_next_part_aabb_collision(chunk0, chunk1);
-                    if res.is_some() {
-                        return res;
-                    }
-                }
-
-                self.chunk1_index += 1;
-
-                if self.chunk1_index >= chunks.len() { break; }
-            }
-
-            self.chunk0_index += 1;
-            self.chunk1_index = self.chunk0_index + 1;
-
-            if self.chunk0_index >= chunks.len() - 1 { break; }
-        }
-
-        None
-    }
-
-
-    fn get_next_part_aabb_collision(&mut self, chunk0: &Chunk, chunk1: &Chunk) -> Option<Contact<Point2<f32>>> {
-        loop  {
-
-            let part0 = &chunk0.parts[self.part0_index];
-            let aabb0 = AABB::new(part0.transform.pos, part0.transform.pos + self.part_offset);
-            loop {
-
-                let part1 = &chunk1.parts[self.part1_index];
-                let aabb1 = AABB::new(part1.transform.pos, part1.transform.pos + self.part_offset);
-                if aabb0.collides(aabb1) {
-                    let res = self.get_next_collider_collision(part0, part1);
-                    if res.is_some() {
-                        return res;
-                    }
-                }
-
-                self.part1_index += 1;
-
-                if  self.part1_index >= chunk1.parts.len() { break; }
-            }
-            self.part1_index = 0;
-
-
-            self.part0_index += 1;
-
-            if self.part0_index >= chunk0.parts.len() { break; }
-        }
-        self.part0_index = 0;
-        
-        None
-    }
-
-    fn get_next_collider_collision(&mut self, part0: &ChunkPart, part1: &ChunkPart) -> Option<Contact<Point2<f32>>> {
-
-        fn transform(t: Transform) -> Decomposed<Vector2<f32>, Basis2<f32>> {
-            Decomposed {
-                disp: Vector2::new(t.pos.x, t.pos.y),
-                rot: Rotation2::from_angle(Rad(-t.rot)),
-                scale: 1.,
-            }
-        }
-
-        let gjk = GJK2::new();
-
-        let t0 = transform(part0.transform);
-        let t1 = transform(part1.transform);
-        
-        loop {
-            let collider0 = &part0.colliders[self.collider0_index];
-            
-            loop {
-                if self.collider1_index >= part1.colliders.len() {break;}
-
-                let collider1 = &part1.colliders[self.collider1_index];
-  
-
-                let result = gjk.intersection(
-                    &CollisionStrategy::FullResolution,
-                    collider0, 
-                    &t0, 
-                    collider1, 
-                    &t1);
-
-                self.collider1_index += 1;
-
-                if result.is_some() {
-                    return result;
-                }
-            }
-            self.collider1_index = 0;
-
-            self.collider0_index += 1;
-
-            if self.collider0_index >= part0.colliders.len() {break;}
-        }
-        self.collider0_index = 0;
-
-        None
-    }
 }

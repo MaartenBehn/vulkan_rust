@@ -42,6 +42,8 @@ impl App for Astrinder {
         let (transform_sender, transform_reciver) = mpsc::channel();
         let (particle_sender, particle_reciver) = mpsc::channel();
 
+        let (debug_sender, debug_reciver) = mpsc::channel();
+
         let chunk_renderer = ChunkRenderer::new(
             context, 
             base.swapchain.format,
@@ -49,20 +51,26 @@ impl App for Astrinder {
             100,
             transform_reciver,
             particle_reciver,
-            )?;
-
-        
-        let chunk_controller_handle = thread::spawn(move || {
-            let mut chunk_controller = ChunkController::new(transform_sender, particle_sender);
-            chunk_controller.run();
-        });
-        
-        let camera = Camera::new(base.swapchain.extent);
+        )?;
 
         let debug_renderer = DebugRenderer::new(context, 
             base.swapchain.format,
             base.swapchain.images.len() as u32,
-            10000)?;
+            10000,
+            debug_reciver,
+        )?;
+
+        
+        let chunk_controller_handle = thread::spawn(move || {
+            let mut chunk_controller = ChunkController::new(
+                transform_sender, 
+                particle_sender,
+                debug_sender,
+            );
+            chunk_controller.run();
+        });
+        
+        let camera = Camera::new(base.swapchain.extent);
 
         Ok(Self {
             chunk_renderer,
@@ -87,12 +95,6 @@ impl App for Astrinder {
         self.chunk_renderer.upload(&self.camera)?;
 
         if ENABLE_DEBUG_RENDER && cfg!(debug_assertions) {
-            self.debug_renderer.clear_lines();
-            // self.chunk_controller.debug_colliders(&mut self.debug_renderer);
-            // self.chunk_controller.debug_chunk_transforms(&mut self.debug_renderer);
-            // self.chunk_controller.debug_parts_borders(&mut self.debug_renderer);
-            // self.chunk_controller.debug_chunk_velocity(&mut self.debug_renderer);
-
             self.debug_renderer.update(&self.camera)?;
         }
 
