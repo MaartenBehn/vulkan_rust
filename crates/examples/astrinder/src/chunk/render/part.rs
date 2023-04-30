@@ -1,7 +1,5 @@
 use crate::chunk::{CHUNK_PART_SIZE, transform::Transform, Chunk, particle::Particle, chunk::ChunkPart};
 
-use super::ChunkRenderer;
-
 #[derive(Copy, Clone)]
 pub struct RenderPart{
     pub id: usize,

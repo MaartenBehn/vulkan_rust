@@ -70,8 +70,44 @@ impl ChunkController {
             let offset0 = normal * mass1_fraction * -res.penetration_depth;
             let offset1 = normal * mass0_fraction * res.penetration_depth;
 
+            // Collision Response
+            let r_a = point - chunk0.transform.pos;
+            let r_b = point - chunk1.transform.pos;
+            let r_a_cross_n = cross2d(r_a, normal);
+            let r_b_cross_n = cross2d(r_a, normal);
+            let r_a_cross_n_2 = r_a_cross_n.powf(2.0);
+            let r_b_cross_n_2 = r_b_cross_n.powf(2.0);
+
+            let c = 1.0;
+
+            let j = -(-1.0 - c) 
+                    * (chunk0.velocity_transform.pos.dot(normal) - chunk1.velocity_transform.pos.dot(normal)
+                    + chunk0.velocity_transform.rot * r_a_cross_n 
+                    - chunk1.velocity_transform.rot * r_b_cross_n)
+                    / (1.0 / chunk0.mass + 1.0 / chunk1.mass + r_a_cross_n_2)
+                    / chunk0.moment_of_inertia 
+                    + r_b_cross_n_2 / chunk1.moment_of_inertia;
+
+            let apply = (j >= 0.0) as u8 as f32;
+
+            let j_vec = normal * j;
+
+            let vel0 = j_vec / chunk0.mass;
+            let rot_vel0 = cross2d(r_a, j_vec) / chunk0.moment_of_inertia;
+
+            let vel1 = j_vec / chunk1.mass;
+            let rot_vel1 = cross2d(r_b, j_vec) / chunk1.moment_of_inertia;
+
+            // Resolve collsion
             self.chunks[collision_search.chunk0_index].transform.pos += offset0;
             self.chunks[collision_search.chunk1_index].transform.pos += offset1;
+
+            // Collision Response
+            self.chunks[collision_search.chunk0_index].velocity_transform.pos += vel0 * apply;
+            self.chunks[collision_search.chunk0_index].velocity_transform.rot += rot_vel0 * apply;
+
+            self.chunks[collision_search.chunk1_index].velocity_transform.pos -= vel1 * apply;
+            self.chunks[collision_search.chunk1_index].velocity_transform.rot -= rot_vel1 * apply; 
 
             self.chunks[collision_search.chunk0_index].on_transform_change();
             self.chunks[collision_search.chunk1_index].on_transform_change();
@@ -88,22 +124,24 @@ impl ChunkController {
                 let point = entry.points[i];
                 let normal = entry.normals[i];
 
+
                 let hex_in_part0 = world_pos_to_hex(part0.transform, point - normal * 0.5);
                 let hex_in_part1 = world_pos_to_hex(part1.transform, point + normal * 0.5);
 
                 let part0_pos = part0.pos;
                 let part1_pos = part1.pos;
 
-                let velocity0 = chunk0.velocity_transform.pos;
-                let velocity1 = chunk1.velocity_transform.pos;
+                let force0 = chunk0.velocity_transform.pos * chunk0.mass;
+                let force1 = chunk1.velocity_transform.pos * chunk1.mass;
 
+                
                 destruction(
                     &mut self.chunks,
                     entry.chunk0_index, 
                     hex_in_part0, 
                     part0_pos, 
                     *part0_index, 
-                    velocity1);
+                    force1.length());
 
                 destruction(
                     &mut self.chunks,
@@ -111,17 +149,16 @@ impl ChunkController {
                     hex_in_part1, 
                     part1_pos, 
                     *part1_index, 
-                    velocity0);
-
+                    force0.length());
+                
             }   
         }
-
-
     }
 
 
     
 }
+
 
 fn get_gravity_force(pos0: Vec2, pos1: Vec2, mass0: f32, mass1: f32) -> Vec2 {
     let diff = pos0 - pos1;
@@ -137,53 +174,54 @@ fn destruction(
     start_hex: IVec2, 
     start_part_pos: IVec2, 
     start_part_index: usize, 
-    velocity: Vec2
+    start_strain: f32
 ) { 
-    chunks[chunk_index].parts[start_part_index].particles[hex_to_particle_index(start_hex)].velocity = velocity;
+    let strain_factor = 0.1;
+    let min_strain = 0.5;
+    
 
-    let mut all_particles = Vec::new();
-    let mut neigbor_deque = VecDeque::new();
-
-    all_particles.push((start_hex, start_part_index, 0));
-    neigbor_deque.push_back((start_hex, start_part_pos, start_part_index, 0));
+    let mut particles = Vec::new();
+    particles.push((start_hex, start_part_pos, start_part_index, 0, start_strain));
+    let mut current_particle_index = 0;
 
     loop {
-        let (hex, part_pos, part_index, depth) = {
-            let res = neigbor_deque.pop_front();
-            if res.is_none() {
-                break;
-            }
-            res.unwrap()
-        };
-        let particle = chunks[chunk_index].parts[part_index].particles[hex_to_particle_index(hex)];
-
-        for (n_hex, n_part_index) in chunks[chunk_index].get_neigbor_particles_pos(part_pos, part_index, hex) {
-            
-            let mut add_to_deque = true;
-            let mut apply_velocity = true;
-            for (test_hex, test_part_index, test_depth) in all_particles.iter() {
-                if n_hex == *test_hex && n_part_index == *test_part_index {
-                    add_to_deque = false;
-
-                    apply_velocity = *test_depth <= depth;
-                    break;
-                }
-            }
-
-            if apply_velocity {
-                if add_to_deque {
-                    chunks[chunk_index].parts[n_part_index].particles[hex_to_particle_index(n_hex)].velocity = Vec2::ZERO
-                }
-
-                chunks[chunk_index].parts[n_part_index].particles[hex_to_particle_index(n_hex)].velocity += particle.velocity * 0.5;
-            }
-            
-            if add_to_deque {
-                all_particles.push((n_hex, n_part_index, depth + 1));
-                neigbor_deque.push_back((n_hex, chunks[chunk_index].parts[n_part_index].pos, n_part_index, depth + 1));
-            }
+        if current_particle_index >= particles.len() {
+            break;
         }
+
+        let (hex, part_pos, part_index, depth, strain) = particles[current_particle_index];
         
+        if strain < min_strain {
+            current_particle_index += 1;
+            continue;
+        }
+
+        let mut strain_applyed = 0;
+        'outer: for (n_hex, n_part_index) in chunks[chunk_index].get_neigbor_particles_pos(part_pos, part_index, hex) {
+            
+            for (
+                test_hex, 
+                _, 
+                test_part_index, 
+                test_depth, 
+                test_strain
+            ) in particles.iter_mut() {
+                if n_hex == *test_hex && n_part_index == *test_part_index {
+
+                    if *test_depth > depth{
+                        *test_strain += strain * strain_factor;
+                        strain_applyed += 1;
+                    }
+                    continue 'outer; 
+                }
+            }
+
+            particles.push((n_hex, chunks[chunk_index].parts[n_part_index].pos, n_part_index, depth + 1, strain * strain_factor));
+            strain_applyed += 1;
+        }
+
+        particles[current_particle_index].4 -= strain_factor * strain_applyed as f32;
+        current_particle_index += 1;
     }
 
 }

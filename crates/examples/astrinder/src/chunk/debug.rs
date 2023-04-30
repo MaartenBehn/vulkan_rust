@@ -13,7 +13,6 @@ impl ChunkController {
         self.debug_chunk_velocity();
         self.debug_parts_borders();
         self.debug_colliders();
-        self.debug_particle_velocity();
     }
 
     #[allow(unused_must_use)]
@@ -99,25 +98,6 @@ impl ChunkController {
                 push_line(pos3, pos2, part_transform);
                 push_line(pos2, pos0, part_transform);
                 
-            }
-        }
-    }
-
-    fn debug_particle_velocity(&self){
-        for chunk in self.chunks.iter() {
-            for part in chunk.parts.iter() {
-                for x in 0..CHUNK_PART_SIZE {
-                    for y in 0..CHUNK_PART_SIZE {
-                        let hex = ivec2(x, y);
-                        let pos = hex_to_coord(hex);
-
-                        let angle_vec = Vec2::from_angle(-part.transform.rot);
-                        let r_pos0 = Vec2::rotate(angle_vec, pos);
-                        let r_pos1 = Vec2::rotate(angle_vec, pos + part.particles[hex_to_particle_index(hex)].velocity);
-            
-                        self.to_debug.send((r_pos0 + part.transform.pos, r_pos1 + part.transform.pos, vec3(1.0, 0.8, 0.0)));
-                    }
-                }
             }
         }
     }

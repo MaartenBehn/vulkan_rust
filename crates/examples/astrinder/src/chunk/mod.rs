@@ -20,8 +20,9 @@ pub mod shapes;
 
 const CHUNK_PART_SIZE: i32 = 10;
 const MAX_AMMOUNT_OF_PARTS: usize = 1000;
-const USE_FIXED_TIME_STEP: bool = false;
-const CONTROLLER_FRAME_RATE: u32 = 30;
+const USE_FIXED_TIME_STEP: bool = true;
+const FIXED_TIME_STEP: f32 = 1.0 / 30.0;
+const CONTROLLER_FRAME_RATE: u32 = 1;
 
 pub struct ChunkController {
     pub chunks: Vec<Chunk>,
@@ -50,7 +51,7 @@ impl ChunkController {
 
          
         chunks.push(Chunk::new_hexagon(
-            Transform::new(vec2(2.0, 20.0), 0.0), 
+            Transform::new(vec2(2.0, 6.0), 0.0), 
             Transform::new(vec2(0.0, -4.0), 0.0),
             2,
             &mut part_id_counter)); 
@@ -70,7 +71,7 @@ impl ChunkController {
         let mut fps = fps_clock::FpsClock::new(CONTROLLER_FRAME_RATE);
         let mut nanosecs_since_last_tick = 0.0;
         loop {
-            let time_step = if !USE_FIXED_TIME_STEP { nanosecs_since_last_tick * 1e-9 } else { 1.0 / CONTROLLER_FRAME_RATE as f32 };
+            let time_step = if !USE_FIXED_TIME_STEP { nanosecs_since_last_tick * 1e-9 } else { FIXED_TIME_STEP };
 
             self.update_physics(time_step);
             let _ = self.send_parts();
