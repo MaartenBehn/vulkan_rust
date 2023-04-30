@@ -1,13 +1,15 @@
 use std::collections::VecDeque;
+use std::f32::consts::PI;
+use std::ops::Index;
 
-use app::glam::{Vec2, vec2, IVec2};
+use app::glam::{Vec2, vec2, IVec2, ivec2};
 use app::anyhow::*;
 
 use crate::chunk::math::{world_pos_to_hex, hex_to_particle_index};
 use crate::chunk::physics::collide::CollisionSearch;
 
 use super::chunk::ChunkPart;
-use super::math::vector2_to_vec2;
+use super::math::{vector2_to_vec2, hex_to_coord, neigbor_hex_offsets};
 use super::{ChunkController, Chunk, transform::Transform, math::{part_corners, point2_to_vec2, cross2d}};
 
 const GRAVITY_G: f32 = 0.01;
@@ -117,40 +119,29 @@ impl ChunkController {
             for (i, (part0_index, part1_index)) in entry.parts.iter().enumerate() {
                 let chunk0 = &self.chunks[entry.chunk0_index];
                 let chunk1 = &self.chunks[entry.chunk1_index];
-
-                let part0 = &chunk0.parts[*part0_index];
-                let part1 = &chunk1.parts[*part1_index];
                 
                 let point = entry.points[i];
                 let normal = entry.normals[i];
 
+                let force = (chunk0.velocity_transform.pos * chunk0.mass - chunk1.velocity_transform.pos * chunk1.mass).length();
 
-                let hex_in_part0 = world_pos_to_hex(part0.transform, point - normal * 0.5);
-                let hex_in_part1 = world_pos_to_hex(part1.transform, point + normal * 0.5);
-
-                let part0_pos = part0.pos;
-                let part1_pos = part1.pos;
-
-                let force0 = chunk0.velocity_transform.pos * chunk0.mass;
-                let force1 = chunk1.velocity_transform.pos * chunk1.mass;
-
-                
                 destruction(
                     &mut self.chunks,
                     entry.chunk0_index, 
-                    hex_in_part0, 
-                    part0_pos, 
+                    point, 
                     *part0_index, 
-                    force1.length());
+                    force,
+                    normal);
 
                 destruction(
                     &mut self.chunks,
                     entry.chunk1_index, 
-                    hex_in_part1, 
-                    part1_pos, 
+                    point, 
                     *part1_index, 
-                    force0.length());
-                
+                    force,
+                    -normal);
+
+
             }   
         }
     }
@@ -171,57 +162,147 @@ fn get_gravity_force(pos0: Vec2, pos1: Vec2, mass0: f32, mass1: f32) -> Vec2 {
 fn destruction(
     chunks: &mut Vec<Chunk>,
     chunk_index: usize, 
-    start_hex: IVec2, 
-    start_part_pos: IVec2, 
-    start_part_index: usize, 
-    start_strain: f32
+    point: Vec2, 
+    part0_index: usize, 
+    mut strain: f32,
+    normal: Vec2,
 ) { 
-    let strain_factor = 0.1;
-    let min_strain = 0.5;
     
+    let mut chunk = &chunks[chunk_index];
+    let part0 = &chunk.parts[part0_index];
+    let hex = world_pos_to_hex(part0.transform, point + normal * 0.5);
 
-    let mut particles = Vec::new();
-    particles.push((start_hex, start_part_pos, start_part_index, 0, start_strain));
-    let mut current_particle_index = 0;
+    let possible_start_hex = chunk.get_neigbor_particles_pos(
+        part0.pos, 
+        part0_index, 
+        hex);
 
-    loop {
-        if current_particle_index >= particles.len() {
-            break;
+    let mut hex0 = ivec2(-1, -1);
+    let mut hex1: IVec2 = ivec2(-1, -1);
+    let mut part0_index = 0;
+    let mut part1_index = 0;
+    let mut neigbor_case = 0;
+
+    if part0.particles[hex_to_particle_index(hex)].mass != 0 {
+        hex0 = hex;
+        part0_index = part0_index;
+    }
+
+    let l = possible_start_hex.len();
+    for (i, neigbor) in possible_start_hex.iter().enumerate() {
+
+        if neigbor.is_none() 
+            || (possible_start_hex[(i + l - 2) % l].is_some() 
+            && possible_start_hex[(i + 1) % l].is_some()) {
+                continue;
         }
 
-        let (hex, part_pos, part_index, depth, strain) = particles[current_particle_index];
-        
-        if strain < min_strain {
-            current_particle_index += 1;
+        let (neigbor_hex, neigbor_part_index) = neigbor.unwrap();
+
+        if hex0.x == -1 {
+            hex0 = neigbor_hex;
+            part0_index = neigbor_part_index;
             continue;
         }
 
-        let mut strain_applyed = 0;
-        'outer: for (n_hex, n_part_index) in chunks[chunk_index].get_neigbor_particles_pos(part_pos, part_index, hex) {
-            
-            for (
-                test_hex, 
-                _, 
-                test_part_index, 
-                test_depth, 
-                test_strain
-            ) in particles.iter_mut() {
-                if n_hex == *test_hex && n_part_index == *test_part_index {
-
-                    if *test_depth > depth{
-                        *test_strain += strain * strain_factor;
-                        strain_applyed += 1;
-                    }
-                    continue 'outer; 
-                }
-            }
-
-            particles.push((n_hex, chunks[chunk_index].parts[n_part_index].pos, n_part_index, depth + 1, strain * strain_factor));
-            strain_applyed += 1;
+        if hex1.x == -1 {
+            hex1 = neigbor_hex;
+            part1_index = neigbor_part_index;
+            break;
         }
-
-        particles[current_particle_index].4 -= strain_factor * strain_applyed as f32;
-        current_particle_index += 1;
     }
 
+    if hex1.x == -1 {
+        // Other start not found.
+        return;
+    }
+    
+    let mut last_hex = ivec2(-1, -1);
+    loop{
+        let connection_particle_nr = neigbor_case / 3;
+        let connection_nr = neigbor_case % 3;
+        let connection_part_index = if connection_particle_nr == 0 { part0_index } else { part1_index };
+        let connection_particle_index = hex_to_particle_index(if connection_particle_nr == 0 { hex0 } else { hex1 });
+
+
+        let connection = chunk.parts[connection_part_index].particles[connection_particle_index].connections[connection_nr];
+        let mut new_connection = connection - strain;
+        strain -= connection;
+        
+        if new_connection < 0.0 {
+            new_connection = 0.0;
+        }
+
+        chunks[chunk_index].parts[connection_part_index].particles[connection_particle_index].connections[connection_nr] = new_connection;
+
+        chunks[chunk_index].parts[part0_index].particles[hex_to_particle_index(hex0)].material = 200;
+        chunks[chunk_index].parts[part1_index].particles[hex_to_particle_index(hex1)].material = 200;
+
+        if new_connection > 0.0 {
+            break;
+        }
+
+        chunk = &chunks[chunk_index];
+
+        let possible_neigbor0 = (neigbor_case + 5) % 6;
+        let possible_neigbor1 = (neigbor_case + 1) % 6;
+
+        let possible_next_0 = chunk.get_neigbor_particle_pos(
+            chunk.parts[part0_index].pos, 
+            part0_index, 
+            hex0, 
+            possible_neigbor0
+        ); 
+
+        let possible_next_1 = chunk.get_neigbor_particle_pos(
+            chunk.parts[part0_index].pos, 
+            part0_index, 
+            hex0, 
+            possible_neigbor1
+        ); 
+
+        let last_neigbor_case = neigbor_case;
+        let mut hex2 = ivec2(-1, -1);
+        let mut part2_index = 0;
+        if possible_next_0.is_some() && possible_next_0.unwrap().0 != last_hex {
+            hex2 = possible_next_0.unwrap().0;
+            part2_index = possible_next_0.unwrap().1;
+            neigbor_case = possible_neigbor0;
+        }
+
+        if possible_next_1.is_some() && possible_next_1.unwrap().0 != last_hex {
+            //assert!(hex2.x == -1);
+
+            hex2 = possible_next_1.unwrap().0;
+            part2_index = possible_next_1.unwrap().1;
+            neigbor_case = possible_neigbor1;
+        }
+
+        if hex2.x == -1 {
+            break;
+        }
+
+        let dot0 = normal.dot(hex_to_coord(hex0 - hex2)).abs();
+        let dot1 = normal.dot(hex_to_coord(hex1 - hex2)).abs();
+
+        if dot0 < dot1 {
+            last_hex = hex1;
+            hex1 = hex2;
+            part1_index = part2_index;
+        }
+        else {
+            last_hex = hex0;
+            hex0 = hex2;
+            part0_index = part2_index;
+
+            neigbor_case = if (last_neigbor_case + 1) % 6 == neigbor_case {
+                (last_neigbor_case + 5) % 6
+            } else { 
+                (last_neigbor_case + 1) % 6 
+            };
+        }
+    }
 }
+
+
+

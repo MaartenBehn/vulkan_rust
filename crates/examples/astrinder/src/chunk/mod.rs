@@ -22,7 +22,7 @@ const CHUNK_PART_SIZE: i32 = 10;
 const MAX_AMMOUNT_OF_PARTS: usize = 1000;
 const USE_FIXED_TIME_STEP: bool = true;
 const FIXED_TIME_STEP: f32 = 1.0 / 30.0;
-const CONTROLLER_FRAME_RATE: u32 = 1;
+const CONTROLLER_FRAME_RATE: u32 = 4;
 
 pub struct ChunkController {
     pub chunks: Vec<Chunk>,
@@ -49,7 +49,6 @@ impl ChunkController {
             2,
             &mut part_id_counter)); 
 
-         
         chunks.push(Chunk::new_hexagon(
             Transform::new(vec2(2.0, 6.0), 0.0), 
             Transform::new(vec2(0.0, -4.0), 0.0),

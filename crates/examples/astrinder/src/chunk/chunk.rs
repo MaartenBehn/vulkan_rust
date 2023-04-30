@@ -65,7 +65,7 @@ impl Chunk {
         chunk
     }
 
-    fn get_part_by_pos(&self, pos: IVec2) -> Option<&ChunkPart>{
+    pub fn get_part_by_pos(&self, pos: IVec2) -> Option<&ChunkPart>{
         for p in &self.parts {
             if p.pos == pos  {
                 return Some(p);
@@ -75,7 +75,7 @@ impl Chunk {
         return None;
     }
 
-    fn get_part_index_by_pos(&self, pos: IVec2) -> Option<usize>{
+    pub fn get_part_index_by_pos(&self, pos: IVec2) -> Option<usize>{
         for (i, p) in self.parts.iter().enumerate() {
             if p.pos == pos  {
                 return Some(i);
@@ -85,7 +85,7 @@ impl Chunk {
         return None;
     }
 
-    fn get_part_by_pos_mut(&mut self, pos: IVec2) -> Option<&mut ChunkPart>{
+    pub fn get_part_by_pos_mut(&mut self, pos: IVec2) -> Option<&mut ChunkPart>{
         for p in &mut self.parts {
             if p.pos == pos {
                 return Some(p);
@@ -245,71 +245,116 @@ impl Chunk {
         self.moment_of_inertia = moment_of_inertia.abs();
     }
 
-    pub fn get_neigbor_particles_pos(&mut self, part_pos: IVec2, part_index: usize, hex: IVec2) -> Vec<(IVec2, usize)> {
+    pub fn get_neigbor_particles_pos(&self, part_pos: IVec2, part_index: usize, hex: IVec2) -> Vec<Option<(IVec2, usize)>> {
 
-        let offsets: [IVec2; 6] = neigbor_hex_offsets();
         let mut neigbor_particles = Vec::new();
 
-        for (i, hex_offset) in offsets.iter().enumerate() {
-            let mut hex_neigbor = hex + *hex_offset;
+        for i in 0..6 {
+            let res = self.get_neigbor_particle_pos(part_pos, part_index, hex, i);
 
-            let neigbor_part_index = match i {
-                0 => {
-                    if hex_neigbor.x < CHUNK_PART_SIZE { Some(part_index) }
-                    else { 
-                        hex_neigbor.x -= CHUNK_PART_SIZE;
-                        self.get_part_index_by_pos(part_pos + ivec2(1, 0)) 
-                    }
-                },
-                1 => {
-                    if hex_neigbor.y < CHUNK_PART_SIZE { Some(part_index) }
-                    else {
-                        hex_neigbor.y -= CHUNK_PART_SIZE;
-                        self.get_part_index_by_pos(part_pos + ivec2(0, 1)) 
-                    }
-                },
-                2 => {
-                    if hex_neigbor.x >= 0 && hex_neigbor.y < CHUNK_PART_SIZE { Some(part_index) }
-                    else { 
-                        hex_neigbor.x += CHUNK_PART_SIZE;
-                        hex_neigbor.y -= CHUNK_PART_SIZE;
-                        self.get_part_index_by_pos(part_pos + ivec2(-1, 1)) 
-                    }
-                },
-                3 => {
-                    if hex_neigbor.x >= 0 { Some(part_index) }
-                    else { 
-                        hex_neigbor.x += CHUNK_PART_SIZE;
-                        self.get_part_index_by_pos(part_pos + ivec2(-1, 0)) 
-                    }
-                },
-                4 => {
-                    if hex_neigbor.y >= 0 { Some(part_index) }
-                    else { 
-                        hex_neigbor.y += CHUNK_PART_SIZE;
-                        self.get_part_index_by_pos(part_pos + ivec2(0, -1)) 
-                    }
-                },
-                5 => {
-                    if hex_neigbor.x < CHUNK_PART_SIZE && hex_neigbor.y >= 0 { Some(part_index) }
-                    else { 
-                        hex_neigbor.x -= CHUNK_PART_SIZE;
-                        hex_neigbor.y += CHUNK_PART_SIZE;
-                        self.get_part_index_by_pos(part_pos + ivec2(1, -1)) 
-                    }
-                }
-                _ => { None }
-            };
-
-            if neigbor_part_index.is_none() || self.parts[neigbor_part_index.unwrap()].particles[hex_to_particle_index(hex_neigbor)].material == 0 {
-                continue;
-            }
-
-            neigbor_particles.push((hex_neigbor, neigbor_part_index.unwrap()))
+            neigbor_particles.push(res);
         }
 
         neigbor_particles
     }
+
+    pub fn get_neigbor_particles_pos_cleaned(&self, part_pos: IVec2, part_index: usize, hex: IVec2) -> Vec<(IVec2, usize)> {
+
+        let mut neigbor_particles = Vec::new();
+
+        for i in 0..6 {
+            let res = self.get_neigbor_particle_pos(part_pos, part_index, hex, i);
+
+            if res.is_none() {
+                continue;
+            }
+            neigbor_particles.push(res.unwrap());
+        }
+
+        neigbor_particles
+    }
+
+
+    pub fn get_neigbor_particle_pos(&self, part_pos: IVec2, part_index: usize, hex: IVec2, neigbor_index: usize) -> Option<(IVec2, usize)> {
+
+        let mut hex_neigbor = hex + neigbor_hex_offsets()[neigbor_index];
+        let neigbor_part_index = match neigbor_index {
+            0 => {
+                if hex_neigbor.x < CHUNK_PART_SIZE { Some(part_index) }
+                else { 
+                    hex_neigbor.x -= CHUNK_PART_SIZE;
+                    self.get_part_index_by_pos(part_pos + ivec2(1, 0)) 
+                }
+            },
+            1 => {
+                if hex_neigbor.y < CHUNK_PART_SIZE { Some(part_index) }
+                else {
+                    hex_neigbor.y -= CHUNK_PART_SIZE;
+                    self.get_part_index_by_pos(part_pos + ivec2(0, 1)) 
+                }
+            },
+            2 => {
+
+                if hex_neigbor.x >= 0 && hex_neigbor.y < CHUNK_PART_SIZE { 
+                    Some(part_index) 
+                }
+                else { 
+                    let mut new_pos = part_pos;
+                    if hex_neigbor.x < 0{ 
+                        hex_neigbor.x += CHUNK_PART_SIZE;
+                        new_pos += ivec2(-1, 0);
+                    }
+                    if hex_neigbor.y >= CHUNK_PART_SIZE {
+                        hex_neigbor.y -= CHUNK_PART_SIZE;
+                        new_pos += ivec2(0, 1);
+                    }
+
+                    self.get_part_index_by_pos(new_pos) 
+                }
+            },
+            3 => {
+                if hex_neigbor.x >= 0 { Some(part_index) }
+                else { 
+                    hex_neigbor.x += CHUNK_PART_SIZE;
+                    self.get_part_index_by_pos(part_pos + ivec2(-1, 0)) 
+                }
+            },
+            4 => {
+                if hex_neigbor.y >= 0 { Some(part_index) }
+                else { 
+                    hex_neigbor.y += CHUNK_PART_SIZE;
+                    self.get_part_index_by_pos(part_pos + ivec2(0, -1)) 
+                }
+            },
+            5 => {
+                if hex_neigbor.x < CHUNK_PART_SIZE && hex_neigbor.y >= 0 { 
+                    Some(part_index) 
+                }
+                else { 
+                    let mut new_pos = part_pos;
+                    if  hex_neigbor.x >= CHUNK_PART_SIZE { 
+                        hex_neigbor.x -= CHUNK_PART_SIZE;
+                        new_pos += ivec2(1, 0);
+                    }
+                    if hex_neigbor.y < 0 {
+                        hex_neigbor.y += CHUNK_PART_SIZE;
+                        new_pos += ivec2(0, -1);
+                    }
+
+                    self.get_part_index_by_pos(new_pos) 
+                }
+            }
+            _ => { None }
+        };
+
+        if neigbor_part_index.is_none() || self.parts[neigbor_part_index.unwrap()].particles[hex_to_particle_index(hex_neigbor)].mass == 0 {
+            return None;
+        }
+
+        return Some((hex_neigbor, neigbor_part_index.unwrap()))
+    }
+
+
 
 }
 

@@ -43,10 +43,10 @@ pub fn part_pos_to_world(chunk_transform: Transform, part_pos: IVec2, render_to_
 
 pub fn world_pos_to_hex(part_transform: Transform, world_pos: Vec2) -> IVec2 {
 
-    let angle_vec = Vec2::from_angle(-part_transform.rot);
-    let rotated_pos = Vec2::rotate(angle_vec, world_pos);
+    let angle_vec = Vec2::from_angle(part_transform.rot);
+    let rotated_pos = Vec2::rotate(angle_vec, world_pos - part_transform.pos);
 
-    coord_to_hex(rotated_pos - part_transform.pos)
+    coord_to_hex(rotated_pos)
 }
 
 
