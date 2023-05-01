@@ -111,6 +111,7 @@ dependencies = [
  "collision",
  "fps_clock",
  "noise",
+ "rand 0.8.5",
 ]
 
 [[package]]

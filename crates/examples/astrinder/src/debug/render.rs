@@ -1,9 +1,9 @@
 use std::{mem::size_of, sync::mpsc::Receiver};
 
-use app::{glam::{Vec2, vec2, ivec2, Vec3}, vulkan::{Context, Buffer, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
+use app::{glam::{Vec2,  Vec3}, vulkan::{Context, Buffer, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
 
-use crate::{camera::{Camera, self}, chunk::{render::vulkan::RenderUBO}};
+use crate::{camera::Camera, chunk::{render::vulkan::RenderUBO}};
 
 pub struct DebugRenderer {
     max_lines: usize,

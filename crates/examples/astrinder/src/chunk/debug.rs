@@ -1,6 +1,6 @@
 use app::glam::{vec2, Vec2, vec3, ivec2, Vec3};
 
-use super::{ChunkController, math::{part_pos_to_world, hex_to_coord, hex_to_particle_index}, transform::Transform, CHUNK_PART_SIZE, particle};
+use super::{ChunkController, math::{part_pos_to_world, hex_to_coord}, transform::Transform, CHUNK_PART_SIZE};
 
 
 impl ChunkController {
@@ -11,7 +11,7 @@ impl ChunkController {
 
         self.debug_chunk_transforms();
         self.debug_chunk_velocity();
-        self.debug_parts_borders();
+        // self.debug_parts_borders();
         self.debug_colliders();
     }
 
@@ -27,7 +27,7 @@ impl ChunkController {
 
         for chunk in self.chunks.iter() {
             for part in chunk.parts.iter() {
-                let part_transform = part_pos_to_world(chunk.transform, part.pos, chunk.render_to_transform);
+                let part_transform = part_pos_to_world(chunk.transform, part.pos, chunk.center_of_mass);
 
                 for collider in part.colliders.iter() {
                     for i in 0..collider.vertices.len() {
@@ -87,7 +87,7 @@ impl ChunkController {
 
         for chunk in self.chunks.iter() {
             for part in chunk.parts.iter() {
-                let part_transform = part_pos_to_world(chunk.transform, part.pos, chunk.render_to_transform);
+                let part_transform = part_pos_to_world(chunk.transform, part.pos, chunk.center_of_mass);
                 let pos0 = hex_to_coord(ivec2(0, 0)) + offset;
                 let pos1 = hex_to_coord(ivec2(CHUNK_PART_SIZE, 0)) + offset;
                 let pos2 = hex_to_coord(ivec2(0, CHUNK_PART_SIZE)) + offset;

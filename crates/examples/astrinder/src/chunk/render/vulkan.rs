@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use app::{glam::{Vec2, vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
+use app::{glam::{Vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
 
 use crate::{camera::Camera, chunk::{CHUNK_PART_SIZE, math::{part_pos_to_world, part_corners}, transform::Transform}};
@@ -269,6 +269,7 @@ impl app::vulkan::Vertex for Vertex {
 }
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 pub struct RenderUBO {
     camera: Camera,
 }
@@ -280,6 +281,7 @@ impl RenderUBO {
 }
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 pub struct PartUBO {
     transform: Transform,
     fill: f32,

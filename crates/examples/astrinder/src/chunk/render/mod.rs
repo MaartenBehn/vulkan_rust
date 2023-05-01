@@ -19,7 +19,7 @@ pub mod part;
 pub struct ChunkRenderer{
     rendered_parts: usize,
     pub vulkan: ChunkRendererVulkan,
-    parts: [RenderPart; MAX_AMMOUNT_OF_PARTS],
+    parts: Vec<RenderPart>,
 
     from_controller_transforms: Receiver<(usize, Transform)>,
     from_controller_particles: Receiver<(usize, [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
@@ -34,11 +34,13 @@ impl ChunkRenderer {
         from_controller_transforms: Receiver<(usize, Transform)>,
         from_controller_particles: Receiver<(usize, [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
     ) -> Result<Self> {
+        let mut parts = Vec::new();
+        parts.resize(MAX_AMMOUNT_OF_PARTS, RenderPart::default());
 
         Ok(Self { 
             rendered_parts,
             vulkan: ChunkRendererVulkan::new(context, color_attachment_format, images_len, rendered_parts)?,
-            parts: [RenderPart::default(); MAX_AMMOUNT_OF_PARTS as usize],
+            parts: parts,
 
             from_controller_transforms,
             from_controller_particles,

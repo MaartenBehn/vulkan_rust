@@ -50,7 +50,7 @@ void main() {
 
     float draw = float(dist < 0.5 && material != 0); 
 
-    vec3 color = vec3(float(material) / 255.0, float(material) / 255.0, float(material) / 255.0);
+    vec3 color = vec3(float(material & 255) / 255.0, float((material >> 8) & 255) / 255.0, float((material >> 16) & 255) / 255.0);
 
     finalColor = vec4(1.0 - ((1.0 - color) * vec3(draw)), 1.0);
 }

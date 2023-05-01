@@ -3,15 +3,13 @@
 pub struct Particle {
     pub material: u32,
     pub mass: u32,
-    pub connections: [f32; 3],
 }
 
 impl Particle {
-    pub fn new() -> Self {
+    pub fn new(mass: u32, material: u32) -> Self {
         Self { 
-            mass: 1,
-            material: 1,
-            connections: [1.0, 1.0, 1.0],
+            mass,
+            material,
         }
     }
 }
@@ -21,7 +19,6 @@ impl Default for Particle {
         Self {  
             material: 0, 
             mass: 0,
-            connections: [1.0, 1.0, 1.0],
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::chunk::{CHUNK_PART_SIZE, transform::Transform, Chunk, particle::Particle, chunk::ChunkPart};
+use crate::chunk::{CHUNK_PART_SIZE, transform::Transform, particle::Particle};
 
 #[derive(Copy, Clone)]
 pub struct RenderPart{

@@ -1,4 +1,4 @@
-use app::glam::{Vec2, IVec2, ivec2, vec2, Vec2Swizzles};
+use app::glam::{Vec2, IVec2, ivec2, vec2};
 
 use super::{CHUNK_PART_SIZE, transform::Transform};
 

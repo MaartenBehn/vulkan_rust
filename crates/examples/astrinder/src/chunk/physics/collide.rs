@@ -1,10 +1,8 @@
-use std::f32::consts::E;
-
 use app::glam::Vec2;
 use cgmath::{Point2, Decomposed, Vector2, Basis2, Rotation2, Rad};
 use collision::{Contact, algorithm::minkowski::GJK2, CollisionStrategy};
 
-use crate::{chunk::{math::{part_corners, point2_to_vec2, vector2_to_vec2}, chunk::{Chunk, ChunkPart}, transform::Transform, MAX_AMMOUNT_OF_PARTS}, aabb::AABB};
+use crate::{chunk::{math::{part_corners, point2_to_vec2, vector2_to_vec2}, chunk::Chunk, transform::Transform, MAX_AMMOUNT_OF_PARTS, part::ChunkPart}, aabb::AABB};
 
 #[derive(Clone)]
 pub struct CollisionSearch{
@@ -164,7 +162,7 @@ impl CollisionSearch{
                     }
 
                     let entry = self.log.last_mut().unwrap();
-                    
+
                     entry.parts.push((self.part0_index, self.part1_index));
                     entry.points.push(point2_to_vec2(res.contact_point));
                     entry.normals.push(vector2_to_vec2(res.normal));
@@ -186,3 +184,4 @@ impl CollisionSearch{
         None
     }
 }
+
