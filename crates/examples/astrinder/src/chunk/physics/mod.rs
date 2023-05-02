@@ -12,12 +12,12 @@ use super::{ChunkController, transform::Transform, math::{point2_to_vec2, cross2
 
 const ROTATION_DAMPING: f32 = 0.9;
 
-const GRAVITY_ON: bool = false;
+const GRAVITY_ON: bool = true;
 const GRAVITY_G: f32 = 0.01;
 const GRAVITY_MAX_FORCE: f32 = 1.0;
 
-const BREAKING_ON: bool = true;
-pub const BREAK_COOL_DOWN: Duration = Duration::from_secs(100);
+const BREAKING_ON: bool = false;
+pub const BREAK_COOL_DOWN: Duration = Duration::from_secs(1);
 
 mod collide;
 pub mod destruction;
@@ -138,15 +138,18 @@ impl ChunkController {
                 let hex0 = world_pos_to_hex(part0.transform, point - normal * 0.5) + part0.pos * CHUNK_PART_SIZE;
                 let hex1 = world_pos_to_hex(part1.transform, point + normal * 0.5) + part1.pos * CHUNK_PART_SIZE;
 
-                let force = (chunk0.velocity_transform.pos - chunk1.velocity_transform.pos).length();
-
                 let now = Instant::now();
+
+                let vel_diff = (chunk0.velocity_transform.pos- chunk1.velocity_transform.pos).length();
+                let break_val_0 = (chunk0.mass / chunk1.mass) / vel_diff; 
+                let break_val_1 = (chunk1.mass / chunk0.mass) / vel_diff; 
+
                 let break0 = chunk0.particle_counter > 1 
-                    && force > 1.0 
+                    && break_val_0 < 20.
                     && now.duration_since(chunk0.break_cool_down) > BREAK_COOL_DOWN;
 
                 let break1 = chunk1.particle_counter > 1 
-                    && force > 1.0
+                    && break_val_1 < 20.
                     && now.duration_since(chunk1.break_cool_down) > BREAK_COOL_DOWN;
 
                 assert!(entry.chunk0_index < entry.chunk1_index);

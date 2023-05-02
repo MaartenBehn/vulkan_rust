@@ -46,34 +46,7 @@ impl ChunkController {
         let mut part_id_counter = PartIdCounter::new(MAX_AMMOUNT_OF_PARTS);
         let destruction_solver = DestructionSolver::new();
 
-        /* 
-        chunks.push(Chunk::new_cube(
-            Transform::new(vec2(0.0, 0.0), 0.0), 
-            Transform::new(vec2(0., 0.), 1.1),
-            uvec2(6, 6),
-            &mut part_id_counter,
-        ));
-        */
-
-        
-        chunks.push(Chunk::new_hexagon(
-            Transform::new(vec2(0.0, 0.0), 0.0), 
-            Transform::new(vec2(0., 0.), 0.0),
-            20,
-            &mut part_id_counter)); 
-
-        chunks.push(Chunk::new_hexagon(
-            Transform::new(vec2(2.0, 50.0), 0.0), 
-            Transform::new(vec2(0.0, -11.0), 0.0),
-            1,
-            &mut part_id_counter)); 
-        
-        /* 
-        chunks.push(destruction_solver.patterns[2].into_chunk( 
-            Transform::new(vec2(0.0, 0.0), 0.0), 
-            Transform::new(vec2(0., 0.), 0.0),
-            &mut part_id_counter));
-        */
+        many_chunks(&mut chunks, &mut part_id_counter);
 
         Self { 
             chunks,
@@ -114,4 +87,33 @@ impl ChunkController {
 
 
 }
+
+
+fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter){
+    chunks.push(Chunk::new_hexagon(
+        Transform::new(vec2(0.0, 0.0), 0.0), 
+        Transform::new(vec2(0., 0.), 0.0),
+        20,
+        part_id_counter)); 
+
+    chunks.push(Chunk::new_hexagon(
+        Transform::new(vec2(2.0, 50.0), 0.0), 
+        Transform::new(vec2(0.0, -11.0), 0.0),
+        1,
+        part_id_counter)); 
+}
+
+
+fn many_chunks(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter){
+    for x in -10..10 {
+        for y in -10..10 {
+            chunks.push(Chunk::new_hexagon(
+                Transform::new(vec2(x as f32 * 4.0, y as f32 * 4.0), 0.0), 
+                Transform::new(vec2(0., 0.), 0.0),
+                1,
+                part_id_counter)); 
+        }
+    }
+}
+
 

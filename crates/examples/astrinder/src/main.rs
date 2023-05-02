@@ -48,7 +48,7 @@ impl App for Astrinder {
             context, 
             base.swapchain.format,
             base.swapchain.images.len() as u32,
-            100,
+            100000,
             transform_reciver,
             particle_reciver,
         )?;
@@ -56,7 +56,7 @@ impl App for Astrinder {
         let debug_renderer = DebugRenderer::new(context, 
             base.swapchain.format,
             base.swapchain.images.len() as u32,
-            10000,
+            1000000,
             debug_reciver,
         )?;
 

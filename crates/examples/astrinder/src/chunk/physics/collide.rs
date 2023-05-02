@@ -84,9 +84,17 @@ impl CollisionSearch{
     fn get_next_part_aabb_collision(&mut self, chunk0: &Chunk, chunk1: &Chunk) -> Option<Contact<Point2<f32>>> {
         loop  {
 
+            if self.part0_index >= chunk0.parts.len(){
+                break;
+            }
+
             let part0 = &chunk0.parts[self.part0_index];
             let aabb0 = AABB::new(part0.transform.pos, part0.transform.pos + self.part_offset);
             loop {
+
+                if self.part1_index >= chunk1.parts.len(){
+                    break;
+                }
 
                 let part1 = &chunk1.parts[self.part1_index];
                 let aabb1 = AABB::new(part1.transform.pos, part1.transform.pos + self.part_offset);
