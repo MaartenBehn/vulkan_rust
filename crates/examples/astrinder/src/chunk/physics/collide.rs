@@ -1,195 +1,94 @@
+use std::cmp::min;
+
 use app::glam::Vec2;
 use cgmath::{Point2, Decomposed, Vector2, Basis2, Rotation2, Rad};
-use collision::{Contact, algorithm::minkowski::GJK2, CollisionStrategy};
+use collision::{Contact, algorithm::minkowski::GJK2};
+use crate::chunk::math::part_pos_to_world;
 
-use crate::{chunk::{math::{part_corners, point2_to_vec2, vector2_to_vec2}, chunk::Chunk, transform::Transform, MAX_AMMOUNT_OF_PARTS, part::ChunkPart}, aabb::AABB};
+use crate::{chunk::{math::{part_corners, point2_to_vec2, vector2_to_vec2}, chunk::Chunk, transform::Transform, part::ChunkPart}, aabb::AABB, settings::Settings};
 
-#[derive(Clone)]
+pub enum CollisionSearchResult {
+    Done,
+    Contact(Contact<Point2<f32>>),
+    ChunkDone(usize),
+}
+
 pub struct CollisionSearch{
+    pub gjk: GJK2<f32>,
     pub chunk0_index: usize,
     pub chunk1_index: usize,
-    last_chunk0_index: usize,
-    last_chunk1_index: usize,
-
-    pub part0_index: usize,
-    pub part1_index: usize,
-    part_offset: Vec2,
-
-    pub collider0_index: usize,
-    pub collider1_index: usize,
-
-    pub log: Vec<CollisionLogEntry>,
+    pub chunk0_transform: Decomposed<Vector2<f32>, Basis2<f32>>,
+    pub chunk0_next_transform: Decomposed<Vector2<f32>, Basis2<f32>>,
+    pub time_of_first_collide: Vec<f32>,
 }
-
-#[derive(Clone)]
-pub struct CollisionLogEntry {
-    pub chunk0_index: usize,
-    pub chunk1_index: usize,
-
-    pub parts: Vec<(usize, usize)>,
-    pub points: Vec<Vec2>,
-    pub normals: Vec<Vec2>,
-}
-
 
 impl CollisionSearch{
-    pub fn new() -> Self {
+    pub fn new(settings: Settings, chunks: &Vec<Chunk>, time_step: f32) -> Self {
         Self { 
-            chunk0_index:       0, 
-            chunk1_index:       1, 
-            last_chunk0_index:  MAX_AMMOUNT_OF_PARTS,
-            last_chunk1_index:  MAX_AMMOUNT_OF_PARTS,
-            part0_index:        0, 
-            part1_index:        0, 
-            part_offset:        part_corners()[3], 
-            collider0_index:    0, 
-            collider1_index:    0, 
-            log:                Vec::new(),
+            gjk: GJK2::new(),
+            chunk0_index: 0, 
+            chunk1_index: 1, 
+            chunk0_transform: chunks[0].transform.into(),
+            chunk0_next_transform: (chunks[0].transform + chunks[0].velocity_transform * time_step).into(),
+            time_of_first_collide: vec![1.0; chunks.len()],
         }
     }
 
-    pub fn get_next_collision(&mut self, chunks: &Vec<Chunk>) -> Option<Contact<Point2<f32>>> {
-        self.get_next_broad_chunk_aabb_collision(chunks)
-    }
+    pub fn get_next(&mut self, chunks: &Vec<Chunk>, time_step: f32) -> CollisionSearchResult {
 
-    fn get_next_broad_chunk_aabb_collision(&mut self, chunks: &Vec<Chunk>) -> Option<Contact<Point2<f32>>> {
-        loop {
-            let chunk0 = &chunks[self.chunk0_index];
+        if self.chunk0_index >= chunks.len() - 1 { return CollisionSearchResult::Done; }
 
-            loop {
-                let chunk1 = &chunks[self.chunk1_index];
+        let chunk0 = &chunks[self.chunk0_index];
 
-                if chunk0.aabb.collides(chunk1.aabb) {
-                    let res = self.get_next_part_aabb_collision(chunk0, chunk1);
-                    if res.is_some() {
-                        return res;
-                    }
-                }
-
-                self.chunk1_index += 1;
-
-                if self.chunk1_index >= chunks.len() { break; }
-            }
-
-            self.chunk0_index += 1;
-            self.chunk1_index = self.chunk0_index + 1;
-
-            if self.chunk0_index >= chunks.len() - 1 { break; }
-        }
-
-        None
-    }
-
-
-    fn get_next_part_aabb_collision(&mut self, chunk0: &Chunk, chunk1: &Chunk) -> Option<Contact<Point2<f32>>> {
-        loop  {
-
-            if self.part0_index >= chunk0.parts.len(){
-                break;
-            }
-
-            let part0 = &chunk0.parts[self.part0_index];
-            let aabb0 = AABB::new(part0.transform.pos, part0.transform.pos + self.part_offset);
-            loop {
-
-                if self.part1_index >= chunk1.parts.len(){
-                    break;
-                }
-
-                let part1 = &chunk1.parts[self.part1_index];
-                let aabb1 = AABB::new(part1.transform.pos, part1.transform.pos + self.part_offset);
-                if aabb0.collides(aabb1) {
-                    let res = self.get_next_collider_collision(part0, part1);
-                    if res.is_some() {
-                        return res;
-                    }
-                }
-
-                self.part1_index += 1;
-
-                if  self.part1_index >= chunk1.parts.len() { break; }
-            }
-            self.part1_index = 0;
-
-
-            self.part0_index += 1;
-
-            if self.part0_index >= chunk0.parts.len() { break; }
-        }
-        self.part0_index = 0;
-        
-        None
-    }
-
-    fn get_next_collider_collision(&mut self, part0: &ChunkPart, part1: &ChunkPart) -> Option<Contact<Point2<f32>>> {
-
-        fn transform(t: Transform) -> Decomposed<Vector2<f32>, Basis2<f32>> {
-            Decomposed {
-                disp: Vector2::new(t.pos.x, t.pos.y),
-                rot: Rotation2::from_angle(Rad(-t.rot)),
-                scale: 1.,
-            }
-        }
-
-        let gjk = GJK2::new();
-
-        let t0 = transform(part0.transform);
-        let t1 = transform(part1.transform);
-        
-        loop {
-            if self.collider0_index >= part0.colliders.len() { break; }
-
-            let collider0 = &part0.colliders[self.collider0_index];
+        while self.chunk1_index < chunks.len() {
             
-            loop {
-                if self.collider1_index >= part1.colliders.len() { break; }
+            let chunk1 = &chunks[self.chunk1_index];
 
-                let collider1 = &part1.colliders[self.collider1_index];
-  
+            if chunk0.aabb.collides(chunk1.aabb) {
+                
+                let chunk1_transform: Decomposed<Vector2<f32>, Basis2<f32>> = chunks[self.chunk1_index].transform.into();
+                let chunk1_next_transform: Decomposed<Vector2<f32>, Basis2<f32>> = (chunks[self.chunk1_index].transform + 
+                    chunks[self.chunk1_index].velocity_transform * time_step).into();
 
-                let result = gjk.intersection(
-                    &CollisionStrategy::FullResolution,
-                    collider0, 
-                    &t0, 
-                    collider1, 
-                    &t1);
-
-                self.collider1_index += 1;
+                let result = self.gjk.intersection_complex_time_of_impact(
+                    &collision::CollisionStrategy::CollisionOnly, 
+                    &chunk0.colliders,
+                    &self.chunk0_transform..&self.chunk0_next_transform,
+                    &chunk1.colliders,
+                    &chunk1_transform..&chunk1_next_transform
+                );
 
                 if result.is_some() {
                     let res = result.unwrap();
-                    
-                    if self.last_chunk0_index != self.chunk0_index || self.last_chunk1_index != self.chunk1_index {
-                        self.log.push(CollisionLogEntry{
-                            chunk0_index: self.chunk0_index,
-                            chunk1_index: self.chunk1_index,
-                            parts: Vec::new(),
-                            points: Vec::new(),
-                            normals: Vec::new(),
-                        });
+
+                    let time_of_impact = res.time_of_impact;
+
+                    if self.time_of_first_collide[self.chunk0_index] > time_of_impact {
+                        self.time_of_first_collide[self.chunk0_index] = time_of_impact;
                     }
 
-                    let entry = self.log.last_mut().unwrap();
+                    if self.time_of_first_collide[self.chunk1_index] > time_of_impact {
+                        self.time_of_first_collide[self.chunk1_index] = time_of_impact;
+                    }
 
-                    entry.parts.push((self.part0_index, self.part1_index));
-                    entry.points.push(point2_to_vec2(res.contact_point));
-                    entry.normals.push(vector2_to_vec2(res.normal));
+                    self.chunk1_index += 1;
 
-                    self.last_chunk0_index = self.chunk0_index;
-                    self.last_chunk1_index = self.chunk1_index;
-
-                    return Some(res);
+                    return CollisionSearchResult::Contact(res);
                 }
             }
-            self.collider1_index = 0;
-
-            self.collider0_index += 1;
-
-            if self.collider0_index >= part0.colliders.len() {break;}
+            
+            self.chunk1_index += 1;
+            
         }
-        self.collider0_index = 0;
 
-        None
+        self.chunk0_index += 1;
+        self.chunk1_index = self.chunk0_index + 1;
+
+        if self.chunk0_index >= chunks.len() - 1 { return CollisionSearchResult::Done; }
+
+        self.chunk0_transform = chunks[self.chunk0_index].transform.into();
+        self.chunk0_next_transform = (chunks[self.chunk0_index].transform + chunks[self.chunk0_index].velocity_transform * time_step).into();
+
+        CollisionSearchResult::ChunkDone(self.chunk0_index - 1)
     }
 }
-

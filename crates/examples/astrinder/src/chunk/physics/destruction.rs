@@ -8,6 +8,7 @@ use crate::chunk::CHUNK_PART_SIZE;
 use crate::chunk::chunk::Chunk;
 use crate::chunk::math::{hex_to_coord, hex_to_particle_index};
 use crate::chunk::transform::Transform;
+use crate::settings::Settings;
 
 
 const BREAK_PATTERN_SIZE: usize = 100;
@@ -90,7 +91,7 @@ impl BreakPattern {
     }
 
     #[allow(dead_code)]
-    pub fn into_chunk(&self, transform: Transform, velocity_transform: Transform, part_id_counter: &mut PartIdCounter) -> Chunk {
+    pub fn into_chunk(&self, transform: Transform, velocity_transform: Transform, part_id_counter: &mut PartIdCounter, settings: Settings) -> Chunk {
 
         let mut particles = Vec::with_capacity(self.grid.len());
         for x in 0..BREAK_PATTERN_SIZE as i32 {
@@ -102,10 +103,10 @@ impl BreakPattern {
             }
         }
 
-        Chunk::new(transform, velocity_transform, particles, part_id_counter, true)
+        Chunk::new(transform, velocity_transform, particles, part_id_counter, true, settings)
     }
 
-    pub fn apply_to_chunk(&self, chunk: &Chunk, start_hex: IVec2, part_id_counter: &mut PartIdCounter) -> Vec<Chunk> {
+    pub fn apply_to_chunk(&self, chunk: &Chunk, start_hex: IVec2, part_id_counter: &mut PartIdCounter, settings: Settings) -> Vec<Chunk> {
         let mut new_particles = Vec::new();
         new_particles.resize_with(self.points_len, || { Vec::new() });
 
@@ -141,7 +142,8 @@ impl BreakPattern {
                 force_transform * particles.len() as f32, 
                 particles, 
                 part_id_counter,
-                false);
+                false,
+                settings);
             new_chunks.push(new_chunk);
         }
 

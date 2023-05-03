@@ -19,6 +19,7 @@ pub fn create_gpu_only_buffer_from_data<T: Copy>(
     context: &Context,
     usage: vk::BufferUsageFlags,
     data: &[T],
+    alignment: usize,
 ) -> Result<Buffer> {
     let size = size_of_val(data) as _;
     let staging_buffer = context.create_buffer(
@@ -26,7 +27,7 @@ pub fn create_gpu_only_buffer_from_data<T: Copy>(
         MemoryLocation::CpuToGpu,
         size,
     )?;
-    staging_buffer.copy_data_to_buffer(data)?;
+    staging_buffer.copy_data_to_buffer(data, 0, alignment)?;
 
     let buffer = context.create_buffer(
         usage | vk::BufferUsageFlags::TRANSFER_DST,

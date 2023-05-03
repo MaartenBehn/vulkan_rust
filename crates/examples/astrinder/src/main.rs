@@ -11,11 +11,13 @@ use camera::Camera;
 use chunk::ChunkController;
 use debug::render::DebugRenderer;
 use chunk::render::ChunkRenderer;
+use settings::Settings;
 
 mod chunk;
 mod aabb;
 mod camera;
 mod debug;
+mod settings;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -39,37 +41,43 @@ impl App for Astrinder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
+
+        let settings = Settings::default();
+
+
         let (transform_sender, transform_reciver) = mpsc::channel();
         let (particle_sender, particle_reciver) = mpsc::channel();
-
         let (debug_sender, debug_reciver) = mpsc::channel();
+
+
 
         let chunk_renderer = ChunkRenderer::new(
             context, 
             base.swapchain.format,
             base.swapchain.images.len() as u32,
-            100000,
             transform_reciver,
             particle_reciver,
+            settings
         )?;
 
         let debug_renderer = DebugRenderer::new(context, 
             base.swapchain.format,
             base.swapchain.images.len() as u32,
-            1000000,
             debug_reciver,
+            settings
         )?;
 
-        
         let chunk_controller_handle = thread::spawn(move || {
             let mut chunk_controller = ChunkController::new(
                 transform_sender, 
                 particle_sender,
                 debug_sender,
+                settings,
             );
-            chunk_controller.run();
+            chunk_controller.run(settings);
         });
-        
+
+
         let camera = Camera::new(base.swapchain.extent);
 
         Ok(Self {
@@ -91,7 +99,7 @@ impl App for Astrinder {
         _: usize,
         _: Duration,
     ) -> Result<()> {
-        self.chunk_renderer.recive_parts();
+        self.chunk_renderer.recive_parts()?;
         self.chunk_renderer.upload(&self.camera)?;
 
         if ENABLE_DEBUG_RENDER && cfg!(debug_assertions) {
@@ -114,7 +122,7 @@ impl App for Astrinder {
             None,
         );
         
-        self.chunk_renderer.vulkan.render(buffer, image_index, base.swapchain.extent);
+        self.chunk_renderer.render(buffer, image_index, base.swapchain.extent);
 
         if ENABLE_DEBUG_RENDER && cfg!(debug_assertions) {
             self.debug_renderer.render(buffer, image_index, base.swapchain.extent);

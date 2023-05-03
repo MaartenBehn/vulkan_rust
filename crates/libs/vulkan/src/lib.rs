@@ -18,6 +18,7 @@ mod sampler;
 mod surface;
 mod swapchain;
 mod sync;
+mod align;
 
 pub mod utils;
 

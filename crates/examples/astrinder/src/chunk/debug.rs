@@ -26,26 +26,22 @@ impl ChunkController {
         };
 
         for chunk in self.chunks.iter() {
-            for part in chunk.parts.iter() {
-                let part_transform = part_pos_to_world(chunk.transform, part.pos, chunk.center_of_mass);
+            for collider in chunk.colliders.iter() {
+                for i in 0..collider.0.vertices.len() {
+                    let pos0 = if i == 0 {
+                        let p = collider.0.vertices.last().unwrap();
+                        vec2(p.x, p.y)
+                    }else {
+                        let p = collider.0.vertices[i - 1];
+                        vec2(p.x, p.y)
+                    };
 
-                for collider in part.colliders.iter() {
-                    for i in 0..collider.vertices.len() {
-                        let pos0 = if i == 0 {
-                            let p = collider.vertices.last().unwrap();
-                            vec2(p.x, p.y)
-                        }else {
-                            let p = collider.vertices[i - 1];
-                            vec2(p.x, p.y)
-                        };
+                    let p = collider.0.vertices[i];
+                    let pos1 = vec2(p.x, p.y);
 
-                        let p = collider.vertices[i];
-                        let pos1 = vec2(p.x, p.y);
-
-                        push_line(pos0, pos1, part_transform);
+                    push_line(pos0, pos1, chunk.transform);
 
 
-                    }
                 }
             }
         }

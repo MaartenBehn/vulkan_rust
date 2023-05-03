@@ -1,6 +1,6 @@
 use std::{
     mem::{align_of, size_of_val, size_of},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, slice::from_raw_parts_mut,
 };
 
 use anyhow::Result;
@@ -10,7 +10,7 @@ use gpu_allocator::{
     MemoryLocation,
 };
 
-use crate::{device::Device, Context};
+use crate::{device::Device, Context, align::Align};
 
 pub struct Buffer {
     device: Arc<Device>,
@@ -53,7 +53,7 @@ impl Buffer {
         })
     }
 
-    pub fn copy_data_to_buffer<T: Copy>(&self, data: &[T]) -> Result<()> {
+    pub fn copy_data_to_buffer<T: Copy>(&self, data: &[T], offset: usize, alignment: usize) -> Result<()> {
         unsafe {
             let data_ptr = self
                 .allocation
@@ -62,17 +62,17 @@ impl Buffer {
                 .mapped_ptr()
                 .unwrap()
                 .as_ptr();
-            let mut align =
-                ash::util::Align::new(data_ptr, align_of::<T>() as _, size_of_val(data) as _);
+
+            let mut align: Align<T> = Align::new(data_ptr, alignment as _, data.len(), offset);
             align.copy_from_slice(data);
         };
 
         Ok(())
     }
 
-    pub fn get_data_from_buffer<T: Copy>(&self, len: usize) -> Result<Vec<T>> {
+    pub fn get_data_from_buffer<T: Copy>(&self, count: usize, offset: usize, alignment: usize) -> Result<Vec<T>> {
         
-        let mut data = Vec::new();
+        let data;
         unsafe {
             let data_ptr = self
                 .allocation
@@ -81,12 +81,9 @@ impl Buffer {
                 .mapped_ptr()
                 .unwrap()
                 .as_ptr();
-            let mut align: ash::util::Align<T> =
-                ash::util::Align::new(data_ptr, align_of::<T>() as _, (len * size_of::<T>())  as _);
 
-            for (_, val) in align.iter_mut().enumerate().take(len) {
-                data.push(*val);
-            }
+            let mut align: Align<T> = Align::new(data_ptr, alignment as _, count, offset);
+            data = align.copy_to_slice(count)
         };
 
         Ok(data)

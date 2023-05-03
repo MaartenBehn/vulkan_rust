@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use std::mem::{size_of, align_of};
 
 use app::{glam::{Vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
@@ -10,9 +10,6 @@ use super::part::RenderParticle;
 pub struct ChunkRendererVulkan {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
-
-    pub part_ubo_data: Vec<PartUBO>,
-    pub particle_buffer_data: Vec<RenderParticle>,
 
     pub render_ubo: Buffer,
     pub part_ubo: Buffer,
@@ -36,10 +33,10 @@ impl ChunkRendererVulkan {
         let (vertices, indecies) = create_mesh();
 
         let vertex_buffer =
-            create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::VERTEX_BUFFER, &vertices)?;
+            create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::VERTEX_BUFFER, &vertices, align_of::<Vertex>())?;
 
         let index_buffer =
-            create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::INDEX_BUFFER, &indecies)?;
+            create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::INDEX_BUFFER, &indecies, align_of::<u32>())?;
 
 
         let render_ubo = context.create_buffer(
@@ -66,8 +63,8 @@ impl ChunkRendererVulkan {
             part_ubo_data.push(PartUBO::new(part_pos_to_world(Transform::default(), ivec2(i as i32, 0), Vec2::ZERO)));
             particle_buffer_data.extend_from_slice(&[RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])
         }
-        part_ubo.copy_data_to_buffer(&part_ubo_data)?;
-        particles_ssbo.copy_data_to_buffer(&particle_buffer_data)?;
+        part_ubo.copy_data_to_buffer(&part_ubo_data, 0, 16)?;
+        particles_ssbo.copy_data_to_buffer(&particle_buffer_data, 0, align_of::<RenderParticle>())?;
 
 
         let descriptor_pool = context.create_descriptor_pool(
@@ -180,9 +177,6 @@ impl ChunkRendererVulkan {
             vertex_buffer: vertex_buffer, 
             index_buffer: index_buffer,
 
-            part_ubo_data: part_ubo_data,
-            particle_buffer_data: particle_buffer_data,
-
             render_ubo,
             part_ubo,
             particles_ssbo,
@@ -201,6 +195,7 @@ impl ChunkRendererVulkan {
         buffer: &CommandBuffer,
         image_index: usize,
         extent: Extent2D,
+        rendered_parts: u32,
     ){
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_vertex_buffer(&self.vertex_buffer);
@@ -216,7 +211,7 @@ impl ChunkRendererVulkan {
         buffer.set_viewport(extent);
         buffer.set_scissor(extent);
 
-        buffer.draw_indexed_instanced(6, 100);
+        buffer.draw_indexed_instanced(6, rendered_parts);
     }
 }
 

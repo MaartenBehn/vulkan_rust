@@ -28,9 +28,14 @@ pub fn hex_to_particle_index(hex: IVec2) -> usize {
     res
 }
 
+
 const CHUNK_PART_SIZE_VEC2: Vec2 = Vec2::new(CHUNK_PART_SIZE as f32, CHUNK_PART_SIZE as f32);
+pub fn part_pos_to_chunk(part_pos: IVec2) -> Vec2 {
+    Vec2::new(part_pos.x as f32 + part_pos.y as f32 * 0.5, part_pos.y as f32) * CHUNK_PART_SIZE_VEC2
+}
+
 pub fn part_pos_to_world(chunk_transform: Transform, part_pos: IVec2, render_to_transform: Vec2) -> Transform {
-    let part_pos = Vec2::new(part_pos.x as f32 + part_pos.y as f32 * 0.5, part_pos.y as f32) * CHUNK_PART_SIZE_VEC2;
+    let part_pos = part_pos_to_chunk(part_pos);
 
     let angle_vec = Vec2::from_angle(-chunk_transform.rot);
     let rotated_pos = Vec2::rotate(angle_vec, part_pos - render_to_transform);

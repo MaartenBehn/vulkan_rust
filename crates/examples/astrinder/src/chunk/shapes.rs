@@ -1,11 +1,13 @@
 use app::glam::{UVec2, IVec2, ivec2};
 use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
+use crate::settings::{self, Settings};
+
 use super::{Chunk, particle::Particle, transform::Transform, part::PartIdCounter};
 
 #[allow(dead_code)]
 impl Chunk {
-    pub fn new_cube(trans: Transform, vel_trans: Transform, size: UVec2, part_id_counter: &mut PartIdCounter) -> Self {
+    pub fn new_cube(trans: Transform, vel_trans: Transform, size: UVec2, part_id_counter: &mut PartIdCounter, settings: Settings) -> Self {
 
         let mut particles = Vec::new();
 
@@ -17,10 +19,10 @@ impl Chunk {
             }
         }
 
-        Self::new(trans, vel_trans, particles, part_id_counter, true)
+        Self::new(trans, vel_trans, particles, part_id_counter, true, settings)
     }
 
-    pub fn new_hexagon(trans: Transform, vel_trans: Transform, layers: usize, part_id_counter: &mut PartIdCounter) -> Self {
+    pub fn new_hexagon(trans: Transform, vel_trans: Transform, layers: usize, part_id_counter: &mut PartIdCounter, settings: Settings) -> Self {
 
         let points = hexagon_points(layers);
         let mut particles = Vec::new();
@@ -28,10 +30,10 @@ impl Chunk {
             particles.push((Particle::new(1, 1), point))
         }
 
-        Self::new(trans, vel_trans, particles, part_id_counter, true)
+        Self::new(trans, vel_trans, particles, part_id_counter, true, settings)
     }
 
-    pub fn new_noise_hexagon(trans: Transform, vel_trans: Transform, layers: usize, part_id_counter: &mut PartIdCounter) -> Self {
+    pub fn new_noise_hexagon(trans: Transform, vel_trans: Transform, layers: usize, part_id_counter: &mut PartIdCounter, settings: Settings) -> Self {
         let points = hexagon_points(layers);
         let mut particles = Vec::new();
 
@@ -43,7 +45,7 @@ impl Chunk {
             }
         }
 
-        Self::new(trans, vel_trans, particles, part_id_counter, true)
+        Self::new(trans, vel_trans, particles, part_id_counter, true, settings)
     }
 }
 

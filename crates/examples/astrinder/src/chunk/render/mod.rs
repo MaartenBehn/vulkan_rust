@@ -1,9 +1,13 @@
+use std::mem::align_of;
 use std::sync::mpsc::Receiver;
 
+use app::vulkan::CommandBuffer;
+use app::vulkan::ash::vk::Extent2D;
 use app::vulkan::{Context, ash::vk};
 use app::anyhow::*;
 
 use crate::camera::Camera;
+use crate::settings::Settings;
 
 use self::part::RenderParticle;
 use self::vulkan::{PartUBO, RenderUBO};
@@ -11,7 +15,7 @@ use self::{part::{RenderPart}, vulkan::ChunkRendererVulkan};
 
 use super::particle::Particle;
 use super::transform::Transform;
-use super::{MAX_AMMOUNT_OF_PARTS, CHUNK_PART_SIZE};
+use super::CHUNK_PART_SIZE;
 
 pub mod vulkan;
 pub mod part;
@@ -19,10 +23,9 @@ pub mod part;
 pub struct ChunkRenderer{
     rendered_parts: usize,
     pub vulkan: ChunkRendererVulkan,
-    parts: Vec<RenderPart>,
 
     from_controller_transforms: Receiver<(usize, Transform)>,
-    from_controller_particles: Receiver<(usize, [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
+    from_controller_particles: Receiver<(usize, [RenderParticle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
 } 
 
 impl ChunkRenderer {
@@ -30,33 +33,34 @@ impl ChunkRenderer {
         context: &Context,
         color_attachment_format: vk::Format,
         images_len: u32,
-        rendered_parts: usize,
         from_controller_transforms: Receiver<(usize, Transform)>,
-        from_controller_particles: Receiver<(usize, [Particle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
+        from_controller_particles: Receiver<(usize, [RenderParticle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
+        settings: Settings,
     ) -> Result<Self> {
+        let rendered_parts = settings.max_rendered_parts;
+
         let mut parts = Vec::new();
-        parts.resize(MAX_AMMOUNT_OF_PARTS, RenderPart::default());
+        parts.resize(settings.max_rendered_parts, RenderPart::default());
 
         Ok(Self { 
             rendered_parts,
             vulkan: ChunkRendererVulkan::new(context, color_attachment_format, images_len, rendered_parts)?,
-            parts: parts,
 
             from_controller_transforms,
             from_controller_particles,
         })
     }
 
-    pub fn recive_parts(&mut self) {
+    pub fn recive_parts(&mut self) -> Result<()> {
         loop {
             let data = self.from_controller_transforms.try_recv();
             if data.is_err() {
                 break;
             }
 
-
             let (id, transform) = data.unwrap();
-            self.parts[id].transform = transform;
+            self.vulkan.part_ubo.copy_data_to_buffer(&[transform], id, 16)?;
+
         }
 
         loop {
@@ -66,10 +70,14 @@ impl ChunkRenderer {
             }
 
             let (id, particles) = data.unwrap();
-            for (i, particle) in particles.iter().enumerate() {
-                self.parts[id].particles[i] = RenderParticle::from(particle)
-            }
+            self.vulkan.particles_ssbo.copy_data_to_buffer(
+                &particles, 
+                id * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize, 
+                align_of::<RenderParticle>())?;
+
         }
+
+        Ok(())
     }
 
     pub fn upload (
@@ -77,34 +85,18 @@ impl ChunkRenderer {
         camera: &Camera,
     ) -> Result<()> {
         
-        self.vulkan.render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())])?;
-
-        self.upload_all_parts()?;
+        self.vulkan.render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())], 0, 16)?;
 
         Ok(())
     }
 
-    fn upload_all_parts(&mut self) -> Result<()> {
-
-        let mut i = 0;
-        for part in self.parts.iter() {
-            self.vulkan.part_ubo_data[i] = PartUBO::new(part.transform);
-
-            let start_index = i * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
-            let end_index = (i + 1) * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize;
-            self.vulkan.particle_buffer_data.splice(start_index..end_index, part.particles.iter().cloned());
-
-            i += 1;
-
-            if i >= self.rendered_parts {
-                break;
-            }
-        }
-
-        self.vulkan.part_ubo.copy_data_to_buffer(&self.vulkan.part_ubo_data)?;
-        self.vulkan.particles_ssbo.copy_data_to_buffer(&self.vulkan.particle_buffer_data)?;
-
-        Ok(())
+    pub fn render(
+        &self, 
+        buffer: &CommandBuffer,
+        image_index: usize,
+        extent: Extent2D,
+    ) {
+        self.vulkan.render(buffer, image_index, extent, self.rendered_parts as u32)
     }
 
 }

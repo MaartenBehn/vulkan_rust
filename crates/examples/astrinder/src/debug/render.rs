@@ -1,9 +1,9 @@
-use std::{mem::size_of, sync::mpsc::Receiver};
+use std::{mem::{size_of, align_of}, sync::mpsc::Receiver};
 
 use app::{glam::{Vec2,  Vec3}, vulkan::{Context, Buffer, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
 
-use crate::{camera::Camera, chunk::{render::vulkan::RenderUBO}};
+use crate::{camera::Camera, chunk::{render::vulkan::RenderUBO}, settings::Settings};
 
 pub struct DebugRenderer {
     max_lines: usize,
@@ -28,14 +28,14 @@ impl DebugRenderer {
         context: &Context,
         color_attachment_format: vk::Format,
         images_len: u32,
-        max_lines: usize,
         from_controller: Receiver<(Vec2, Vec2, Vec3)>,
+        settings: Settings,
     ) -> Result<Self> {
        
         let vertex_buffer = context.create_buffer(
             vk::BufferUsageFlags::VERTEX_BUFFER,
             MemoryLocation::CpuToGpu,
-            (size_of::<Vertex>() * max_lines * 2) as _,
+            (size_of::<Vertex>() * settings.max_lines * 2) as _,
         )?;
 
         let render_ubo = context.create_buffer(
@@ -117,7 +117,7 @@ impl DebugRenderer {
         )?;
 
         Ok(Self { 
-            max_lines: max_lines,
+            max_lines: settings.max_lines,
 
             lines: Vec::new(),
 
@@ -172,9 +172,9 @@ impl DebugRenderer {
             }
         }
             
-        self.vertex_buffer.copy_data_to_buffer(&self.lines)?;
+        self.vertex_buffer.copy_data_to_buffer(&self.lines, 0, align_of::<Vertex>())?;
 
-        self._render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())])?;
+        self._render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())], 0, 16)?;
         
         Ok(())
     }
