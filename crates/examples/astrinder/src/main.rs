@@ -15,7 +15,6 @@ use settings::Settings;
 
 mod chunk;
 mod render;
-mod physics;
 mod aabb;
 mod camera;
 mod debug;

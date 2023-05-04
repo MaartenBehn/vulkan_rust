@@ -3,17 +3,17 @@ use std::{sync::mpsc::Sender};
 use app::{glam::{Vec2, vec2, Vec3}};
 use app::anyhow::*;
 
-use crate::{settings::Settings, ENABLE_DEBUG_RENDER, math::transform::Transform, render::part::RenderParticle, physics::PhysicsController};
+use crate::{settings::Settings, ENABLE_DEBUG_RENDER, math::transform::Transform, render::part::RenderParticle};
 
-use self::{chunk::Chunk, part::PartIdCounter};
+use self::{chunk::Chunk, part::PartIdCounter, physics::PhysicsController};
 
 pub mod particle;
 pub mod part;
 pub mod chunk;
 pub mod shapes;
-pub mod collider;
-
 pub mod debug;
+
+pub mod physics;
 
 pub const CHUNK_PART_SIZE: i32 = 10;
 
@@ -42,12 +42,8 @@ impl ChunkController {
 
         let mut physics_controller = PhysicsController::new();
 
-        many_chunks(&mut chunks, &mut part_id_counter, settings);
-        //destruction(&mut chunks, &mut part_id_counter, settings);
-
-        for chunk in chunks.iter_mut() {
-            chunk.rb_handle = physics_controller.add_chunk(chunk);
-        }
+        many_chunks(&mut chunks, &mut part_id_counter, settings, &mut physics_controller);
+        //destruction(&mut chunks, &mut part_id_counter, settings, &mut physics_controller);
 
         let controller = Self { 
             chunks,
@@ -110,24 +106,26 @@ impl ChunkController {
 }
 
 
-fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, settings: Settings){
+fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, settings: Settings, physics_controller: &mut PhysicsController){
     chunks.push(Chunk::new_hexagon(
         Transform::new(vec2(0.0, 0.0), 0.0), 
         Transform::new(vec2(0., 0.), 0.0),
         20,
         part_id_counter,
-        settings)); 
+        settings,
+        physics_controller)); 
 
     chunks.push(Chunk::new_hexagon(
         Transform::new(vec2(2.0, 30.0), 0.0), 
         Transform::new(vec2(0.0, -1.0), 0.0),
         1,
         part_id_counter,
-        settings)); 
+        settings,
+        physics_controller)); 
 }
 
 
-fn many_chunks(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, settings: Settings){
+fn many_chunks(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, settings: Settings, physics_controller: &mut PhysicsController){
     for x in -10..10 {
         for y in -10..10 {
             chunks.push(Chunk::new_hexagon(
@@ -135,7 +133,8 @@ fn many_chunks(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, set
                 Transform::new(vec2(0., 0.), 0.0),
                 0,
                 part_id_counter,
-                settings)); 
+                settings,
+                physics_controller)); 
         }
     }
 }

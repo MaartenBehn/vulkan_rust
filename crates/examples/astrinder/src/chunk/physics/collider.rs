@@ -1,19 +1,21 @@
 use app::glam::{IVec2, ivec2};
+use rapier2d::prelude::*;
 
-use crate::chunk::CHUNK_PART_SIZE;
+use crate::{chunk::{CHUNK_PART_SIZE, part::ChunkPart}, math::*};
 
-use super::Chunk;
+use super::{Chunk, PhysicsController};
 
-/* 
-impl Chunk {
-    pub fn update_collider(&mut self){
+
+impl PhysicsController {
+    pub fn update_collider(&mut self, chunk: &mut Chunk){
+
+        self.collider_set.remove(chunk.collider_handle, &mut self.island_manager, &mut self.rigid_body_set, false);
+
         fn get_index(x: i32, y: i32) -> usize {
             (x * CHUNK_PART_SIZE + y) as usize
         }        
 
-        self.colliders.clear();
-
-        struct ColliderBuilder {
+        struct ColliderMaker {
             corners: [IVec2; 6],
         }
 
@@ -56,9 +58,10 @@ impl Chunk {
                 dir1: ivec2(0, -1),
             },
         ];
-        
-        let transform = Transform::default().into();
-        for part in self.parts.iter() {
+
+        let mut shapes = Vec::new();
+
+        for part in chunk.parts.iter() {
             let part_pos = part_pos_to_chunk(part.pos);
 
             let mut search_x = 0;
@@ -107,7 +110,7 @@ impl Chunk {
                     }
                 }
 
-                let mut cb = ColliderBuilder { 
+                let mut cm = ColliderMaker { 
                     corners: [ivec2(current_x, current_y); 6],
                 };
                 set_point_used(current_x, current_y, &mut used_points);
@@ -116,9 +119,9 @@ impl Chunk {
                     let mut expaned = false;
                     for (_, data) in expand_data.iter().enumerate() {
 
-                        let corner0 = cb.corners[data.corner0];
-                        let corner1 = cb.corners[data.corner1];
-                        let corner2 = cb.corners[data.corner2];
+                        let corner0 = cm.corners[data.corner0];
+                        let corner1 = cm.corners[data.corner1];
+                        let corner2 = cm.corners[data.corner2];
         
                         let start = corner0 + data.offset;
                         let middle = corner1 + data.offset;
@@ -150,9 +153,9 @@ impl Chunk {
                                 set_point_used(point.x, point.y, &mut used_points);
                             }
                             
-                            cb.corners[data.corner0] = start;
-                            cb.corners[data.corner1] = middle;
-                            cb.corners[data.corner2] = end;
+                            cm.corners[data.corner0] = start;
+                            cm.corners[data.corner1] = middle;
+                            cm.corners[data.corner2] = end;
 
                             expaned = true;
                         }
@@ -161,21 +164,25 @@ impl Chunk {
                     if !expaned {
 
                         let mut vertex = Vec::new();
-                        for (i, corner) in cb.corners.iter().enumerate() {
-                            let pos = hex_to_coord(*corner) + offsets[i];
-
-                            vertex.push(vec2_to_point2(pos + part_pos - vec2(0.75, 0.5)));
+                        for (i, corner) in cm.corners.iter().enumerate() {
+                            let pos = hex_to_coord(*corner) + offsets[i] + part_pos;
+                            vertex.push(point![pos.x , pos.y])
                         }
 
-                        let collider = ConvexPolygon::new(vertex);
+                        let shape = SharedShape::convex_hull(&vertex).unwrap();
+                        shapes.push((Isometry::default(), shape));
 
-                        self.colliders.push((collider, transform));
                         break;
                     }
                 }
             }
         }
+
+        let compound_collider = ColliderBuilder::compound(shapes);
+        chunk.collider_handle = self.collider_set.insert_with_parent(
+            compound_collider, chunk.rb_handle, &mut self.rigid_body_set);
+
+        
     }
 }
 
-*/

@@ -6,7 +6,7 @@ use rapier2d::prelude::*;
 
 use crate::{math::{*, transform::Transform}, settings::Settings, render::part::RenderParticle};
 
-use super::{part::{ChunkPart, PartIdCounter}, particle::Particle, CHUNK_PART_SIZE, ChunkController};
+use super::{part::{ChunkPart, PartIdCounter}, particle::Particle, CHUNK_PART_SIZE, ChunkController, physics::PhysicsController};
 
 
 #[derive(Clone)]
@@ -23,6 +23,7 @@ pub struct Chunk {
 
 
     pub rb_handle: RigidBodyHandle,
+    pub collider_handle: ColliderHandle,
     pub forces: Vec2,
     pub mass: f32,
 
@@ -39,7 +40,9 @@ impl Chunk {
         new_spawn: bool,
 
         settings: Settings,
+        physics_controller: &mut PhysicsController,
     ) -> Self {
+
         let mut chunk = Self { 
             parts: Vec::new(),
     
@@ -56,6 +59,7 @@ impl Chunk {
             },
 
             rb_handle: RigidBodyHandle::default(),
+            collider_handle: ColliderHandle::default(),
 
             forces: Vec2::ZERO,
             mass: 0.0,
@@ -69,7 +73,9 @@ impl Chunk {
             chunk.transform.pos += chunk.center_of_mass - vec2(0.75, 0.5);
         }
 
-        chunk.on_chunk_change();
+        chunk.rb_handle = physics_controller.add_chunk(&mut chunk);
+
+        chunk.on_chunk_change(physics_controller);
 
         chunk
     }
@@ -111,12 +117,14 @@ impl Chunk {
     }
 
 
-    pub fn on_chunk_change(&mut self) {
+    pub fn on_chunk_change(&mut self, physics_controller: &mut PhysicsController) {
         self.center_of_mass = self.particle_pos_sum / Vec2::new(
             self.particle_counter as f32, 
             self.particle_counter as f32);
 
         self.update_part_tranforms();
+
+        physics_controller.update_collider(self);
     }
 
     pub fn update_part_tranforms(&mut self){

@@ -3,11 +3,11 @@ use rapier2d::prelude::*;
 
 use crate::chunk::{chunk::Chunk, ChunkController};
 
-
+pub mod collider;
 
 pub struct PhysicsController{
-    rigid_body_set: RigidBodySet,
-    collider_set: ColliderSet,
+    pub rigid_body_set: RigidBodySet,
+    pub collider_set: ColliderSet,
 
     integration_parameters: IntegrationParameters,
     physics_pipeline: PhysicsPipeline,
@@ -62,13 +62,6 @@ impl PhysicsController {
             .build();
 
         let rb_handle = self.rigid_body_set.insert(rb);
-
-        let collider = ColliderBuilder::ball(0.5)
-            .mass(chunk.mass)
-            .restitution(0.3)
-            .friction(0.5)
-            .build();
-        self.collider_set.insert_with_parent(collider, rb_handle, &mut self.rigid_body_set);
 
         rb_handle
     }
