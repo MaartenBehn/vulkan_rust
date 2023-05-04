@@ -138,7 +138,7 @@ impl BreakPattern {
             }
 
             let new_chunk = Chunk::new(
-                chunk.transform, 
+                chunk.next_transform, 
                 force_transform * particles.len() as f32, 
                 particles, 
                 part_id_counter,

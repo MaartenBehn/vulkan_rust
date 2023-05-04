@@ -50,7 +50,7 @@ impl ChunkController {
     #[allow(unused_must_use)]
     fn debug_chunk_transforms(&self){
         for chunk in self.chunks.iter() {
-            let pos = chunk.transform.pos;
+            let pos = chunk.next_transform.pos;
             let angle_vec = Vec2::from_angle(0.0);
             let pos0 = Vec2::rotate(angle_vec, pos + vec2(2.0, 0.0));
             let pos1 = Vec2::rotate(angle_vec, pos+ vec2(0.0, 2.0));
@@ -63,7 +63,7 @@ impl ChunkController {
     fn debug_chunk_velocity(&self){
         for chunk in self.chunks.iter() {
             let dir = chunk.velocity_transform.pos.normalize();
-            let pos = chunk.transform.pos;
+            let pos = chunk.next_transform.pos;
             
             self.to_debug.send((pos, pos + dir * 2.0, vec3(1.0, 0.0, 1.0)));
         }
@@ -83,7 +83,7 @@ impl ChunkController {
 
         for chunk in self.chunks.iter() {
             for part in chunk.parts.iter() {
-                let part_transform = part_pos_to_world(chunk.transform, part.pos, chunk.center_of_mass);
+                let part_transform = part_pos_to_world(chunk.next_transform, part.pos, chunk.center_of_mass);
                 let pos0 = hex_to_coord(ivec2(0, 0)) + offset;
                 let pos1 = hex_to_coord(ivec2(CHUNK_PART_SIZE, 0)) + offset;
                 let pos2 = hex_to_coord(ivec2(0, CHUNK_PART_SIZE)) + offset;

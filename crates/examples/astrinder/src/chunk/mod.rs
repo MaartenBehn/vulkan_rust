@@ -33,6 +33,8 @@ pub struct ChunkController {
     to_render_transform: Sender<(usize, Transform)>,
     to_render_particles: Sender<(usize, [RenderParticle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
     to_debug: Sender<(Vec2, Vec2, Vec3)>,
+
+    settings: Settings,
 }
 
 impl ChunkController {
@@ -57,6 +59,8 @@ impl ChunkController {
             to_render_transform,
             to_render_particles,
             to_debug,
+
+            settings
         };
 
         let _ = c.send_all_chunks();
@@ -75,7 +79,7 @@ impl ChunkController {
                 settings.chunk_ups_fixed_time_step 
             };
 
-            self.update_physics(time_step, settings)?;
+            self.update_physics(time_step)?;
 
             if ENABLE_DEBUG_RENDER && cfg!(debug_assertions){
                 self.send_debug();
@@ -109,7 +113,7 @@ fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, set
 
     chunks.push(Chunk::new_hexagon(
         Transform::new(vec2(2.0, 30.0), 0.0), 
-        Transform::new(vec2(0.0, -11.0), 0.0),
+        Transform::new(vec2(0.0, -1.0), 0.0),
         1,
         part_id_counter,
         settings)); 
@@ -122,7 +126,7 @@ fn many_chunks(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, set
             chunks.push(Chunk::new_hexagon(
                 Transform::new(vec2(x as f32 * 4.0, y as f32 * 4.0), 0.0), 
                 Transform::new(vec2(0., 0.), 0.0),
-                1,
+                0,
                 part_id_counter,
                 settings)); 
         }

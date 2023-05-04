@@ -19,6 +19,7 @@ pub struct Chunk {
     pub aabb: AABB,
     particle_max_dist_to_transform: Vec2,
     
+    pub next_transform: Transform,
     pub transform: Transform,
     pub center_of_mass: Vec2,
 
@@ -55,7 +56,8 @@ impl Chunk {
             aabb: AABB::default(),
             particle_max_dist_to_transform: Vec2::ZERO,
            
-            transform: transform,
+            next_transform: transform,
+            transform,
             center_of_mass: Vec2::ZERO,
 
             particle_counter: 0,
@@ -83,7 +85,7 @@ impl Chunk {
         chunk.on_chunk_change();
 
         if !new_spawn {
-            chunk.transform.pos += chunk.center_of_mass - vec2(0.75, 0.5);
+            chunk.next_transform.pos += chunk.center_of_mass - vec2(0.75, 0.5);
         }
 
         chunk.on_transform_change();
@@ -166,10 +168,8 @@ impl Chunk {
 
     pub fn on_transform_change(&mut self) {
         self.aabb = AABB::new(
-            self.transform.pos - (self.particle_max_dist_to_transform + 2.0), 
-            self.transform.pos + (self.particle_max_dist_to_transform + 2.0));
-
-        self.inverse_mass = 1.0 / self.mass;
+            self.next_transform.pos - (self.particle_max_dist_to_transform + 2.0), 
+            self.next_transform.pos + (self.particle_max_dist_to_transform + 2.0));
 
         self.update_part_tranforms();
     }
@@ -178,6 +178,10 @@ impl Chunk {
         self.center_of_mass = self.particle_pos_sum / Vec2::new(
             self.particle_counter as f32, 
             self.particle_counter as f32);
+
+        self.update_part_tranforms();
+
+        self.inverse_mass = 1.0 / self.mass;
         
         self.update_collider();
         self.update_area();
@@ -388,7 +392,7 @@ impl Chunk {
     pub fn update_moment_of_inertia(&mut self) {
         // https://fotino.me/moment-of-inertia-algorithm/
 
-        let density = (self.mass) / self.area;
+        let density = self.mass / self.area;
         let mut moment_of_inertia = 0.0;
         for collider in self.colliders.iter() {
             for i in 0..collider.0.vertices.len() - 1 {
