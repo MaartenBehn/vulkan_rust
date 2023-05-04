@@ -14,6 +14,7 @@ pub struct Chunk {
     pub parts: Vec<ChunkPart>, 
 
     pub mass: f32,
+    pub inverse_mass: f32,
 
     pub aabb: AABB,
     particle_max_dist_to_transform: Vec2,
@@ -25,9 +26,9 @@ pub struct Chunk {
     particle_pos_sum: Vec2,
    
     pub velocity_transform: Transform,
+    pub last_velocity_transform: Transform,
 
     pub area: f32,
-    pub density: f32,
     pub moment_of_inertia: f32,
 
     pub break_cool_down: Instant,
@@ -49,6 +50,7 @@ impl Chunk {
         let mut chunk = Self { 
             parts: Vec::new(),
             mass: 0.0,
+            inverse_mass: 1.0,
 
             aabb: AABB::default(),
             particle_max_dist_to_transform: Vec2::ZERO,
@@ -60,9 +62,9 @@ impl Chunk {
             particle_pos_sum: Vec2::ZERO,
 
             velocity_transform: velocity_transform,
+            last_velocity_transform: velocity_transform,
 
             area: 0.0,
-            density: 0.0,
             moment_of_inertia: 0.0,
 
             break_cool_down: if new_spawn { 
@@ -164,8 +166,10 @@ impl Chunk {
 
     pub fn on_transform_change(&mut self) {
         self.aabb = AABB::new(
-            self.transform.pos - self.particle_max_dist_to_transform, 
-            self.transform.pos + self.particle_max_dist_to_transform);
+            self.transform.pos - (self.particle_max_dist_to_transform + 2.0), 
+            self.transform.pos + (self.particle_max_dist_to_transform + 2.0));
+
+        self.inverse_mass = 1.0 / self.mass;
 
         self.update_part_tranforms();
     }
@@ -384,7 +388,7 @@ impl Chunk {
     pub fn update_moment_of_inertia(&mut self) {
         // https://fotino.me/moment-of-inertia-algorithm/
 
-        let density = (self.mass / 100.0) / self.area;
+        let density = (self.mass) / self.area;
         let mut moment_of_inertia = 0.0;
         for collider in self.colliders.iter() {
             for i in 0..collider.0.vertices.len() - 1 {

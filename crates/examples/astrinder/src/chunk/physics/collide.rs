@@ -9,16 +9,16 @@ use crate::{chunk::{math::{part_corners, point2_to_vec2, vector2_to_vec2}, chunk
 
 pub enum CollisionSearchResult {
     Done,
-    Contact(Contact<Point2<f32>>),
+    Contact((Contact<Point2<f32>>, usize, usize)),
     ChunkDone(usize),
 }
 
 pub struct CollisionSearch{
-    pub gjk: GJK2<f32>,
-    pub chunk0_index: usize,
-    pub chunk1_index: usize,
-    pub chunk0_transform: Decomposed<Vector2<f32>, Basis2<f32>>,
-    pub chunk0_next_transform: Decomposed<Vector2<f32>, Basis2<f32>>,
+    gjk: GJK2<f32>,
+    chunk0_index: usize,
+    chunk1_index: usize,
+    chunk0_transform: Decomposed<Vector2<f32>, Basis2<f32>>,
+    chunk0_next_transform: Decomposed<Vector2<f32>, Basis2<f32>>,
     pub time_of_first_collide: Vec<f32>,
 }
 
@@ -29,16 +29,19 @@ impl CollisionSearch{
             chunk0_index: 0, 
             chunk1_index: 1, 
             chunk0_transform: chunks[0].transform.into(),
-            chunk0_next_transform: (chunks[0].transform + chunks[0].velocity_transform * time_step).into(),
+            chunk0_next_transform: (chunks[0].transform + chunks[0].last_velocity_transform * time_step).into(),
             time_of_first_collide: vec![1.0; chunks.len()],
         }
     }
 
     pub fn get_next(&mut self, chunks: &Vec<Chunk>, time_step: f32) -> CollisionSearchResult {
 
-        if self.chunk0_index >= chunks.len() - 1 { return CollisionSearchResult::Done; }
+        if self.chunk0_index >= chunks.len() { return CollisionSearchResult::Done; }
 
         let chunk0 = &chunks[self.chunk0_index];
+
+        self.chunk0_transform = chunks[self.chunk0_index].transform.into();
+        self.chunk0_next_transform = (chunks[self.chunk0_index].transform + chunks[self.chunk0_index].last_velocity_transform * time_step).into();
 
         while self.chunk1_index < chunks.len() {
             
@@ -48,10 +51,10 @@ impl CollisionSearch{
                 
                 let chunk1_transform: Decomposed<Vector2<f32>, Basis2<f32>> = chunks[self.chunk1_index].transform.into();
                 let chunk1_next_transform: Decomposed<Vector2<f32>, Basis2<f32>> = (chunks[self.chunk1_index].transform + 
-                    chunks[self.chunk1_index].velocity_transform * time_step).into();
+                    chunks[self.chunk1_index].last_velocity_transform * time_step).into();
 
                 let result = self.gjk.intersection_complex_time_of_impact(
-                    &collision::CollisionStrategy::CollisionOnly, 
+                    &collision::CollisionStrategy::FullResolution, 
                     &chunk0.colliders,
                     &self.chunk0_transform..&self.chunk0_next_transform,
                     &chunk1.colliders,
@@ -73,22 +76,30 @@ impl CollisionSearch{
 
                     self.chunk1_index += 1;
 
-                    return CollisionSearchResult::Contact(res);
+                    return CollisionSearchResult::Contact((res, self.chunk0_index, self.chunk1_index - 1));
                 }
             }
             
             self.chunk1_index += 1;
-            
         }
 
-        self.chunk0_index += 1;
-        self.chunk1_index = self.chunk0_index + 1;
+        if self.chunk0_index < chunks.len() - 1 { 
 
-        if self.chunk0_index >= chunks.len() - 1 { return CollisionSearchResult::Done; }
+            self.chunk0_index += 1;
+            self.chunk1_index = self.chunk0_index + 1;
 
-        self.chunk0_transform = chunks[self.chunk0_index].transform.into();
-        self.chunk0_next_transform = (chunks[self.chunk0_index].transform + chunks[self.chunk0_index].velocity_transform * time_step).into();
+            self.chunk0_transform = chunks[self.chunk0_index].transform.into();
+            self.chunk0_next_transform = (chunks[self.chunk0_index].transform + chunks[self.chunk0_index].last_velocity_transform * time_step).into();
 
-        CollisionSearchResult::ChunkDone(self.chunk0_index - 1)
+
+            CollisionSearchResult::ChunkDone(self.chunk0_index - 1)
+        }
+        else if self.chunk0_index < chunks.len() {
+            self.chunk0_index += 1;
+            CollisionSearchResult::ChunkDone(self.chunk0_index - 1)
+        }
+        else {
+            CollisionSearchResult::Done
+        }
     }
 }

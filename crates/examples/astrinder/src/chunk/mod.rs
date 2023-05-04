@@ -47,10 +47,12 @@ impl ChunkController {
         let destruction_solver = DestructionSolver::new();
 
         many_chunks(&mut chunks, &mut part_id_counter, settings);
+        //destruction(&mut chunks, &mut part_id_counter, settings);
 
         let mut c = Self { 
             chunks,
             part_id_counter,
+
             destruction_solver,
             to_render_transform,
             to_render_particles,
@@ -62,7 +64,7 @@ impl ChunkController {
         c
     }
 
-    pub fn run(&mut self, settings: Settings){
+    pub fn run(&mut self, settings: Settings) -> Result<()> {
 
         let mut fps = fps_clock::FpsClock::new(settings.max_chunk_ups);
         let mut nanosecs_since_last_tick = 0.0;
@@ -73,7 +75,7 @@ impl ChunkController {
                 settings.chunk_ups_fixed_time_step 
             };
 
-            self.update_physics(time_step, settings);
+            self.update_physics(time_step, settings)?;
 
             if ENABLE_DEBUG_RENDER && cfg!(debug_assertions){
                 self.send_debug();
@@ -81,6 +83,8 @@ impl ChunkController {
             
             nanosecs_since_last_tick = fps.tick();
         }
+
+        Ok(())
     }
 
     pub fn send_all_chunks(&self) -> Result<()> {
@@ -104,7 +108,7 @@ fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, set
         settings)); 
 
     chunks.push(Chunk::new_hexagon(
-        Transform::new(vec2(2.0, 50.0), 0.0), 
+        Transform::new(vec2(2.0, 30.0), 0.0), 
         Transform::new(vec2(0.0, -11.0), 0.0),
         1,
         part_id_counter,

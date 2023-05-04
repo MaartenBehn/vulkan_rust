@@ -3,8 +3,6 @@ use std::ops::{Add, AddAssign, Mul, MulAssign};
 use app::glam::{Vec2, Vec3, Vec3Swizzles};
 use cgmath::{Decomposed, Vector2, Basis2, Rotation2, Rad};
 
-use super::math::vector2_to_vec2;
-
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Transform{
@@ -33,6 +31,7 @@ impl From<Transform> for Vec3 {
 impl Add<Transform> for Transform {
     type Output = Transform;
 
+    #[inline(always)]
     fn add(self, rhs: Transform) -> Self::Output {
         Self{
             pos: self.pos + rhs.pos,
@@ -40,7 +39,9 @@ impl Add<Transform> for Transform {
         }
     }
 }
+
 impl AddAssign<Transform> for Transform {
+    #[inline(always)]
     fn add_assign(&mut self, rhs: Transform) {
         self.pos += rhs.pos;
         self.rot += rhs.rot;
@@ -50,6 +51,7 @@ impl AddAssign<Transform> for Transform {
 impl Mul<f32> for Transform {
     type Output = Self;
 
+    #[inline(always)]
     fn mul(self, rhs: f32) -> Self::Output {
         Self{
             pos: self.pos * rhs,
@@ -59,6 +61,7 @@ impl Mul<f32> for Transform {
 }
 
 impl MulAssign<f32> for Transform {
+    #[inline(always)]
     fn mul_assign(&mut self, rhs: f32) {
         self.pos *= rhs;
         self.rot *= rhs;

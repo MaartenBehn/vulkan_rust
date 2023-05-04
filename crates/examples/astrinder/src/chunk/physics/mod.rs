@@ -18,25 +18,28 @@ pub mod destruction;
 
 impl ChunkController {
     pub fn update_physics(&mut self, time_step: f32, settings: Settings) -> Result<()> {
-        let mut accelerations = vec![Transform::default(); self.chunks.len()];
+        
         let l = self.chunks.len();
 
-        
         // Gravity
         if settings.gravity_on && l >= 2 {
-            for (i, chunk) in self.chunks.iter().enumerate() {
+            for i in 0..l {
                 for j in (i+1)..l {
-                    let other_chunk = &self.chunks[j];
+                    let chunk0 = &self.chunks[i];
+                    let chunk1 = &self.chunks[j];
     
                     let gravity_force = get_gravity_force(
-                        chunk.transform.pos, 
-                        other_chunk.transform.pos, 
-                        chunk.mass, 
-                        other_chunk.mass, 
+                        chunk0.transform.pos, 
+                        chunk1.transform.pos, 
+                        chunk0.mass, 
+                        chunk1.mass, 
                         settings);
+
+                    let vel0 = gravity_force / -chunk0.mass;
+                    let vel1 = gravity_force / chunk1.mass;
                     
-                    accelerations[i].pos -= gravity_force / chunk.mass;
-                    accelerations[j].pos += gravity_force / other_chunk.mass;
+                    self.chunks[i].velocity_transform.pos += vel0;
+                    self.chunks[j].velocity_transform.pos += vel1;
                 }
             }
         }
@@ -45,62 +48,52 @@ impl ChunkController {
         let to_render_particles = self.to_render_particles.clone();
         let mut collision_search = CollisionSearch::new(settings, &mut self.chunks, time_step);
        
+        // https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/physicstutorials/5collisionresponse/Physics%20-%20Collision%20Response.pdf
         loop {
             match collision_search.get_next(&self.chunks, time_step) {
                 CollisionSearchResult::Done => break,
 
-                CollisionSearchResult::Contact(contact) => {
-                    continue;
+                CollisionSearchResult::Contact((contact, chunk0_index, chunk1_index)) => {
+                    let chunk0 = &self.chunks[chunk0_index];
+                    let chunk1 = &self.chunks[chunk1_index];
 
-                    let chunk0 = &self.chunks[collision_search.chunk0_index];
-                    let chunk1 = &self.chunks[collision_search.chunk1_index];
+                    let last_vel0 = chunk0.last_velocity_transform;
+                    let last_vel1 = chunk1.last_velocity_transform;
         
-                    let normal = vector2_to_vec2(contact.normal).normalize();
                     let point = point2_to_vec2(contact.contact_point);
-        
+                    let normal = vector2_to_vec2(contact.normal);
+
+                    if normal.is_nan() {
+                        continue;
+                    }
+
+                    let totalMass = chunk0.inverse_mass + chunk1.inverse_mass;
+                    let penetration = 1.0 - contact.time_of_impact;
+
+                    let offset0 = -normal * penetration * (chunk0.inverse_mass / totalMass);
+                    let offset1 = -normal * penetration * (chunk1.inverse_mass / totalMass);
+
+                    self.chunks[chunk0_index].transform.pos += offset0;
+                    self.chunks[chunk1_index].transform.pos += offset1;
+
+
+
+
                     // Collision Response
-                    let r_a = point - chunk0.transform.pos;
-                    let r_b = point - chunk1.transform.pos;
-                    let r_a_cross_n = cross2d(r_a, normal);
-                    let r_b_cross_n = cross2d(r_a, normal);
-                    let r_a_cross_n_2 = r_a_cross_n.powf(2.0);
-                    let r_b_cross_n_2 = r_b_cross_n.powf(2.0);
+                    //self.chunks[chunk0_index].velocity_transform += last_vel0 * -2.0;
+
+                    //self.chunks[chunk1_index].velocity_transform += last_vel1 * -2.0;
         
-                    let c = 0.0;
-        
-                    let j = (5.0 - c) 
-                            * (chunk0.velocity_transform.pos.dot(normal) - chunk1.velocity_transform.pos.dot(normal)
-                            + chunk0.velocity_transform.rot * r_a_cross_n 
-                            - chunk1.velocity_transform.rot * r_b_cross_n)
-                            / (1.0 / chunk0.mass + 1.0 / chunk1.mass + r_a_cross_n_2)
-                            / chunk0.moment_of_inertia 
-                            + r_b_cross_n_2 / chunk1.moment_of_inertia;
-        
-                    let apply = (j >= 0.0) as u8 as f32;
-        
-                    let j_vec = normal * j;
-        
-                    let vel0 = j_vec / chunk0.mass;
-                    let rot_vel0 = cross2d(r_a, j_vec) / chunk0.moment_of_inertia;
-        
-                    let vel1 = j_vec / chunk1.mass;
-                    let rot_vel1 = cross2d(r_b, j_vec) / chunk1.moment_of_inertia;
-        
-                    // Collision Response
-                    self.chunks[collision_search.chunk0_index].velocity_transform.pos -= vel0 * apply;
-                    self.chunks[collision_search.chunk0_index].velocity_transform.rot += rot_vel0 * apply;
-        
-                    self.chunks[collision_search.chunk1_index].velocity_transform.pos += vel1 * apply;
-                    self.chunks[collision_search.chunk1_index].velocity_transform.rot -= rot_vel1 * apply;
                 },
 
                 CollisionSearchResult::ChunkDone(i) => {
                     let chunk = &mut self.chunks[i];
 
                     chunk.velocity_transform.rot *= settings.rotation_damping;
-                    chunk.velocity_transform += accelerations[i];
 
-                    chunk.transform += chunk.velocity_transform * time_step * collision_search.time_of_first_collide[i];
+                    chunk.transform += chunk.velocity_transform * time_step;
+                    chunk.last_velocity_transform = chunk.velocity_transform;
+
                     chunk.on_transform_change();
                     chunk.send_transform(&to_render_transform)?;
                 },

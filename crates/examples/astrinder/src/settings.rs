@@ -37,9 +37,9 @@ impl Default for Settings {
             max_fps: 60, 
             max_rendered_parts: 10_000, 
 
-            max_chunk_ups: 120, 
+            max_chunk_ups: 30, 
             chunk_ups_use_fixed_time_step: true, 
-            chunk_ups_fixed_time_step: 1.0 / 120.0, 
+            chunk_ups_fixed_time_step: 1.0 / 30.0, 
             slow_down_chunk_ups_factor: 10, 
 
             rotation_damping: 0.9,
