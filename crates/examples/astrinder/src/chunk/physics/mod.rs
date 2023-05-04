@@ -59,6 +59,7 @@ impl PhysicsController {
             .rotation(rot)
             //.linear_damping(0.8)
             //.angular_damping(0.9)
+            .lock_rotations()
             .build();
 
         let rb_handle = self.rigid_body_set.insert(rb);

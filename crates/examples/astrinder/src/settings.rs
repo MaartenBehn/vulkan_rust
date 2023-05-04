@@ -35,7 +35,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self { 
             max_fps: 60, 
-            max_rendered_parts: 1000, 
+            max_rendered_parts: 5000, 
 
             max_chunk_ups: 30, 
             chunk_ups_use_fixed_time_step: true, 

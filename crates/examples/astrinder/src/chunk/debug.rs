@@ -36,6 +36,7 @@ impl ChunkController {
             self.to_debug.send((r_pos0 + part_transform.pos, r_pos1 + part_transform.pos, vec3(1.0, 0.0, 0.5)));
         };
 
+        /* 
         for chunk in self.chunks.iter() {
 
             let mut chunk_transform = chunk.transform;
@@ -43,7 +44,7 @@ impl ChunkController {
             let collider = &self.physics_controller.collider_set[chunk.collider_handle];
             for (_, shape) in collider.shape().as_compound().unwrap().shapes() {
 
-                let vertices = shape.as_convex_polygon().unwrap().points();
+                let ball = shape.as_ball().unwrap();
                 for i in 0..vertices.len() {
 
                     let pos0 = if i == 0 {
@@ -62,6 +63,7 @@ impl ChunkController {
                 }
             }
         }
+        */
     }
 }
 

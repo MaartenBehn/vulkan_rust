@@ -118,7 +118,7 @@ fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, set
     chunks.push(Chunk::new_hexagon(
         Transform::new(vec2(2.0, 30.0), 0.0), 
         Transform::new(vec2(0.0, -1.0), 0.0),
-        1,
+        2,
         part_id_counter,
         settings,
         physics_controller)); 
@@ -126,8 +126,8 @@ fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, set
 
 
 fn many_chunks(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, settings: Settings, physics_controller: &mut PhysicsController){
-    for x in -10..10 {
-        for y in -10..10 {
+    for x in -20..20 {
+        for y in -20..20 {
             chunks.push(Chunk::new_hexagon(
                 Transform::new(vec2(x as f32 * 4.0, y as f32 * 4.0), 0.0), 
                 Transform::new(vec2(0., 0.), 0.0),
