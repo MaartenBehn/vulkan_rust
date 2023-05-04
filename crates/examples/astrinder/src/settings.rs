@@ -35,7 +35,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self { 
             max_fps: 60, 
-            max_rendered_parts: 10_000, 
+            max_rendered_parts: 1000, 
 
             max_chunk_ups: 30, 
             chunk_ups_use_fixed_time_step: true, 
@@ -46,14 +46,14 @@ impl Default for Settings {
 
             gravity_on: true, 
             gravity_factor: 0.01, 
-            gravity_max_force: 1.0, 
+            gravity_max_force: 0.05, 
 
             collision_on: true, 
 
             destruction_on: false, 
             destruction_cool_down: Duration::from_secs(1),
 
-            max_lines: 1_000_000
+            max_lines: 10_000
         }
     }
 }

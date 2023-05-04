@@ -1,7 +1,6 @@
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
 use app::glam::{Vec2, Vec3, Vec3Swizzles};
-use cgmath::{Decomposed, Vector2, Basis2, Rotation2, Rad};
 
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -69,13 +68,4 @@ impl MulAssign<f32> for Transform {
 }
 
 
-impl From<Transform> for Decomposed<Vector2<f32>, Basis2<f32>> {
-    fn from(t: Transform) -> Self {
-        Decomposed {
-            disp: Vector2::new(t.pos.x, t.pos.y),
-            rot: Rotation2::from_angle(Rad(-t.rot)),
-            scale: 1.,
-        }
-    }
-}
 

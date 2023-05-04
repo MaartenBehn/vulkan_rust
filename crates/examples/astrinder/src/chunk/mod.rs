@@ -3,38 +3,31 @@ use std::{sync::mpsc::Sender};
 use app::{glam::{Vec2, vec2, Vec3}};
 use app::anyhow::*;
 
-use crate::{settings::{Settings, self}, ENABLE_DEBUG_RENDER};
+use crate::{settings::Settings, ENABLE_DEBUG_RENDER, math::transform::Transform, render::part::RenderParticle, physics::PhysicsController};
 
-use self::{particle::{Particle}, transform::Transform, chunk::Chunk, physics::destruction::DestructionSolver, part::{PartIdCounter, ChunkPart}, render::part::RenderParticle};
+use self::{chunk::Chunk, part::PartIdCounter};
 
+pub mod particle;
+pub mod part;
+pub mod chunk;
+pub mod shapes;
+pub mod collider;
 
-pub mod render;
-pub mod physics;
-
-pub mod math;
-pub mod transform;
 pub mod debug;
 
-pub mod chunk;
-pub mod part;
-pub mod particle;
-
-pub mod shapes;
-
-const CHUNK_PART_SIZE: i32 = 10;
-
+pub const CHUNK_PART_SIZE: i32 = 10;
 
 pub struct ChunkController {
     pub chunks: Vec<Chunk>,
     part_id_counter: PartIdCounter,
 
-    destruction_solver: DestructionSolver,
-
     to_render_transform: Sender<(usize, Transform)>,
     to_render_particles: Sender<(usize, [RenderParticle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>,
     to_debug: Sender<(Vec2, Vec2, Vec3)>,
 
-    settings: Settings,
+    pub settings: Settings,
+
+    physics_controller: PhysicsController
 }
 
 impl ChunkController {
@@ -46,26 +39,32 @@ impl ChunkController {
         ) -> Self {
         let mut chunks = Vec::new();
         let mut part_id_counter = PartIdCounter::new(settings.max_rendered_parts);
-        let destruction_solver = DestructionSolver::new();
+
+        let mut physics_controller = PhysicsController::new();
 
         many_chunks(&mut chunks, &mut part_id_counter, settings);
         //destruction(&mut chunks, &mut part_id_counter, settings);
 
-        let mut c = Self { 
+        for chunk in chunks.iter_mut() {
+            chunk.rb_handle = physics_controller.add_chunk(chunk);
+        }
+
+        let controller = Self { 
             chunks,
             part_id_counter,
 
-            destruction_solver,
             to_render_transform,
             to_render_particles,
             to_debug,
 
-            settings
+            settings,
+
+            physics_controller,
         };
 
-        let _ = c.send_all_chunks();
+        let _ = controller.send_all_chunks();
 
-        c
+        controller
     }
 
     pub fn run(&mut self, settings: Settings) -> Result<()> {
@@ -79,7 +78,15 @@ impl ChunkController {
                 settings.chunk_ups_fixed_time_step 
             };
 
-            self.update_physics(time_step)?;
+            self.physics_controller.step();
+            self.update_gravity();
+
+            for chunk in self.chunks.iter_mut() {
+                
+                self.physics_controller.update_chunk(chunk);
+
+                let _ = chunk.send_transform(&self.to_render_transform);
+            }
 
             if ENABLE_DEBUG_RENDER && cfg!(debug_assertions){
                 self.send_debug();

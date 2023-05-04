@@ -7,15 +7,13 @@ use app::vulkan::{Context, ash::vk};
 use app::anyhow::*;
 
 use crate::camera::Camera;
+use crate::chunk::CHUNK_PART_SIZE;
+use crate::math::transform::Transform;
 use crate::settings::Settings;
 
 use self::part::RenderParticle;
-use self::vulkan::{PartUBO, RenderUBO};
+use self::vulkan::RenderUBO;
 use self::{part::{RenderPart}, vulkan::ChunkRendererVulkan};
-
-use super::particle::Particle;
-use super::transform::Transform;
-use super::CHUNK_PART_SIZE;
 
 pub mod vulkan;
 pub mod part;

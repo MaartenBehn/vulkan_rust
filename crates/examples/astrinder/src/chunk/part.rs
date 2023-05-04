@@ -1,12 +1,8 @@
-use app::glam::{IVec2, ivec2};
-use collision::primitive::ConvexPolygon;
+use app::glam::{IVec2};
 
-use crate::chunk::math::{neigbor_pos_offsets, hex_to_coord, vec2_to_point2};
+use crate::math::transform::Transform;
 
-use super::{particle::Particle, transform::Transform, CHUNK_PART_SIZE};
-
-
-
+use super::{particle::Particle, CHUNK_PART_SIZE};
 
 #[derive(Clone, PartialEq)]
 pub struct ChunkPart{

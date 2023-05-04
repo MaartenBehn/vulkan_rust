@@ -1,6 +1,11 @@
 use app::glam::{Vec2, IVec2, ivec2, vec2};
 
-use super::{CHUNK_PART_SIZE, transform::Transform};
+use crate::chunk::CHUNK_PART_SIZE;
+
+use self::transform::Transform;
+
+
+pub mod transform;
 
 pub fn coord_to_hex(coord: Vec2) -> IVec2 {
     ivec2((coord.x - coord.y * 0.5) as i32, coord.y as i32)
@@ -87,20 +92,3 @@ pub fn neigbor_pos_offsets() -> [Vec2; 6] {
     ]
 }
 
-
-pub fn point2_to_vec2(point: cgmath::Point2<f32>) -> Vec2 {
-    vec2(point.x, point.y)
-}
-
-pub fn vec2_to_point2(vec: Vec2) -> cgmath::Point2<f32> {
-    cgmath::Point2::new(vec.x, vec.y)
-}
-
-pub fn vector2_to_vec2(point: cgmath::Vector2<f32>) -> Vec2 {
-    vec2(point.x, point.y)
-}
-
-
-pub fn cross2d(p1: Vec2, p2: Vec2) -> f32 {
-    p1.x * p2.y - p2.x * p1.y
-}

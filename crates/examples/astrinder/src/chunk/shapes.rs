@@ -1,9 +1,9 @@
 use app::glam::{UVec2, IVec2, ivec2};
 use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
-use crate::settings::{self, Settings};
+use crate::{settings::Settings, math::transform::Transform};
 
-use super::{Chunk, particle::Particle, transform::Transform, part::PartIdCounter};
+use super::{Chunk, particle::Particle, part::PartIdCounter};
 
 #[allow(dead_code)]
 impl Chunk {

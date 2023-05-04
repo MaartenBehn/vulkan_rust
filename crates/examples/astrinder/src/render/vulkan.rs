@@ -3,7 +3,7 @@ use std::mem::{size_of, align_of};
 use app::{glam::{Vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
 
-use crate::{camera::Camera, chunk::{CHUNK_PART_SIZE, math::{part_pos_to_world, part_corners}, transform::Transform}};
+use crate::{chunk::CHUNK_PART_SIZE, math::{*, transform::Transform}, camera::Camera};
 
 use super::part::RenderParticle;
 
@@ -157,11 +157,11 @@ impl ChunkRendererVulkan {
             GraphicsPipelineCreateInfo {
                 shaders: &[
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../../shaders/chunk.vert.spv")[..],
+                        source: &include_bytes!("../../shaders/chunk.vert.spv")[..],
                         stage: vk::ShaderStageFlags::VERTEX,
                     },
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../../shaders/chunk.frag.spv")[..],
+                        source: &include_bytes!("../../shaders/chunk.frag.spv")[..],
                         stage: vk::ShaderStageFlags::FRAGMENT,
                     },
                 ],

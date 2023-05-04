@@ -10,14 +10,17 @@ use app::{App, BaseApp};
 use camera::Camera;
 use chunk::ChunkController;
 use debug::render::DebugRenderer;
-use chunk::render::ChunkRenderer;
+use render::ChunkRenderer;
 use settings::Settings;
 
 mod chunk;
+mod render;
+mod physics;
 mod aabb;
 mod camera;
 mod debug;
 mod settings;
+mod math;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
