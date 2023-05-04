@@ -2,7 +2,7 @@ use app::{glam::Vec2, vulkan::ash::vk::Extent2D};
 
 const CAMERA_INIT_POS: Vec2 = Vec2::ZERO;
 const CAMERA_INIT_ROT: f32 = 0.0;
-const CAMERA_INIT_SCALE: f32 = 0.02; // 0.0
+const CAMERA_INIT_SCALE: f32 = 0.03; // 0.0
 
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {

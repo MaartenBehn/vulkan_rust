@@ -60,7 +60,7 @@ impl ChunkRendererVulkan {
         let mut part_ubo_data = Vec::new();
         let mut particle_buffer_data = Vec::new();
         for i in 0..rendered_parts {
-            part_ubo_data.push(PartUBO::new(part_pos_to_world(Transform::default(), ivec2(i as i32, 0), Vec2::ZERO)));
+            part_ubo_data.push(PartUBO::new(part_pos_to_world(Transform::default(), ivec2(i as i32, 0))));
             particle_buffer_data.extend_from_slice(&[RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])
         }
         part_ubo.copy_data_to_buffer(&part_ubo_data, 0, 16)?;

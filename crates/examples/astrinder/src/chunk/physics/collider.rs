@@ -20,9 +20,9 @@ impl PhysicsController {
                     let hex= ivec2(x, y);
                     if part.particles[hex_to_particle_index(hex)].material != 0 {
 
-                        let pos = hex_to_coord(hex);
+                        let pos = hex_in_chunk_frame(hex, part.pos);
 
-                        shapes.push((Isometry::new(vector![pos.x, pos.y], 0.0)  , SharedShape::ball(0.5)));
+                        shapes.push((Isometry::new(vector![pos.x, pos.y], 0.0), SharedShape::ball(0.55)));
                     }
                 }
             }

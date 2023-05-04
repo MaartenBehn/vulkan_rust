@@ -42,8 +42,8 @@ impl ChunkController {
 
         let mut physics_controller = PhysicsController::new();
 
-        many_chunks(&mut chunks, &mut part_id_counter, settings, &mut physics_controller);
-        //destruction(&mut chunks, &mut part_id_counter, settings, &mut physics_controller);
+        //many_chunks(&mut chunks, &mut part_id_counter, settings, &mut physics_controller);
+        destruction(&mut chunks, &mut part_id_counter, settings, &mut physics_controller);
 
         let controller = Self { 
             chunks,
@@ -126,12 +126,12 @@ fn destruction(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, set
 
 
 fn many_chunks(chunks: &mut Vec<Chunk>, part_id_counter: &mut PartIdCounter, settings: Settings, physics_controller: &mut PhysicsController){
-    for x in -20..20 {
-        for y in -20..20 {
+    for x in -10..10 {
+        for y in -10..10 {
             chunks.push(Chunk::new_hexagon(
                 Transform::new(vec2(x as f32 * 4.0, y as f32 * 4.0), 0.0), 
                 Transform::new(vec2(0., 0.), 0.0),
-                0,
+                1,
                 part_id_counter,
                 settings,
                 physics_controller)); 

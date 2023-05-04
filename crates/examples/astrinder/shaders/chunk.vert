@@ -37,7 +37,7 @@ void main() {
     float part_rot = part_ubo.data[index].z;
 
     vec2 aspect = vec2(render_ubo.data.x, -1.0);
-    vec2 vertex_pos = (rotate(vPosition.xy, part_rot) + part_pos - render_ubo.cam.xy) * aspect * render_ubo.cam.w; 
+    vec2 vertex_pos = (rotate(vPosition.xy, -part_rot) + part_pos - render_ubo.cam.xy) * aspect * render_ubo.cam.w; 
 
     gl_Position = vec4(vertex_pos, 0.0, 1.0);
 }

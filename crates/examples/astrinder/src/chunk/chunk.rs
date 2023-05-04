@@ -14,13 +14,10 @@ pub struct Chunk {
     pub parts: Vec<ChunkPart>, 
 
     pub transform: Transform,
-    pub center_of_mass: Vec2,
 
     pub particle_counter: usize,
-    particle_pos_sum: Vec2,
 
     pub break_cool_down: Instant,
-
 
     pub rb_handle: RigidBodyHandle,
     pub collider_handle: ColliderHandle,
@@ -47,10 +44,8 @@ impl Chunk {
             parts: Vec::new(),
     
             transform,
-            center_of_mass: Vec2::ZERO,
 
             particle_counter: 0,
-            particle_pos_sum: Vec2::ZERO,
 
             break_cool_down: if new_spawn { 
                 Instant::now() - settings.destruction_cool_down 
@@ -67,10 +62,6 @@ impl Chunk {
 
         for (p, hex_pos) in particles {
             chunk.add_particle(p, hex_pos, part_id_counter)
-        }
-
-        if !new_spawn {
-            chunk.transform.pos += chunk.center_of_mass - vec2(0.75, 0.5);
         }
 
         chunk.rb_handle = physics_controller.add_chunk(&mut chunk);
@@ -109,19 +100,11 @@ impl Chunk {
 
         self.mass += p.mass as f32;
 
-        // Needed for center of mass
-        let particle_pos = hex_to_coord(hex_pos);
-        self.particle_pos_sum += particle_pos;
-
         self.particle_counter += 1;
     }
 
 
     pub fn on_chunk_change(&mut self, physics_controller: &mut PhysicsController) {
-        self.center_of_mass = self.particle_pos_sum / Vec2::new(
-            self.particle_counter as f32, 
-            self.particle_counter as f32);
-
         self.update_part_tranforms();
 
         physics_controller.update_collider(self);
@@ -129,7 +112,7 @@ impl Chunk {
 
     pub fn update_part_tranforms(&mut self){
         for part in self.parts.iter_mut() {
-            part.transform = part_pos_to_world(self.transform, part.pos, self.center_of_mass);
+            part.transform = part_pos_to_world(self.transform, part.pos);
         }
     }
 
