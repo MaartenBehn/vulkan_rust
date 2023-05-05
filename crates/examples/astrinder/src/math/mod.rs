@@ -11,7 +11,7 @@ pub fn coord_to_hex(coord: Vec2) -> IVec2 {
     ivec2((coord.x - coord.y * 0.5) as i32, coord.y as i32)
 }
 
-fn hex_to_coord(hex: IVec2) -> Vec2 {
+pub fn hex_to_coord(hex: IVec2) -> Vec2 {
     Vec2::new(
         (hex.x as f32 + 0.5) + (hex.y as f32 + 0.5) * 0.5, 
         hex.y as f32 + 0.5)

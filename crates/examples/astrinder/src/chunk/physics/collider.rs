@@ -28,7 +28,9 @@ impl PhysicsController {
             }
         }
 
-        let compound_collider = ColliderBuilder::compound(shapes);
+        let compound_collider = ColliderBuilder::compound(shapes)
+            .active_events(ActiveEvents::CONTACT_FORCE_EVENTS);
+
         chunk.collider_handle = self.collider_set.insert_with_parent(
             compound_collider, chunk.rb_handle, &mut self.rigid_body_set);
 

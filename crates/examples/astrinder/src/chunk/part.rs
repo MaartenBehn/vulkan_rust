@@ -28,29 +28,3 @@ impl ChunkPart {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct PartIdCounter {
-    free_ids: Vec<usize>,
-}
-
-impl PartIdCounter {
-    pub fn new(size: usize) -> Self {
-        let mut free_ids = Vec::new();
-
-        for i in (0..size).rev() {
-            free_ids.push(i);
-        }
-
-        Self { 
-            free_ids,
-        }
-    }
-
-    pub fn add_free(&mut self, free_id: usize) {
-        self.free_ids.push(free_id);
-    }
-
-    pub fn pop_free(&mut self) -> Option<usize> {
-        self.free_ids.pop()
-    }
-}

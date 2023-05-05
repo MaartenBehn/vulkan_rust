@@ -3,7 +3,7 @@ use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
 use crate::{settings::Settings, math::transform::Transform};
 
-use super::{Chunk, particle::Particle, part::PartIdCounter, physics::PhysicsController};
+use super::{Chunk, particle::Particle, physics::PhysicsController, IdCounter};
 
 #[allow(dead_code)]
 impl Chunk {
@@ -11,7 +11,8 @@ impl Chunk {
         trans: Transform, 
         vel_trans: Transform, 
         size: UVec2, 
-        part_id_counter: &mut PartIdCounter, 
+        id: usize,
+        part_id_counter: &mut IdCounter, 
 
         settings: Settings,
         physics_controller: &mut PhysicsController,
@@ -27,14 +28,15 @@ impl Chunk {
             }
         }
 
-        Self::new(trans, vel_trans, particles, part_id_counter, true, settings, physics_controller)
+        Self::new(trans, vel_trans, particles, id, part_id_counter, true, settings, physics_controller)
     }
 
     pub fn new_hexagon(
         trans: Transform, 
         vel_trans: Transform, 
         layers: usize, 
-        part_id_counter: &mut PartIdCounter, 
+        id: usize,
+        part_id_counter: &mut IdCounter, 
         settings: Settings,
         physics_controller: &mut PhysicsController,
     ) -> Self {
@@ -45,14 +47,15 @@ impl Chunk {
             particles.push((Particle::new(1, 1), point))
         }
 
-        Self::new(trans, vel_trans, particles, part_id_counter, true, settings, physics_controller)
+        Self::new(trans, vel_trans, particles, id, part_id_counter, true, settings, physics_controller)
     }
 
     pub fn new_noise_hexagon(
         trans: Transform, 
         vel_trans: Transform, 
         layers: usize, 
-        part_id_counter: &mut PartIdCounter, 
+        id: usize,
+        part_id_counter: &mut IdCounter, 
         settings: Settings,
         physics_controller: &mut PhysicsController,
     ) -> Self {
@@ -67,7 +70,7 @@ impl Chunk {
             }
         }
 
-        Self::new(trans, vel_trans, particles, part_id_counter, true, settings, physics_controller)
+        Self::new(trans, vel_trans, particles, id, part_id_counter, true, settings, physics_controller)
     }
 }
 

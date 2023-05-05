@@ -6,11 +6,13 @@ use rapier2d::prelude::*;
 
 use crate::{math::{*, transform::Transform}, settings::Settings, render::part::RenderParticle};
 
-use super::{part::{ChunkPart, PartIdCounter}, particle::Particle, CHUNK_PART_SIZE, ChunkController, physics::PhysicsController};
+use super::{part::{ChunkPart}, particle::Particle, CHUNK_PART_SIZE, ChunkController, physics::PhysicsController, IdCounter};
 
 
 #[derive(Clone)]
 pub struct Chunk { 
+    pub id: usize,
+
     pub parts: Vec<ChunkPart>, 
 
     pub transform: Transform,
@@ -23,8 +25,6 @@ pub struct Chunk {
     pub collider_handle: ColliderHandle,
     pub forces: Vec2,
     pub mass: f32,
-
-    
 }
 
 #[allow(dead_code)]
@@ -33,7 +33,8 @@ impl Chunk {
         transform: Transform, 
         velocity_transform: Transform, 
         particles: Vec<(Particle, IVec2)>, 
-        part_id_counter: &mut PartIdCounter,
+        id: usize,
+        part_id_counter: &mut IdCounter,
         new_spawn: bool,
 
         settings: Settings,
@@ -41,6 +42,7 @@ impl Chunk {
     ) -> Self {
 
         let mut chunk = Self { 
+            id,
             parts: Vec::new(),
     
             transform,
@@ -64,7 +66,7 @@ impl Chunk {
             chunk.add_particle(p, hex_pos, part_id_counter)
         }
 
-        chunk.rb_handle = physics_controller.add_chunk(&mut chunk);
+        chunk.rb_handle = physics_controller.add_chunk(&mut chunk, velocity_transform);
 
         chunk.on_chunk_change(physics_controller);
 
@@ -75,7 +77,7 @@ impl Chunk {
         &mut self, 
         p: Particle, 
         hex_pos: IVec2,
-        part_id_counter: &mut PartIdCounter,
+        part_id_counter: &mut IdCounter,
     ) {
         let part_pos = hex_to_chunk_part_pos(hex_pos);
         let mut part = self.get_part_by_pos_mut(part_pos);
@@ -299,7 +301,4 @@ impl ChunkController {
         self.chunks.remove(chunk_index);
     }
 }
-
-
-
 
