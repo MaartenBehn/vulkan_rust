@@ -79,9 +79,9 @@ impl App for Particles {
         ])?;
 
         let mut compute_descriptor_sets = Vec::new();
-        for i in 0..images.len(){
+        for i in 0..images.len() {
             let compute_descriptor_set =
-            compute_descriptor_pool.allocate_set(&compute_descriptor_layout)?;
+                compute_descriptor_pool.allocate_set(&compute_descriptor_layout)?;
 
             compute_descriptor_set.update(&[
                 WriteDescriptorSet {
@@ -131,7 +131,6 @@ impl App for Particles {
         _: usize,
         delta_time: Duration,
     ) -> Result<()> {
-    
         self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             pos: base.camera.position,
             dir: base.camera.direction,
@@ -144,9 +143,8 @@ impl App for Particles {
         &self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
-        image_index: usize
+        image_index: usize,
     ) -> Result<()> {
-
         buffer.bind_compute_pipeline(&self.compute_pipeline);
 
         buffer.bind_descriptor_sets(
@@ -156,7 +154,11 @@ impl App for Particles {
             &[&self.compute_descriptor_sets[image_index]],
         );
 
-        buffer.dispatch((base.swapchain.extent.width / DISPATCH_GROUP_SIZE_X) + 1, (base.swapchain.extent.height / DISPATCH_GROUP_SIZE_Y) + 1, 1);
+        buffer.dispatch(
+            (base.swapchain.extent.width / DISPATCH_GROUP_SIZE_X) + 1,
+            (base.swapchain.extent.height / DISPATCH_GROUP_SIZE_Y) + 1,
+            1,
+        );
 
         Ok(())
     }
@@ -182,15 +184,11 @@ impl App for Particles {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Gui {
-    
-}
+struct Gui {}
 
 impl app::Gui for Gui {
     fn new() -> Result<Self> {
-        Ok(Gui {
-            
-        })
+        Ok(Gui {})
     }
 
     fn build(&mut self, ui: &Ui) {

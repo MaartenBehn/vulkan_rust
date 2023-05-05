@@ -18,15 +18,15 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(extent: Extent2D) -> Self {
-        Self { 
-            pos: CAMERA_INIT_POS, 
-            rot: CAMERA_INIT_ROT, 
+        Self {
+            pos: CAMERA_INIT_POS,
+            rot: CAMERA_INIT_ROT,
             scale: CAMERA_INIT_SCALE,
 
             aspect: extent.height as f32 / extent.width as f32,
             _fill_0: 0.0,
             _fill_1: 0.0,
-            _fill_2: 0.0
+            _fill_2: 0.0,
         }
     }
 }

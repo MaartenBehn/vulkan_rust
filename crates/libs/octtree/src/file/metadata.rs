@@ -1,16 +1,19 @@
-use std::{fs::{self, OpenOptions}, io::Write};
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+};
 
 use crate::Tree;
 
-use app::anyhow::{Ok, format_err};
-use::app::anyhow::Result;
+use app::anyhow::Result;
+use app::anyhow::{format_err, Ok};
 
 use serde::{Deserialize, Serialize};
 
 const METADAT_FILE_NAME: &str = "metadata";
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Metadata{
+pub struct Metadata {
     pub depth: u16,
     pub size: u64,
     pub max_size: u64,
@@ -19,8 +22,8 @@ pub struct Metadata{
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
-pub struct BatchMetadata{
-    pub index: u64, 
+pub struct BatchMetadata {
+    pub index: u64,
     pub start: u64,
     pub end: u64,
     pub size: u64,
@@ -28,10 +31,10 @@ pub struct BatchMetadata{
 
 impl Metadata {
     pub fn new(tree: &impl Tree, batches: Vec<BatchMetadata>, batch_size: usize) -> Self {
-        Self { 
-            depth: tree.get_depth(), 
-            size: tree.get_size(), 
-            max_size: tree.get_max_size(), 
+        Self {
+            depth: tree.get_depth(),
+            size: tree.get_size(),
+            max_size: tree.get_max_size(),
             batch_size,
             batches,
         }
@@ -60,11 +63,20 @@ impl Metadata {
     }
 
     pub fn get_batch_metadata(&self, index: usize) -> Result<&BatchMetadata> {
-        self.batches.iter().find(|b| b.index == (index as u64)).ok_or(format_err!("Batch metadata with {index} not found!"))
+        self.batches
+            .iter()
+            .find(|b| b.index == (index as u64))
+            .ok_or(format_err!("Batch metadata with {index} not found!"))
     }
 }
 
 impl BatchMetadata {
-    pub fn new(index: u64, start: u64, end: u64, size: u64) -> Self { Self { index, start, end, size } }
+    pub fn new(index: u64, start: u64, end: u64, size: u64) -> Self {
+        Self {
+            index,
+            start,
+            end,
+            size,
+        }
+    }
 }
-

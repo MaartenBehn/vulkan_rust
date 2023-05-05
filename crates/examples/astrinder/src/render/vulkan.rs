@@ -1,9 +1,24 @@
-use std::mem::{size_of, align_of};
+use std::mem::{align_of, size_of};
 
-use app::{glam::{Vec2, ivec2}, vulkan::{Context, Buffer, utils::create_gpu_only_buffer_from_data, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
+use app::{
+    anyhow::Ok,
+    glam::{ivec2, Vec2},
+    vulkan::{
+        ash::vk::{self, BlendFactor, BlendOp, ColorComponentFlags, Extent2D},
+        gpu_allocator::MemoryLocation,
+        utils::create_gpu_only_buffer_from_data,
+        Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
+        GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout,
+        WriteDescriptorSet, WriteDescriptorSetKind,
+    },
+};
 
-use crate::{chunk::CHUNK_PART_SIZE, math::{*, transform::Transform}, camera::Camera};
+use crate::{
+    camera::Camera,
+    chunk::CHUNK_PART_SIZE,
+    math::{transform::Transform, *},
+};
 
 use super::part::RenderParticle;
 
@@ -24,7 +39,7 @@ pub struct ChunkRendererVulkan {
 }
 
 impl ChunkRendererVulkan {
-    pub fn new (
+    pub fn new(
         context: &Context,
         color_attachment_format: vk::Format,
         images_len: u32,
@@ -32,12 +47,19 @@ impl ChunkRendererVulkan {
     ) -> Result<Self> {
         let (vertices, indecies) = create_mesh();
 
-        let vertex_buffer =
-            create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::VERTEX_BUFFER, &vertices, align_of::<Vertex>())?;
+        let vertex_buffer = create_gpu_only_buffer_from_data(
+            context,
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            &vertices,
+            align_of::<Vertex>(),
+        )?;
 
-        let index_buffer =
-            create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::INDEX_BUFFER, &indecies, align_of::<u32>())?;
-
+        let index_buffer = create_gpu_only_buffer_from_data(
+            context,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            &indecies,
+            align_of::<u32>(),
+        )?;
 
         let render_ubo = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -52,20 +74,30 @@ impl ChunkRendererVulkan {
         )?;
 
         let particles_ssbo = context.create_buffer(
-            vk::BufferUsageFlags::STORAGE_BUFFER, 
-            MemoryLocation::CpuToGpu, 
-            (size_of::<RenderParticle>() * rendered_parts * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize) as _,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            MemoryLocation::CpuToGpu,
+            (size_of::<RenderParticle>()
+                * rendered_parts
+                * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize) as _,
         )?;
 
         let mut part_ubo_data = Vec::new();
         let mut particle_buffer_data = Vec::new();
         for i in 0..rendered_parts {
-            part_ubo_data.push(PartUBO::new(part_pos_to_world(Transform::default(), ivec2(i as i32, 0))));
-            particle_buffer_data.extend_from_slice(&[RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])
+            part_ubo_data.push(PartUBO::new(part_pos_to_world(
+                Transform::default(),
+                ivec2(i as i32, 0),
+            )));
+            particle_buffer_data.extend_from_slice(
+                &[RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
+            )
         }
         part_ubo.copy_data_to_buffer(&part_ubo_data, 0, 16)?;
-        particles_ssbo.copy_data_to_buffer(&particle_buffer_data, 0, align_of::<RenderParticle>())?;
-
+        particles_ssbo.copy_data_to_buffer(
+            &particle_buffer_data,
+            0,
+            align_of::<RenderParticle>(),
+        )?;
 
         let descriptor_pool = context.create_descriptor_pool(
             images_len * 3,
@@ -111,8 +143,7 @@ impl ChunkRendererVulkan {
 
         let mut descriptor_sets = Vec::new();
         for _ in 0..images_len {
-            let render_descriptor_set =
-            descriptor_pool.allocate_set(&descriptor_layout)?;
+            let render_descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
 
             render_descriptor_set.update(&[
                 WriteDescriptorSet {
@@ -123,14 +154,12 @@ impl ChunkRendererVulkan {
                 },
                 WriteDescriptorSet {
                     binding: 1,
-                    kind: WriteDescriptorSetKind::UniformBuffer {
-                        buffer: &part_ubo,
-                    },
+                    kind: WriteDescriptorSetKind::UniformBuffer { buffer: &part_ubo },
                 },
                 WriteDescriptorSet {
                     binding: 2,
-                    kind: WriteDescriptorSetKind::StorageBuffer { 
-                        buffer: &particles_ssbo
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &particles_ssbo,
                     },
                 },
             ]);
@@ -142,11 +171,9 @@ impl ChunkRendererVulkan {
         let color_blending = vk::PipelineColorBlendAttachmentState::builder()
             .color_write_mask(ColorComponentFlags::RGBA)
             .blend_enable(true)
-
             .src_color_blend_factor(BlendFactor::ONE)
             .dst_color_blend_factor(BlendFactor::ONE)
             .color_blend_op(BlendOp::MIN)
-
             .src_alpha_blend_factor(BlendFactor::ONE)
             .dst_alpha_blend_factor(BlendFactor::ZERO)
             .alpha_blend_op(BlendOp::ADD)
@@ -173,8 +200,8 @@ impl ChunkRendererVulkan {
             },
         )?;
 
-        Ok(Self { 
-            vertex_buffer: vertex_buffer, 
+        Ok(Self {
+            vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
 
             render_ubo,
@@ -186,17 +213,17 @@ impl ChunkRendererVulkan {
             descriptor_sets: descriptor_sets,
 
             _pipeline_layout: pipeline_layout,
-            pipeline: pipeline, 
+            pipeline: pipeline,
         })
     }
 
     pub fn render(
-        &self, 
+        &self,
         buffer: &CommandBuffer,
         image_index: usize,
         extent: Extent2D,
         rendered_parts: u32,
-    ){
+    ) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_vertex_buffer(&self.vertex_buffer);
         buffer.bind_index_buffer(&self.index_buffer);
@@ -252,14 +279,12 @@ impl app::vulkan::Vertex for Vertex {
     }
 
     fn attributes() -> Vec<vk::VertexInputAttributeDescription> {
-        vec![
-            vk::VertexInputAttributeDescription {
-                binding: 0,
-                location: 0,
-                format: vk::Format::R32G32_SFLOAT,
-                offset: 0,
-            },
-        ]
+        vec![vk::VertexInputAttributeDescription {
+            binding: 0,
+            location: 0,
+            format: vk::Format::R32G32_SFLOAT,
+            offset: 0,
+        }]
     }
 }
 
@@ -283,10 +308,10 @@ pub struct PartUBO {
 }
 
 impl PartUBO {
-    pub fn new (transform: Transform) -> Self {
-        Self { 
+    pub fn new(transform: Transform) -> Self {
+        Self {
             transform: transform,
-            fill: 0.0
+            fill: 0.0,
         }
     }
 }

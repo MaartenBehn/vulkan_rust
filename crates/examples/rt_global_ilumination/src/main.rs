@@ -92,12 +92,7 @@ impl App for Reflections {
         let proj = base.camera.projection_matrix();
         let inverted_proj = proj.inverse();
 
-        let light_pos = [
-            gui.light.pos[0],
-            gui.light.pos[1],
-            gui.light.pos[2],
-            0.0,
-        ];
+        let light_pos = [gui.light.pos[0], gui.light.pos[1], gui.light.pos[2], 0.0];
         let light_color = [
             gui.light.color[0],
             gui.light.color[1],
@@ -209,8 +204,7 @@ impl app::Gui for Gui {
                 ui.text_wrapped("Light");
                 ui.separator();
 
-                ui.input_float3("pos", &mut self.light.pos)
-                    .build();
+                ui.input_float3("pos", &mut self.light.pos).build();
 
                 ui.color_picker3_config("color", &mut self.light.color)
                     .display_rgb(true)

@@ -1,64 +1,41 @@
-use app::glam::{UVec2, IVec2, ivec2};
+use app::glam::{ivec2, IVec2, UVec2};
 use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
-use crate::{settings::Settings, math::transform::Transform};
+use crate::{math::transform::Transform, settings::Settings};
 
-use super::{Chunk, particle::Particle, physics::PhysicsController, IdCounter};
+use super::{particle::Particle, physics::PhysicsController, Chunk, ChunkController, IdCounter};
 
 #[allow(dead_code)]
-impl Chunk {
-    pub fn new_cube(
-        trans: Transform, 
-        vel_trans: Transform, 
-        size: UVec2, 
-        id: usize,
-        part_id_counter: &mut IdCounter, 
-
-        settings: Settings,
-        physics_controller: &mut PhysicsController,
-    ) -> Self {
-
+impl ChunkController {
+    pub fn new_cube(&mut self, trans: Transform, vel_trans: Transform, size: UVec2) -> &Chunk {
         let mut particles = Vec::new();
 
         for x in 0..size.x {
             for y in 0..size.y {
-
                 let hex = UVec2::new(x, y);
                 particles.push((Particle::new(1, 1), hex.as_ivec2()))
             }
         }
 
-        Self::new(trans, vel_trans, particles, id, part_id_counter, true, settings, physics_controller)
+        self.add_chunk(trans, vel_trans, particles, true)
     }
 
-    pub fn new_hexagon(
-        trans: Transform, 
-        vel_trans: Transform, 
-        layers: usize, 
-        id: usize,
-        part_id_counter: &mut IdCounter, 
-        settings: Settings,
-        physics_controller: &mut PhysicsController,
-    ) -> Self {
-
+    pub fn new_hexagon(&mut self, trans: Transform, vel_trans: Transform, layers: usize) -> &Chunk {
         let points = hexagon_points(layers);
         let mut particles = Vec::new();
         for point in points {
             particles.push((Particle::new(1, 1), point))
         }
 
-        Self::new(trans, vel_trans, particles, id, part_id_counter, true, settings, physics_controller)
+        self.add_chunk(trans, vel_trans, particles, true)
     }
 
     pub fn new_noise_hexagon(
-        trans: Transform, 
-        vel_trans: Transform, 
-        layers: usize, 
-        id: usize,
-        part_id_counter: &mut IdCounter, 
-        settings: Settings,
-        physics_controller: &mut PhysicsController,
-    ) -> Self {
+        &mut self,
+        trans: Transform,
+        vel_trans: Transform,
+        layers: usize,
+    ) -> &Chunk {
         let points = hexagon_points(layers);
         let mut particles = Vec::new();
 
@@ -70,23 +47,21 @@ impl Chunk {
             }
         }
 
-        Self::new(trans, vel_trans, particles, id, part_id_counter, true, settings, physics_controller)
+        self.add_chunk(trans, vel_trans, particles, true)
     }
 }
 
 fn hexagon_points(layers: usize) -> Vec<IVec2> {
-
     let mut points = Vec::new();
 
     let hex_dirs = [
         IVec2::new(-1, 1),
         IVec2::new(-1, 0),
         IVec2::new(0, -1),
-
         IVec2::new(1, -1),
         IVec2::new(1, 0),
         IVec2::new(0, 1),
-        ];
+    ];
 
     let mut hex = IVec2::ZERO;
     points.push(hex);

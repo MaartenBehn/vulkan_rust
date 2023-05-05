@@ -175,9 +175,12 @@ impl CommandBuffer {
 
     pub fn bind_index_buffer(&self, index_buffer: &Buffer) {
         unsafe {
-            self.device
-                .inner
-                .cmd_bind_index_buffer(self.inner, index_buffer.inner, 0, IndexType::UINT32)
+            self.device.inner.cmd_bind_index_buffer(
+                self.inner,
+                index_buffer.inner,
+                0,
+                IndexType::UINT32,
+            )
         };
     }
 
@@ -524,7 +527,7 @@ pub struct BufferBarrier<'a> {
     pub dst_stage_mask: vk::PipelineStageFlags2,
 }
 
-pub struct MemoryBarrier{
+pub struct MemoryBarrier {
     pub src_access_mask: vk::AccessFlags2,
     pub dst_access_mask: vk::AccessFlags2,
     pub src_stage_mask: vk::PipelineStageFlags2,

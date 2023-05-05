@@ -1,17 +1,22 @@
 use std::mem::size_of;
 
-use app::{ImageAndView, BaseApp};
-use app::anyhow::{Result, Ok};
+use app::anyhow::{Ok, Result};
 use app::glam::Vec3;
-use app::vulkan::{WriteDescriptorSet, WriteDescriptorSetKind, ComputePipelineCreateInfo, CommandBuffer};
-use app::vulkan::{Context, Buffer, DescriptorPool, DescriptorSetLayout, DescriptorSet, PipelineLayout, ComputePipeline, gpu_allocator::MemoryLocation, ash::vk};
+use app::vulkan::{
+    ash::vk, gpu_allocator::MemoryLocation, Buffer, ComputePipeline, Context, DescriptorPool,
+    DescriptorSet, DescriptorSetLayout, PipelineLayout,
+};
+use app::vulkan::{
+    CommandBuffer, ComputePipelineCreateInfo, WriteDescriptorSet, WriteDescriptorSetKind,
+};
+use app::{BaseApp, ImageAndView};
 
 use crate::RayCaster;
 
 const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 32;
 const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
-pub struct Renderer{
+pub struct Renderer {
     pub ubo_buffer: Buffer,
     pub descriptor_pool: DescriptorPool,
     pub descriptor_layout: DescriptorSetLayout,
@@ -36,20 +41,18 @@ pub struct ComputeUbo {
 
 impl Renderer {
     pub fn new(
-        context: &Context, 
-        images_len: u32, 
-        storage_images: &Vec<ImageAndView>, 
-        octtree_buffer: &Buffer, 
+        context: &Context,
+        images_len: u32,
+        storage_images: &Vec<ImageAndView>,
+        octtree_buffer: &Buffer,
         octtree_info_buffer: &Buffer,
         material_buffer: &Buffer,
     ) -> Result<Self> {
-
         let ubo_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
             size_of::<ComputeUbo>() as _,
         )?;
-
 
         let descriptor_pool = context.create_descriptor_pool(
             images_len * 5,
@@ -115,11 +118,9 @@ impl Renderer {
             },
         ])?;
 
-
         let mut descriptor_sets = Vec::new();
         for i in 0..images_len {
-            let render_descriptor_set =
-            descriptor_pool.allocate_set(&descriptor_layout)?;
+            let render_descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
 
             render_descriptor_set.update(&[
                 WriteDescriptorSet {
@@ -137,28 +138,27 @@ impl Renderer {
                 },
                 WriteDescriptorSet {
                     binding: 2,
-                    kind: WriteDescriptorSetKind::StorageBuffer { 
-                        buffer: &octtree_buffer
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &octtree_buffer,
                     },
                 },
                 WriteDescriptorSet {
                     binding: 3,
-                    kind: WriteDescriptorSetKind::UniformBuffer {  
-                        buffer: &octtree_info_buffer
+                    kind: WriteDescriptorSetKind::UniformBuffer {
+                        buffer: &octtree_info_buffer,
                     },
                 },
                 WriteDescriptorSet {
                     binding: 4,
-                    kind: WriteDescriptorSetKind::StorageBuffer { 
-                        buffer: &material_buffer
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &material_buffer,
                     },
                 },
             ]);
             descriptor_sets.push(render_descriptor_set);
         }
 
-        let pipeline_layout =
-            context.create_pipeline_layout(&[&descriptor_layout])?;
+        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout])?;
 
         let pipeline = context.create_compute_pipeline(
             &pipeline_layout,
@@ -167,21 +167,21 @@ impl Renderer {
             },
         )?;
 
-        Ok(Renderer { 
-            ubo_buffer, 
-            descriptor_pool, 
-            descriptor_layout, 
-            descriptor_sets, 
-            pipeline_layout, 
-            pipeline
+        Ok(Renderer {
+            ubo_buffer,
+            descriptor_pool,
+            descriptor_layout,
+            descriptor_sets,
+            pipeline_layout,
+            pipeline,
         })
     }
 
     pub fn render(
-        &self, 
+        &self,
         base: &BaseApp<RayCaster>,
         buffer: &CommandBuffer,
-        image_index: usize
+        image_index: usize,
     ) -> Result<()> {
         buffer.bind_compute_pipeline(&self.pipeline);
 
@@ -193,11 +193,11 @@ impl Renderer {
         );
 
         buffer.dispatch(
-            (base.swapchain.extent.width / RENDER_DISPATCH_GROUP_SIZE_X) + 1, 
-            (base.swapchain.extent.height / RENDER_DISPATCH_GROUP_SIZE_Y) + 1, 
-            1);
+            (base.swapchain.extent.width / RENDER_DISPATCH_GROUP_SIZE_X) + 1,
+            (base.swapchain.extent.height / RENDER_DISPATCH_GROUP_SIZE_Y) + 1,
+            1,
+        );
 
         Ok(())
     }
-
 }

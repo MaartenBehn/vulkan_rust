@@ -1,10 +1,10 @@
-use std::time::{Duration};
+use std::time::Duration;
 
-use app::anyhow::{Result, ensure, Ok};
-use app::glam::{Vec3};
+use app::anyhow::{ensure, Ok, Result};
+use app::glam::Vec3;
 use app::vulkan::ash::vk::{self};
-use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind,};
-use app::{App, BaseApp, log};
+use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
+use app::{log, App, BaseApp};
 use gui::imgui::{Condition, Ui};
 
 mod octtree_controller;
@@ -30,7 +30,7 @@ const PRINT_DEBUG_LOADING: bool = false;
 const MOVEMENT_DEBUG_READ: bool = false;
 const SAVE_FOLDER: &str = "./assets/octtree";
 
-fn start() -> Result<()>{
+fn start() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
     app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
@@ -63,7 +63,6 @@ impl App for RayCaster {
     type Gui = Gui;
 
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
-
         let context = &mut base.context;
 
         let images = &base.swapchain.images;
@@ -73,46 +72,40 @@ impl App for RayCaster {
 
         let max_loaded_batches = 100;
         let octtree = StreamedOcttree::new(SAVE_FOLDER, max_loaded_batches)?;
-        let octtree_controller = OcttreeController::new(
-            context,
-            octtree, 
-            50000,
-            1000,
-            10000
-        )?;
+        let octtree_controller = OcttreeController::new(context, octtree, 50000, 1000, 10000)?;
 
         log::info!("Creating Materials");
         let material_controller = MaterialController::new(MaterialList::default(), context)?;
 
         log::info!("Creating Loader");
         let loader = OcttreeLoader::new(
-            context, 
-            &octtree_controller, 
-            &octtree_controller.octtree_buffer, 
+            context,
+            &octtree_controller,
+            &octtree_controller.octtree_buffer,
             &octtree_controller.octtree_info_buffer,
         )?;
 
         log::info!("Creating Renderer");
         let renderer = Renderer::new(
-            context, 
-            images_len, 
-            &base.storage_images, 
-            &octtree_controller.octtree_buffer, 
+            context,
+            images_len,
+            &base.storage_images,
+            &octtree_controller.octtree_buffer,
             &octtree_controller.octtree_info_buffer,
             &material_controller.material_buffer,
         )?;
 
         log::info!("Creating Builder");
         let builder = OcttreeBuilder::new(
-            context, 
-            &octtree_controller.octtree_buffer, 
+            context,
+            &octtree_controller.octtree_buffer,
             &octtree_controller.octtree_info_buffer,
             octtree_controller.buffer_size,
         )?;
 
         log::info!("Setting inital camera pos");
         base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
-        base.camera.direction = Vec3::new(1.0, 0.0,0.0).normalize();
+        base.camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
         base.camera.speed = 50.0;
 
         log::info!("Init done");
@@ -139,14 +132,18 @@ impl App for RayCaster {
         _: usize,
         delta_time: Duration,
     ) -> Result<()> {
-
         log::info!("Frame: {:?}", &self.frame_counter);
 
         self.total_time += delta_time;
-        
-        self.octtree_controller.octtree_info_buffer.copy_data_to_buffer(&[self.octtree_controller.octtree_info])?;
+
+        self.octtree_controller
+            .octtree_info_buffer
+            .copy_data_to_buffer(&[self.octtree_controller.octtree_info])?;
         self.renderer.ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
-            screen_size: [base.swapchain.extent.width as f32, base.swapchain.extent.height as f32],
+            screen_size: [
+                base.swapchain.extent.width as f32,
+                base.swapchain.extent.height as f32,
+            ],
             mode: gui.mode,
             debug_scale: gui.debug_scale,
 
@@ -160,24 +157,30 @@ impl App for RayCaster {
         self.builder.build_tree = gui.build || self.frame_counter == 0;
         self.loader.load_tree = gui.load && self.frame_counter != 0;
 
-        if  self.loader.load_tree {
-            let mut request_data: Vec<u32> = self.loader.request_buffer.get_data_from_buffer(REQUEST_STEP * self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE)?;
+        if self.loader.load_tree {
+            let mut request_data: Vec<u32> = self.loader.request_buffer.get_data_from_buffer(
+                REQUEST_STEP * self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE,
+            )?;
 
             // Debug data from load shader
             let render_counter = request_data[self.octtree_controller.transfer_size] as usize;
-            let needs_children_counter = request_data[self.octtree_controller.transfer_size + 1] as usize;
+            let needs_children_counter =
+                request_data[self.octtree_controller.transfer_size + 1] as usize;
 
             gui.render_counter = render_counter;
             gui.needs_children_counter = needs_children_counter;
 
             request_data.truncate(REQUEST_STEP * self.octtree_controller.transfer_size);
-            
-            let (requested_nodes, transfer_counter) = self.octtree_controller.get_requested_nodes(&request_data)?;
-            self.loader.transfer_buffer.copy_data_to_buffer(&requested_nodes)?;
-            
+
+            let (requested_nodes, transfer_counter) =
+                self.octtree_controller.get_requested_nodes(&request_data)?;
+            self.loader
+                .transfer_buffer
+                .copy_data_to_buffer(&requested_nodes)?;
+
             gui.transfer_counter = transfer_counter;
 
-            if PRINT_DEBUG_LOADING{
+            if PRINT_DEBUG_LOADING {
                 log::debug!("Render Counter: {:?}", &render_counter);
                 log::debug!("Needs Children Counter: {:?}", &needs_children_counter);
                 log::debug!("Transfer Counter: {:?}", &transfer_counter);
@@ -191,18 +194,18 @@ impl App for RayCaster {
         gui.dir = base.camera.direction;
         gui.octtree_buffer_size = self.octtree_controller.buffer_size;
         gui.transfer_buffer_size = self.octtree_controller.transfer_size;
-        gui.loaded_batches = ((self.octtree_controller.octtree.get_loaded_size() * 100) / self.octtree_controller.octtree.get_loaded_max_size()) as u32;
+        gui.loaded_batches = ((self.octtree_controller.octtree.get_loaded_size() * 100)
+            / self.octtree_controller.octtree.get_loaded_max_size())
+            as u32;
 
         self.octtree_controller.step();
 
-
         if MOVEMENT_DEBUG_READ {
-            self.movement_debug.read(&mut base.camera, self.frame_counter)?;
-        }
-        else{
+            self.movement_debug
+                .read(&mut base.camera, self.frame_counter)?;
+        } else {
             self.movement_debug.write(&base.camera)?;
         }
-
 
         self.frame_counter += 1;
 
@@ -241,9 +244,8 @@ impl App for RayCaster {
         &self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
-        image_index: usize
+        image_index: usize,
     ) -> Result<()> {
-
         if self.loader.load_tree {
             self.loader.render(base, buffer, image_index)?;
         }
@@ -302,7 +304,7 @@ pub struct Gui {
 impl app::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
-            frame : 0,
+            frame: 0,
             pos: Vec3::default(),
             dir: Vec3::default(),
             mode: 1,
@@ -349,40 +351,44 @@ impl app::Gui for Gui {
                 self.debug_scale = debug_scale as u32;
 
                 let mut build = self.build;
-                if ui.radio_button_bool("Build Tree", build){
+                if ui.radio_button_bool("Build Tree", build) {
                     build = !build;
                 }
                 self.build = build;
 
                 let mut load = self.load;
-                if ui.radio_button_bool("Load Tree", load){
+                if ui.radio_button_bool("Load Tree", load) {
                     load = !load;
                 }
                 self.load = load;
 
                 let render_counter = self.render_counter;
-                let percent = (self.render_counter as f32 / self.octtree_buffer_size as f32) * 100.0; 
-                ui.text(format!("Rendered Nodes: {render_counter} ({:.0}%)", percent));
+                let percent =
+                    (self.render_counter as f32 / self.octtree_buffer_size as f32) * 100.0;
+                ui.text(format!(
+                    "Rendered Nodes: {render_counter} ({:.0}%)",
+                    percent
+                ));
 
                 let needs_children = self.needs_children_counter;
                 ui.text(format!("Needs Children: {needs_children}"));
 
-
                 let transfer_counter = self.transfer_counter;
-                let percent = (self.transfer_counter as f32 / self.transfer_buffer_size as f32) * 100.0; 
-                ui.text(format!("Transfered Nodes: {transfer_counter} ({:.0}%)", percent));
+                let percent =
+                    (self.transfer_counter as f32 / self.transfer_buffer_size as f32) * 100.0;
+                ui.text(format!(
+                    "Transfered Nodes: {transfer_counter} ({:.0}%)",
+                    percent
+                ));
 
                 let mut step_to_root = self.step_to_root;
-                if ui.radio_button_bool("Step to Root", step_to_root){
+                if ui.radio_button_bool("Step to Root", step_to_root) {
                     step_to_root = !step_to_root;
                 }
                 self.step_to_root = step_to_root;
 
                 let loaded_batches = self.loaded_batches;
                 ui.text(format!("Loaded Batches: {loaded_batches}"));
-
             });
     }
 }
-
-

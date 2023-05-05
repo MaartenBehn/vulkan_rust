@@ -1,9 +1,22 @@
-use std::{mem::{size_of, align_of}, sync::mpsc::Receiver};
+use std::{
+    mem::{align_of, size_of},
+    sync::mpsc::Receiver,
+};
 
-use app::{glam::{Vec2,  Vec3}, vulkan::{Context, Buffer, ash::vk::{self, Extent2D, ColorComponentFlags, BlendOp, BlendFactor}, PipelineLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, CommandBuffer, gpu_allocator::MemoryLocation, WriteDescriptorSet, WriteDescriptorSetKind, DescriptorPool, DescriptorSetLayout, DescriptorSet}, anyhow::Ok};
 use app::anyhow::Result;
+use app::{
+    anyhow::Ok,
+    glam::{Vec2, Vec3},
+    vulkan::{
+        ash::vk::{self, BlendFactor, BlendOp, ColorComponentFlags, Extent2D},
+        gpu_allocator::MemoryLocation,
+        Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
+        GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout,
+        WriteDescriptorSet, WriteDescriptorSetKind,
+    },
+};
 
-use crate::{camera::Camera, settings::Settings, render::vulkan::RenderUBO};
+use crate::{camera::Camera, render::vulkan::RenderUBO, settings::Settings};
 
 pub struct DebugRenderer {
     max_lines: usize,
@@ -20,18 +33,17 @@ pub struct DebugRenderer {
     _pipeline_layout: PipelineLayout,
     pipeline: GraphicsPipeline,
 
-    from_controller: Receiver<(Vec2, Vec2, Vec3)>
+    from_controller: Receiver<(Vec2, Vec2, Vec3)>,
 }
 
 impl DebugRenderer {
-    pub fn new (
+    pub fn new(
         context: &Context,
         color_attachment_format: vk::Format,
         images_len: u32,
         from_controller: Receiver<(Vec2, Vec2, Vec3)>,
         settings: Settings,
     ) -> Result<Self> {
-       
         let vertex_buffer = context.create_buffer(
             vk::BufferUsageFlags::VERTEX_BUFFER,
             MemoryLocation::CpuToGpu,
@@ -46,37 +58,31 @@ impl DebugRenderer {
 
         let descriptor_pool = context.create_descriptor_pool(
             images_len * 1,
-            &[
-                vk::DescriptorPoolSize {
-                    ty: vk::DescriptorType::UNIFORM_BUFFER,
-                    descriptor_count: images_len,
-                },
-            ],
+            &[vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: images_len,
+            }],
         )?;
 
-        let descriptor_layout = context.create_descriptor_set_layout(&[
-            vk::DescriptorSetLayoutBinding {
+        let descriptor_layout =
+            context.create_descriptor_set_layout(&[vk::DescriptorSetLayoutBinding {
                 binding: 0,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
                 stage_flags: vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
                 ..Default::default()
-            },
-        ])?;
+            }])?;
 
         let mut descriptor_sets = Vec::new();
         for _ in 0..images_len {
-            let render_descriptor_set =
-            descriptor_pool.allocate_set(&descriptor_layout)?;
+            let render_descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
 
-            render_descriptor_set.update(&[
-                WriteDescriptorSet {
-                    binding: 0,
-                    kind: WriteDescriptorSetKind::UniformBuffer {
-                        buffer: &render_ubo,
-                    },
+            render_descriptor_set.update(&[WriteDescriptorSet {
+                binding: 0,
+                kind: WriteDescriptorSetKind::UniformBuffer {
+                    buffer: &render_ubo,
                 },
-            ]);
+            }]);
             descriptor_sets.push(render_descriptor_set);
         }
 
@@ -85,11 +91,9 @@ impl DebugRenderer {
         let color_blending = vk::PipelineColorBlendAttachmentState::builder()
             .color_write_mask(ColorComponentFlags::RGBA)
             .blend_enable(false)
-
             .src_color_blend_factor(BlendFactor::ONE)
             .dst_color_blend_factor(BlendFactor::ONE)
             .color_blend_op(BlendOp::MIN)
-
             .src_alpha_blend_factor(BlendFactor::ONE)
             .dst_alpha_blend_factor(BlendFactor::ZERO)
             .alpha_blend_op(BlendOp::ADD)
@@ -116,39 +120,35 @@ impl DebugRenderer {
             },
         )?;
 
-        Ok(Self { 
+        Ok(Self {
             max_lines: settings.max_lines,
 
             lines: Vec::new(),
 
             vertex_buffer: vertex_buffer,
-            _render_ubo: render_ubo, 
+            _render_ubo: render_ubo,
 
             _descriptor_pool: descriptor_pool,
             _descriptor_layout: descriptor_layout,
             descriptor_sets: descriptor_sets,
 
             _pipeline_layout: pipeline_layout,
-            pipeline: pipeline, 
+            pipeline: pipeline,
 
             from_controller,
         })
     }
 
-    fn add_line (&mut self, x: Vec2, y: Vec2, color: Vec3){
+    fn add_line(&mut self, x: Vec2, y: Vec2, color: Vec3) {
         self.lines.push(Vertex::new(x, color));
         self.lines.push(Vertex::new(y, color));
     }
 
-    fn clear_lines (&mut self){
+    fn clear_lines(&mut self) {
         self.lines.clear();
     }
 
-    pub fn update (
-        &mut self, 
-        camera: &Camera,
-    ) -> Result<()>{
-
+    pub fn update(&mut self, camera: &Camera) -> Result<()> {
         loop {
             let result = self.from_controller.try_recv();
             if result.is_err() {
@@ -171,20 +171,17 @@ impl DebugRenderer {
                 self.lines.push(Vertex::new(Vec2::ZERO, Vec3::ZERO));
             }
         }
-            
-        self.vertex_buffer.copy_data_to_buffer(&self.lines, 0, align_of::<Vertex>())?;
 
-        self._render_ubo.copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())], 0, 16)?;
-        
+        self.vertex_buffer
+            .copy_data_to_buffer(&self.lines, 0, align_of::<Vertex>())?;
+
+        self._render_ubo
+            .copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())], 0, 16)?;
+
         Ok(())
     }
 
-    pub fn render(
-        &self, 
-        buffer: &CommandBuffer,
-        image_index: usize,
-        extent: Extent2D,
-    ){
+    pub fn render(&self, buffer: &CommandBuffer, image_index: usize, extent: Extent2D) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_vertex_buffer(&self.vertex_buffer);
 
@@ -202,7 +199,6 @@ impl DebugRenderer {
     }
 }
 
-
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 struct Vertex {
@@ -211,7 +207,7 @@ struct Vertex {
 }
 
 impl Vertex {
-    fn new (pos: Vec2, color: Vec3) -> Self {
+    fn new(pos: Vec2, color: Vec3) -> Self {
         Self { pos, color }
     }
 }

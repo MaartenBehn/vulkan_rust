@@ -1,7 +1,14 @@
-use app::glam::{vec2, Vec2, ivec2};
-use rapier2d::{prelude::*, crossbeam::{self, channel::Receiver}};
+use app::glam::{ivec2, vec2, Vec2};
+use rapier2d::{
+    crossbeam::{self, channel::Receiver},
+    prelude::*,
+};
 
-use crate::{chunk::{chunk::Chunk, ChunkController}, math::transform::Transform, settings::{self, Settings}};
+use crate::{
+    chunk::{chunk::Chunk, ChunkController},
+    math::transform::Transform,
+    settings::Settings,
+};
 
 use self::destruction::DestructionSolver;
 
@@ -10,7 +17,7 @@ use super::IdCounter;
 pub mod collider;
 pub mod destruction;
 
-pub struct PhysicsController{
+pub struct PhysicsController {
     pub rigid_body_set: RigidBodySet,
     pub collider_set: ColliderSet,
 
@@ -32,10 +39,9 @@ pub struct PhysicsController{
 
 impl PhysicsController {
     pub fn new() -> Self {
-
         let rigid_body_set = RigidBodySet::new();
         let collider_set = ColliderSet::new();
-    
+
         /* Create other structures necessary for the simulation. */
         let integration_parameters = IntegrationParameters::default();
         let physics_pipeline = PhysicsPipeline::new();
@@ -52,29 +58,28 @@ impl PhysicsController {
 
         let destruction_solver = DestructionSolver::new();
 
-        Self { 
-            rigid_body_set, 
-            collider_set, 
+        Self {
+            rigid_body_set,
+            collider_set,
 
-            integration_parameters, 
-            physics_pipeline, 
-            island_manager, 
-            broad_phase, 
-            narrow_phase, 
-            impulse_joint_set, 
-            multibody_joint_set, 
+            integration_parameters,
+            physics_pipeline,
+            island_manager,
+            broad_phase,
+            narrow_phase,
+            impulse_joint_set,
+            multibody_joint_set,
             ccd_solver,
 
             collision_recv,
             contact_force_recv,
             event_handler,
 
-            destruction_solver
+            destruction_solver,
         }
     }
 
     pub fn add_chunk(&mut self, chunk: &mut Chunk, vel: Transform) -> RigidBodyHandle {
-
         let pos = chunk.transform.pos;
         let rot = chunk.transform.rot;
 
@@ -94,10 +99,20 @@ impl PhysicsController {
         rb_handle
     }
 
-    pub fn step (&mut self, chunks: &mut Vec<Chunk>, chunk_id_counter: &mut IdCounter, part_id_counter: &mut IdCounter, settings: Settings, ){
+    pub fn remove_chunk(&mut self, chunk: &Chunk) {
+        self.rigid_body_set.remove(
+            chunk.rb_handle,
+            &mut self.island_manager,
+            &mut self.collider_set,
+            &mut self.impulse_joint_set,
+            &mut self.multibody_joint_set,
+            true,
+        );
+    }
 
+    pub fn step(&mut self) {
         let gravity = vector![0.0, 0.0];
-        
+
         self.physics_pipeline.step(
             &gravity,
             &self.integration_parameters,
@@ -112,33 +127,16 @@ impl PhysicsController {
             None,
             &(),
             &self.event_handler,
-          );
+        );
 
-        while let Ok(collision_event) = self.collision_recv.try_recv() {
-            // Handle the collision event.
-        }
-        
-        while let Ok(contact_force_event) = self.contact_force_recv.try_recv() {
-            // Handle the contact force event.
-            let rb0 = &self.rigid_body_set[self.collider_set[contact_force_event.collider1].parent().unwrap()];
-            let rb1 = &self.rigid_body_set[self.collider_set[contact_force_event.collider2].parent().unwrap()];
-
-            let chunk0 = &chunks[rb0.user_data as usize];
-            let chunk1 = &chunks[rb1.user_data as usize];
-
-            let new_chunks0 = self.destruction_solver.patterns[0].apply_to_chunk(chunk0, ivec2(0, 0), part_id_counter, settings, self);
-            let new_chunks1 = self.destruction_solver.patterns[0].apply_to_chunk(chunk1, ivec2(0, 0), part_id_counter, settings, self);
-
-            
-
-        }
+        while let Ok(collision_event) = self.collision_recv.try_recv() {}
     }
 
     pub fn update_chunk(&mut self, chunk: &mut Chunk) {
         let rb = &mut self.rigid_body_set[chunk.rb_handle];
         let pos = rb.translation();
         let rot = rb.rotation();
-        
+
         chunk.transform.pos = vec2(pos.x, pos.y);
         chunk.transform.rot = rot.angle();
 
@@ -151,25 +149,24 @@ impl PhysicsController {
 
     pub fn get_velocity(&self, chunk: &Chunk) -> Transform {
         let rb = &self.rigid_body_set[chunk.rb_handle];
-        Transform::new(vec2(rb.linvel().x, rb.linvel().y), rb.angvel())  
+        Transform::new(vec2(rb.linvel().x, rb.linvel().y), rb.angvel())
     }
-
-
 }
 
 impl ChunkController {
-    pub fn update_gravity(&mut self){
-
+    pub fn update_gravity(&mut self) {
         let l = self.chunks.len();
         for i in 0..l {
-            for j in (i+1)..l {
+            for j in (i + 1)..l {
                 let chunk0 = &self.chunks[i];
                 let chunk1 = &self.chunks[j];
 
                 let diff = chunk0.transform.pos - chunk1.transform.pos;
                 let dist = diff.length();
-                let force = f32::min((self.settings.gravity_factor * chunk0.mass * chunk1.mass) 
-                    / (dist * dist), self.settings.gravity_max_force);
+                let force = f32::min(
+                    (self.settings.gravity_factor * chunk0.mass * chunk1.mass) / (dist * dist),
+                    self.settings.gravity_max_force,
+                );
 
                 let force = diff * (1.0 / dist) * force;
 

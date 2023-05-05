@@ -1,22 +1,21 @@
 use std::mem::size_of;
 
+use app::anyhow::Result;
 use app::log;
-use app::vulkan::Buffer;
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
-use app::{vulkan::Context};
-use app::anyhow::Result;
-use octtree::Tree;
+use app::vulkan::Buffer;
+use app::vulkan::Context;
 use octtree::octtree_node::OcttreeNode;
+use octtree::Tree;
 
 use crate::octtree_loader::REQUEST_STEP;
 
-
-pub struct OcttreeController<T: Tree>{
+pub struct OcttreeController<T: Tree> {
     pub octtree: T,
     pub octtree_info: OcttreeInfo,
 
-    pub buffer_size: usize, 
+    pub buffer_size: usize,
     pub transfer_size: usize,
 
     pub octtree_buffer: Buffer,
@@ -39,19 +38,18 @@ pub struct OcttreeInfo {
 
 impl<T: Tree> OcttreeController<T> {
     pub fn new(
-        context: &Context, 
-        octtree: T, 
-        buffer_size: usize, 
+        context: &Context,
+        octtree: T,
+        buffer_size: usize,
         transfer_size: usize,
         loader_size: usize,
     ) -> Result<Self> {
-
         let depth = octtree.get_depth();
         let size = octtree.get_max_size();
 
         let octtree_buffer = context.create_buffer(
-            vk::BufferUsageFlags::STORAGE_BUFFER, 
-            MemoryLocation::GpuOnly, 
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            MemoryLocation::GpuOnly,
             (size_of::<u32>() * 4 * 4 * buffer_size) as _,
         )?;
 
@@ -61,40 +59,40 @@ impl<T: Tree> OcttreeController<T> {
             size_of::<OcttreeInfo>() as _,
         )?;
 
-        Ok(OcttreeController { 
-            octtree, 
-            octtree_info: OcttreeInfo { 
-                tree_size_0:            size as u32, 
-                tree_size_1:            (size >> 32) as u32,
-                buffer_size:            buffer_size as u32, 
-                transfer_buffer_size:   transfer_size as u32, 
+        Ok(OcttreeController {
+            octtree,
+            octtree_info: OcttreeInfo {
+                tree_size_0: size as u32,
+                tree_size_1: (size >> 32) as u32,
+                buffer_size: buffer_size as u32,
+                transfer_buffer_size: transfer_size as u32,
 
-                depth:                  depth as u32, 
-                loader_size:            loader_size as u32, 
-                fill_0:                 0,
-                fill_1:                 0,
+                depth: depth as u32,
+                loader_size: loader_size as u32,
+                fill_0: 0,
+                fill_1: 0,
             },
 
-            buffer_size:        buffer_size, 
-            transfer_size:      transfer_size,
+            buffer_size: buffer_size,
+            transfer_size: transfer_size,
 
             octtree_buffer,
-            octtree_info_buffer
+            octtree_info_buffer,
         })
     }
 
-    pub fn step(& mut self){
-        
-        
-    }
+    pub fn step(&mut self) {}
 
-    pub fn get_requested_nodes(&mut self, requested_data: &Vec<u32>) -> Result<(Vec<OcttreeNode>, usize)> {
-
+    pub fn get_requested_nodes(
+        &mut self,
+        requested_data: &Vec<u32>,
+    ) -> Result<(Vec<OcttreeNode>, usize)> {
         let mut nodes = vec![OcttreeNode::default(); self.transfer_size];
 
         let mut counter = 0;
         for i in 0..self.transfer_size {
-            let id = (requested_data[i * REQUEST_STEP] as u64) + ((requested_data[i * REQUEST_STEP + 1] as u64) << 32);
+            let id = (requested_data[i * REQUEST_STEP] as u64)
+                + ((requested_data[i * REQUEST_STEP + 1] as u64) << 32);
             let child_nr = requested_data[i * REQUEST_STEP + 2] as usize;
             let depth = requested_data[i * REQUEST_STEP + 3] as u16;
 
@@ -111,6 +109,6 @@ impl<T: Tree> OcttreeController<T> {
             }
         }
 
-        Ok((nodes, counter)) 
+        Ok((nodes, counter))
     }
 }

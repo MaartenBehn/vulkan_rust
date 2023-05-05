@@ -10,7 +10,7 @@
                 "statusbar": {
                     "hide" : true
                 }
-            }
+            },
         },
         {
             "label": "build_release",
@@ -20,7 +20,7 @@
                 "statusbar": {
                     "hide" : true
                 }
-            }
+            },
         },
         {
             "label": "build_debug_octtree_builder",

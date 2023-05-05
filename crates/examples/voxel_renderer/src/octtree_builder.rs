@@ -1,13 +1,16 @@
-use app::BaseApp;
 use app::anyhow::Result;
 use app::vulkan::ash::vk;
-use app::vulkan::{Context, DescriptorPool, DescriptorSetLayout, DescriptorSet, PipelineLayout, ComputePipeline, Buffer, WriteDescriptorSet, WriteDescriptorSetKind, ComputePipelineCreateInfo, CommandBuffer};
+use app::vulkan::{
+    Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context, DescriptorPool,
+    DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
+};
+use app::BaseApp;
 
 use crate::RayCaster;
 
 const BUILD_DISPATCH_GROUP_SIZE: u32 = 32;
 
-pub struct OcttreeBuilder{
+pub struct OcttreeBuilder {
     pub buffer_size: u32,
     pub build_tree: bool,
     pub descriptor_pool: DescriptorPool,
@@ -17,14 +20,13 @@ pub struct OcttreeBuilder{
     pub pipeline: ComputePipeline,
 }
 
-impl OcttreeBuilder{
+impl OcttreeBuilder {
     pub fn new(
-        context: &Context, 
-        octtree_buffer: &Buffer, 
+        context: &Context,
+        octtree_buffer: &Buffer,
         octtree_info_buffer: &Buffer,
         buffer_size: usize,
     ) -> Result<Self> {
-
         let descriptor_pool = context.create_descriptor_pool(
             2,
             &[
@@ -60,20 +62,19 @@ impl OcttreeBuilder{
         descriptor_set.update(&[
             WriteDescriptorSet {
                 binding: 0,
-                kind: WriteDescriptorSetKind::StorageBuffer { 
-                    buffer: &octtree_buffer
-                } 
+                kind: WriteDescriptorSetKind::StorageBuffer {
+                    buffer: &octtree_buffer,
+                },
             },
             WriteDescriptorSet {
                 binding: 1,
-                kind: WriteDescriptorSetKind::UniformBuffer {  
-                    buffer: &octtree_info_buffer
-                } 
+                kind: WriteDescriptorSetKind::UniformBuffer {
+                    buffer: &octtree_info_buffer,
+                },
             },
         ]);
 
-        let pipeline_layout =
-            context.create_pipeline_layout(&[&descriptor_layout])?;
+        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout])?;
 
         let pipeline = context.create_compute_pipeline(
             &pipeline_layout,
@@ -82,7 +83,7 @@ impl OcttreeBuilder{
             },
         )?;
 
-        Ok(OcttreeBuilder{
+        Ok(OcttreeBuilder {
             buffer_size: buffer_size as u32,
             build_tree: true,
             descriptor_pool,
@@ -94,10 +95,10 @@ impl OcttreeBuilder{
     }
 
     pub fn render(
-        &self, 
+        &self,
         _base: &BaseApp<RayCaster>,
         buffer: &CommandBuffer,
-        _image_index: usize
+        _image_index: usize,
     ) -> Result<()> {
         buffer.bind_compute_pipeline(&self.pipeline);
 
@@ -105,12 +106,12 @@ impl OcttreeBuilder{
             vk::PipelineBindPoint::COMPUTE,
             &self.pipeline_layout,
             0,
-        &[&self.descriptor_set],
+            &[&self.descriptor_set],
         );
 
         buffer.dispatch(
-            (self.buffer_size as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1, 
-            1, 
+            (self.buffer_size as u32 / BUILD_DISPATCH_GROUP_SIZE) + 1,
+            1,
             1,
         );
 

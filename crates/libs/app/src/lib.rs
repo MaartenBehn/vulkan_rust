@@ -19,7 +19,8 @@ use gui::{
 use logger::log_init;
 use std::{
     marker::PhantomData,
-    time::{Duration, Instant}, thread,
+    thread,
+    time::{Duration, Instant},
 };
 use vulkan::*;
 use winit::{
@@ -141,15 +142,19 @@ pub fn run<A: App + 'static>(
     enable_raytracing: bool,
     enabled_compute_rendering: bool,
 ) -> Result<()> {
-    
     log_init("app_log.log");
-    
+
     let (window, event_loop) = create_window(app_name, width, height);
 
-    let mut base_app = BaseApp::new(&window, app_name, enable_raytracing, enabled_compute_rendering)?;
+    let mut base_app = BaseApp::new(
+        &window,
+        app_name,
+        enable_raytracing,
+        enabled_compute_rendering,
+    )?;
 
     let mut ui = A::Gui::new()?;
-    
+
     let mut app = A::new(&mut base_app)?;
     let mut gui_context = GuiContext::new(
         &base_app.context,
@@ -181,9 +186,9 @@ pub fn run<A: App + 'static>(
             Event::NewEvents(_) => {
                 let frame_start = Instant::now();
                 let frame_time = frame_start - last_frame;
-                let compute_time = frame_start- last_frame_start;
+                let compute_time = frame_start - last_frame_start;
                 last_frame = frame_start;
-                
+
                 if fps_as_duration > compute_time {
                     thread::sleep(fps_as_duration - compute_time)
                 };
@@ -222,9 +227,6 @@ pub fn run<A: App + 'static>(
                 is_swapchain_dirty = base_app
                     .draw(&window, app, &mut gui_context, &mut ui, &mut frame_stats)
                     .expect("Failed to tick");
-
-
-                
             }
             // Keyboard
             Event::WindowEvent {
@@ -285,7 +287,12 @@ fn create_window(app_name: &str, width: u32, height: u32) -> (Window, EventLoop<
 }
 
 impl<B: App> BaseApp<B> {
-    fn new(window: &Window, app_name: &str, enable_raytracing: bool, enabled_compute_rendering: bool) -> Result<Self> {
+    fn new(
+        window: &Window,
+        app_name: &str,
+        enable_raytracing: bool,
+        enabled_compute_rendering: bool,
+    ) -> Result<Self> {
         log::info!("Creating App");
 
         // Vulkan context
@@ -567,7 +574,7 @@ impl<B: App> BaseApp<B> {
             base_app.record_compute_commands(self, buffer, image_index)?;
         }
 
-        if self.raytracing_enabled || self.compute_rendering_enabled{
+        if self.raytracing_enabled || self.compute_rendering_enabled {
             let storage_image = &self.storage_images[image_index].image;
             // Copy ray tracing result into swapchain
             buffer.pipeline_image_barriers(&[
@@ -586,7 +593,8 @@ impl<B: App> BaseApp<B> {
                     new_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     src_access_mask: vk::AccessFlags2::SHADER_WRITE,
                     dst_access_mask: vk::AccessFlags2::TRANSFER_READ,
-                    src_stage_mask: vk::PipelineStageFlags2::COMPUTE_SHADER | vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
+                    src_stage_mask: vk::PipelineStageFlags2::COMPUTE_SHADER
+                        | vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
                     dst_stage_mask: vk::PipelineStageFlags2::TRANSFER,
                 },
             ]);
@@ -618,8 +626,7 @@ impl<B: App> BaseApp<B> {
                     dst_stage_mask: vk::PipelineStageFlags2::ALL_COMMANDS,
                 },
             ]);
-        }
-        else {
+        } else {
             buffer.pipeline_image_barriers(&[ImageBarrier {
                 image: swapchain_image,
                 old_layout: vk::ImageLayout::UNDEFINED,
@@ -825,11 +832,11 @@ impl FrameStats {
     const MAX_LOG_SIZE: usize = 1000;
 
     fn tick(&mut self) {
-
         // push log
         self.frame_time_ms_log
             .push(self.previous_frame_time.as_millis() as _);
-        self.compute_time_ms_log.push(self.previous_compute_time.as_millis() as _);
+        self.compute_time_ms_log
+            .push(self.previous_compute_time.as_millis() as _);
         self.gpu_time_ms_log.push(self.gpu_time.as_millis() as _);
 
         // increment counter

@@ -2,6 +2,7 @@ pub extern crate ash;
 pub extern crate ash_window;
 pub extern crate gpu_allocator;
 
+mod align;
 mod buffer;
 mod command;
 mod context;
@@ -18,7 +19,6 @@ mod sampler;
 mod surface;
 mod swapchain;
 mod sync;
-mod align;
 
 pub mod utils;
 

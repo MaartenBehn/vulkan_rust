@@ -1,10 +1,10 @@
+use ash::vk::{self, DeviceSize};
 use std::iter::Iterator;
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::os::raw::c_void;
 use std::slice::from_raw_parts_mut;
 use std::{io, slice};
-use ash::vk::{self, DeviceSize};
 
 /// [`Align`] handles dynamic alignment. The is useful for dynamic uniform buffers where
 /// the alignment might be different. For example a 4x4 f32 matrix has a size of 64 bytes
@@ -32,14 +32,14 @@ fn calc_padding(adr: vk::DeviceSize, align: vk::DeviceSize) -> vk::DeviceSize {
     (align - adr % align) % align
 }
 
-
-impl<T: Copy> Align<T>{
-    pub fn copy_from_slice<>(&mut self, data: &[T]){
+impl<T: Copy> Align<T> {
+    pub fn copy_from_slice(&mut self, data: &[T]) {
         if self.elem_size == size_of::<T>() as u64 {
             unsafe {
                 let mapped_slice = from_raw_parts_mut(
-                    (self.ptr.cast::<u8>()).offset(self.start as isize).cast(), 
-                    data.len());
+                    (self.ptr.cast::<u8>()).offset(self.start as isize).cast(),
+                    data.len(),
+                );
                 mapped_slice.copy_from_slice(data);
             }
         } else {
@@ -49,8 +49,7 @@ impl<T: Copy> Align<T>{
         }
     }
 
-    pub fn copy_to_slice(&mut self, count: usize) -> Vec<T>{
-
+    pub fn copy_to_slice(&mut self, count: usize) -> Vec<T> {
         let mut data = Vec::with_capacity(count);
         for (_, val) in self.iter_mut().enumerate().take(count) {
             data.push(*val);
@@ -60,9 +59,13 @@ impl<T: Copy> Align<T>{
     }
 }
 
-
 impl<T> Align<T> {
-    pub unsafe fn new(ptr: *mut c_void, alignment: vk::DeviceSize, count: usize, offset: usize) -> Self {
+    pub unsafe fn new(
+        ptr: *mut c_void,
+        alignment: vk::DeviceSize,
+        count: usize,
+        offset: usize,
+    ) -> Self {
         let padding = calc_padding(size_of::<T>() as vk::DeviceSize, alignment);
         let elem_size = size_of::<T>() as vk::DeviceSize + padding;
         //assert!(calc_padding(size, alignment) == 0, "size must be aligned");
@@ -81,8 +84,6 @@ impl<T> Align<T> {
             align: self,
         }
     }
-
-    
 }
 
 impl<'a, T: Copy + 'a> Iterator for AlignIter<'a, T> {

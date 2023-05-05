@@ -1,6 +1,7 @@
 use std::{
-    mem::{align_of, size_of_val, size_of},
-    sync::{Arc, Mutex}, slice::from_raw_parts_mut,
+    mem::{align_of, size_of, size_of_val},
+    slice::from_raw_parts_mut,
+    sync::{Arc, Mutex},
 };
 
 use anyhow::Result;
@@ -10,7 +11,7 @@ use gpu_allocator::{
     MemoryLocation,
 };
 
-use crate::{device::Device, Context, align::Align};
+use crate::{align::Align, device::Device, Context};
 
 pub struct Buffer {
     device: Arc<Device>,
@@ -53,7 +54,12 @@ impl Buffer {
         })
     }
 
-    pub fn copy_data_to_buffer<T: Copy>(&self, data: &[T], offset: usize, alignment: usize) -> Result<()> {
+    pub fn copy_data_to_buffer<T: Copy>(
+        &self,
+        data: &[T],
+        offset: usize,
+        alignment: usize,
+    ) -> Result<()> {
         unsafe {
             let data_ptr = self
                 .allocation
@@ -70,8 +76,12 @@ impl Buffer {
         Ok(())
     }
 
-    pub fn get_data_from_buffer<T: Copy>(&self, count: usize, offset: usize, alignment: usize) -> Result<Vec<T>> {
-        
+    pub fn get_data_from_buffer<T: Copy>(
+        &self,
+        count: usize,
+        offset: usize,
+        alignment: usize,
+    ) -> Result<Vec<T>> {
         let data;
         unsafe {
             let data_ptr = self

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use app::anyhow::Result;
 use app::vulkan::ash::vk;
-use app::vulkan::{CommandBuffer};
+use app::vulkan::CommandBuffer;
 use app::{App, BaseApp};
 
 use camera::Camera;
@@ -13,13 +13,13 @@ use debug::render::DebugRenderer;
 use render::ChunkRenderer;
 use settings::Settings;
 
-mod chunk;
-mod render;
 mod aabb;
 mod camera;
+mod chunk;
 mod debug;
-mod settings;
 mod math;
+mod render;
+mod settings;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -43,42 +43,34 @@ impl App for Astrinder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
-
         let settings = Settings::default();
-
 
         let (transform_sender, transform_reciver) = mpsc::channel();
         let (particle_sender, particle_reciver) = mpsc::channel();
         let (debug_sender, debug_reciver) = mpsc::channel();
 
-
-
         let chunk_renderer = ChunkRenderer::new(
-            context, 
+            context,
             base.swapchain.format,
             base.swapchain.images.len() as u32,
             transform_reciver,
             particle_reciver,
-            settings
+            settings,
         )?;
 
-        let debug_renderer = DebugRenderer::new(context, 
+        let debug_renderer = DebugRenderer::new(
+            context,
             base.swapchain.format,
             base.swapchain.images.len() as u32,
             debug_reciver,
-            settings
+            settings,
         )?;
 
         let chunk_controller_handle = thread::spawn(move || {
-            let mut chunk_controller = ChunkController::new(
-                transform_sender, 
-                particle_sender,
-                debug_sender,
-                settings,
-            );
+            let mut chunk_controller =
+                ChunkController::new(transform_sender, particle_sender, debug_sender, settings);
             chunk_controller.run(settings);
         });
-
 
         let camera = Camera::new(base.swapchain.extent);
 
@@ -86,7 +78,7 @@ impl App for Astrinder {
             chunk_renderer,
             camera,
             debug_renderer,
-            chunk_controller_handle, 
+            chunk_controller_handle,
         })
     }
 
@@ -123,19 +115,17 @@ impl App for Astrinder {
             vk::AttachmentLoadOp::CLEAR,
             None,
         );
-        
-        self.chunk_renderer.render(buffer, image_index, base.swapchain.extent);
+
+        self.chunk_renderer
+            .render(buffer, image_index, base.swapchain.extent);
 
         if ENABLE_DEBUG_RENDER && cfg!(debug_assertions) {
-            self.debug_renderer.render(buffer, image_index, base.swapchain.extent);
+            self.debug_renderer
+                .render(buffer, image_index, base.swapchain.extent);
         }
-        
+
         buffer.end_rendering();
 
         Ok(())
     }
 }
-
-
-
-

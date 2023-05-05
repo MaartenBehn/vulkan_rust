@@ -1,7 +1,11 @@
-use std::ffi::{c_void, CStr, CString, c_char};
+use std::ffi::{c_char, c_void, CStr, CString};
 
-use anyhow::{Result, ensure};
-use ash::{extensions::ext::DebugUtils, vk::{self, DebugUtilsMessengerEXT}, Entry, Instance as AshInstance};
+use anyhow::{ensure, Result};
+use ash::{
+    extensions::ext::DebugUtils,
+    vk::{self, DebugUtilsMessengerEXT},
+    Entry, Instance as AshInstance,
+};
 use raw_window_handle::HasRawDisplayHandle;
 
 use crate::{physical_device::PhysicalDevice, surface::Surface, Version};
@@ -28,7 +32,6 @@ impl Instance {
             .application_name(app_name.as_c_str())
             .api_version(api_version.make_api_version());
 
-
         let mut extension_names =
             ash_window::enumerate_required_extensions(display_handle.raw_display_handle())?
                 .to_vec();
@@ -40,7 +43,6 @@ impl Instance {
         let mut instance_create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_extension_names(&extension_names);
-
 
         // Validation
         #[cfg(debug_assertions)]
@@ -54,15 +56,15 @@ impl Instance {
         // Debug Printing
         #[cfg(debug_assertions)]
         let mut validation_features = vk::ValidationFeaturesEXT::builder()
-                .enabled_validation_features(&[vk::ValidationFeatureEnableEXT::DEBUG_PRINTF]);
+            .enabled_validation_features(&[vk::ValidationFeatureEnableEXT::DEBUG_PRINTF]);
         #[cfg(debug_assertions)]
         {
             instance_create_info = instance_create_info.push_next(&mut validation_features);
         }
-        
+
         // Creating Instance
         let inner = unsafe { entry.create_instance(&instance_create_info, None)? };
-        
+
         // Validation
         let debug_report_callback = setup_debug_messenger(&entry, &inner);
 
@@ -97,7 +99,6 @@ impl Instance {
         Ok(&self.physical_devices)
     }
 }
-
 
 /// Get the pointers to the validation layers names.
 /// Also return the corresponding `CString` to avoid dangling pointers.
@@ -137,7 +138,6 @@ pub fn check_validation_layer_support(entry: &Entry) -> Result<()> {
     Ok(())
 }
 
-
 unsafe extern "system" fn vulkan_debug_callback(
     flag: vk::DebugUtilsMessageSeverityFlagsEXT,
     typ: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -161,20 +161,22 @@ pub fn setup_debug_messenger(
     entry: &Entry,
     instance: &AshInstance,
 ) -> Option<(DebugUtils, vk::DebugUtilsMessengerEXT)> {
-
     #[cfg(not(debug_assertions))]
     return None;
 
     let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-        .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE | 
-            vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
-            vk::DebugUtilsMessageSeverityFlagsEXT::WARNING |
-            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR)
-        .message_type(vk::DebugUtilsMessageTypeFlagsEXT::GENERAL | 
-            vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE | 
-            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION)
+        .message_severity(
+            vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+                | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                | vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
+        )
+        .message_type(
+            vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
+                | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+        )
         .pfn_user_callback(Some(vulkan_debug_callback));
-
 
     let debug_utils = DebugUtils::new(entry, instance);
     let debug_utils_messenger = unsafe {
@@ -196,7 +198,3 @@ impl Drop for Instance {
         }
     }
 }
-
-
-
-

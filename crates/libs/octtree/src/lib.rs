@@ -1,10 +1,10 @@
 use file::save::save_tree;
 
+use app::anyhow::Result;
 use octtree_node::OcttreeNode;
-use app::{anyhow::Result};
 
-pub mod octtree_node;
 pub mod basic_octtree;
+pub mod octtree_node;
 pub mod streamed_octtree;
 
 mod file;
@@ -22,7 +22,7 @@ const OCTTREE_CONFIG: [[u64; 3]; 8] = [
 
 pub enum TreeType {
     Basic,
-    Streamed
+    Streamed,
 }
 
 pub trait Tree {
@@ -41,11 +41,14 @@ pub trait Tree {
         return node_id + child_size * (child_nr as u64) + 1;
     }
 
-    fn save(&mut self, folder_path: &str, batch_size: usize) -> Result<()> where Self: Sized {
+    fn save(&mut self, folder_path: &str, batch_size: usize) -> Result<()>
+    where
+        Self: Sized,
+    {
         save_tree(self, folder_path, batch_size)?;
         Ok(())
     }
-} 
+}
 
 pub fn get_max_tree_size(depth: u16) -> u64 {
     ((i64::pow(8, (depth + 1) as u32) - 1) / 7) as u64
@@ -54,4 +57,3 @@ pub fn get_max_tree_size(depth: u16) -> u64 {
 pub fn get_node_size(depth: u16) -> u64 {
     i64::pow(2, depth as u32) as u64
 }
-

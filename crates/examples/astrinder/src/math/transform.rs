@@ -2,9 +2,8 @@ use std::ops::{Add, AddAssign, Mul, MulAssign};
 
 use app::glam::{Vec2, Vec3, Vec3Swizzles};
 
-
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Transform{
+pub struct Transform {
     pub pos: Vec2,
     pub rot: f32,
 }
@@ -17,13 +16,20 @@ impl Transform {
 
 impl From<Vec3> for Transform {
     fn from(value: Vec3) -> Self {
-        Self { pos: value.xy(), rot: value.z }
+        Self {
+            pos: value.xy(),
+            rot: value.z,
+        }
     }
 }
 
 impl From<Transform> for Vec3 {
     fn from(value: Transform) -> Self {
-        Vec3 { x: value.pos.x, y: value.pos.y, z: value.rot }
+        Vec3 {
+            x: value.pos.x,
+            y: value.pos.y,
+            z: value.rot,
+        }
     }
 }
 
@@ -32,7 +38,7 @@ impl Add<Transform> for Transform {
 
     #[inline(always)]
     fn add(self, rhs: Transform) -> Self::Output {
-        Self{
+        Self {
             pos: self.pos + rhs.pos,
             rot: self.rot + rhs.rot,
         }
@@ -52,7 +58,7 @@ impl Mul<f32> for Transform {
 
     #[inline(always)]
     fn mul(self, rhs: f32) -> Self::Output {
-        Self{
+        Self {
             pos: self.pos * rhs,
             rot: self.rot * rhs,
         }
@@ -66,6 +72,3 @@ impl MulAssign<f32> for Transform {
         self.rot *= rhs;
     }
 }
-
-
-

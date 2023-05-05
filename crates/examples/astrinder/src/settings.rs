@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-
 #[derive(Clone, Copy, Debug)]
 pub struct Settings {
     // Render
     pub max_fps: u32,
+    pub max_chunks: usize,
     pub max_rendered_parts: usize,
 
     // Chunk
@@ -24,37 +24,36 @@ pub struct Settings {
     pub collision_on: bool,
 
     pub destruction_on: bool,
-    pub destruction_cool_down: Duration,
+    pub min_destruction_force: f32,
 
     // Debug
     pub max_lines: usize,
 }
 
-
 impl Default for Settings {
     fn default() -> Self {
-        Self { 
-            max_fps: 60, 
-            max_rendered_parts: 5000, 
+        Self {
+            max_fps: 60,
+            max_chunks: 10000,
+            max_rendered_parts: 5000,
 
-            max_chunk_ups: 30, 
-            chunk_ups_use_fixed_time_step: true, 
-            chunk_ups_fixed_time_step: 1.0 / 30.0, 
-            slow_down_chunk_ups_factor: 10, 
+            max_chunk_ups: 30,
+            chunk_ups_use_fixed_time_step: true,
+            chunk_ups_fixed_time_step: 1.0 / 30.0,
+            slow_down_chunk_ups_factor: 10,
 
             rotation_damping: 0.9,
 
-            gravity_on: true, 
-            gravity_factor: 0.01, 
-            gravity_max_force: 0.05, 
+            gravity_on: true,
+            gravity_factor: 0.01,
+            gravity_max_force: 0.05,
 
-            collision_on: true, 
+            collision_on: true,
 
-            destruction_on: false, 
-            destruction_cool_down: Duration::from_secs(1),
+            destruction_on: false,
+            min_destruction_force: 10000.0,
 
-            max_lines: 10_000
+            max_lines: 10_000,
         }
     }
 }
-

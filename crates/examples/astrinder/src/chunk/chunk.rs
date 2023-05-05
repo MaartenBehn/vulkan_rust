@@ -1,25 +1,29 @@
-use std::{time::{Instant}, sync::mpsc::Sender};
+use std::{sync::mpsc::Sender, time::Instant};
 
-use app::glam::{vec2, ivec2, IVec2, Vec2};
 use app::anyhow::*;
+use app::glam::{ivec2, vec2, IVec2, Vec2};
 use rapier2d::prelude::*;
 
-use crate::{math::{*, transform::Transform}, settings::Settings, render::part::RenderParticle};
+use crate::{
+    math::{transform::Transform, *},
+    render::part::RenderParticle,
+    settings::Settings,
+};
 
-use super::{part::{ChunkPart}, particle::Particle, CHUNK_PART_SIZE, ChunkController, physics::PhysicsController, IdCounter};
+use super::{
+    part::ChunkPart, particle::Particle, physics::PhysicsController, ChunkController, IdCounter,
+    CHUNK_PART_SIZE,
+};
 
-
-#[derive(Clone)]
-pub struct Chunk { 
+#[derive(Clone, Default)]
+pub struct Chunk {
     pub id: usize,
 
-    pub parts: Vec<ChunkPart>, 
+    pub parts: Vec<ChunkPart>,
 
     pub transform: Transform,
 
     pub particle_counter: usize,
-
-    pub break_cool_down: Instant,
 
     pub rb_handle: RigidBodyHandle,
     pub collider_handle: ColliderHandle,
@@ -27,33 +31,23 @@ pub struct Chunk {
     pub mass: f32,
 }
 
-#[allow(dead_code)]
-impl Chunk {
-    pub fn new(
-        transform: Transform, 
-        velocity_transform: Transform, 
-        particles: Vec<(Particle, IVec2)>, 
-        id: usize,
-        part_id_counter: &mut IdCounter,
+impl ChunkController {
+    pub fn add_chunk(
+        &mut self,
+        transform: Transform,
+        velocity_transform: Transform,
+        particles: Vec<(Particle, IVec2)>,
         new_spawn: bool,
+    ) -> &Chunk {
+        let id = self.chunk_id_counter.pop_free().unwrap();
 
-        settings: Settings,
-        physics_controller: &mut PhysicsController,
-    ) -> Self {
-
-        let mut chunk = Self { 
+        let mut chunk = Chunk {
             id,
             parts: Vec::new(),
-    
+
             transform,
 
             particle_counter: 0,
-
-            break_cool_down: if new_spawn { 
-                Instant::now() - settings.destruction_cool_down 
-            } else { 
-                Instant::now() 
-            },
 
             rb_handle: RigidBodyHandle::default(),
             collider_handle: ColliderHandle::default(),
@@ -63,22 +57,46 @@ impl Chunk {
         };
 
         for (p, hex_pos) in particles {
-            chunk.add_particle(p, hex_pos, part_id_counter)
+            chunk.add_particle(p, hex_pos, &mut self.part_id_counter)
         }
 
-        chunk.rb_handle = physics_controller.add_chunk(&mut chunk, velocity_transform);
+        chunk.rb_handle = self
+            .physics_controller
+            .add_chunk(&mut chunk, velocity_transform);
 
-        chunk.on_chunk_change(physics_controller);
+        chunk.on_chunk_change(
+            &mut self.physics_controller,
+            &self.to_render_particles,
+            true,
+        );
 
-        chunk
+        chunk.send_transform(&self.to_render_transform);
+
+        if self.chunks.len() <= id {
+            self.chunks.resize(id, Chunk::default());
+            self.chunks.push(chunk);
+        } else {
+            self.chunks[id] = chunk;
+        }
+
+        &self.chunks[id]
     }
 
-    pub fn add_particle(
-        &mut self, 
-        p: Particle, 
-        hex_pos: IVec2,
-        part_id_counter: &mut IdCounter,
-    ) {
+    pub fn remove_chunk(&mut self, chunk_index: usize) {
+        let chunk = &self.chunks[chunk_index];
+        self.physics_controller.remove_chunk(chunk);
+
+        for part in chunk.parts.iter() {
+            self.part_id_counter.add_free(part.id);
+        }
+
+        self.chunk_id_counter.add_free(chunk_index);
+    }
+}
+
+#[allow(dead_code)]
+impl Chunk {
+    pub fn add_particle(&mut self, p: Particle, hex_pos: IVec2, part_id_counter: &mut IdCounter) {
         let part_pos = hex_to_chunk_part_pos(hex_pos);
         let mut part = self.get_part_by_pos_mut(part_pos);
 
@@ -89,7 +107,7 @@ impl Chunk {
                 return;
             }
 
-            let new_part= ChunkPart::new(part_pos, part_id.unwrap());
+            let new_part = ChunkPart::new(part_pos, part_id.unwrap());
 
             self.parts.push(new_part);
 
@@ -105,28 +123,40 @@ impl Chunk {
         self.particle_counter += 1;
     }
 
-
-    pub fn on_chunk_change(&mut self, physics_controller: &mut PhysicsController) {
+    pub fn on_chunk_change(
+        &mut self,
+        physics_controller: &mut PhysicsController,
+        to_render_particles: &Sender<(
+            usize,
+            [RenderParticle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
+        )>,
+        collider: bool,
+    ) {
         self.update_part_tranforms();
 
-        physics_controller.update_collider(self);
+        if collider {
+            physics_controller.update_collider(self);
+        }
+
+        self.send_particles(&to_render_particles);
     }
 
-    pub fn update_part_tranforms(&mut self){
+    pub fn update_part_tranforms(&mut self) {
         for part in self.parts.iter_mut() {
             part.transform = part_pos_to_world(self.transform, part.pos);
         }
     }
 
-    
-    pub fn send(&self, 
-        to_render_transform: &Sender<(usize, Transform)>,
-        to_render_particles: &Sender<(usize, [RenderParticle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize])>
-    ) -> Result<()>{
+    pub fn send_particles(
+        &self,
+        to_render_particles: &Sender<(
+            usize,
+            [RenderParticle; (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
+        )>,
+    ) -> Result<()> {
         for part in self.parts.iter() {
-            to_render_transform.send((part.id, part.transform))?;
-
-            let mut particles = [RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize];
+            let mut particles =
+                [RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize];
             for (i, particle) in part.particles.iter().enumerate() {
                 particles[i] = particle.into();
             }
@@ -137,9 +167,7 @@ impl Chunk {
         Ok(())
     }
 
-    pub fn send_transform(&self, 
-        to_render_transform: &Sender<(usize, Transform)>,
-    ) -> Result<()>{
+    pub fn send_transform(&self, to_render_transform: &Sender<(usize, Transform)>) -> Result<()> {
         for part in self.parts.iter() {
             to_render_transform.send((part.id, part.transform))?;
         }
@@ -147,12 +175,9 @@ impl Chunk {
         Ok(())
     }
 
-
-
-
-    pub fn get_part_by_pos(&self, pos: IVec2) -> Option<&ChunkPart>{
+    pub fn get_part_by_pos(&self, pos: IVec2) -> Option<&ChunkPart> {
         for p in &self.parts {
-            if p.pos == pos  {
+            if p.pos == pos {
                 return Some(p);
             }
         }
@@ -160,9 +185,9 @@ impl Chunk {
         return None;
     }
 
-    pub fn get_part_index_by_pos(&self, pos: IVec2) -> Option<usize>{
+    pub fn get_part_index_by_pos(&self, pos: IVec2) -> Option<usize> {
         for (i, p) in self.parts.iter().enumerate() {
-            if p.pos == pos  {
+            if p.pos == pos {
                 return Some(i);
             }
         }
@@ -170,7 +195,7 @@ impl Chunk {
         return None;
     }
 
-    pub fn get_part_by_pos_mut(&mut self, pos: IVec2) -> Option<&mut ChunkPart>{
+    pub fn get_part_by_pos_mut(&mut self, pos: IVec2) -> Option<&mut ChunkPart> {
         for p in &mut self.parts {
             if p.pos == pos {
                 return Some(p);
@@ -180,8 +205,12 @@ impl Chunk {
         return None;
     }
 
-    pub fn get_neigbor_particles_pos(&self, part_pos: IVec2, part_index: usize, hex: IVec2) -> Vec<Option<(IVec2, usize)>> {
-
+    pub fn get_neigbor_particles_pos(
+        &self,
+        part_pos: IVec2,
+        part_index: usize,
+        hex: IVec2,
+    ) -> Vec<Option<(IVec2, usize)>> {
         let mut neigbor_particles = Vec::new();
 
         for i in 0..6 {
@@ -193,8 +222,12 @@ impl Chunk {
         neigbor_particles
     }
 
-    pub fn get_neigbor_particles_pos_cleaned(&self, part_pos: IVec2, part_index: usize, hex: IVec2) -> Vec<(IVec2, usize)> {
-
+    pub fn get_neigbor_particles_pos_cleaned(
+        &self,
+        part_pos: IVec2,
+        part_index: usize,
+        hex: IVec2,
+    ) -> Vec<(IVec2, usize)> {
         let mut neigbor_particles = Vec::new();
 
         for i in 0..6 {
@@ -209,33 +242,37 @@ impl Chunk {
         neigbor_particles
     }
 
-
-    pub fn get_neigbor_particle_pos(&self, part_pos: IVec2, part_index: usize, hex: IVec2, neigbor_index: usize) -> Option<(IVec2, usize)> {
-
+    pub fn get_neigbor_particle_pos(
+        &self,
+        part_pos: IVec2,
+        part_index: usize,
+        hex: IVec2,
+        neigbor_index: usize,
+    ) -> Option<(IVec2, usize)> {
         let mut hex_neigbor = hex + neigbor_hex_offsets()[neigbor_index];
         let neigbor_part_index = match neigbor_index {
             0 => {
-                if hex_neigbor.x < CHUNK_PART_SIZE { Some(part_index) }
-                else { 
+                if hex_neigbor.x < CHUNK_PART_SIZE {
+                    Some(part_index)
+                } else {
                     hex_neigbor.x -= CHUNK_PART_SIZE;
-                    self.get_part_index_by_pos(part_pos + ivec2(1, 0)) 
+                    self.get_part_index_by_pos(part_pos + ivec2(1, 0))
                 }
-            },
+            }
             1 => {
-                if hex_neigbor.y < CHUNK_PART_SIZE { Some(part_index) }
-                else {
+                if hex_neigbor.y < CHUNK_PART_SIZE {
+                    Some(part_index)
+                } else {
                     hex_neigbor.y -= CHUNK_PART_SIZE;
-                    self.get_part_index_by_pos(part_pos + ivec2(0, 1)) 
+                    self.get_part_index_by_pos(part_pos + ivec2(0, 1))
                 }
-            },
+            }
             2 => {
-
-                if hex_neigbor.x >= 0 && hex_neigbor.y < CHUNK_PART_SIZE { 
-                    Some(part_index) 
-                }
-                else { 
+                if hex_neigbor.x >= 0 && hex_neigbor.y < CHUNK_PART_SIZE {
+                    Some(part_index)
+                } else {
                     let mut new_pos = part_pos;
-                    if hex_neigbor.x < 0{ 
+                    if hex_neigbor.x < 0 {
                         hex_neigbor.x += CHUNK_PART_SIZE;
                         new_pos += ivec2(-1, 0);
                     }
@@ -244,30 +281,31 @@ impl Chunk {
                         new_pos += ivec2(0, 1);
                     }
 
-                    self.get_part_index_by_pos(new_pos) 
+                    self.get_part_index_by_pos(new_pos)
                 }
-            },
+            }
             3 => {
-                if hex_neigbor.x >= 0 { Some(part_index) }
-                else { 
+                if hex_neigbor.x >= 0 {
+                    Some(part_index)
+                } else {
                     hex_neigbor.x += CHUNK_PART_SIZE;
-                    self.get_part_index_by_pos(part_pos + ivec2(-1, 0)) 
+                    self.get_part_index_by_pos(part_pos + ivec2(-1, 0))
                 }
-            },
+            }
             4 => {
-                if hex_neigbor.y >= 0 { Some(part_index) }
-                else { 
+                if hex_neigbor.y >= 0 {
+                    Some(part_index)
+                } else {
                     hex_neigbor.y += CHUNK_PART_SIZE;
-                    self.get_part_index_by_pos(part_pos + ivec2(0, -1)) 
+                    self.get_part_index_by_pos(part_pos + ivec2(0, -1))
                 }
-            },
+            }
             5 => {
-                if hex_neigbor.x < CHUNK_PART_SIZE && hex_neigbor.y >= 0 { 
-                    Some(part_index) 
-                }
-                else { 
+                if hex_neigbor.x < CHUNK_PART_SIZE && hex_neigbor.y >= 0 {
+                    Some(part_index)
+                } else {
                     let mut new_pos = part_pos;
-                    if  hex_neigbor.x >= CHUNK_PART_SIZE { 
+                    if hex_neigbor.x >= CHUNK_PART_SIZE {
                         hex_neigbor.x -= CHUNK_PART_SIZE;
                         new_pos += ivec2(1, 0);
                     }
@@ -276,29 +314,20 @@ impl Chunk {
                         new_pos += ivec2(0, -1);
                     }
 
-                    self.get_part_index_by_pos(new_pos) 
+                    self.get_part_index_by_pos(new_pos)
                 }
             }
-            _ => { None }
+            _ => None,
         };
 
-        if neigbor_part_index.is_none() || self.parts[neigbor_part_index.unwrap()].particles[hex_to_particle_index(hex_neigbor)].mass == 0 {
+        if neigbor_part_index.is_none()
+            || self.parts[neigbor_part_index.unwrap()].particles[hex_to_particle_index(hex_neigbor)]
+                .mass
+                == 0
+        {
             return None;
         }
 
-        return Some((hex_neigbor, neigbor_part_index.unwrap()))
-    }
-
-}
-
-impl ChunkController {
-    pub fn remove_chunk(&mut self, chunk_index: usize) {
-        let chunk = &self.chunks[chunk_index];
-        for part in chunk.parts.iter() {
-            self.part_id_counter.add_free(part.id);
-        }
-
-        self.chunks.remove(chunk_index);
+        return Some((hex_neigbor, neigbor_part_index.unwrap()));
     }
 }
-

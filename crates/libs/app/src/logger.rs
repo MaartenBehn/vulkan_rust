@@ -1,9 +1,9 @@
 use std::fs::File;
 
 use log::LevelFilter;
-use simplelog::{CombinedLogger, TermLogger, Config, TerminalMode, ColorChoice, WriteLogger};
+use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode, WriteLogger};
 
-pub fn log_init(file_name: &str){
+pub fn log_init(file_name: &str) {
     #[cfg(debug_assertions)]
     let log_level = LevelFilter::Debug;
 
