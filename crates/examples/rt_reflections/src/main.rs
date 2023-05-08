@@ -1,4 +1,6 @@
 use app::anyhow::Result;
+use app::camera::Camera;
+use app::controls::Controls;
 use app::glam::{vec3, Mat4};
 use app::vulkan::ash::vk::{self, Packed24_8};
 use app::vulkan::gpu_allocator::MemoryLocation;
@@ -29,6 +31,8 @@ struct Reflections {
     pipeline_res: PipelineRes,
     sbt: ShaderBindingTable,
     descriptor_res: DescriptorRes,
+
+    camera: Camera,
 }
 
 impl App for Reflections {
@@ -63,8 +67,9 @@ impl App for Reflections {
             &ubo_buffer,
         )?;
 
-        base.camera.position = vec3(-2.0, 1.5, 2.0);
-        base.camera.direction = vec3(2.0, -0.5, -2.0);
+        let mut camera = Camera::base(base.swapchain.extent);
+        camera.position = vec3(-2.0, 1.5, 2.0);
+        camera.direction = vec3(2.0, -0.5, -2.0);
 
         Ok(Self {
             ubo_buffer,
@@ -74,6 +79,8 @@ impl App for Reflections {
             pipeline_res,
             sbt,
             descriptor_res,
+
+            camera,
         })
     }
 
@@ -82,12 +89,15 @@ impl App for Reflections {
         base: &mut BaseApp<Self>,
         gui: &mut <Self as App>::Gui,
         _image_index: usize,
-        _: Duration,
+        delta_time: Duration,
+        controls: &Controls,
     ) -> Result<()> {
-        let view = base.camera.view_matrix();
+        self.camera.update(controls, delta_time);
+
+        let view = self.camera.view_matrix();
         let inverted_view = view.inverse();
 
-        let proj = base.camera.projection_matrix();
+        let proj = self.camera.projection_matrix();
         let inverted_proj = proj.inverse();
 
         let light_direction = [

@@ -2,6 +2,7 @@ use std::mem::size_of;
 use std::time::Duration;
 
 use app::anyhow::Result;
+use app::controls::Controls;
 use app::glam::Vec3;
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
@@ -127,6 +128,7 @@ impl App for Particles {
         _gui: &mut <Self as App>::Gui,
         _: usize,
         _delta_time: Duration,
+        _: &Controls,
     ) -> Result<()> {
         self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             pos: base.camera.position,

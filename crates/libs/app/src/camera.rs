@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use glam::{vec3, Mat3, Mat4, Quat, Vec3};
-use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, WindowEvent};
+use vulkan::ash::vk::Extent2D;
 
 use crate::controls::Controls;
 
@@ -37,6 +37,17 @@ impl Camera {
             z_far,
             speed: 3.0,
         }
+    }
+
+    pub fn base(extent: Extent2D) -> Self {
+        Self::new (
+            vec3(0.0, 0.0, 1.0),
+            vec3(0.0, 0.0, -1.0),
+            60.0,
+            extent.width as f32 / extent.height as f32,
+            0.1,
+            10.0,
+        )
     }
 
     pub fn update(self, controls: &Controls, delta_time: Duration) -> Self {

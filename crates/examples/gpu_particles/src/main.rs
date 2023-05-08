@@ -2,6 +2,8 @@ use std::mem::size_of;
 use std::time::{Duration, Instant};
 
 use app::anyhow::Result;
+use app::camera::Camera;
+use app::controls::Controls;
 use app::glam::{vec3, Mat4};
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
@@ -46,6 +48,8 @@ struct Particles {
     graphics_descriptor_set: DescriptorSet,
     graphics_pipeline_layout: PipelineLayout,
     graphics_pipeline: GraphicsPipeline,
+
+    camera: Camera,
 }
 
 impl App for Particles {
@@ -159,8 +163,9 @@ impl App for Particles {
         let graphics_pipeline =
             create_graphics_pipeline(context, &graphics_pipeline_layout, base.swapchain.format)?;
 
-        base.camera.position.z = 2.0;
-        base.camera.z_far = 100.0;
+        let mut camera = Camera::base(base.swapchain.extent);
+        camera.position.z = 2.0;
+        camera.z_far = 100.0;
 
         Ok(Self {
             particle_count: 0,
@@ -178,6 +183,8 @@ impl App for Particles {
             graphics_descriptor_set,
             graphics_pipeline_layout,
             graphics_pipeline,
+
+            camera,
         })
     }
 
@@ -187,7 +194,10 @@ impl App for Particles {
         gui: &mut <Self as App>::Gui,
         _: usize,
         delta_time: Duration,
+        controls: &Controls,
     ) -> Result<()> {
+        self.camera.update(controls, delta_time);
+
         self.particle_count = gui.particle_count;
         self.attractor_center = gui
             .new_attractor_position
@@ -211,7 +221,7 @@ impl App for Particles {
 
         self.graphics_ubo_buffer
             .copy_data_to_buffer(&[GraphicsUbo {
-                view_proj_matrix: base.camera.projection_matrix() * base.camera.view_matrix(),
+                view_proj_matrix: self.camera.projection_matrix() * self.camera.view_matrix(),
                 particle_size: gui.particle_size,
             }])?;
 

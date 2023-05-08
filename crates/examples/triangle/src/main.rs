@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use app::anyhow::Result;
+use app::controls::Controls;
 use app::vulkan::ash::vk;
 use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
@@ -51,6 +52,7 @@ impl App for Triangle {
         _: &mut <Self as App>::Gui,
         _: usize,
         _: Duration,
+        _: &Controls,
     ) -> Result<()> {
         Ok(())
     }

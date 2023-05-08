@@ -1,4 +1,5 @@
 use app::anyhow::Result;
+use app::controls::Controls;
 use app::vulkan::ash::vk::{self, Packed24_8};
 use app::vulkan::utils::*;
 use app::{vulkan::*, BaseApp};
@@ -58,6 +59,7 @@ impl App for Triangle {
         _: &mut <Self as App>::Gui,
         _: usize,
         _: Duration,
+        _: &Controls,
     ) -> Result<()> {
         Ok(())
     }

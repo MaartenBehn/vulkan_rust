@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use app::anyhow::{ensure, Ok, Result};
+use app::camera::Camera;
+use app::controls::Controls;
 use app::glam::Vec3;
 use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
@@ -57,6 +59,8 @@ pub struct RayCaster {
     movement_debug: MovementDebug,
 
     max_loaded_batches: usize,
+
+    camera: Camera,
 }
 
 impl App for RayCaster {
@@ -104,9 +108,10 @@ impl App for RayCaster {
         )?;
 
         log::info!("Setting inital camera pos");
-        base.camera.position = Vec3::new(-50.0, 0.0, 0.0);
-        base.camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
-        base.camera.speed = 50.0;
+        let mut camera = Camera::base(base.swapchain.extent);
+        camera.position = Vec3::new(-50.0, 0.0, 0.0);
+        camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
+        camera.speed = 50.0;
 
         log::info!("Init done");
         Ok(Self {
@@ -122,6 +127,8 @@ impl App for RayCaster {
             movement_debug: MovementDebug::new(MOVEMENT_DEBUG_READ)?,
 
             max_loaded_batches,
+
+            camera,
         })
     }
 
@@ -131,6 +138,7 @@ impl App for RayCaster {
         gui: &mut <Self as App>::Gui,
         _: usize,
         delta_time: Duration,
+        _: &Controls,
     ) -> Result<()> {
         log::info!("Frame: {:?}", &self.frame_counter);
 
@@ -147,10 +155,10 @@ impl App for RayCaster {
             mode: gui.mode,
             debug_scale: gui.debug_scale,
 
-            pos: base.camera.position,
+            pos: self.camera.position,
             step_to_root: gui.step_to_root as u32,
 
-            dir: base.camera.direction,
+            dir: self.camera.direction,
             fill_2: 0,
         }])?;
 
@@ -190,8 +198,8 @@ impl App for RayCaster {
 
         // Updateing Gui
         gui.frame = self.frame_counter;
-        gui.pos = base.camera.position;
-        gui.dir = base.camera.direction;
+        gui.pos = self.camera.position;
+        gui.dir = self.camera.direction;
         gui.octtree_buffer_size = self.octtree_controller.buffer_size;
         gui.transfer_buffer_size = self.octtree_controller.transfer_size;
         gui.loaded_batches = ((self.octtree_controller.octtree.get_loaded_size() * 100)
@@ -202,9 +210,9 @@ impl App for RayCaster {
 
         if MOVEMENT_DEBUG_READ {
             self.movement_debug
-                .read(&mut base.camera, self.frame_counter)?;
+                .read(&mut self.camera, self.frame_counter)?;
         } else {
-            self.movement_debug.write(&base.camera)?;
+            self.movement_debug.write(&self.camera)?;
         }
 
         self.frame_counter += 1;

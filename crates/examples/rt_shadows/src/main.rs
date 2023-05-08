@@ -1,4 +1,6 @@
 use app::anyhow::Result;
+use app::camera::Camera;
+use app::controls::Controls;
 use app::glam::{vec3, Mat4};
 use app::vulkan::ash::vk::{self, Packed24_8};
 use app::vulkan::gpu_allocator::MemoryLocation;
@@ -28,6 +30,8 @@ struct Shadows {
     pipeline_res: PipelineRes,
     sbt: ShaderBindingTable,
     descriptor_res: DescriptorRes,
+
+    camera: Camera,
 }
 
 impl App for Shadows {
@@ -62,8 +66,9 @@ impl App for Shadows {
             &ubo_buffer,
         )?;
 
-        base.camera.position = vec3(-1.0, 1.5, 3.0);
-        base.camera.direction = vec3(1.0, -0.5, -3.0);
+        let mut camera = Camera::base(base.swapchain.extent);
+        camera.position = vec3(-1.0, 1.5, 3.0);
+        camera.direction = vec3(1.0, -0.5, -3.0);
 
         Ok(Self {
             ubo_buffer,
@@ -73,6 +78,8 @@ impl App for Shadows {
             pipeline_res,
             sbt,
             descriptor_res,
+
+            camera,
         })
     }
 
@@ -81,12 +88,14 @@ impl App for Shadows {
         base: &mut BaseApp<Self>,
         gui: &mut <Self as App>::Gui,
         _image_index: usize,
-        _: Duration,
+        delta_time: Duration,
+        controls: &Controls,
     ) -> Result<()> {
-        let view = base.camera.view_matrix();
+        self.camera.update(controls, delta_time);
+        let view = self.camera.view_matrix();
         let inverted_view = view.inverse();
 
-        let proj = base.camera.projection_matrix();
+        let proj = self.camera.projection_matrix();
         let inverted_proj = proj.inverse();
 
         let light_direction = [
