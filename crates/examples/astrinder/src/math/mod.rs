@@ -7,7 +7,10 @@ use self::transform::Transform;
 pub mod transform;
 
 pub fn coord_to_hex(coord: Vec2) -> IVec2 {
-    ivec2((coord.x - coord.y * 0.5) as i32, coord.y as i32)
+    ivec2(
+        ((coord.x - coord.y * 0.5) - 0.5) as i32,
+        (coord.y - 0.5) as i32,
+    )
 }
 
 pub fn hex_to_coord(hex: IVec2) -> Vec2 {

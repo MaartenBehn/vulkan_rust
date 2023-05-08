@@ -1,13 +1,18 @@
-use app::{glam::Vec2, vulkan::ash::vk::Extent2D};
+use app::{
+    controls::Controls,
+    glam::{vec2, Vec2},
+    vulkan::ash::vk::Extent2D,
+};
+use rapier2d::prelude::TrackedContact;
 
-const CAMERA_INIT_POS: Vec2 = Vec2::ZERO;
-const CAMERA_INIT_ROT: f32 = 0.0;
-const CAMERA_INIT_SCALE: f32 = 0.03; // 0.0
+use crate::{
+    math::transform::Transform,
+    settings::{self, Settings},
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {
-    pub pos: Vec2,
-    pub rot: f32,
+    pub transform: Transform,
     pub scale: f32,
 
     pub aspect: f32,
@@ -17,16 +22,45 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(extent: Extent2D) -> Self {
+    pub fn new(extent: Extent2D, settings: Settings) -> Self {
         Self {
-            pos: CAMERA_INIT_POS,
-            rot: CAMERA_INIT_ROT,
-            scale: CAMERA_INIT_SCALE,
+            transform: settings.camera_inital_transform,
+            scale: settings.camera_inital_scale,
 
             aspect: extent.height as f32 / extent.width as f32,
             _fill_0: 0.0,
             _fill_1: 0.0,
             _fill_2: 0.0,
+        }
+    }
+
+    pub fn update_aspect(&mut self, extent: Extent2D) {
+        self.aspect = extent.height as f32 / extent.width as f32;
+    }
+
+    pub fn update(&mut self, controls: &Controls, time_step: f32, settings: Settings) {
+        if controls.w {
+            self.transform.pos.y += time_step * settings.camera_speed;
+        }
+
+        if controls.s {
+            self.transform.pos.y -= time_step * settings.camera_speed;
+        }
+
+        if controls.d {
+            self.transform.pos.x += time_step * settings.camera_speed;
+        }
+
+        if controls.a {
+            self.transform.pos.x -= time_step * settings.camera_speed;
+        }
+
+        if controls.up {
+            self.scale += time_step * settings.camera_scale_factor;
+        }
+
+        if controls.down {
+            self.scale -= time_step * settings.camera_scale_factor;
         }
     }
 }

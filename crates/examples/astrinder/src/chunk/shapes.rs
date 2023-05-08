@@ -1,9 +1,9 @@
 use app::glam::{ivec2, IVec2, UVec2};
 use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
-use crate::{math::transform::Transform, settings::Settings};
+use crate::math::transform::Transform;
 
-use super::{particle::Particle, physics::PhysicsController, Chunk, ChunkController, IdCounter};
+use super::{particle::Particle, Chunk, ChunkController};
 
 #[allow(dead_code)]
 impl ChunkController {
@@ -17,7 +17,7 @@ impl ChunkController {
             }
         }
 
-        self.add_chunk(trans, vel_trans, particles, true)
+        self.add_chunk(trans, vel_trans, particles.into_iter(), true)
     }
 
     pub fn new_hexagon(&mut self, trans: Transform, vel_trans: Transform, layers: usize) -> &Chunk {
@@ -27,7 +27,7 @@ impl ChunkController {
             particles.push((Particle::new(1, 1), point))
         }
 
-        self.add_chunk(trans, vel_trans, particles, true)
+        self.add_chunk(trans, vel_trans, particles.into_iter(), true)
     }
 
     pub fn new_noise_hexagon(
@@ -47,7 +47,7 @@ impl ChunkController {
             }
         }
 
-        self.add_chunk(trans, vel_trans, particles, true)
+        self.add_chunk(trans, vel_trans, particles.into_iter(), true)
     }
 }
 

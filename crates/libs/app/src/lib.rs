@@ -5,10 +5,12 @@ pub extern crate vulkan;
 
 pub mod camera;
 pub mod logger;
+pub mod controls;
 
 use anyhow::Result;
 use ash::vk::{self};
-use camera::{Camera, Controls};
+use camera::{Camera};
+use controls::Controls;
 use glam::vec3;
 use gpu_allocator::MemoryLocation;
 use gui::{
@@ -42,7 +44,6 @@ pub struct BaseApp<B: App> {
     command_buffers: Vec<CommandBuffer>,
     in_flight_frames: InFlightFrames,
     pub context: Context,
-    pub camera: Camera,
     stats_display_mode: StatsDisplayMode,
 }
 
@@ -57,6 +58,7 @@ pub trait App: Sized {
         gui: &mut Self::Gui,
         image_index: usize,
         delta_time: Duration,
+        controls: &Controls,
     ) -> Result<()>;
 
     fn record_raytracing_commands(
@@ -222,10 +224,8 @@ pub fn run<A: App + 'static>(
                     }
                 }
 
-                base_app.camera = base_app.camera.update(&controls, frame_stats.frame_time);
-
                 is_swapchain_dirty = base_app
-                    .draw(&window, app, &mut gui_context, &mut ui, &mut frame_stats)
+                    .draw(&window, app, &mut gui_context, &mut ui, &mut frame_stats, &controls)
                     .expect("Failed to tick");
             }
             // Keyboard
@@ -366,7 +366,6 @@ impl<B: App> BaseApp<B> {
             storage_images,
             command_buffers,
             in_flight_frames,
-            camera,
             stats_display_mode: StatsDisplayMode::Basic,
         })
     }
@@ -390,7 +389,7 @@ impl<B: App> BaseApp<B> {
         let _ = std::mem::replace(&mut self.storage_images, storage_images);
 
         // Update camera aspect ration
-        self.camera.aspect_ratio = width as f32 / height as f32;
+        // self.camera.aspect_ratio = width as f32 / height as f32;
 
         Ok(())
     }
@@ -406,6 +405,7 @@ impl<B: App> BaseApp<B> {
         gui_context: &mut GuiContext,
         gui: &mut B::Gui,
         frame_stats: &mut FrameStats,
+        controls: &Controls,
     ) -> Result<bool> {
         // Drawing the frame
         self.in_flight_frames.next();
@@ -445,7 +445,7 @@ impl<B: App> BaseApp<B> {
         gui_context.platform.prepare_render(&ui, window);
         let draw_data = gui_context.imgui.render();
 
-        base_app.update(self, gui, image_index, frame_stats.frame_time)?;
+        base_app.update(self, gui, image_index, frame_stats.frame_time, controls)?;
 
         let command_buffer = &self.command_buffers[image_index];
 

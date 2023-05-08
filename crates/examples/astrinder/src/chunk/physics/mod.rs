@@ -155,6 +155,10 @@ impl PhysicsController {
 
 impl ChunkController {
     pub fn update_gravity(&mut self) {
+        if !self.settings.gravity_on {
+            return;
+        }
+
         let l = self.chunks.len();
         for i in 0..l {
             for j in (i + 1)..l {

@@ -29,16 +29,20 @@ pub struct Chunk {
     pub collider_handle: ColliderHandle,
     pub forces: Vec2,
     pub mass: f32,
+    pub stability: f32,
 }
 
 impl ChunkController {
-    pub fn add_chunk(
+    pub fn add_chunk<I>(
         &mut self,
         transform: Transform,
         velocity_transform: Transform,
-        particles: Vec<(Particle, IVec2)>,
+        particles: I,
         new_spawn: bool,
-    ) -> &Chunk {
+    ) -> &Chunk
+    where
+        I: Iterator<Item = (Particle, IVec2)>,
+    {
         let id = self.chunk_id_counter.pop_free().unwrap();
 
         let mut chunk = Chunk {
@@ -54,6 +58,7 @@ impl ChunkController {
 
             forces: Vec2::ZERO,
             mass: 0.0,
+            stability: 0.0,
         };
 
         for (p, hex_pos) in particles {
@@ -116,7 +121,7 @@ impl Chunk {
         debug_assert!(part.is_some());
 
         let in_part_pos = hex_to_particle_index(hex_pos);
-        part.unwrap().particles[in_part_pos] = p;
+        part.unwrap().particles[in_part_pos] = p.clone();
 
         self.mass += p.mass as f32;
 
@@ -132,13 +137,15 @@ impl Chunk {
         )>,
         collider: bool,
     ) {
+        self.stability = 1.0 / self.mass;
+
         self.update_part_tranforms();
 
         if collider {
             physics_controller.update_collider(self);
         }
 
-        self.send_particles(&to_render_particles);
+        let _ = self.send_particles(&to_render_particles);
     }
 
     pub fn update_part_tranforms(&mut self) {

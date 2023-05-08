@@ -94,7 +94,9 @@ impl ChunkController {
 
             self.physics_controller.step();
 
-            self.check_break();
+            if self.step != 0 {
+                self.check_break();
+            }
 
             self.update_gravity();
 
@@ -118,12 +120,12 @@ impl ChunkController {
         self.new_hexagon(
             Transform::new(vec2(0.0, 0.0), 0.0),
             Transform::new(vec2(0., 0.), 0.0),
-            20,
+            10,
         );
 
         self.new_hexagon(
             Transform::new(vec2(2.0, 30.0), 0.0),
-            Transform::new(vec2(0.0, -100.0), 0.0),
+            Transform::new(vec2(0.0, -50.0), 0.0),
             2,
         );
     }

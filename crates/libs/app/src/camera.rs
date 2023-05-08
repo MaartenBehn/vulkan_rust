@@ -3,16 +3,10 @@ use std::time::Duration;
 use glam::{vec3, Mat3, Mat4, Quat, Vec3};
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, WindowEvent};
 
-const ANGLE_PER_POINT: f32 = 0.001745;
-
-const FORWARD_SCANCODE: u32 = 17;
-const BACKWARD_SCANCODE: u32 = 31;
-const RIGHT_SCANCODE: u32 = 32;
-const LEFT_SCANCODE: u32 = 30;
-const UP_SCANCODE: u32 = 57;
-const DOWN_SCANCODE: u32 = 29;
+use crate::controls::Controls;
 
 const UP: Vec3 = vec3(0.0, 1.0, 0.0);
+const ANGLE_PER_POINT: f32 = 0.001745;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Camera {
@@ -50,7 +44,7 @@ impl Camera {
         let side = self.direction.cross(UP);
 
         // Update direction
-        let new_direction = if controls.look_around {
+        let new_direction = if controls.rigth {
             let side_rot = Quat::from_axis_angle(side, -controls.cursor_delta[1] * ANGLE_PER_POINT);
             let y_rot = Quat::from_rotation_y(-controls.cursor_delta[0] * ANGLE_PER_POINT);
             let rot = Mat3::from_quat(side_rot * y_rot);
@@ -63,22 +57,22 @@ impl Camera {
         // Update position
         let mut direction = Vec3::ZERO;
 
-        if controls.go_forward {
+        if controls.w {
             direction += new_direction;
         }
-        if controls.go_backward {
+        if controls.s {
             direction -= new_direction;
         }
-        if controls.strafe_right {
+        if controls.d {
             direction += side;
         }
-        if controls.strafe_left {
+        if controls.a {
             direction -= side;
         }
-        if controls.go_up {
+        if controls.up {
             direction += UP;
         }
-        if controls.go_down {
+        if controls.down {
             direction -= UP;
         }
 
@@ -146,92 +140,3 @@ pub fn perspective(fovy: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
     ])
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Controls {
-    pub go_forward: bool,
-    pub go_backward: bool,
-    pub strafe_right: bool,
-    pub strafe_left: bool,
-    pub go_up: bool,
-    pub go_down: bool,
-    pub look_around: bool,
-    pub cursor_delta: [f32; 2],
-}
-
-impl Default for Controls {
-    fn default() -> Self {
-        Self {
-            go_forward: false,
-            go_backward: false,
-            strafe_right: false,
-            strafe_left: false,
-            go_up: false,
-            go_down: false,
-            look_around: false,
-            cursor_delta: [0.0; 2],
-        }
-    }
-}
-
-impl Controls {
-    pub fn reset(self) -> Self {
-        Self {
-            cursor_delta: [0.0; 2],
-            ..self
-        }
-    }
-
-    pub fn handle_event(self, event: &Event<()>) -> Self {
-        let mut new_state = self;
-
-        match event {
-            Event::WindowEvent { event, .. } => {
-                match event {
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                scancode, state, ..
-                            },
-                        ..
-                    } => {
-                        if *scancode == FORWARD_SCANCODE {
-                            new_state.go_forward = *state == ElementState::Pressed;
-                        }
-                        if *scancode == BACKWARD_SCANCODE {
-                            new_state.go_backward = *state == ElementState::Pressed;
-                        }
-                        if *scancode == RIGHT_SCANCODE {
-                            new_state.strafe_right = *state == ElementState::Pressed;
-                        }
-                        if *scancode == LEFT_SCANCODE {
-                            new_state.strafe_left = *state == ElementState::Pressed;
-                        }
-                        if *scancode == UP_SCANCODE {
-                            new_state.go_up = *state == ElementState::Pressed;
-                        }
-                        if *scancode == DOWN_SCANCODE {
-                            new_state.go_down = *state == ElementState::Pressed;
-                        }
-                    }
-                    WindowEvent::MouseInput { state, button, .. } => {
-                        if *button == MouseButton::Right {
-                            new_state.look_around = *state == ElementState::Pressed;
-                        }
-                    }
-                    _ => {}
-                };
-            }
-            Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion { delta: (x, y) },
-                ..
-            } => {
-                let x = *x as f32;
-                let y = *y as f32;
-                new_state.cursor_delta = [self.cursor_delta[0] + x, self.cursor_delta[1] + y];
-            }
-            _ => (),
-        }
-
-        new_state
-    }
-}

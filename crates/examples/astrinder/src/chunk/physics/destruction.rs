@@ -6,7 +6,7 @@ use crate::chunk::chunk::Chunk;
 use crate::chunk::particle::Particle;
 use crate::chunk::{ChunkController, IdCounter, CHUNK_PART_SIZE};
 use crate::math::transform::{self, Transform};
-use crate::math::{hex_in_chunk_frame, hex_to_coord, hex_to_particle_index};
+use crate::math::{coord_to_hex, hex_in_chunk_frame, hex_to_coord, hex_to_particle_index};
 use crate::settings::Settings;
 
 use super::PhysicsController;
@@ -94,10 +94,6 @@ impl BreakPattern {
 impl ChunkController {
     pub fn check_break(&mut self) {
         while let Ok(contact_force_event) = self.physics_controller.contact_force_recv.try_recv() {
-            if contact_force_event.total_force_magnitude < self.settings.min_destruction_force {
-                continue;
-            }
-
             let rigid_body_set = &self.physics_controller.rigid_body_set;
             let collider_set = &self.physics_controller.collider_set;
 
@@ -114,9 +110,28 @@ impl ChunkController {
             let chunk0_index = rb0.user_data as usize;
             let chunk1_index = rb1.user_data as usize;
 
-            self.break_chunk(0, chunk0_index, ivec2(0, 0));
+            let break0 = contact_force_event.total_force_magnitude
+                * self.settings.destruction_force_factor
+                > self.chunks[chunk0_index].stability;
+            let break1 = contact_force_event.total_force_magnitude
+                * self.settings.destruction_force_factor
+                > self.chunks[chunk1_index].stability;
 
-            self.break_chunk(0, chunk1_index, ivec2(0, 0));
+            let pos0 = self.chunks[chunk0_index].transform.pos;
+            let pos1 = self.chunks[chunk1_index].transform.pos;
+            let pos_diff = pos1 - pos0;
+
+            if break0 {
+                let start_hex0 = coord_to_hex(pos0 + pos_diff);
+                self.break_chunk(0, chunk0_index, start_hex0);
+            }
+
+            if break1 {
+                let start_hex1 = coord_to_hex(pos1 - pos_diff);
+                self.break_chunk(0, chunk1_index, start_hex1);
+            }
+
+            // self.step = 0;
         }
     }
 
@@ -124,10 +139,11 @@ impl ChunkController {
         let mut new_particles = Vec::new();
         let pattern = &self.physics_controller.destruction_solver.patterns[pattern_index];
 
-        new_particles.resize_with(pattern.points_len, || (Vec::new(), Vec2::ZERO));
+        new_particles.resize_with(pattern.points_len, || BreakParticlesIter::default());
 
         let chunk = &self.chunks[chunk_index];
         let half_size = (BREAK_PATTERN_SIZE / 2) as i32;
+
         for part in chunk.parts.iter() {
             for x in 0..CHUNK_PART_SIZE {
                 for y in 0..CHUNK_PART_SIZE {
@@ -137,33 +153,39 @@ impl ChunkController {
                         continue;
                     }
 
-                    let hex_pattern = half_size - start_hex + hex + part.pos * CHUNK_PART_SIZE;
+                    let abs_hex = hex + part.pos * CHUNK_PART_SIZE;
+                    let hex_pattern = half_size - start_hex + abs_hex;
+
                     let index = pattern.grid
                         [(hex_pattern.x * BREAK_PATTERN_SIZE as i32 + hex_pattern.y) as usize];
 
                     particle.material = index * 850;
 
                     new_particles[index as usize]
-                        .0
-                        .push((particle, hex + part.pos * CHUNK_PART_SIZE));
-                    new_particles[index as usize].1 += hex_in_chunk_frame(hex, part.pos);
+                        .particles
+                        .push((particle, abs_hex));
+                    new_particles[index as usize].offset += abs_hex;
                 }
             }
         }
 
-        let vel_transform = self.physics_controller.get_velocity(chunk);
-
+        let old_transform = chunk.transform;
+        let old_vel_transform = self.physics_controller.get_velocity(chunk);
         self.remove_chunk(chunk_index);
 
-        for (particles, pos_offset) in new_particles {
-            if particles.is_empty() {
+        for mut iter in new_particles {
+            if iter.is_empty() {
                 continue;
             }
 
-            let mut transform = self.chunks[chunk_index].transform;
-            transform.pos += pos_offset * 0.0001;
+            iter.make_ready();
 
-            self.add_chunk(transform, vel_transform, particles, false);
+            let pos_offset = hex_to_coord(iter.offset);
+
+            let mut transform = old_transform;
+            transform.pos += pos_offset * 1.0001;
+
+            self.add_chunk(transform, old_vel_transform, iter, false);
         }
     }
 
@@ -185,7 +207,7 @@ impl ChunkController {
             }
         }
 
-        self.add_chunk(transform, velocity_transform, particles, false)
+        self.add_chunk(transform, velocity_transform, particles.into_iter(), false)
     }
 }
 
@@ -201,4 +223,47 @@ fn apply_quadratic_fall_off(pos: Vec2, a: f32, b: f32) -> Vec2 {
 fn apply_quibic_fall_off(pos: Vec2, a: f32, b: f32, c: f32) -> Vec2 {
     let l = pos.length();
     a * l * l * pos + b * l * pos + c * pos
+}
+
+#[derive(Clone)]
+struct BreakParticlesIter {
+    current: usize,
+    pub particles: Vec<(Particle, IVec2)>,
+    pub offset: IVec2,
+}
+
+impl BreakParticlesIter {
+    pub fn is_empty(&self) -> bool {
+        self.particles.is_empty()
+    }
+
+    pub fn make_ready(&mut self) {
+        self.offset /= self.particles.len() as i32;
+    }
+}
+
+impl Default for BreakParticlesIter {
+    fn default() -> Self {
+        Self {
+            current: 0,
+            particles: Vec::new(),
+            offset: IVec2::ZERO,
+        }
+    }
+}
+
+impl Iterator for BreakParticlesIter {
+    type Item = (Particle, IVec2);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current < self.particles.len() {
+            let (p, mut pos) = self.particles[self.current];
+            pos -= self.offset;
+
+            self.current += 1;
+            Some((p, pos))
+        } else {
+            None
+        }
+    }
 }

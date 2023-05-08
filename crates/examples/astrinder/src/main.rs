@@ -3,6 +3,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use app::anyhow::Result;
+use app::controls::Controls;
 use app::vulkan::ash::vk;
 use app::vulkan::CommandBuffer;
 use app::{App, BaseApp};
@@ -30,6 +31,8 @@ fn main() -> Result<()> {
     app::run::<Astrinder>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct Astrinder {
+    settings: Settings,
+
     chunk_renderer: ChunkRenderer,
     camera: Camera,
     debug_renderer: DebugRenderer,
@@ -72,9 +75,11 @@ impl App for Astrinder {
             chunk_controller.run(settings);
         });
 
-        let camera = Camera::new(base.swapchain.extent);
+        let camera = Camera::new(base.swapchain.extent, settings);
 
         Ok(Self {
+            settings,
+
             chunk_renderer,
             camera,
             debug_renderer,
@@ -82,7 +87,9 @@ impl App for Astrinder {
         })
     }
 
-    fn on_recreate_swapchain(&mut self, _: &BaseApp<Self>) -> Result<()> {
+    fn on_recreate_swapchain(&mut self, base: &BaseApp<Self>) -> Result<()> {
+        self.camera.update_aspect(base.swapchain.extent);
+
         Ok(())
     }
 
@@ -91,8 +98,12 @@ impl App for Astrinder {
         _: &mut BaseApp<Self>,
         _: &mut <Self as App>::Gui,
         _: usize,
-        _: Duration,
+        time_step: Duration,
+        controls: &Controls,
     ) -> Result<()> {
+        self.camera
+            .update(controls, time_step.as_secs_f32(), self.settings);
+
         self.chunk_renderer.recive_parts()?;
         self.chunk_renderer.upload(&self.camera)?;
 
