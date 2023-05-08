@@ -1,8 +1,4 @@
-use std::{
-    mem::{align_of, size_of, size_of_val},
-    slice::from_raw_parts_mut,
-    sync::{Arc, Mutex},
-};
+use std::{sync::{Arc, Mutex}, mem::align_of};
 
 use anyhow::Result;
 use ash::vk;
@@ -57,6 +53,13 @@ impl Buffer {
     pub fn copy_data_to_buffer<T: Copy>(
         &self,
         data: &[T],
+    ) -> Result<()> {
+        self.copy_data_to_buffer_complex(data, 0, align_of::<T>())
+    }
+
+    pub fn copy_data_to_buffer_complex<T: Copy>(
+        &self,
+        data: &[T],
         offset: usize,
         alignment: usize,
     ) -> Result<()> {
@@ -77,6 +80,13 @@ impl Buffer {
     }
 
     pub fn get_data_from_buffer<T: Copy>(
+        &self,
+        count: usize,
+    ) -> Result<Vec<T>> {
+        self.get_data_from_buffer_complex(count, 0, align_of::<T>())
+    }
+
+    pub fn get_data_from_buffer_complex<T: Copy>(
         &self,
         count: usize,
         offset: usize,

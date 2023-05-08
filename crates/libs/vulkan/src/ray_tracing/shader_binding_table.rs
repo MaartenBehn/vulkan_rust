@@ -98,7 +98,7 @@ impl ShaderBindingTable {
 
         let buffer = context.create_buffer(buffer_usage, memory_location, buffer_size as _)?;
 
-        buffer.copy_data_to_buffer(&stb_data, 0, 1)?;
+        buffer.copy_data_to_buffer(&stb_data)?;
 
         let address = buffer.get_device_address();
 

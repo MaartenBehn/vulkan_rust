@@ -1,4 +1,4 @@
-use std::ffi::{c_char, c_void, CStr, CString};
+use std::ffi::{c_void, CStr, CString, c_char};
 
 use anyhow::{ensure, Result};
 use ash::{
@@ -19,6 +19,8 @@ pub struct Instance {
 }
 
 impl Instance {
+
+    #[allow(unused_mut)]
     pub(crate) fn new(
         entry: &Entry,
         display_handle: &dyn HasRawDisplayHandle,
@@ -102,6 +104,7 @@ impl Instance {
 
 /// Get the pointers to the validation layers names.
 /// Also return the corresponding `CString` to avoid dangling pointers.
+#[allow(dead_code)]
 pub fn get_validation_layer_names_and_pointers() -> (Vec<CString>, Vec<*const c_char>) {
     let layer_names = REQUIRED_DEBUG_LAYERS
         .iter()
@@ -120,6 +123,7 @@ pub fn get_validation_layer_names_and_pointers() -> (Vec<CString>, Vec<*const c_
 /// # Panics
 ///
 /// Panic if at least one on the layer is not supported.
+#[allow(dead_code)]
 pub fn check_validation_layer_support(entry: &Entry) -> Result<()> {
     for required in REQUIRED_DEBUG_LAYERS.iter() {
         let found = entry
@@ -138,6 +142,7 @@ pub fn check_validation_layer_support(entry: &Entry) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 unsafe extern "system" fn vulkan_debug_callback(
     flag: vk::DebugUtilsMessageSeverityFlagsEXT,
     typ: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -158,34 +163,37 @@ unsafe extern "system" fn vulkan_debug_callback(
 
 /// Setup the debug message if validation layers are enabled.
 pub fn setup_debug_messenger(
-    entry: &Entry,
-    instance: &AshInstance,
+    _entry: &Entry,
+    _instance: &AshInstance,
 ) -> Option<(DebugUtils, vk::DebugUtilsMessengerEXT)> {
     #[cfg(not(debug_assertions))]
     return None;
 
-    let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-        .message_severity(
-            vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
-                | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
-                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                | vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
-        )
-        .message_type(
-            vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
-                | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
-        )
-        .pfn_user_callback(Some(vulkan_debug_callback));
+    #[cfg(debug_assertions)]
+    {
+        let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+            .message_severity(
+                vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+                    | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+                    | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                    | vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
+            )
+            .message_type(
+                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                    | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
+                    | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+            )
+            .pfn_user_callback(Some(vulkan_debug_callback));
 
-    let debug_utils = DebugUtils::new(entry, instance);
-    let debug_utils_messenger = unsafe {
-        debug_utils
-            .create_debug_utils_messenger(&create_info, None)
-            .unwrap()
-    };
+        let debug_utils = DebugUtils::new(_entry, _instance);
+        let debug_utils_messenger = unsafe {
+            debug_utils
+                .create_debug_utils_messenger(&create_info, None)
+                .unwrap()
+        };
 
-    Some((debug_utils, debug_utils_messenger))
+        Some((debug_utils, debug_utils_messenger))
+    }
 }
 
 impl Drop for Instance {

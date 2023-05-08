@@ -1,18 +1,15 @@
 use std::mem::size_of;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use app::anyhow::Result;
-use app::glam::{vec3, Mat4, Vec3};
+use app::glam::Vec3;
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
-    Buffer, BufferBarrier, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context,
-    DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
-    GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout, Vertex,
-    WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, DescriptorPool,
+    DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::{log, App, BaseApp};
+use app::{App, BaseApp};
 use gui::imgui::{Condition, Ui};
 
 const WIDTH: u32 = 1024;
@@ -48,7 +45,7 @@ impl App for Particles {
         )?;
 
         let compute_descriptor_pool = context.create_descriptor_pool(
-            3,
+            2 * images.len() as u32,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_IMAGE,
@@ -127,9 +124,9 @@ impl App for Particles {
     fn update(
         &mut self,
         base: &mut BaseApp<Self>,
-        gui: &mut <Self as App>::Gui,
+        _gui: &mut <Self as App>::Gui,
         _: usize,
-        delta_time: Duration,
+        _delta_time: Duration,
     ) -> Result<()> {
         self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             pos: base.camera.position,

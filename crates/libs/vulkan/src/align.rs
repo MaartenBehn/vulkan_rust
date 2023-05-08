@@ -1,4 +1,4 @@
-use ash::vk::{self, DeviceSize};
+use ash::vk;
 use std::iter::Iterator;
 use std::marker::PhantomData;
 use std::mem::size_of;
@@ -122,6 +122,8 @@ impl<'a, T: Copy + 'a> Iterator for AlignIter<'a, T> {
 /// ];
 /// let words = ash::util::read_spv(&mut std::io::Cursor::new(&SPIRV[..])).unwrap();
 /// ```
+
+#[allow(dead_code)]
 pub fn read_spv<R: io::Read + io::Seek>(x: &mut R) -> io::Result<Vec<u32>> {
     let size = x.seek(io::SeekFrom::End(0))?;
     if size % 4 != 0 {

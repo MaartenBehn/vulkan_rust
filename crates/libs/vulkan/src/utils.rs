@@ -1,4 +1,4 @@
-use std::mem::size_of_val;
+use std::mem::{size_of_val, align_of};
 
 use anyhow::Result;
 use ash::vk;
@@ -19,6 +19,15 @@ pub fn create_gpu_only_buffer_from_data<T: Copy>(
     context: &Context,
     usage: vk::BufferUsageFlags,
     data: &[T],
+) -> Result<Buffer> {
+    create_gpu_only_buffer_from_data_complex(context, usage, data,  align_of::<T>())
+}
+
+
+pub fn create_gpu_only_buffer_from_data_complex<T: Copy>(
+    context: &Context,
+    usage: vk::BufferUsageFlags,
+    data: &[T],
     alignment: usize,
 ) -> Result<Buffer> {
     let size = size_of_val(data) as _;
@@ -27,7 +36,7 @@ pub fn create_gpu_only_buffer_from_data<T: Copy>(
         MemoryLocation::CpuToGpu,
         size,
     )?;
-    staging_buffer.copy_data_to_buffer(data, 0, alignment)?;
+    staging_buffer.copy_data_to_buffer_complex(data, 0, alignment)?;
 
     let buffer = context.create_buffer(
         usage | vk::BufferUsageFlags::TRANSFER_DST,

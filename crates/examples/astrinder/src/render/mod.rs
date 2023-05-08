@@ -70,7 +70,7 @@ impl ChunkRenderer {
             let (id, transform) = data.unwrap();
             self.vulkan
                 .part_ubo
-                .copy_data_to_buffer(&[transform], id, 16)?;
+                .copy_data_to_buffer_complex(&[transform], id, 16)?;
         }
 
         loop {
@@ -80,7 +80,7 @@ impl ChunkRenderer {
             }
 
             let (id, particles) = data.unwrap();
-            self.vulkan.particles_ssbo.copy_data_to_buffer(
+            self.vulkan.particles_ssbo.copy_data_to_buffer_complex(
                 &particles,
                 id * (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize,
                 align_of::<RenderParticle>(),
@@ -91,9 +91,11 @@ impl ChunkRenderer {
     }
 
     pub fn upload(&mut self, camera: &Camera) -> Result<()> {
-        self.vulkan
-            .render_ubo
-            .copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())], 0, 16)?;
+        self.vulkan.render_ubo.copy_data_to_buffer_complex(
+            &[RenderUBO::new(camera.to_owned())],
+            0,
+            16,
+        )?;
 
         Ok(())
     }

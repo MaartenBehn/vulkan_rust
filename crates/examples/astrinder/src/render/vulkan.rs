@@ -1,6 +1,7 @@
 use std::mem::{align_of, size_of};
 
 use app::anyhow::Result;
+use app::vulkan::utils::create_gpu_only_buffer_from_data_complex;
 use app::{
     anyhow::Ok,
     glam::{ivec2, Vec2},
@@ -47,14 +48,14 @@ impl ChunkRendererVulkan {
     ) -> Result<Self> {
         let (vertices, indecies) = create_mesh();
 
-        let vertex_buffer = create_gpu_only_buffer_from_data(
+        let vertex_buffer = create_gpu_only_buffer_from_data_complex(
             context,
             vk::BufferUsageFlags::VERTEX_BUFFER,
             &vertices,
             align_of::<Vertex>(),
         )?;
 
-        let index_buffer = create_gpu_only_buffer_from_data(
+        let index_buffer = create_gpu_only_buffer_from_data_complex(
             context,
             vk::BufferUsageFlags::INDEX_BUFFER,
             &indecies,
@@ -92,8 +93,8 @@ impl ChunkRendererVulkan {
                 &[RenderParticle::default(); (CHUNK_PART_SIZE * CHUNK_PART_SIZE) as usize],
             )
         }
-        part_ubo.copy_data_to_buffer(&part_ubo_data, 0, 16)?;
-        particles_ssbo.copy_data_to_buffer(
+        part_ubo.copy_data_to_buffer_complex(&part_ubo_data, 0, 16)?;
+        particles_ssbo.copy_data_to_buffer_complex(
             &particle_buffer_data,
             0,
             align_of::<RenderParticle>(),

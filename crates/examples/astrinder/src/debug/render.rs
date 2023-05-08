@@ -173,10 +173,13 @@ impl DebugRenderer {
         }
 
         self.vertex_buffer
-            .copy_data_to_buffer(&self.lines, 0, align_of::<Vertex>())?;
+            .copy_data_to_buffer_complex(&self.lines, 0, align_of::<Vertex>())?;
 
-        self._render_ubo
-            .copy_data_to_buffer(&[RenderUBO::new(camera.to_owned())], 0, 16)?;
+        self._render_ubo.copy_data_to_buffer_complex(
+            &[RenderUBO::new(camera.to_owned())],
+            0,
+            16,
+        )?;
 
         Ok(())
     }
