@@ -1,22 +1,21 @@
 use std::sync::mpsc::Sender;
-use std::time::Instant;
 
 use app::anyhow::*;
-use app::glam::{vec2, IVec2, Vec2, Vec3};
-use rapier2d::prelude::{ColliderHandle, RigidBodyHandle};
+use app::glam::{vec2, Vec2, Vec3};
 
 use crate::{
     math::transform::Transform, render::part::RenderParticle, settings::Settings,
     ENABLE_DEBUG_RENDER,
 };
 
-use self::particle::Particle;
+use self::player::Player;
 use self::{chunk::Chunk, physics::PhysicsController};
 
 pub mod chunk;
 pub mod debug;
 pub mod part;
 pub mod particle;
+pub mod player;
 pub mod shapes;
 
 pub mod physics;
@@ -41,6 +40,8 @@ pub struct ChunkController {
     physics_controller: PhysicsController,
 
     step: usize,
+
+    player: Player,
 }
 
 impl ChunkController {
@@ -75,9 +76,11 @@ impl ChunkController {
             physics_controller,
 
             step: usize::MAX,
+
+            player: Player::default(),
         };
 
-        controller.destruction();
+        controller.station();
 
         controller
     }
@@ -140,6 +143,16 @@ impl ChunkController {
                 );
             }
         }
+    }
+
+    fn station(&mut self) {
+        self.new_hexagon(
+            Transform::new(vec2(0.0, 0.0), 0.0),
+            Transform::new(vec2(0.0, 0.0), 0.0),
+            10,
+        );
+
+        self.add_player(Transform::default());
     }
 }
 

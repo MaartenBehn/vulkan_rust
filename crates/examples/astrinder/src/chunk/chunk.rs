@@ -65,8 +65,7 @@ impl ChunkController {
             chunk.add_particle(p, hex_pos, &mut self.part_id_counter)
         }
 
-        chunk.rb_handle = self
-            .physics_controller
+        self.physics_controller
             .add_chunk(&mut chunk, velocity_transform);
 
         chunk.on_chunk_change(

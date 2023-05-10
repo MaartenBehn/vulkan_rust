@@ -12,7 +12,10 @@ use crate::{
 
 use self::destruction::DestructionSolver;
 
-use super::IdCounter;
+use super::{
+    player::{Player, PLAYER_RB_ID},
+    IdCounter,
+};
 
 pub mod collider;
 pub mod destruction;
@@ -79,7 +82,7 @@ impl PhysicsController {
         }
     }
 
-    pub fn add_chunk(&mut self, chunk: &mut Chunk, vel: Transform) -> RigidBodyHandle {
+    pub fn add_chunk(&mut self, chunk: &mut Chunk, vel: Transform) {
         let pos = chunk.transform.pos;
         let rot = chunk.transform.rot;
 
@@ -94,9 +97,32 @@ impl PhysicsController {
             .user_data(chunk.id as _)
             .build();
 
-        let rb_handle = self.rigid_body_set.insert(rb);
+        chunk.rb_handle = self.rigid_body_set.insert(rb);
+    }
 
-        rb_handle
+    pub fn add_player(&mut self, player: &mut Player) {
+        let pos = player.transform.pos;
+        let rot = player.transform.rot;
+
+        let rb = RigidBodyBuilder::dynamic()
+            .translation(vector![pos.x, pos.y])
+            .rotation(rot)
+            //.linear_damping(0.8)
+            //.angular_damping(0.9)
+            //.lock_rotations()
+            .user_data(PLAYER_RB_ID)
+            .build();
+
+        player.rb_handle = self.rigid_body_set.insert(rb);
+
+        let collider =
+            ColliderBuilder::cuboid(1.0, 2.0).active_events(ActiveEvents::CONTACT_FORCE_EVENTS);
+
+        player.collider_handle = self.collider_set.insert_with_parent(
+            collider,
+            player.rb_handle,
+            &mut self.rigid_body_set,
+        );
     }
 
     pub fn remove_chunk(&mut self, chunk: &Chunk) {
