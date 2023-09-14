@@ -50,7 +50,7 @@ impl Camera {
         )
     }
 
-    pub fn update(self, controls: &Controls, delta_time: Duration) -> Self {
+    pub fn update(&mut self, controls: &Controls, delta_time: Duration) {
         let delta_time = delta_time.as_secs_f32();
         let side = self.direction.cross(UP);
 
@@ -93,11 +93,8 @@ impl Camera {
             direction.normalize()
         };
 
-        Self {
-            position: self.position + direction * self.speed * delta_time,
-            direction: new_direction,
-            ..self
-        }
+        self.position += direction * self.speed * delta_time;
+        self.direction =new_direction;
     }
 
     pub fn view_matrix(&self) -> Mat4 {

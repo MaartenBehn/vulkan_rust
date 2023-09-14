@@ -8,21 +8,18 @@ use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
 use app::{log, App, BaseApp};
 use gui::imgui::{Condition, Ui};
+use renderer::Renderer;
 
-mod octtree_controller;
-use octtree::streamed_octtree::StreamedOcttree;
-use octtree_controller::*;
-mod octtree_builder;
-use octtree_builder::*;
-mod octtree_loader;
-use octtree_loader::*;
-mod materials;
-use materials::*;
-mod renderer;
-use renderer::*;
+use crate::materials::{MaterialController, MaterialList};
+use crate::octtree::Octtree;
+use crate::octtree_controller::OcttreeController;
+use crate::renderer::ComputeUbo;
 
-mod debug;
-use debug::*;
+pub mod materials;
+pub mod node;
+pub mod octtree;
+pub mod octtree_controller;
+pub mod renderer;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -50,15 +47,9 @@ pub struct RayCaster {
     total_time: Duration,
     frame_counter: usize,
 
-    octtree_controller: OcttreeController<StreamedOcttree>,
+    tree_controller: OcttreeController,
     material_controller: MaterialController,
     renderer: Renderer,
-    builder: OcttreeBuilder,
-    loader: OcttreeLoader,
-
-    movement_debug: MovementDebug,
-
-    max_loaded_batches: usize,
 
     camera: Camera,
 }
@@ -72,42 +63,24 @@ impl App for RayCaster {
         let images = &base.swapchain.images;
         let images_len = images.len() as u32;
 
-        log::info!("Creating Octtree");
-
-        let max_loaded_batches = 100;
-        let octtree = StreamedOcttree::new(SAVE_FOLDER, max_loaded_batches)?;
-        let octtree_controller = OcttreeController::new(context, octtree, 50000, 1000, 10000)?;
+        log::info!("Creating Tree");
+        let tree = Octtree::new();
+        let tree_controller = OcttreeController::new(&context, tree)?;
+        tree_controller.init_copy();
 
         log::info!("Creating Materials");
         let material_controller = MaterialController::new(MaterialList::default(), context)?;
-
-        log::info!("Creating Loader");
-        let loader = OcttreeLoader::new(
-            context,
-            &octtree_controller,
-            &octtree_controller.octtree_buffer,
-            &octtree_controller.octtree_info_buffer,
-        )?;
 
         log::info!("Creating Renderer");
         let renderer = Renderer::new(
             context,
             images_len,
             &base.storage_images,
-            &octtree_controller.octtree_buffer,
-            &octtree_controller.octtree_info_buffer,
+            &tree_controller.octtree_buffer,
             &material_controller.material_buffer,
         )?;
 
-        log::info!("Creating Builder");
-        let builder = OcttreeBuilder::new(
-            context,
-            &octtree_controller.octtree_buffer,
-            &octtree_controller.octtree_info_buffer,
-            octtree_controller.buffer_size,
-        )?;
-
-        log::info!("Setting inital camera pos");
+        log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
         camera.position = Vec3::new(-50.0, 0.0, 0.0);
         camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
@@ -118,16 +91,9 @@ impl App for RayCaster {
             total_time: Duration::ZERO,
             frame_counter: 0,
 
-            octtree_controller,
+            tree_controller,
             material_controller,
             renderer,
-            builder,
-            loader,
-
-            movement_debug: MovementDebug::new(MOVEMENT_DEBUG_READ)?,
-
-            max_loaded_batches,
-
             camera,
         })
     }
@@ -146,9 +112,6 @@ impl App for RayCaster {
 
         self.camera.update(controls, delta_time);
 
-        self.octtree_controller
-            .octtree_info_buffer
-            .copy_data_to_buffer(&[self.octtree_controller.octtree_info])?;
         self.renderer.ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
             screen_size: [
                 base.swapchain.extent.width as f32,
@@ -164,89 +127,6 @@ impl App for RayCaster {
             fill_2: 0,
         }])?;
 
-        self.builder.build_tree = gui.build || self.frame_counter == 0;
-        self.loader.load_tree = gui.load && self.frame_counter != 0;
-
-        if self.loader.load_tree {
-            let mut request_data: Vec<u32> = self.loader.request_buffer.get_data_from_buffer(
-                REQUEST_STEP * self.octtree_controller.transfer_size + LOAD_DEBUG_DATA_SIZE,
-            )?;
-
-            // Debug data from load shader
-            let render_counter = request_data[self.octtree_controller.transfer_size] as usize;
-            let needs_children_counter =
-                request_data[self.octtree_controller.transfer_size + 1] as usize;
-
-            gui.render_counter = render_counter;
-            gui.needs_children_counter = needs_children_counter;
-
-            request_data.truncate(REQUEST_STEP * self.octtree_controller.transfer_size);
-
-            let (requested_nodes, transfer_counter) =
-                self.octtree_controller.get_requested_nodes(&request_data)?;
-            self.loader
-                .transfer_buffer
-                .copy_data_to_buffer(&requested_nodes)?;
-
-            gui.transfer_counter = transfer_counter;
-
-            if PRINT_DEBUG_LOADING {
-                log::debug!("Render Counter: {:?}", &render_counter);
-                log::debug!("Needs Children Counter: {:?}", &needs_children_counter);
-                log::debug!("Transfer Counter: {:?}", &transfer_counter);
-                log::debug!("Request Data: {:?}", &request_data);
-            }
-        }
-
-        // Updateing Gui
-        gui.frame = self.frame_counter;
-        gui.pos = self.camera.position;
-        gui.dir = self.camera.direction;
-        gui.octtree_buffer_size = self.octtree_controller.buffer_size;
-        gui.transfer_buffer_size = self.octtree_controller.transfer_size;
-        gui.loaded_batches = ((self.octtree_controller.octtree.get_loaded_size() * 100)
-            / self.octtree_controller.octtree.get_loaded_max_size())
-            as u32;
-
-        self.octtree_controller.step();
-
-        if MOVEMENT_DEBUG_READ {
-            self.movement_debug
-                .read(&mut self.camera, self.frame_counter)?;
-        } else {
-            self.movement_debug.write(&self.camera)?;
-        }
-
-        self.frame_counter += 1;
-
-        Ok(())
-    }
-
-    fn record_raytracing_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
-        image_index: usize,
-    ) -> Result<()> {
-        // prevents reports of unused parameters without needing to use #[allow]
-        let _ = base;
-        let _ = buffer;
-        let _ = image_index;
-
-        Ok(())
-    }
-
-    fn record_raster_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
-        image_index: usize,
-    ) -> Result<()> {
-        // prevents reports of unused parameters without needing to use #[allow]
-        let _ = base;
-        let _ = buffer;
-        let _ = image_index;
-
         Ok(())
     }
 
@@ -256,14 +136,6 @@ impl App for RayCaster {
         buffer: &CommandBuffer,
         image_index: usize,
     ) -> Result<()> {
-        if self.loader.load_tree {
-            self.loader.render(base, buffer, image_index)?;
-        }
-
-        if self.builder.build_tree {
-            self.builder.render(base, buffer, image_index)?;
-        }
-
         self.renderer.render(base, buffer, image_index)?;
 
         Ok(())

@@ -1,7 +1,4 @@
-use glam::vec3;
 use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, MouseButton, DeviceEvent};
-
-
 
 
 const W_SCANCODE: u32 = 17;

@@ -2225,6 +2225,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "voxel_renderer_v2"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "gui",
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "vulkan"
 version = "0.1.0"
 dependencies = [
