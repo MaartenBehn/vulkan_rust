@@ -82,7 +82,8 @@ impl App for RayCaster {
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
-        camera.position = Vec3::new(-50.0, 0.0, 0.0);
+        //camera.position = Vec3::new(-50.0, 0.0, 0.0);
+        camera.position = Vec3::new(15.0, 10.0, 10.0);
         camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
         camera.speed = 50.0;
 
@@ -109,7 +110,6 @@ impl App for RayCaster {
         log::info!("Frame: {:?}", &self.frame_counter);
 
         self.total_time += delta_time;
-
         self.camera.update(controls, delta_time);
 
         self.renderer.ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
@@ -127,6 +127,12 @@ impl App for RayCaster {
             fill_2: 0,
         }])?;
 
+        // Updateing Gui
+        gui.frame = self.frame_counter;
+        gui.pos = self.camera.position;
+        gui.dir = self.camera.direction;
+
+        self.frame_counter += 1;
         Ok(())
     }
 
@@ -231,46 +237,6 @@ impl app::Gui for Gui {
                 ui.input_int("Scale", &mut debug_scale).build();
                 debug_scale = debug_scale.clamp(1, 100);
                 self.debug_scale = debug_scale as u32;
-
-                let mut build = self.build;
-                if ui.radio_button_bool("Build Tree", build) {
-                    build = !build;
-                }
-                self.build = build;
-
-                let mut load = self.load;
-                if ui.radio_button_bool("Load Tree", load) {
-                    load = !load;
-                }
-                self.load = load;
-
-                let render_counter = self.render_counter;
-                let percent =
-                    (self.render_counter as f32 / self.octtree_buffer_size as f32) * 100.0;
-                ui.text(format!(
-                    "Rendered Nodes: {render_counter} ({:.0}%)",
-                    percent
-                ));
-
-                let needs_children = self.needs_children_counter;
-                ui.text(format!("Needs Children: {needs_children}"));
-
-                let transfer_counter = self.transfer_counter;
-                let percent =
-                    (self.transfer_counter as f32 / self.transfer_buffer_size as f32) * 100.0;
-                ui.text(format!(
-                    "Transfered Nodes: {transfer_counter} ({:.0}%)",
-                    percent
-                ));
-
-                let mut step_to_root = self.step_to_root;
-                if ui.radio_button_bool("Step to Root", step_to_root) {
-                    step_to_root = !step_to_root;
-                }
-                self.step_to_root = step_to_root;
-
-                let loaded_batches = self.loaded_batches;
-                ui.text(format!("Loaded Batches: {loaded_batches}"));
             });
     }
 }

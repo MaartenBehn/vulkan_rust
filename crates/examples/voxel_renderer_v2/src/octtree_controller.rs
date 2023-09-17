@@ -12,7 +12,7 @@ use crate::node::Node;
 use crate::octtree::Octtree;
 use crate::octtree::PAGE_SIZE;
 
-const LOADED_PAGES: usize = 100;
+const LOADED_PAGES: usize = 10000;
 
 pub struct OcttreeController {
     pub octtree: Octtree,
@@ -21,10 +21,20 @@ pub struct OcttreeController {
 
 impl OcttreeController {
     pub fn new(context: &Context, octtree: Octtree) -> Result<Self> {
+        log::info!("Creating Tree Buffer");
+
+        let buffer_size = (size_of::<Node>() * PAGE_SIZE * LOADED_PAGES);
+        log::info!(
+            "Buffer Size: {} byte {} MB {} GB",
+            buffer_size,
+            buffer_size as f32 / 1000000.0,
+            buffer_size as f32 / 1000000000.0
+        );
+
         let octtree_buffer = context.create_buffer(
             vk::BufferUsageFlags::STORAGE_BUFFER,
             MemoryLocation::CpuToGpu,
-            (size_of::<Node>() * PAGE_SIZE * LOADED_PAGES) as _,
+            buffer_size as _,
         )?;
 
         Ok(OcttreeController {
@@ -34,6 +44,8 @@ impl OcttreeController {
     }
 
     pub fn init_copy(&self) -> Result<()> {
+        log::info!("Pushing Tree");
+
         for (i, page) in self.octtree.pages.iter().enumerate() {
             self.octtree_buffer.copy_data_to_buffer_complex(
                 page,
@@ -41,6 +53,8 @@ impl OcttreeController {
                 align_of::<Node>(),
             )?;
         }
+
+        log::info!("Pushed {} pages.", self.octtree.pages.len());
 
         Ok(())
     }

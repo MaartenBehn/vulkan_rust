@@ -34,7 +34,7 @@
         },
         {
             "label": "compile_shader",
-            "command": "sh scripts/compile_shaders_selected.sh astrinder",
+            "command": "sh scripts/compile_shaders_selected.sh voxel_renderer_v2",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -45,17 +45,17 @@
         
         {
             "label": "run_debug",
-            "command": "sh scripts/run_debug.sh astrinder",
+            "command": "sh scripts/run_debug.sh voxel_renderer_v2",
             "type": "shell",
         },
         {
             "label": "run_release",
-            "command": "sh scripts/run.sh astrinder",
+            "command": "sh scripts/run.sh voxel_renderer_v2",
             "type": "shell",
         },
         {
             "label": "profile",
-            "command": "sh scripts/profile.sh astrinder",
+            "command": "sh scripts/profile.sh voxel_renderer_v2",
             "type": "shell",
         },
         {

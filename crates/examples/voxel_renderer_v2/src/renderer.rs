@@ -27,6 +27,7 @@ pub struct Renderer {
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
+#[repr(C)]
 pub struct ComputeUbo {
     pub screen_size: [f32; 2],
     pub mode: u32,
