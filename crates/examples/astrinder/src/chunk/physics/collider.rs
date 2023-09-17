@@ -1,4 +1,4 @@
-use app::glam::{ivec2, IVec2};
+use app::glam::ivec2;
 use rapier2d::prelude::*;
 
 use crate::{chunk::CHUNK_PART_SIZE, math::*};

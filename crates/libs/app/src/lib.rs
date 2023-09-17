@@ -9,9 +9,7 @@ pub mod controls;
 
 use anyhow::Result;
 use ash::vk::{self};
-use camera::{Camera};
 use controls::Controls;
-use glam::vec3;
 use gpu_allocator::MemoryLocation;
 use gui::{
     imgui::{DrawData, Ui},
@@ -346,15 +344,6 @@ impl<B: App> BaseApp<B> {
         let command_buffers = create_command_buffers(&command_pool, &swapchain)?;
 
         let in_flight_frames = InFlightFrames::new(&context, IN_FLIGHT_FRAMES)?;
-
-        let camera = Camera::new(
-            vec3(0.0, 0.0, 1.0),
-            vec3(0.0, 0.0, -1.0),
-            60.0,
-            window.inner_size().width as f32 / window.inner_size().height as f32,
-            0.1,
-            10.0,
-        );
 
         Ok(Self {
             phantom: PhantomData,

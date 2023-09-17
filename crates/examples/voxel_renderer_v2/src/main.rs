@@ -13,10 +13,9 @@ use renderer::Renderer;
 use crate::materials::{MaterialController, MaterialList};
 use crate::octtree::Octtree;
 use crate::octtree_controller::OcttreeController;
-use crate::renderer::ComputeUbo;
+use crate::renderer::RenderBuffer;
 
 pub mod materials;
-pub mod node;
 pub mod octtree;
 pub mod octtree_controller;
 pub mod renderer;
@@ -25,8 +24,6 @@ const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
 
-const PRINT_DEBUG_LOADING: bool = false;
-const MOVEMENT_DEBUG_READ: bool = false;
 const SAVE_FOLDER: &str = "./assets/octtree";
 
 fn start() -> Result<()> {
@@ -64,9 +61,9 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Tree");
-        let tree = Octtree::new();
-        let tree_controller = OcttreeController::new(&context, tree)?;
-        tree_controller.init_copy();
+        let tree = Octtree::new(SAVE_FOLDER.to_owned(), 1000)?;
+        let tree_controller = OcttreeController::new(&context, tree, 1000)?;
+        tree_controller.init_push()?;
 
         log::info!("Creating Materials");
         let material_controller = MaterialController::new(MaterialList::default(), context)?;
@@ -77,15 +74,16 @@ impl App for RayCaster {
             images_len,
             &base.storage_images,
             &tree_controller.octtree_buffer,
+            &tree_controller.octtree_lookup_buffer,
             &material_controller.material_buffer,
         )?;
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
-        //camera.position = Vec3::new(-50.0, 0.0, 0.0);
-        camera.position = Vec3::new(15.0, 10.0, 10.0);
+
+        camera.position = Vec3::new(-66.0, 108.0, 732.0);
         camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
-        camera.speed = 50.0;
+        camera.speed = 100.0;
 
         log::info!("Init done");
         Ok(Self {
@@ -112,20 +110,22 @@ impl App for RayCaster {
         self.total_time += delta_time;
         self.camera.update(controls, delta_time);
 
-        self.renderer.ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
-            screen_size: [
-                base.swapchain.extent.width as f32,
-                base.swapchain.extent.height as f32,
-            ],
-            mode: gui.mode,
-            debug_scale: gui.debug_scale,
+        self.renderer
+            .ubo_buffer
+            .copy_data_to_buffer(&[RenderBuffer {
+                screen_size: [
+                    base.swapchain.extent.width as f32,
+                    base.swapchain.extent.height as f32,
+                ],
+                mode: gui.mode,
+                debug_scale: gui.debug_scale,
 
-            pos: self.camera.position,
-            step_to_root: gui.step_to_root as u32,
+                pos: self.camera.position,
+                step_to_root: gui.step_to_root as u32,
 
-            dir: self.camera.direction,
-            fill_2: 0,
-        }])?;
+                dir: self.camera.direction,
+                fill_2: 0,
+            }])?;
 
         // Updateing Gui
         gui.frame = self.frame_counter;

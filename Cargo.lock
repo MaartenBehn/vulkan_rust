@@ -1377,11 +1377,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "octtree_builder_v2"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "bincode",
+ "indicatif",
+ "noise",
+ "octtree_v2",
+ "palette",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "serde",
+ "serde_json",
+ "shuffle",
+]
+
+[[package]]
 name = "octtree_helper"
 version = "0.1.0"
 dependencies = [
  "app",
  "octtree",
+]
+
+[[package]]
+name = "octtree_v2"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "bincode",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2163,6 +2190,7 @@ version = "0.1.0"
 dependencies = [
  "app",
  "gui",
+ "octtree_v2",
  "rand 0.8.5",
 ]
 

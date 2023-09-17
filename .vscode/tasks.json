@@ -24,7 +24,7 @@
         },
         {
             "label": "build_debug_octtree_builder",
-            "command": "sh scripts/build_debug.sh octtree_builder",
+            "command": "sh scripts/build_debug.sh octtree_builder_v2",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -70,7 +70,7 @@
         },
         {
             "label": "oct_builder",
-            "command": "sh scripts/run.sh octtree_builder",
+            "command": "sh scripts/run.sh octtree_builder_v2",
             "type": "shell",
             "options": {
                 "statusbar": {

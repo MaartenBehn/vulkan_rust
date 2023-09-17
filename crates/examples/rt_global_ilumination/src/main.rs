@@ -88,7 +88,7 @@ impl App for Reflections {
 
     fn update(
         &mut self,
-        base: &mut BaseApp<Self>,
+        _: &mut BaseApp<Self>,
         gui: &mut <Self as App>::Gui,
         _image_index: usize,
         delta_time: Duration,

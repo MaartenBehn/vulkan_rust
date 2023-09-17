@@ -33,7 +33,7 @@ pub fn bools_to_bits(bools: [bool; 8]) -> u8 {
         + ((bools[4] as u8) << 4)
         + ((bools[5] as u8) << 5)
         + ((bools[6] as u8) << 6)
-        + ((bools[6] as u8) << 7)
+        + ((bools[7] as u8) << 7)
 }
 
 pub fn bits_to_bools(bits: u8) -> [bool; 8] {
@@ -48,3 +48,15 @@ pub fn bits_to_bools(bits: u8) -> [bool; 8] {
         (bits & 128) == 128,
     ]
 }
+
+
+pub const CHILD_CONFIG: [[u32; 3]; 8] = [
+    [0, 0, 0],
+    [0, 0, 1],
+    [0, 1, 0],
+    [0, 1, 1],
+    [1, 0, 0],
+    [1, 0, 1],
+    [1, 1, 0],
+    [1, 1, 1],
+];

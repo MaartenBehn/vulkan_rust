@@ -1,19 +1,18 @@
 use std::mem::size_of;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use app::anyhow::Result;
+use app::camera::Camera;
 use app::controls::Controls;
-use app::glam::{vec3, Mat4, Vec3};
+use app::glam::Vec3;
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
+
 use app::vulkan::{
-    Buffer, BufferBarrier, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context,
-    DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
-    GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout, Vertex,
-    WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, DescriptorPool,
+    DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::{log, App, BaseApp};
+use app::{App, BaseApp};
 use gui::imgui::{Condition, Ui};
 
 const WIDTH: u32 = 1024;
@@ -33,6 +32,7 @@ struct Particles {
     compute_descriptor_sets: Vec<DescriptorSet>,
     compute_pipeline_layout: PipelineLayout,
     compute_pipeline: ComputePipeline,
+    camera: Camera,
 }
 
 impl App for Particles {
@@ -112,8 +112,9 @@ impl App for Particles {
             },
         )?;
 
-        base.camera.position.z = 2.0;
-        base.camera.z_far = 100.0;
+        let mut camera = Camera::base(base.swapchain.extent);
+        camera.position.z = 2.0;
+        camera.z_far = 100.0;
 
         Ok(Self {
             compute_ubo_buffer,
@@ -122,20 +123,21 @@ impl App for Particles {
             compute_descriptor_sets,
             compute_pipeline_layout,
             compute_pipeline,
+            camera,
         })
     }
 
     fn update(
         &mut self,
-        base: &mut BaseApp<Self>,
-        gui: &mut <Self as App>::Gui,
+        _: &mut BaseApp<Self>,
+        _: &mut <Self as App>::Gui,
         _: usize,
-        delta_time: Duration,
+        _: Duration,
         _: &Controls,
     ) -> Result<()> {
         self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
-            pos: base.camera.position,
-            dir: base.camera.direction,
+            pos: self.camera.position,
+            dir: self.camera.direction,
         }])?;
 
         Ok(())

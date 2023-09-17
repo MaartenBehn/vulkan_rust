@@ -28,7 +28,7 @@ pub struct Renderer {
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 #[repr(C)]
-pub struct ComputeUbo {
+pub struct RenderBuffer {
     pub screen_size: [f32; 2],
     pub mode: u32,
     pub debug_scale: u32,
@@ -46,19 +46,24 @@ impl Renderer {
         images_len: u32,
         storage_images: &Vec<ImageAndView>,
         octtree_buffer: &Buffer,
+        octtree_lookup_buffer: &Buffer,
         material_buffer: &Buffer,
     ) -> Result<Self> {
-        let ubo_buffer = context.create_buffer(
+        let render_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
-            size_of::<ComputeUbo>() as _,
+            size_of::<RenderBuffer>() as _,
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 4,
+            images_len * 5,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_IMAGE,
+                    descriptor_count: images_len,
+                },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::UNIFORM_BUFFER,
                     descriptor_count: images_len,
                 },
                 vk::DescriptorPoolSize {
@@ -94,12 +99,19 @@ impl Renderer {
             vk::DescriptorSetLayoutBinding {
                 binding: 2,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
             vk::DescriptorSetLayoutBinding {
                 binding: 3,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::COMPUTE,
+                ..Default::default()
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 4,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
@@ -122,19 +134,25 @@ impl Renderer {
                 WriteDescriptorSet {
                     binding: 1,
                     kind: WriteDescriptorSetKind::UniformBuffer {
-                        buffer: &ubo_buffer,
+                        buffer: &render_buffer,
                     },
                 },
                 WriteDescriptorSet {
                     binding: 2,
-                    kind: WriteDescriptorSetKind::StorageBuffer {
-                        buffer: &material_buffer,
+                    kind: WriteDescriptorSetKind::UniformBuffer {
+                        buffer: &octtree_lookup_buffer,
                     },
                 },
                 WriteDescriptorSet {
                     binding: 3,
                     kind: WriteDescriptorSetKind::StorageBuffer {
                         buffer: &octtree_buffer,
+                    },
+                },
+                WriteDescriptorSet {
+                    binding: 4,
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &material_buffer,
                     },
                 },
             ]);
@@ -151,7 +169,7 @@ impl Renderer {
         )?;
 
         Ok(Renderer {
-            ubo_buffer,
+            ubo_buffer: render_buffer,
             descriptor_pool,
             descriptor_layout,
             descriptor_sets,

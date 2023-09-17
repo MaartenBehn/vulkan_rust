@@ -4,12 +4,9 @@ use rand::{Rng, SeedableRng};
 
 use crate::chunk::chunk::Chunk;
 use crate::chunk::particle::Particle;
-use crate::chunk::{ChunkController, IdCounter, CHUNK_PART_SIZE};
-use crate::math::transform::{self, Transform};
-use crate::math::{coord_to_hex, hex_in_chunk_frame, hex_to_coord, hex_to_particle_index};
-use crate::settings::Settings;
-
-use super::PhysicsController;
+use crate::chunk::{ChunkController, CHUNK_PART_SIZE};
+use crate::math::transform::Transform;
+use crate::math::{coord_to_hex, hex_to_coord, hex_to_particle_index};
 
 const BREAK_PATTERN_SIZE: usize = 100;
 

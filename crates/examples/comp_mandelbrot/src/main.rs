@@ -2,6 +2,7 @@ use std::mem::size_of;
 use std::time::Duration;
 
 use app::anyhow::Result;
+use app::camera::Camera;
 use app::controls::Controls;
 use app::glam::Vec3;
 use app::vulkan::ash::vk;
@@ -30,6 +31,8 @@ struct Particles {
     compute_descriptor_sets: Vec<DescriptorSet>,
     compute_pipeline_layout: PipelineLayout,
     compute_pipeline: ComputePipeline,
+
+    camera: Camera,
 }
 
 impl App for Particles {
@@ -109,8 +112,9 @@ impl App for Particles {
             },
         )?;
 
-        base.camera.position.z = 2.0;
-        base.camera.z_far = 100.0;
+        let mut camera = Camera::base(base.swapchain.extent);
+        camera.position.z = 2.0;
+        camera.z_far = 100.0;
 
         Ok(Self {
             compute_ubo_buffer,
@@ -119,20 +123,21 @@ impl App for Particles {
             compute_descriptor_sets,
             compute_pipeline_layout,
             compute_pipeline,
+            camera,
         })
     }
 
     fn update(
         &mut self,
-        base: &mut BaseApp<Self>,
+        _: &mut BaseApp<Self>,
         _gui: &mut <Self as App>::Gui,
         _: usize,
         _delta_time: Duration,
         _: &Controls,
     ) -> Result<()> {
         self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
-            pos: base.camera.position,
-            dir: base.camera.direction,
+            pos: self.camera.position,
+            dir: self.camera.direction,
         }])?;
 
         Ok(())

@@ -1,5 +1,5 @@
 [package]
-name = "voxel_renderer_v2"
+name = "octtree_v2"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,8 +7,8 @@ authors.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-app = { path = "../../libs/app" }
-gui = { path = "../../libs/gui" }
-octtree_v2 = { path = "../../libs/octtree_v2" }
+serde.workspace = true
+serde_json.workspace = true
+bincode.workspace = true
 
-rand.workspace = true
+app = { path = "../../libs/app" }
