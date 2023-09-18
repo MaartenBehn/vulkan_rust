@@ -24,12 +24,11 @@ layout(binding = 1) uniform RenderBuffer {
 
 
 // ----- Octtree Start --------
-#define OCTTREE_DEPTH 10
-#define PAGE_AMMOUNT 1000
-#define PAGE_BITS 16
-#define PAGE_SIZE 65536
-#define IN_PAGE_MASK 65535
-
+#define OCTTREE_DEPTH 4
+#define PAGE_AMMOUNT 16
+#define PAGE_BITS 4
+#define PAGE_SIZE 16
+#define IN_PAGE_MASK 15
 
 #define PTR_MASK 16777215
 #define MAX_PTR 16777216
@@ -75,16 +74,16 @@ layout(binding = 3) buffer OcttreeBuffer {
     uint octtree[PAGE_AMMOUNT * PAGE_SIZE * 3];
 } octtreeBuffer;
 
-uint GET_HEADER(uint index) {
+bool GET_HEADER(uint index, out uint header) {
     uint pageNr = index >> PAGE_BITS;
     int pageIndex = GET_PAGE_INDEX(pageNr);
     if (pageIndex == -1) {
-        debugPrintfEXT("Page with Nr: %d not found", pageNr);
-        return 0;
+        return false;
     }
 
     uint finalIndex = (index & IN_PAGE_MASK) + (pageIndex << PAGE_BITS);
-    return octtreeBuffer.octtree[finalIndex * 3];
+    header = octtreeBuffer.octtree[finalIndex * 3];
+    return true;
 }
 
 #define GET_PTR_FROM_HEADER(header) (header & PTR_MASK)
@@ -123,7 +122,8 @@ vec3 draw_buffer_debuger(){
     vec2 uv = gl_GlobalInvocationID.xy / renderBuffer.screen_size.xy;
 
     uint nodeIndex = gl_GlobalInvocationID.x / DEBUG_SCALE;
-    uint header = GET_HEADER(nodeIndex);
+    uint header = 0;
+    GET_HEADER(nodeIndex, header);
     
     vec3 color = vec3(0);
     // Static Data
@@ -195,13 +195,13 @@ uint getChildFromPos(uvec3 pos){
     return pos.x * 4 + pos.y * 2 + pos.z;
 }
 
-uint getChildPtr(uint ptr, uint nr, uint branches){
-    uint newPtr = ptr;
+uint getChildOffset(uint nr, uint branches){
+    uint ptr = 0;
     for (int i = 0; i < nr; i++){
-        newPtr += int(GET_BRANCH_FROM_BRANCHES(branches, i));
+        ptr += int(GET_BRANCH_FROM_BRANCHES(branches, i));
     }
 
-    return newPtr;
+    return ptr;
 }
 
 bool checkHit(in Ray ray, in vec3 nodePos, in uint size, out float tMin, out float tMax)
@@ -253,19 +253,17 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     }
 
     // Loop
+    uint rootHeader = 0;
+    GET_HEADER(0, rootHeader);
+
     uint depth = 0;
     uint index = 0;
     uvec3 nodePos = uvec3(0);
-    uint ptr = 0;
-
+    uint header = rootHeader;
     counter = 0;
     
     while(counter < MAX_STEPS){
         
-        uint header = GET_HEADER(index);
-        ptr += GET_PTR_FROM_HEADER(header);
-        uint branches = GET_BRANCHES_FROM_HEADER(header);
-                      
         uint size = getSizeFromDepth(depth + 1, octtreeDepth);                      
 
         uvec3 newNodePos = getNodePos(ray.pos, size);
@@ -278,12 +276,15 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
             return true;
         }
         
+        uint branches = GET_BRANCHES_FROM_HEADER(header);
         bool is_branch = GET_BRANCH_FROM_BRANCHES(branches, childNr);
         uint mat = GET_MAT(index, childNr);
 
         if (is_branch) {
-            index = getChildPtr(ptr, childNr, branches);
-            depth += 1;  
+            depth += 1; 
+            index = index + GET_PTR_FROM_HEADER(header) + getChildOffset(childNr, branches);
+
+            is_branch = GET_HEADER(index, header);
         }
         else if (mat == 0){
             checkHit(ray, vec3(nodePos), size, tMin, tMax);                     
@@ -295,14 +296,15 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
                 depth = 0; 
                 index = 0;                                                                                                                                                       
                 nodePos = uvec3(0);      
-                ptr = 0;                              
+                header = rootHeader;                            
             }
             else{
                 return false; // Ray left Tree.                                 
             }
             
         }
-        else if (mat != 0){
+        
+        if (!is_branch && mat != 0){
             color = vec3(float(mat) / 256);
             return true;
         }

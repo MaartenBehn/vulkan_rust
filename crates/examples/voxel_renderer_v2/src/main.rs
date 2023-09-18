@@ -23,7 +23,6 @@ pub mod renderer;
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
-
 const SAVE_FOLDER: &str = "./assets/octtree";
 
 fn start() -> Result<()> {
@@ -62,7 +61,7 @@ impl App for RayCaster {
 
         log::info!("Creating Tree");
         let tree = Octtree::new(SAVE_FOLDER.to_owned(), 1000)?;
-        let tree_controller = OcttreeController::new(&context, tree, 1000)?;
+        let tree_controller = OcttreeController::new(&context, tree, 16)?;
         tree_controller.init_push()?;
 
         log::info!("Creating Materials");
@@ -81,7 +80,7 @@ impl App for RayCaster {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
-        camera.position = Vec3::new(-66.0, 108.0, 732.0);
+        camera.position = Vec3::new(0.0, 6.0, 10.0);
         camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
         camera.speed = 100.0;
 
@@ -110,6 +109,9 @@ impl App for RayCaster {
         self.total_time += delta_time;
         self.camera.update(controls, delta_time);
 
+        self.tree_controller
+            .update(self.camera.position, 100, self.frame_counter)?;
+
         self.renderer
             .ubo_buffer
             .copy_data_to_buffer(&[RenderBuffer {
@@ -121,7 +123,7 @@ impl App for RayCaster {
                 debug_scale: gui.debug_scale,
 
                 pos: self.camera.position,
-                step_to_root: gui.step_to_root as u32,
+                fill_1: 0,
 
                 dir: self.camera.direction,
                 fill_2: 0,
@@ -173,20 +175,7 @@ pub struct Gui {
     pos: Vec3,
     dir: Vec3,
     mode: u32,
-    build: bool,
-    load: bool,
     debug_scale: u32,
-
-    render_counter: usize,
-    needs_children_counter: usize,
-    octtree_buffer_size: usize,
-
-    transfer_counter: usize,
-    transfer_buffer_size: usize,
-
-    step_to_root: bool,
-
-    loaded_batches: u32,
 }
 
 impl app::Gui for Gui {
@@ -196,19 +185,7 @@ impl app::Gui for Gui {
             pos: Vec3::default(),
             dir: Vec3::default(),
             mode: 1,
-            build: false,
-            load: true,
             debug_scale: 1,
-
-            render_counter: 0,
-            needs_children_counter: 0,
-            octtree_buffer_size: 0,
-            transfer_counter: 0,
-            transfer_buffer_size: 0,
-
-            step_to_root: true,
-
-            loaded_batches: 0,
         })
     }
 

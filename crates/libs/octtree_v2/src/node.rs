@@ -50,7 +50,7 @@ pub fn bits_to_bools(bits: u8) -> [bool; 8] {
 }
 
 
-pub const CHILD_CONFIG: [[u32; 3]; 8] = [
+pub const CHILD_CONFIG: [[i32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
     [0, 1, 0],

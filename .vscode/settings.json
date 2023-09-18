@@ -1,7 +1,7 @@
 {
     "rust-analyzer.linkedProjects": [
-        "./crates/examples/astrinder/Cargo.toml",
-        "./crates/examples/astrinder/Cargo.toml"
+        "./crates/examples/octtree_builder_v2/Cargo.toml",
+        "./crates/examples/voxel_renderer_v2/Cargo.toml"
     ],
     "rust-analyzer.showUnlinkedFileNotification": false
 }

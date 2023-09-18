@@ -3,10 +3,12 @@ use std::{
     io::Write,
 };
 
-use app::{anyhow::Result, glam::UVec3};
+use app::anyhow::Result;
 use app::anyhow::Ok;
 
 use serde::{Deserialize, Serialize};
+
+use crate::aabb::AABB;
 
 const METADAT_FILE_NAME: &str = "metadata";
 
@@ -16,13 +18,6 @@ pub struct Metadata {
     pub page_size: usize,
     pub page_ammount: usize,
     pub aabbs: Vec<AABB>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct AABB {
-    pub nr: usize,
-    pub min: UVec3,
-    pub max: UVec3,
 }
 
 impl Metadata {
@@ -57,3 +52,4 @@ impl Metadata {
         Ok(metadata)
     }
 }
+

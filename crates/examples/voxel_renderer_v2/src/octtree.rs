@@ -2,7 +2,7 @@ use std::mem::size_of;
 
 use app::{
     anyhow::{bail, Result},
-    glam::{uvec3, vec3, UVec3, Vec3},
+    glam::{uvec3, UVec3, Vec3},
     log,
 };
 use octtree_v2::{load::load_page, metadata::Metadata, node::Node};
@@ -32,7 +32,10 @@ impl Octtree {
             pages: Vec::new(),
         };
 
-        octtree.load_pages((0..loaded_pages.min(metadata.page_ammount)).collect(), 0)?;
+        octtree.load_pages(
+            (0..loaded_pages.min(octtree.metadata.page_ammount)).collect(),
+            0,
+        )?;
 
         let current_size = (size_of::<Node>() * octtree.metadata.page_size + size_of::<Page>())
             * octtree.pages.len();
