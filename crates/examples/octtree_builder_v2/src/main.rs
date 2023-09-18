@@ -9,7 +9,7 @@ fn start() -> Result<()> {
 
     log_init("octree_builder.log");
 
-    let depth = 4;
+    let depth = 11;
     let save_path = "./assets/octtree";
     Octtree::build(save_path, depth)?;
 

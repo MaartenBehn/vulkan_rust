@@ -1,5 +1,8 @@
+use app::log;
+
 const PTR_MASK: u32 = 0x00FFFFFF;
 const BRANCH_MASK: u32 = 0xFF000000;
+const MAX_PTR: usize = 16777216;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
@@ -9,6 +12,8 @@ pub struct Node {
 }
 
 pub fn new_node(ptr: usize, branches: u8, mats: [u8; 8]) -> Node {
+    debug_assert!(ptr < MAX_PTR);
+
     let header = (ptr as u32) + ((branches as u32) << 24);
     Node { header, mats }
 }
@@ -60,3 +65,10 @@ pub const CHILD_CONFIG: [[i32; 3]; 8] = [
     [1, 1, 0],
     [1, 1, 1],
 ];
+
+pub fn print_page(nodes: &[Node]){
+    for (i, node) in nodes.iter().enumerate() {
+        let ptr = get_ptr(*node);
+        log::info!("{} {}", i, ptr)
+    }
+}

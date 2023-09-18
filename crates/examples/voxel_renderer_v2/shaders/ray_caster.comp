@@ -24,11 +24,11 @@ layout(binding = 1) uniform RenderBuffer {
 
 
 // ----- Octtree Start --------
-#define OCTTREE_DEPTH 4
-#define PAGE_AMMOUNT 16
-#define PAGE_BITS 4
-#define PAGE_SIZE 16
-#define IN_PAGE_MASK 15
+#define OCTTREE_DEPTH 11
+#define PAGE_AMMOUNT 1000
+#define PAGE_BITS 16
+#define PAGE_SIZE 65536
+#define IN_PAGE_MASK 65535
 
 #define PTR_MASK 16777215
 #define MAX_PTR 16777216
@@ -74,18 +74,14 @@ layout(binding = 3) buffer OcttreeBuffer {
     uint octtree[PAGE_AMMOUNT * PAGE_SIZE * 3];
 } octtreeBuffer;
 
-bool GET_HEADER(uint index, out uint header) {
-    uint pageNr = index >> PAGE_BITS;
+uint GET_INDEX(uint ptr, out bool found) {
+    uint pageNr = ptr >> PAGE_BITS;
     int pageIndex = GET_PAGE_INDEX(pageNr);
-    if (pageIndex == -1) {
-        return false;
-    }
-
-    uint finalIndex = (index & IN_PAGE_MASK) + (pageIndex << PAGE_BITS);
-    header = octtreeBuffer.octtree[finalIndex * 3];
-    return true;
+    found = pageIndex != -1;
+    return (ptr & IN_PAGE_MASK) + (pageIndex << PAGE_BITS);
 }
 
+#define GET_HEADER(index) octtreeBuffer.octtree[index * 3]
 #define GET_PTR_FROM_HEADER(header) (header & PTR_MASK)
 #define GET_BRANCHES_FROM_HEADER(header) ((header & BRANCH_MASK) >> 24)
 #define GET_BRANCH_FROM_BRANCHES(branches, nr) ((branches & (1 << nr)) != 0)
@@ -122,8 +118,9 @@ vec3 draw_buffer_debuger(){
     vec2 uv = gl_GlobalInvocationID.xy / renderBuffer.screen_size.xy;
 
     uint nodeIndex = gl_GlobalInvocationID.x / DEBUG_SCALE;
-    uint header = 0;
-    GET_HEADER(nodeIndex, header);
+    bool found = false;
+    uint index = GET_INDEX(nodeIndex, found);
+    uint header = GET_HEADER(index);
     
     vec3 color = vec3(0);
     // Static Data
@@ -253,18 +250,20 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
     }
 
     // Loop
-    uint rootHeader = 0;
-    GET_HEADER(0, rootHeader);
-
-    uint depth = 0;
-    uint index = 0;
+    uint depth = 1;
+    uint ptr = 0;
     uvec3 nodePos = uvec3(0);
+    
+    bool indexFound = false;
+    uint rootIndex = GET_INDEX(0, indexFound);
+    uint index = rootIndex;
+    uint rootHeader = GET_HEADER(index);
     uint header = rootHeader;
     counter = 0;
     
     while(counter < MAX_STEPS){
         
-        uint size = getSizeFromDepth(depth + 1, octtreeDepth);                      
+        uint size = getSizeFromDepth(depth, octtreeDepth);                      
 
         uvec3 newNodePos = getNodePos(ray.pos, size);
         uvec3 posDelta = (newNodePos - nodePos) / size; 
@@ -282,9 +281,9 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
 
         if (is_branch) {
             depth += 1; 
-            index = index + GET_PTR_FROM_HEADER(header) + getChildOffset(childNr, branches);
-
-            is_branch = GET_HEADER(index, header);
+            ptr += GET_PTR_FROM_HEADER(header) + getChildOffset(childNr, branches);
+            index = GET_INDEX(ptr, is_branch);
+            header = GET_HEADER(index);
         }
         else if (mat == 0){
             checkHit(ray, vec3(nodePos), size, tMin, tMax);                     
@@ -293,9 +292,10 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
 
             if (getNodePos(ray.pos, rootSize) == ivec3(0)){
 
-                depth = 0; 
-                index = 0;                                                                                                                                                       
-                nodePos = uvec3(0);      
+                depth = 1; 
+                nodePos = uvec3(0);    
+                ptr = 0;   
+                index = rootIndex;                                                                                                                                                    
                 header = rootHeader;                            
             }
             else{

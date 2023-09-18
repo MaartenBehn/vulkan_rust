@@ -4,7 +4,7 @@
     [
         {
             "label": "build_debug",
-            "command": "sh scripts/build_debug.sh voxel_renderer_v2",
+            "command": "sh scripts/build_debug.sh octtree_builder_v2",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -14,7 +14,7 @@
         },
         {
             "label": "build_release",
-            "command": "sh scripts/build_release.sh voxel_renderer_v2",
+            "command": "sh scripts/build_release.sh octtree_builder_v2",
             "type": "shell",
             "options": {
                 "statusbar": {

@@ -115,7 +115,7 @@ impl OcttreeController {
         Ok(())
     }
 
-    pub fn update(&mut self, pos: Vec3, size: i32, frame: usize) -> Result<()> {
+    pub fn update(&mut self, pos: Vec3, size: i32) -> Result<()> {
         let player_pos = ivec3(pos.x as i32, pos.y as i32, pos.z as i32);
         let player_size = ivec3(size, size, size);
         let player_aabb = AABB::new(player_pos - player_size, player_pos + player_size);
@@ -127,8 +127,8 @@ impl OcttreeController {
             }
         }
 
-        log::info!("Loded Pages: {:?}", self.octtree_lookup);
-        log::info!("Colliding Pages: {:?}", collided_pages);
+        //log::info!("Loded Pages: {:?}", self.octtree_lookup);
+        //log::info!("Colliding Pages: {:?}", collided_pages);
 
         if collided_pages.len() == 0 {
             return Ok(());
@@ -159,6 +159,11 @@ impl OcttreeController {
             if j >= collided_pages.len() || i >= self.loaded_pages {
                 break;
             }
+        }
+
+        while i < self.loaded_pages {
+            free_in_lookup_indices.push(i);
+            i += 1;
         }
 
         while j < collided_pages.len() {

@@ -3,6 +3,7 @@ use std::mem::size_of;
 use app::anyhow::{bail, Result};
 use app::glam::{ivec3, IVec3};
 use app::log;
+use bincode::de;
 use indicatif::ProgressBar;
 use octtree_v2::aabb::AABB;
 use octtree_v2::node::{bools_to_bits, new_node, Node, CHILD_CONFIG};
@@ -11,8 +12,8 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 // pub const PAGE_BITS: usize = 16;
-//pub const PAGE_SIZE: usize = 65536;
-pub const PAGE_SIZE: usize = 16;
+pub const PAGE_SIZE: usize = 65536;
+// pub const PAGE_SIZE: usize = 16;
 pub const MAX_PTR_SIZE: u64 = 16777216;
 
 pub struct Octtree {
@@ -66,8 +67,13 @@ impl Octtree {
     ) -> Result<(usize, IVec3, IVec3)> {
         bar.set_position(ptr as u64);
 
+        // Adress
         let page_nr = index / PAGE_SIZE;
         let in_page_index = index % PAGE_SIZE;
+
+        if depth == 1 {
+            println!("1");
+        }
 
         let mut branch = [false; 8];
         let mut mats = [0; 8];
@@ -81,8 +87,8 @@ impl Octtree {
                 num_branches += 1;
             }
         }
-
         let branch_bits = bools_to_bits(branch);
+
         let use_ptr = if branch_bits != 0 {
             ptr - parent_ptr
         } else {
@@ -122,7 +128,7 @@ impl Octtree {
                         depth + 1,
                         parent_ptr + i,
                         ptr,
-                        parent_ptr,
+                        parent_ptr + i,
                         new_pos,
                         rng,
                         bar,

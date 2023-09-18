@@ -5,7 +5,11 @@ use app::{
     glam::{uvec3, UVec3, Vec3},
     log,
 };
-use octtree_v2::{load::load_page, metadata::Metadata, node::Node};
+use octtree_v2::{
+    load::load_page,
+    metadata::Metadata,
+    node::{print_page, Node},
+};
 
 pub struct Octtree {
     pub path: String,
@@ -54,6 +58,13 @@ impl Octtree {
             possible_size as f32 / 1000000.0,
             possible_size as f32 / 1000000000.0
         );
+
+        /*
+        for (i, page) in octtree.pages.iter().enumerate() {
+            log::info!("Page: {}", i);
+            print_page(&page.nodes);
+        }
+        */
 
         Ok(octtree)
     }

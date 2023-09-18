@@ -60,8 +60,8 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Tree");
-        let tree = Octtree::new(SAVE_FOLDER.to_owned(), 1000)?;
-        let tree_controller = OcttreeController::new(&context, tree, 16)?;
+        let tree = Octtree::new(SAVE_FOLDER.to_owned(), 2000)?;
+        let tree_controller = OcttreeController::new(&context, tree, 1000)?;
         tree_controller.init_push()?;
 
         log::info!("Creating Materials");
@@ -80,7 +80,7 @@ impl App for RayCaster {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
-        camera.position = Vec3::new(0.0, 6.0, 10.0);
+        camera.position = Vec3::new(1410.0, 458.0, 1264.0);
         camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
         camera.speed = 100.0;
 
@@ -109,8 +109,7 @@ impl App for RayCaster {
         self.total_time += delta_time;
         self.camera.update(controls, delta_time);
 
-        self.tree_controller
-            .update(self.camera.position, 100, self.frame_counter)?;
+        self.tree_controller.update(self.camera.position, 300)?;
 
         self.renderer
             .ubo_buffer
