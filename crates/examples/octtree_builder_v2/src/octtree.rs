@@ -3,10 +3,9 @@ use std::mem::size_of;
 use app::anyhow::{bail, Result};
 use app::glam::{ivec3, IVec3};
 use app::log;
-use bincode::de;
 use indicatif::ProgressBar;
 use octtree_v2::aabb::AABB;
-use octtree_v2::node::{bools_to_bits, new_node, Node, CHILD_CONFIG};
+use octtree_v2::node::{bools_to_bits, Node, MAX_PTR, new_node, CHILD_CONFIG, new_far_pointer};
 use octtree_v2::save::Saver;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -14,8 +13,6 @@ use rand::{Rng, SeedableRng};
 // pub const PAGE_BITS: usize = 16;
 pub const PAGE_SIZE: usize = 65536;
 // pub const PAGE_SIZE: usize = 16;
-pub const MAX_PTR_SIZE: u64 = 16777216;
-
 pub struct Octtree {
     depth: usize,
     pages: Vec<Page>,
@@ -40,8 +37,8 @@ impl Octtree {
         };
 
         let mut rng = StdRng::seed_from_u64(0);
-        let mut bar = ProgressBar::new(MAX_PTR_SIZE);
-        tree.fill(0, 0, 1, 0, ivec3(0, 0, 0), &mut rng, &mut bar)?;
+        let mut bar = ProgressBar::new(MAX_PTR as u64);
+        tree.fill(0, 0, 1, 0, ivec3(0, 0, 0), depth - 10, &mut rng, &mut bar)?;
         tree.done()?;
 
         log::info!("Tree has {} pages.", tree.page_nr_counter);
@@ -62,6 +59,7 @@ impl Octtree {
         mut ptr: usize,
         mut parent_ptr: usize,
         pos: IVec3,
+        far_till: usize,
         rng: &mut StdRng,
         bar: &ProgressBar,
     ) -> Result<(usize, IVec3, IVec3)> {
@@ -89,13 +87,22 @@ impl Octtree {
         }
         let branch_bits = bools_to_bits(branch);
 
-        let use_ptr = if branch_bits != 0 {
+        let mut use_ptr = if branch_bits != 0 {
             ptr - parent_ptr
         } else {
             0
         };
 
-        self.set_node(page_nr, in_page_index, new_node(use_ptr, branch_bits, mats))?;
+        let far = use_ptr >= MAX_PTR;
+        if far {
+            debug_assert!(depth <= far_till);
+
+            self.set_node(page_nr, in_page_index, new_far_pointer(use_ptr))?;
+
+            use_ptr = parent_ptr + 8;
+        } 
+
+        self.set_node(page_nr, in_page_index, new_node(use_ptr, branch_bits, mats, far))?;
 
         let mut min = self.saver.metadata.aabbs[page_nr].min;
         let mut max = self.saver.metadata.aabbs[page_nr].max;
@@ -109,9 +116,11 @@ impl Octtree {
             max = max.max(pos_max);
         }
 
+
         parent_ptr = ptr;
         if num_branches > 0 {
-            ptr += num_branches;
+            let far_offset = 8 * (depth <= far_till) as usize;
+            ptr += num_branches + far_offset;
 
             let child_size = i32::pow(2, (self.depth - depth - 1) as u32);
 
@@ -130,6 +139,7 @@ impl Octtree {
                         ptr,
                         parent_ptr + i,
                         new_pos,
+                        far_till,
                         rng,
                         bar,
                     )?;

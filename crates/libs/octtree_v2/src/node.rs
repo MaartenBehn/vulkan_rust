@@ -1,8 +1,9 @@
 use app::log;
 
-const PTR_MASK: u32 = 0x00FFFFFF;
-const BRANCH_MASK: u32 = 0xFF000000;
-const MAX_PTR: usize = 16777216;
+pub const PTR_MASK: u32 = 8388607;
+pub const FAR_MASK: u32 = 8388608;
+pub const BRANCH_MASK: u32 = 4278190080;
+pub const MAX_PTR: usize = FAR_MASK as usize;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
@@ -11,15 +12,26 @@ pub struct Node {
     pub mats: [u8; 8],
 }
 
-pub fn new_node(ptr: usize, branches: u8, mats: [u8; 8]) -> Node {
+pub fn new_node(ptr: usize, branches: u8, mats: [u8; 8], far: bool) -> Node {
     debug_assert!(ptr < MAX_PTR);
 
-    let header = (ptr as u32) + ((branches as u32) << 24);
+    let header = (ptr as u32) + ((far as u32) << 23) + ((branches as u32) << 24);
     Node { header, mats }
+}
+
+pub fn new_far_pointer(ptr: usize) -> Node {
+    Node { 
+        header: ptr as u32, 
+        mats: [0; 8]
+    }
 }
 
 pub fn get_ptr(node: Node) -> usize {
     (node.header & PTR_MASK) as usize
+}
+
+pub fn get_far(node: Node) -> bool {
+    (node.header & FAR_MASK) != 0
 }
 
 pub fn get_branches(node: Node) -> u8 {
