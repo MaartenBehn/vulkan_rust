@@ -5,7 +5,7 @@ use app::glam::{ivec3, IVec3};
 use app::log;
 use indicatif::ProgressBar;
 use octtree_v2::aabb::AABB;
-use octtree_v2::node::{bools_to_bits, Node, MAX_PTR, new_node, CHILD_CONFIG, new_far_pointer};
+use octtree_v2::node::{bools_to_bits, new_far_pointer, new_node, Node, CHILD_CONFIG, MAX_PTR};
 use octtree_v2::save::Saver;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -100,9 +100,13 @@ impl Octtree {
             self.set_node(page_nr, in_page_index, new_far_pointer(use_ptr))?;
 
             use_ptr = parent_ptr + 8;
-        } 
+        }
 
-        self.set_node(page_nr, in_page_index, new_node(use_ptr, branch_bits, mats, far))?;
+        self.set_node(
+            page_nr,
+            in_page_index,
+            new_node(use_ptr, branch_bits, mats, far),
+        )?;
 
         let mut min = self.saver.metadata.aabbs[page_nr].min;
         let mut max = self.saver.metadata.aabbs[page_nr].max;
@@ -115,7 +119,6 @@ impl Octtree {
             min = min.min(pos_min);
             max = max.max(pos_max);
         }
-
 
         parent_ptr = ptr;
         if num_branches > 0 {

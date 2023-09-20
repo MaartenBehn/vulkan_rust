@@ -4,7 +4,7 @@ use std::{
     io::Write,
 };
 
-use crate::{metadata::Metadata, node::Node, util};
+use crate::{metadata::Metadata, node::Node, util::{self, create_dir}};
 
 pub struct Saver {
     pub path: String,
@@ -37,9 +37,4 @@ impl Saver {
     }
 }
 
-fn create_dir(folder_path: &str) -> Result<()> {
-    let _ = fs::remove_dir_all(folder_path);
-    fs::create_dir(folder_path)?;
 
-    Ok(())
-}
