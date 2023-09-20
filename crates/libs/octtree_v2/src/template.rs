@@ -27,7 +27,7 @@ struct TemplateTree {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct TemplateMetadata {
     page_size: usize,
-    page_ammount: usize,
+    last_page: usize,
     depth: usize,
 }
 
@@ -42,7 +42,7 @@ struct TemplatePage {
 pub struct TemplateNode {
     ptr: u64,
     branches: [bool; 8],
-    materials: [u16; 8],
+    materials: [u8; 8],
 }
 
 impl TemplateTreeBuilder {
@@ -57,21 +57,21 @@ impl TemplateTreeBuilder {
         Ok(TemplateTreeBuilder { tree })
     }
 
-    pub fn set_node(&mut self, index: usize, ptr: u64, branches: [bool; 8], materials: [u16; 8]) -> Result<()> {
+    pub fn set_node(&mut self, index: usize, ptr: u64, branches: [bool; 8], materials: [u8; 8]) -> Result<()> {
         let page_size = self.tree.metadata.page_size;
         let page_nr = index / page_size;
         let in_page_index = index % page_size;
 
         let res = self.tree.get_page_index(page_nr);
         let page_index = if res.is_err() {
-            if page_nr < self.tree.metadata.page_ammount {
+            if page_nr < self.tree.metadata.last_page {
                 bail!("Unloaded page needed!")
             }
 
-            for i in self.tree.metadata.page_ammount..(page_nr + 1) {
+            for i in self.tree.metadata.last_page..(page_nr + 1) {
                 self.tree.pages.push(TemplatePage::new(i, self.tree.metadata.page_size));
             }
-            self.tree.metadata.page_ammount = page_nr + 1;
+            self.tree.metadata.last_page = page_nr;
             
             self.tree.pages.len() - 1
         }
@@ -207,7 +207,7 @@ impl TemplateMetadata {
     pub fn new(page_size: usize, depth: usize) -> TemplateMetadata {
         TemplateMetadata { 
             page_size, 
-            page_ammount: 0,
+            last_page: 0,
             depth,
         }
     }
@@ -230,7 +230,7 @@ impl TemplatePage {
 
 
 impl TemplateNode {
-    pub fn new(ptr: u64, branches: [bool; 8], materials: [u16; 8]) -> TemplateNode {
+    pub fn new(ptr: u64, branches: [bool; 8], materials: [u8; 8]) -> TemplateNode {
         TemplateNode { ptr, branches, materials }
     }
 
@@ -251,7 +251,7 @@ impl TemplateNode {
         num
     }
 
-    pub fn get_materials(&self) -> [u16; 8] {
+    pub fn get_materials(&self) -> [u8; 8] {
         self.materials 
     }
 }

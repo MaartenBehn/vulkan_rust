@@ -8,7 +8,7 @@ use rand::{Rng, SeedableRng};
 use app::anyhow::Result;
 
 pub fn build_template_tree(path: &str, depth: usize, page_size: usize) -> Result<()> {
-    let mut builder = TemplateTreeBuilder::new(path.to_owned(), page_size, depth);
+    let mut builder = TemplateTreeBuilder::new(path.to_owned(), page_size, depth)?;
 
     let mut rng = StdRng::seed_from_u64(0);
     let bar = ProgressBar::new(u32::MAX as u64);
@@ -35,7 +35,7 @@ fn fill(
     for i in 0..8 {
         let rand_float: f32 = rng.gen();
 
-        mats[i] = rng.gen::<u16>().max(1) * (rand_float < 0.8) as u16;
+        mats[i] = rng.gen::<u8>().max(1) * (rand_float < 0.8) as u8;
         branch[i] = rand_float < 0.8 && depth < (builder.get_depth() - 1);
         if branch[i] {
             num_branches += 1;
@@ -60,15 +60,7 @@ fn fill(
                     pos[2] + CHILD_CONFIG[j][2] * child_size,
                 );
 
-                ptr = fill(
-                    builder,
-                    depth + 1,
-                    parent_ptr + i,
-                    ptr,
-                    new_pos,
-                    rng,
-                    bar,
-                )?;
+                ptr = fill(builder, depth + 1, parent_ptr + i, ptr, new_pos, rng, bar)?;
 
                 i += 1;
             }

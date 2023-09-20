@@ -12,35 +12,38 @@ pub struct Node {
     pub mats: [u8; 8],
 }
 
-pub fn new_node(ptr: usize, branches: u8, mats: [u8; 8], far: bool) -> Node {
-    debug_assert!(ptr < MAX_PTR);
-
-    let header = (ptr as u32) + ((far as u32) << 23) + ((branches as u32) << 24);
-    Node { header, mats }
-}
-
-pub fn new_far_pointer(ptr: usize) -> Node {
-    Node { 
-        header: ptr as u32, 
-        mats: [0; 8]
+impl Node {
+    pub fn new(ptr: usize, branches: u8, mats: [u8; 8], far: bool) -> Node {
+        debug_assert!(ptr < MAX_PTR);
+    
+        let header = (ptr as u32) + ((far as u32) << 23) + ((branches as u32) << 24);
+        Node { header, mats }
+    }
+    
+    pub fn new_far_pointer(ptr: usize) -> Node {
+        Node { 
+            header: ptr as u32, 
+            mats: [0; 8]
+        }
+    }
+    
+    pub fn get_ptr(&self) -> usize {
+        (self.header & PTR_MASK) as usize
+    }
+    
+    pub fn get_far(&self) -> bool {
+        (self.header & FAR_MASK) != 0
+    }
+    
+    pub fn get_branches(&self) -> u8 {
+        ((self.header & BRANCH_MASK) >> 24) as u8
+    }
+    
+    pub fn get_branch(&self, index: usize) -> bool {
+        (self.header & (1 << (24 + index))) != 0
     }
 }
 
-pub fn get_ptr(node: Node) -> usize {
-    (node.header & PTR_MASK) as usize
-}
-
-pub fn get_far(node: Node) -> bool {
-    (node.header & FAR_MASK) != 0
-}
-
-pub fn get_branches(node: Node) -> u8 {
-    ((node.header & BRANCH_MASK) >> 24) as u8
-}
-
-pub fn get_branch(node: Node, index: usize) -> bool {
-    (node.header & (1 << (24 + index))) != 0
-}
 
 pub fn bools_to_bits(bools: [bool; 8]) -> u8 {
     (bools[0] as u8)
@@ -80,7 +83,7 @@ pub const CHILD_CONFIG: [[i32; 3]; 8] = [
 
 pub fn print_page(nodes: &[Node]){
     for (i, node) in nodes.iter().enumerate() {
-        let ptr = get_ptr(*node);
+        let ptr = node.get_ptr();
         log::info!("{} {}", i, ptr)
     }
 }
