@@ -3,6 +3,7 @@ use app::{anyhow::ensure, anyhow::Result, log, logger::log_init};
 use crate::template::build_template_tree;
 
 mod template;
+mod octtree;
 
 fn start() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
