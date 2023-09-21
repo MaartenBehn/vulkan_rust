@@ -572,6 +572,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastrand"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6999dc1837253364c2ebb0704ba97994bd874e8f195d665c50b7548f6ea92764"
+
+[[package]]
 name = "fdeflate"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1390,16 +1396,9 @@ name = "octtree_builder_v2"
 version = "0.1.0"
 dependencies = [
  "app",
- "bincode",
+ "fastrand",
  "indicatif",
- "noise",
  "octtree_v2",
- "palette",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "serde",
- "serde_json",
- "shuffle",
 ]
 
 [[package]]
@@ -1415,6 +1414,7 @@ name = "octtree_v2"
 version = "0.1.0"
 dependencies = [
  "app",
+ "indicatif",
  "serde",
  "serde_json",
  "speedy",

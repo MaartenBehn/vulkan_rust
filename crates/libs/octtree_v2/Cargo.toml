@@ -10,5 +10,6 @@ authors.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 speedy.workspace = true
+indicatif.workspace = true
 
 app = { path = "../../libs/app" }

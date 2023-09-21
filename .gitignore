@@ -2,7 +2,8 @@
 .idea
 *.spv
 *.log
-perf*
+perf*#
+assets/tree/*
 assets/octtree*
 assets/template_tree/*
 

@@ -34,6 +34,7 @@ rand = "0.8"
 rand_chacha = "0.3.1"
 shuffle = "0.1.7"
 noise = "0.8.2"
+fastrand = "2.0"
 
 palette = "0.6.1"
 indicatif = "0.17.3"

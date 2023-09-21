@@ -49,7 +49,7 @@ impl TreeBuilder {
         let page_nr = index / page_size;
         let in_page_index = index % page_size;
 
-        if self.tree.pages.contains_key(&page_nr) {
+        if !self.tree.pages.contains_key(&page_nr) {
             if page_nr < self.tree.metadata.page_ammount {
                 bail!("Unloaded page needed!");
             }
@@ -63,13 +63,22 @@ impl TreeBuilder {
         self.tree.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node;
         *self.set_counters.get_mut(&page_nr).unwrap() += 1;
 
+        self.check_page_save(page_nr)?;
+
         Ok(())
     }
 
     fn check_page_save(&mut self, page_nr: usize) -> Result<()>{
-        if self.set_counters[&page_nr] >= self.tree.metadata.page_size - 1 {
+        if self.set_counters[&page_nr] >= self.tree.metadata.page_size {
             self.tree.save_page(page_nr)?;
         }
+
+        Ok(())
+    }
+
+    fn done(&mut self) -> Result<()> {
+        self.tree.save_all_pages()?;
+        self.tree.save_metadata()?;
 
         Ok(())
     }

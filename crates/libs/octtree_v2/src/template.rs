@@ -27,7 +27,7 @@ struct TemplateTree {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct TemplateMetadata {
     page_size: usize,
-    last_page: usize,
+    page_ammount: usize,
     depth: usize,
 }
 
@@ -64,14 +64,14 @@ impl TemplateTreeBuilder {
 
         let res = self.tree.get_page_index(page_nr);
         let page_index = if res.is_err() {
-            if page_nr < self.tree.metadata.last_page {
+            if page_nr < self.tree.metadata.page_ammount {
                 bail!("Unloaded page needed!")
             }
 
-            for i in self.tree.metadata.last_page..(page_nr + 1) {
+            for i in self.tree.metadata.page_ammount..(page_nr + 1) {
                 self.tree.pages.push(TemplatePage::new(i, self.tree.metadata.page_size));
             }
-            self.tree.metadata.last_page = page_nr;
+            self.tree.metadata.page_ammount = page_nr + 1;
             
             self.tree.pages.len() - 1
         }
@@ -161,7 +161,7 @@ impl TemplateTree {
     }
 
     fn check_page_save(&mut self, page_index: usize) -> Result<()>{
-        if self.pages[page_index].set_counter >= self.metadata.page_size - 1 {
+        if self.pages[page_index].set_counter >= self.metadata.page_size {
             self.save_page(page_index)?;
         }
 
@@ -207,7 +207,7 @@ impl TemplateMetadata {
     pub fn new(page_size: usize, depth: usize) -> TemplateMetadata {
         TemplateMetadata { 
             page_size, 
-            last_page: 0,
+            page_ammount: 0,
             depth,
         }
     }

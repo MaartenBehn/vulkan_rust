@@ -2,15 +2,13 @@ use app::glam::{ivec3, IVec3};
 use indicatif::ProgressBar;
 use octtree_v2::node::CHILD_CONFIG;
 use octtree_v2::template::TemplateTreeBuilder;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 
 use app::anyhow::Result;
 
 pub fn build_template_tree(path: &str, depth: usize, page_size: usize) -> Result<()> {
     let mut builder = TemplateTreeBuilder::new(path.to_owned(), page_size, depth)?;
 
-    let mut rng = StdRng::seed_from_u64(0);
+    let mut rng = fastrand::Rng::with_seed(42);
     let bar = ProgressBar::new(u32::MAX as u64);
     fill(&mut builder, 0, 0, 1, ivec3(0, 0, 0), &mut rng, &bar)?;
     builder.done()?;
@@ -24,7 +22,7 @@ fn fill(
     index: usize,
     mut ptr: usize,
     pos: IVec3,
-    rng: &mut StdRng,
+    rng: &mut fastrand::Rng,
     bar: &ProgressBar,
 ) -> Result<usize> {
     bar.set_position(ptr as u64);
@@ -33,9 +31,9 @@ fn fill(
     let mut mats = [0; 8];
     let mut num_branches = 0;
     for i in 0..8 {
-        let rand_float: f32 = rng.gen();
+        let rand_float = rng.f32();
 
-        mats[i] = rng.gen::<u8>().max(1) * (rand_float < 0.8) as u8;
+        mats[i] = rng.u8(1..u8::MAX) * (rand_float < 0.8) as u8;
         branch[i] = rand_float < 0.8 && depth < (builder.get_depth() - 1);
         if branch[i] {
             num_branches += 1;
