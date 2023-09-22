@@ -1,104 +1,87 @@
-use std::{collections::HashMap, fs::{File, OpenOptions, self}, io::{Write, Read}};
+use std::{collections::HashMap, io::{Write, Read}, fs::File};
 
-use serde::{Serialize, Deserialize};
+use app::anyhow::Result;
 
-use app::anyhow::{Result, bail};
-
-use crate::{node::Node, util::{self, create_dir}};
-
-pub struct TreeBuilder {
-    tree: Tree,
-    set_counters: HashMap<usize, usize>
-}
+use crate::{node::CompressedNode, util, metadata::Metadata, Tree, Node};
 
 #[derive(Clone, Debug, Default)]
-pub struct Tree {
+pub struct CompressedTree {
     path: String,
     metadata: Metadata,
-    pages: HashMap<usize, Page>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct Metadata {
-    page_size: usize,
-    page_ammount: usize,
-    depth: usize,
+    pages: HashMap<usize, CompressedPage>,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Page {
-    nodes: Vec<Node>,
-}
+pub struct CompressedPage {
+    nodes: Vec<CompressedNode>,
+} 
 
-impl TreeBuilder {
-    pub fn new(path: String, page_size: usize) -> Result<TreeBuilder> {
-        create_dir(&path)?;
+impl Tree for CompressedTree {
+    fn new(path: String, page_size: usize, depth: usize) -> Self {
+        CompressedTree { 
+            path, 
+            metadata: Metadata::new(page_size, 0, depth),
+            pages: HashMap::new(),
+        }
+    }
 
-        Ok(TreeBuilder {
-            tree: Tree {
-                path,
-                metadata: Metadata { page_size, page_ammount: 0, depth: 0 },
-                pages: HashMap::new(),
-            },
-            set_counters: HashMap::new(),
+    fn form_disk(path: String) -> Result<Self> {
+        let metadata = Metadata::from_file(&path)?;
+        Ok(CompressedTree { 
+            path, 
+            metadata,
+            pages: HashMap::new(),
         })
     }
 
-    pub fn set_node(&mut self, index: usize, node: Node) -> Result<()> {
-        let page_size = self.tree.metadata.page_size;
-        let page_nr = index / page_size;
-        let in_page_index = index % page_size;
+    fn has_page(&self, page_nr: usize) -> bool {
+        self.pages.contains_key(&page_nr)
+    }
 
-        if !self.tree.pages.contains_key(&page_nr) {
-            if page_nr < self.tree.metadata.page_ammount {
-                bail!("Unloaded page needed!");
-            }
+    fn get_all_page_nrs(&self) -> Vec<usize> {
+        self.pages.keys().cloned().collect()
+    }
 
-            for i in self.tree.metadata.page_ammount..(page_nr + 1) {
-                self.tree.pages.insert(i, Page::new(page_size));
-                self.set_counters.insert(i, 0);
-            }
-            self.tree.metadata.page_ammount = page_nr + 1;
-        }
-        self.tree.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node;
-        *self.set_counters.get_mut(&page_nr).unwrap() += 1;
+    fn add_empty_page(&mut self, page_nr: usize) {
+        self.pages.insert(page_nr, CompressedPage::new(self.metadata.page_size));
+        self.metadata.page_ammount += 1;
+    }
 
-        self.check_page_save(page_nr)?;
+    fn remove_page(&mut self, page_nr: usize) {
+        self.pages.remove(&page_nr);
+    }
+
+    fn set_node(&mut self, page_nr: usize, in_page_index: usize, node: Node) -> Result<()> {
+        self.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node.try_into()?;  
 
         Ok(())
     }
 
-    fn check_page_save(&mut self, page_nr: usize) -> Result<()>{
-        if self.set_counters[&page_nr] >= self.tree.metadata.page_size {
-            self.tree.save_page(page_nr)?;
-        }
-
-        Ok(())
+    fn get_node(&self, page_nr: usize, in_page_index: usize) -> Node {
+        let node = self.pages.get(&page_nr).unwrap().nodes[in_page_index];
+        Node::Compressed(node)
     }
 
-    fn done(&mut self) -> Result<()> {
-        self.tree.save_all_pages()?;
-        self.tree.save_metadata()?;
-
-        Ok(())
+    fn get_metadata(&self) -> Metadata {
+        self.metadata
     }
-}
 
-impl Tree {
-     fn save_page(&mut self, page_nr: usize) -> Result<()> {
+    fn save_metadata(&self) -> Result<()> {
+        self.metadata.save(&self.path)
+    }
+
+    fn save_page(&self, page_nr: usize) -> Result<()> {
         let page = self.pages.get(&page_nr).unwrap();
         
         let mut file = File::create(format!("{}/page_{}.bin", self.path, page_nr))?;
         let buffer = unsafe { util::slice_as_u8_slice(&page.nodes) };
         file.write_all(buffer)?;
 
-        self.pages.remove(&page_nr);
-
         Ok(())
     }
 
     fn load_page(&mut self, page_nr: usize) -> Result<()> {
-        let mut page = Page::new(self.metadata.page_size);
+        let mut page = CompressedPage::new(self.metadata.page_size);
 
         let mut file = File::create(format!("{}/page_{}.bin", self.path, page_nr))?;
         let buffer = unsafe { util::slice_as_u8_slice_mut(&mut page.nodes) };
@@ -106,46 +89,10 @@ impl Tree {
 
         Ok(())
     }
-
-    fn save_all_pages(&mut self) -> Result<()> {
-        let len = self.pages.len();
-        for i in (0..len).rev() {
-            self.save_page(i)?;
-        }
-
-        self.pages.clear();
-
-        Ok(())
-    }
-
-    fn save_metadata(&self) -> Result<()> {
-        let json = serde_json::to_string_pretty(&self.metadata)?;
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(format!("{}/metadata.json", self.path))
-            .unwrap();
-
-        file.write(json.as_bytes())?;
-
-        Ok(())
-    }
-
-    fn load_metadata(&mut self) -> Result<()> {
-        let json = fs::read_to_string(format!("{}/metadata.json", self.path))?;
-        self.metadata = serde_json::from_str(&json)?;
-
-        Ok(())
-    }
 }
 
-
-impl Page {
-    fn new(page_size: usize) -> Page {
-        Page { nodes: vec![Node::default(); page_size] }
+impl CompressedPage {
+    fn new(page_size: usize) -> CompressedPage {
+        CompressedPage { nodes: vec![CompressedNode::default(); page_size] }
     }
 }
-
-
-

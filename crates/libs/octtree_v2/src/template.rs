@@ -1,40 +1,19 @@
+use std::collections::HashMap;
 
-use std::{fs::{OpenOptions, self}, io::Write};
-
-use app::anyhow::{Result, bail};
+use app::anyhow::Result;
 use speedy::{Readable, Writable};
-use serde::{Serialize, Deserialize};
 
-use crate::util::create_dir;
-
-#[derive(Clone, Debug, Default)]
-pub struct TemplateTreeBuilder {
-    tree: TemplateTree,
-}
+use crate::{metadata::Metadata, Tree, Node};
 
 #[derive(Clone, Debug, Default)]
-pub struct TemplateTreeReader {
-    tree: TemplateTree,
-}
-
-#[derive(Clone, Debug, Default)]
-struct TemplateTree {
+pub struct TemplateTree {
     path: String,
-    metadata: TemplateMetadata,
-    pages: Vec<TemplatePage>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-struct TemplateMetadata {
-    page_size: usize,
-    page_ammount: usize,
-    depth: usize,
+    metadata: Metadata,
+    pages: HashMap<usize, TemplatePage>,
 }
 
 #[derive(Clone, Debug, Default, Readable, Writable)]
-struct TemplatePage {
-    nr: usize,
-    set_counter: usize,
+pub struct TemplatePage {
     nodes: Vec<TemplateNode>,
 }
 
@@ -45,186 +24,82 @@ pub struct TemplateNode {
     materials: [u8; 8],
 }
 
-impl TemplateTreeBuilder {
-    pub fn new(path: String, page_size: usize, depth: usize) -> Result<TemplateTreeBuilder> {
-        let tree = TemplateTree { 
-            path,
-            metadata: TemplateMetadata::new(page_size, depth),
-            pages: Vec::new(),
-        };
-        create_dir(&tree.path)?;
-
-        Ok(TemplateTreeBuilder { tree })
+impl Tree for TemplateTree {
+    fn new(path: String, page_size: usize, depth: usize) -> Self {
+        TemplateTree { 
+            path, 
+            metadata: Metadata::new(page_size, 0, depth),
+            pages: HashMap::new(),
+        }
     }
 
-    pub fn set_node(&mut self, index: usize, ptr: u64, branches: [bool; 8], materials: [u8; 8]) -> Result<()> {
-        let page_size = self.tree.metadata.page_size;
-        let page_nr = index / page_size;
-        let in_page_index = index % page_size;
+    fn form_disk(path: String) -> Result<Self> {
+        let metadata = Metadata::from_file(&path)?;
+        Ok(TemplateTree { 
+            path, 
+            metadata,
+            pages: HashMap::new(),
+        })
+    }
 
-        let res = self.tree.get_page_index(page_nr);
-        let page_index = if res.is_err() {
-            if page_nr < self.tree.metadata.page_ammount {
-                bail!("Unloaded page needed!")
-            }
+    fn has_page(&self, page_nr: usize) -> bool {
+        self.pages.contains_key(&page_nr)
+    }
 
-            for i in self.tree.metadata.page_ammount..(page_nr + 1) {
-                self.tree.pages.push(TemplatePage::new(i, self.tree.metadata.page_size));
-            }
-            self.tree.metadata.page_ammount = page_nr + 1;
-            
-            self.tree.pages.len() - 1
-        }
-        else {
-            res.unwrap()
-        };
-        
-        self.tree.pages[page_index].set_node(in_page_index, TemplateNode::new(ptr, branches, materials));
-        self.tree.check_page_save(page_index)?;
+    fn get_all_page_nrs(&self) -> Vec<usize> {
+        self.pages.keys().cloned().collect()
+    }
+
+    fn add_empty_page(&mut self, page_nr: usize) {
+        self.pages.insert(page_nr, TemplatePage::new(self.metadata.page_size));
+        self.metadata.page_ammount += 1;
+    }
+
+    fn remove_page(&mut self, page_nr: usize) {
+        self.pages.remove(&page_nr);
+    }
+
+    fn set_node(&mut self, page_nr: usize, in_page_index: usize, node: Node) -> Result<()> {
+        self.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node.try_into()?;  
 
         Ok(())
     }
 
-    pub fn done(&mut self) -> Result<()> {
-        self.tree.save_all_pages()?;
-        self.tree.save_metadata()?;
-
-        Ok(())
+    fn get_node(&self, page_nr: usize, in_page_index: usize) -> Node {
+        let node = self.pages.get(&page_nr).unwrap().nodes[in_page_index];
+        Node::Template(node)
     }
 
-    pub fn get_depth(&self) -> usize {
-        self.tree.metadata.depth
-    }
-}
-
-impl TemplateTreeReader {
-    pub fn new(path: String) -> Result<TemplateTreeReader> {
-        let mut tree = TemplateTree { 
-            path,
-            metadata: TemplateMetadata::default(),
-            pages: Vec::new(),
-        };
-        tree.load_metadata()?;
-
-        Ok(TemplateTreeReader { tree })
-    }
-
-    pub fn get_node(&mut self, index: usize) -> Result<TemplateNode> {
-        let page_size = self.tree.metadata.page_size;
-        let page_nr = index / page_size;
-        let in_page_index = index % page_size;
-
-        let res = self.tree.get_page_index(page_nr);
-        let page_index = if res.is_err() {
-            self.tree.load_page(page_nr)?            
-        }
-        else {
-            res.unwrap()
-        };
-
-        let node = self.tree.pages[page_index].nodes[in_page_index];
-        Ok(node)
-    }
-
-    pub fn get_depth(&self) -> usize {
-        self.tree.metadata.depth
-    }
-}
-
-impl TemplateTree {
-    fn get_page_index(&self, nr: usize) -> Result<usize> {
-        for (i, page) in self.pages.iter().enumerate() {
-            if page.nr == nr{
-                return Ok(i);
-            }
-        }
-
-        bail!("Page not found!")
-    }
-
-    fn save_page(&mut self, page_index: usize) -> Result<()> {
-        let page = &self.pages[page_index];
-        let path = format!("{}/template_{}.bin", self.path, page.nr);
-        page.write_to_file(path)?;
-
-        self.pages.swap_remove(page_index);
-
-        Ok(())
-    }
-
-    fn load_page(&mut self, page_nr: usize) -> Result<usize> {
-        let path = format!("{}/template_{}.bin", self.path, page_nr);
-        let page = TemplatePage::read_from_file(path)?;
-        self.pages.push(page);
-
-        Ok(self.pages.len() -1)
-    }
-
-    fn check_page_save(&mut self, page_index: usize) -> Result<()>{
-        if self.pages[page_index].set_counter >= self.metadata.page_size {
-            self.save_page(page_index)?;
-        }
-
-        Ok(())
-    }
-
-    fn save_all_pages(&mut self) -> Result<()> {
-        let len = self.pages.len();
-        for i in (0..len).rev() {
-            self.save_page(i)?;
-        }
-
-        self.pages.clear();
-
-        Ok(())
+    fn get_metadata(&self) -> Metadata {
+        self.metadata
     }
 
     fn save_metadata(&self) -> Result<()> {
-        let json = serde_json::to_string_pretty(&self.metadata)?;
+        self.metadata.save(&self.path)
+    }
 
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(format!("{}/metadata.json", self.path))
-            .unwrap();
-
-        file.write(json.as_bytes())?;
+    fn save_page(&self, page_nr: usize) -> Result<()> {
+        let page = self.pages.get(&page_nr).unwrap();
+        let path = format!("{}/template_{}.bin", self.path, page_nr);
+        page.write_to_file(path)?;
 
         Ok(())
     }
 
-    fn load_metadata(&mut self) -> Result<()> {
-        let json = fs::read_to_string(format!("{}/metadata.json", self.path))?;
-        self.metadata = serde_json::from_str(&json)?;
+    fn load_page(&mut self, page_nr: usize) -> Result<()> {
+        let path = format!("{}/template_{}.bin", self.path, page_nr);
+        let page = TemplatePage::read_from_file(path)?;
+        self.pages.insert(page_nr, page);
 
         Ok(())
-    }
-
-   
-}
-
-impl TemplateMetadata {
-    pub fn new(page_size: usize, depth: usize) -> TemplateMetadata {
-        TemplateMetadata { 
-            page_size, 
-            page_ammount: 0,
-            depth,
-        }
     }
 }
 
 impl TemplatePage {
-    fn new(nr: usize, size: usize) -> TemplatePage {
+    fn new(size: usize) -> TemplatePage {
         TemplatePage { 
-            nr, 
-            set_counter: 0,
             nodes: vec![TemplateNode::default(); size] 
         }
-    }
-
-    fn set_node(&mut self, index: usize, node: TemplateNode) {
-        self.nodes[index] = node;
-        self.set_counter += 1;
     }
 }
 
@@ -245,7 +120,9 @@ impl TemplateNode {
     pub fn get_num_branches(&self) -> usize {
         let mut num = 0;
         for branch in self.branches {
-            num += 1;
+            if branch {
+                num += 1;
+            }
         }
 
         num

@@ -7,21 +7,21 @@ pub const MAX_PTR: usize = FAR_MASK as usize;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
-pub struct Node {
+pub struct CompressedNode {
     pub header: u32,
     pub mats: [u8; 8],
 }
 
-impl Node {
-    pub fn new(ptr: usize, branches: u8, mats: [u8; 8], far: bool) -> Node {
+impl CompressedNode {
+    pub fn new(ptr: usize, branches: u8, mats: [u8; 8], far: bool) -> Self {
         debug_assert!(ptr < MAX_PTR);
     
         let header = (ptr as u32) + ((far as u32) << 23) + ((branches as u32) << 24);
-        Node { header, mats }
+        CompressedNode { header, mats }
     }
-    
-    pub fn new_far_pointer(ptr: usize) -> Node {
-        Node { 
+
+    pub fn new_far_pointer(ptr: usize) -> CompressedNode {
+        CompressedNode { 
             header: ptr as u32, 
             mats: [0; 8]
         }
@@ -81,7 +81,7 @@ pub const CHILD_CONFIG: [[i32; 3]; 8] = [
     [1, 1, 1],
 ];
 
-pub fn print_page(nodes: &[Node]){
+pub fn print_page(nodes: &[CompressedNode]){
     for (i, node) in nodes.iter().enumerate() {
         let ptr = node.get_ptr();
         log::info!("{} {}", i, ptr)

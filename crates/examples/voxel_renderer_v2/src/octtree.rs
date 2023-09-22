@@ -5,22 +5,12 @@ use app::{
     glam::{uvec3, UVec3, Vec3},
     log,
 };
-use octtree_v2::{
-    load::load_page,
-    metadata::Metadata,
-    node::{print_page, Node},
-};
 
-pub struct Octtree {
-    pub path: String,
-    pub metadata: Metadata,
-    pub loaded_pages: usize,
-    pub pages: Vec<Page>,
-}
+
 
 pub struct Page {
     pub nr: usize,
-    pub nodes: Vec<Node>,
+    pub nodes: Vec<CompressedNode>,
     pub last_use_in_frame: usize,
 }
 
@@ -41,7 +31,8 @@ impl Octtree {
             0,
         )?;
 
-        let current_size = (size_of::<Node>() * octtree.metadata.page_size + size_of::<Page>())
+        let current_size = (size_of::<CompressedNode>() * octtree.metadata.page_size
+            + size_of::<Page>())
             * octtree.pages.len();
         log::info!(
             "Size: {} byte {} MB {} GB",
@@ -50,8 +41,9 @@ impl Octtree {
             current_size as f32 / 1000000000.0
         );
 
-        let possible_size =
-            (size_of::<Node>() * octtree.metadata.page_size + size_of::<Page>()) * loaded_pages;
+        let possible_size = (size_of::<CompressedNode>() * octtree.metadata.page_size
+            + size_of::<Page>())
+            * loaded_pages;
         log::info!(
             "Max Size: {} byte {} MB {} GB",
             possible_size,

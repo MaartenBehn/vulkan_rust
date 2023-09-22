@@ -10,9 +10,7 @@ use app::vulkan::gpu_allocator::MemoryLocation;
 use app::vulkan::Buffer;
 use app::vulkan::Context;
 use octtree_v2::aabb::AABB;
-use octtree_v2::node::Node;
-
-use crate::octtree::Octtree;
+use octtree_v2::node::CompressedNode;
 
 pub struct OcttreeController {
     pub loaded_pages: usize,
@@ -28,7 +26,8 @@ impl OcttreeController {
     pub fn new(context: &Context, octtree: Octtree, loaded_pages: usize) -> Result<Self> {
         log::info!("Creating Tree Buffer");
 
-        let octtree_buffer_size = size_of::<Node>() * octtree.metadata.page_size * loaded_pages;
+        let octtree_buffer_size =
+            size_of::<CompressedNode>() * octtree.metadata.page_size * loaded_pages;
         log::info!(
             "Buffer Size: {} byte {} MB {} GB",
             octtree_buffer_size,
@@ -77,7 +76,7 @@ impl OcttreeController {
             self.octtree_buffer.copy_data_to_buffer_complex(
                 page.nodes.as_slice(),
                 i * self.octtree.metadata.page_size,
-                align_of::<Node>(),
+                align_of::<CompressedNode>(),
             )?;
 
             pushed_pages += 1;
@@ -109,7 +108,7 @@ impl OcttreeController {
         self.octtree_buffer.copy_data_to_buffer_complex(
             self.octtree.pages[nr].nodes.as_slice(),
             page_index as usize * self.octtree.metadata.page_size,
-            align_of::<Node>(),
+            align_of::<CompressedNode>(),
         )?;
 
         Ok(())

@@ -1,12 +1,16 @@
 use app::glam::{ivec3, IVec3};
 use indicatif::ProgressBar;
-use octtree_v2::node::CHILD_CONFIG;
-use octtree_v2::template::TemplateTreeBuilder;
+use octtree_v2::{
+    builder::Builder,
+    node::CHILD_CONFIG,
+    template::{TemplateNode, TemplateTree},
+    Node,
+};
 
 use app::anyhow::Result;
 
 pub fn build_template_tree(path: &str, depth: usize, page_size: usize) -> Result<()> {
-    let mut builder = TemplateTreeBuilder::new(path.to_owned(), page_size, depth)?;
+    let mut builder = Builder::new(path.to_owned(), page_size, depth)?;
 
     let mut rng = fastrand::Rng::with_seed(42);
     let bar = ProgressBar::new(u32::MAX as u64);
@@ -17,7 +21,7 @@ pub fn build_template_tree(path: &str, depth: usize, page_size: usize) -> Result
 }
 
 fn fill(
-    builder: &mut TemplateTreeBuilder,
+    builder: &mut Builder<TemplateTree>,
     depth: usize,
     index: usize,
     mut ptr: usize,
@@ -40,8 +44,11 @@ fn fill(
         }
     }
 
-    let use_ptr = ptr as u64 * (num_branches != 0) as u64;
-    builder.set_node(index, use_ptr, branch, mats)?;
+    let use_ptr = ptr * (num_branches != 0) as usize;
+    builder.set_node(
+        index,
+        Node::Template(TemplateNode::new(use_ptr as u64, branch, mats)),
+    )?;
 
     let parent_ptr = ptr;
     if num_branches > 0 {
