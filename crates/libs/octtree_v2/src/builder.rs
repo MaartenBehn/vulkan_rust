@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use app::anyhow::{Result, bail};
 
-use crate::{Tree, util::create_dir, Node};
+use crate::{Tree, util::create_dir};
 
 pub struct Builder<T: Tree> {
-    tree: T,
-    set_counters: HashMap<usize, usize>,
+    pub tree: T,
+    pub set_counters: HashMap<usize, usize>,
 }
 
 impl<T: Tree> Builder<T> {
@@ -20,18 +20,16 @@ impl<T: Tree> Builder<T> {
         })
     }
 
-    pub fn set_node(&mut self, index: usize, node: Node) -> Result<()> {
-        let metadata = self.tree.get_metadata();
-
-        let page_nr = index / metadata.page_size;
-        let in_page_index = index % metadata.page_size;
+    pub fn set_node(&mut self, index: usize, node: T::Node) -> Result<()> {
+        let page_nr = index / self.tree.get_page_size();
+        let in_page_index = index % self.tree.get_page_size();
 
         if !self.tree.has_page(page_nr) {
-            if page_nr < metadata.page_ammount {
+            if page_nr < self.tree.get_page_ammount() {
                 bail!("Unloaded page needed!");
             }
 
-            for i in metadata.page_ammount..(page_nr + 1) {
+            for i in self.tree.get_page_ammount()..(page_nr + 1) {
                 self.tree.add_empty_page(i);
                 self.set_counters.insert(i, 0);
             }
@@ -45,9 +43,10 @@ impl<T: Tree> Builder<T> {
     }
 
     pub fn check_page_save(&mut self, page_nr: usize) -> Result<()>{
-        if self.set_counters[&page_nr] >= self.tree.get_metadata().page_size {
+        if self.set_counters[&page_nr] >= self.tree.get_page_size() {
             self.tree.save_page(page_nr)?;
             self.tree.remove_page(page_nr);
+            self.set_counters.remove(&page_nr);
         }
 
         Ok(())
@@ -65,6 +64,6 @@ impl<T: Tree> Builder<T> {
     }
 
     pub fn get_depth(&self) -> usize {
-        self.tree.get_metadata().depth
+        self.tree.get_depth()
     }
 }

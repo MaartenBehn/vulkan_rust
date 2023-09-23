@@ -11,23 +11,30 @@ use app::vulkan::Buffer;
 use app::vulkan::Context;
 use octtree_v2::aabb::AABB;
 use octtree_v2::node::CompressedNode;
+use octtree_v2::reader::Reader;
+use octtree_v2::tree::CompressedTree;
+use octtree_v2::Tree;
 
 pub struct OcttreeController {
     pub loaded_pages: usize,
 
     pub octtree_lookup: Vec<[u32; 2]>,
-    pub octtree: Octtree,
+    pub reader: Reader<CompressedTree>,
 
     pub octtree_buffer: Buffer,
     pub octtree_lookup_buffer: Buffer,
 }
 
 impl OcttreeController {
-    pub fn new(context: &Context, octtree: Octtree, loaded_pages: usize) -> Result<Self> {
+    pub fn new(
+        context: &Context,
+        reader: Reader<CompressedTree>,
+        loaded_pages: usize,
+    ) -> Result<Self> {
         log::info!("Creating Tree Buffer");
 
         let octtree_buffer_size =
-            size_of::<CompressedNode>() * octtree.metadata.page_size * loaded_pages;
+            size_of::<CompressedNode>() * reader.tree.get_page_size() * loaded_pages;
         log::info!(
             "Buffer Size: {} byte {} MB {} GB",
             octtree_buffer_size,
@@ -56,26 +63,28 @@ impl OcttreeController {
         Ok(OcttreeController {
             loaded_pages,
             octtree_lookup,
-            octtree,
+            reader,
             octtree_buffer,
             octtree_lookup_buffer,
         })
     }
 
-    pub fn init_push(&self) -> Result<()> {
+    pub fn init_push(&mut self) -> Result<()> {
         log::info!("Pushing Tree Lookup");
         self.push_lookup()?;
 
         log::info!("Pushing Tree");
+        let page_size = self.reader.tree.get_page_size();
         let mut pushed_pages = 0;
-        for (i, page) in self.octtree.pages.iter().enumerate() {
+        for i in 0..self.reader.tree.get_page_ammount() {
             if i >= self.loaded_pages {
                 break;
             }
 
+            let page = self.reader.get_page(i)?;
             self.octtree_buffer.copy_data_to_buffer_complex(
                 page.nodes.as_slice(),
-                i * self.octtree.metadata.page_size,
+                i * page_size,
                 align_of::<CompressedNode>(),
             )?;
 
@@ -105,9 +114,11 @@ impl OcttreeController {
         self.octtree_lookup[lookup_index][0] = nr as u32;
         let page_index = self.octtree_lookup[lookup_index][1];
 
+        let page_size = self.reader.tree.get_page_size();
+        let page = self.reader.get_page(nr)?;
         self.octtree_buffer.copy_data_to_buffer_complex(
-            self.octtree.pages[nr].nodes.as_slice(),
-            page_index as usize * self.octtree.metadata.page_size,
+            page.nodes.as_slice(),
+            page_index as usize * page_size,
             align_of::<CompressedNode>(),
         )?;
 
@@ -120,7 +131,7 @@ impl OcttreeController {
         let player_aabb = AABB::new(player_pos - player_size, player_pos + player_size);
 
         let mut collided_pages = Vec::new();
-        for (nr, aabb) in self.octtree.metadata.aabbs.iter().enumerate() {
+        for (nr, aabb) in self.reader.tree.get_aabbs().iter().enumerate() {
             if player_aabb.collide(aabb) {
                 collided_pages.push(nr);
             }

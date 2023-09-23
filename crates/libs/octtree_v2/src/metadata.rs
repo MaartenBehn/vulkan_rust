@@ -3,16 +3,25 @@ use serde::{Serialize, Deserialize};
 
 use app::anyhow::Result;
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+use crate::aabb::AABB;
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Metadata {
     pub page_size: usize,
     pub page_ammount: usize,
     pub depth: usize,
+
+    pub aabbs: Vec<AABB>
 }
 
 impl Metadata {
     pub fn new(page_size: usize, page_ammount: usize, depth: usize) -> Metadata {
-        Metadata { page_size, page_ammount, depth }
+        Metadata { 
+            page_size, 
+            page_ammount, 
+            depth,
+            aabbs: Vec::new(),
+         }
     }
 
     pub fn from_file(path: &str) -> Result<Metadata> {

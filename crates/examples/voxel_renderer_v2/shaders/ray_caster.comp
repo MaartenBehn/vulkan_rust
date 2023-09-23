@@ -24,17 +24,17 @@ layout(binding = 1) uniform RenderBuffer {
 
 
 // ----- Octtree Start --------
-#define OCTTREE_DEPTH 11
-#define PAGE_AMMOUNT 1000
-#define PAGE_BITS 16
-#define PAGE_SIZE 65536
-#define IN_PAGE_MASK 65535
+#define OCTTREE_DEPTH 12
+#define PAGE_AMMOUNT 100
 
-#define PTR_MASK 16777215
-#define MAX_PTR 16777216
+#define PAGE_BITS 20
+#define PAGE_SIZE 1048576
+#define IN_PAGE_MASK PAGE_SIZE - 1
+
+#define PTR_MASK 8388607
+#define MAX_PTR 8388608
+#define FAR_MASK MAX_PTR
 #define BRANCH_MASK 4278190080
-
-
 
 // --- Octtree Lookup ---
 layout(binding = 2) uniform OcttreeLookupBuffer {
@@ -83,10 +83,11 @@ uint GET_INDEX(uint ptr, out bool found) {
 
 #define GET_HEADER(index) octtreeBuffer.octtree[index * 3]
 #define GET_PTR_FROM_HEADER(header) (header & PTR_MASK)
+#define GET_FAR_FROM_HEADER(header) ((header & FAR_MASK) != 0)
 #define GET_BRANCHES_FROM_HEADER(header) ((header & BRANCH_MASK) >> 24)
 #define GET_BRANCH_FROM_BRANCHES(branches, nr) ((branches & (1 << nr)) != 0)
 #define GET_MAT(index, nr) ((octtreeBuffer.octtree[(index * 3) + 1 + (nr / 4)] >> ((nr % 4) * 8)) & 255)
-
+#define GET_FAR_PTR_FROM_HEADER(header) (header)
 
 
 // ---- Material Buffer -----
@@ -281,9 +282,19 @@ bool hitOctree(in Ray ray, out vec3 color, out uint counter){
 
         if (is_branch) {
             depth += 1; 
-            ptr += GET_PTR_FROM_HEADER(header) + getChildOffset(childNr, branches);
+            ptr += GET_PTR_FROM_HEADER(header);
+
+            if GET_FAR_FROM_HEADER(header) {
+                index = GET_INDEX(ptr, is_branch);
+                uint far_header = GET_HEADER(index);
+                ptr += GET_FAR_PTR_FROM_HEADER(far_header);
+            }
+
+            ptr += getChildOffset(childNr, branches);
             index = GET_INDEX(ptr, is_branch);
             header = GET_HEADER(index);
+
+            
         }
         else if (mat == 0){
             checkHit(ray, vec3(nodePos), size, tMin, tMax);                     

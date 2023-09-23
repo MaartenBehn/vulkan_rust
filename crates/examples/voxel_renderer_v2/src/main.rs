@@ -8,22 +8,21 @@ use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
 use app::{log, App, BaseApp};
 use gui::imgui::{Condition, Ui};
+use octtree_v2::reader::Reader;
 use renderer::Renderer;
 
 use crate::materials::{MaterialController, MaterialList};
-use crate::octtree::Octtree;
 use crate::octtree_controller::OcttreeController;
 use crate::renderer::RenderBuffer;
 
 pub mod materials;
-pub mod octtree;
 pub mod octtree_controller;
 pub mod renderer;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
-const SAVE_FOLDER: &str = "./assets/octtree";
+const SAVE_FOLDER: &str = "./assets/tree";
 
 fn start() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
@@ -60,8 +59,8 @@ impl App for RayCaster {
         let images_len = images.len() as u32;
 
         log::info!("Creating Tree");
-        let tree = Octtree::new(SAVE_FOLDER.to_owned(), 2000)?;
-        let tree_controller = OcttreeController::new(&context, tree, 1000)?;
+        let reader = Reader::new(SAVE_FOLDER.to_owned(), 100)?;
+        let mut tree_controller = OcttreeController::new(&context, reader, 100)?;
         tree_controller.init_push()?;
 
         log::info!("Creating Materials");
@@ -80,9 +79,9 @@ impl App for RayCaster {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
-        camera.position = Vec3::new(1410.0, 458.0, 1264.0);
+        camera.position = Vec3::new(860.0, 280.0, 520.0);
         camera.direction = Vec3::new(1.0, 0.0, 0.0).normalize();
-        camera.speed = 100.0;
+        camera.speed = 300.0;
 
         log::info!("Init done");
         Ok(Self {

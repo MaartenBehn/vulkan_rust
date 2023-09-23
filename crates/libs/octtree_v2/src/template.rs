@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use app::anyhow::Result;
 use speedy::{Readable, Writable};
 
-use crate::{metadata::Metadata, Tree, Node};
+use crate::{metadata::Metadata, Tree, Page};
 
 #[derive(Clone, Debug, Default)]
 pub struct TemplateTree {
@@ -14,7 +14,7 @@ pub struct TemplateTree {
 
 #[derive(Clone, Debug, Default, Readable, Writable)]
 pub struct TemplatePage {
-    nodes: Vec<TemplateNode>,
+    pub nodes: Vec<TemplateNode>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Readable, Writable)]
@@ -25,6 +25,9 @@ pub struct TemplateNode {
 }
 
 impl Tree for TemplateTree {
+    type Page = TemplatePage;
+    type Node = TemplateNode;
+
     fn new(path: String, page_size: usize, depth: usize) -> Self {
         TemplateTree { 
             path, 
@@ -50,28 +53,18 @@ impl Tree for TemplateTree {
         self.pages.keys().cloned().collect()
     }
 
-    fn add_empty_page(&mut self, page_nr: usize) {
-        self.pages.insert(page_nr, TemplatePage::new(self.metadata.page_size));
-        self.metadata.page_ammount += 1;
-    }
-
     fn remove_page(&mut self, page_nr: usize) {
         self.pages.remove(&page_nr);
     }
 
-    fn set_node(&mut self, page_nr: usize, in_page_index: usize, node: Node) -> Result<()> {
+    fn set_node(&mut self, page_nr: usize, in_page_index: usize, node: Self::Node) -> Result<()> {
         self.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node.try_into()?;  
 
         Ok(())
     }
 
-    fn get_node(&self, page_nr: usize, in_page_index: usize) -> Node {
-        let node = self.pages.get(&page_nr).unwrap().nodes[in_page_index];
-        Node::Template(node)
-    }
-
-    fn get_metadata(&self) -> Metadata {
-        self.metadata
+    fn get_node(&self, page_nr: usize, in_page_index: usize) -> Self::Node {
+        self.pages.get(&page_nr).unwrap().nodes[in_page_index]
     }
 
     fn save_metadata(&self) -> Result<()> {
@@ -93,16 +86,40 @@ impl Tree for TemplateTree {
 
         Ok(())
     }
+
+    fn add_page(&mut self, page_nr: usize, page: Self::Page) {
+        self.pages.insert(page_nr, page);
+        self.metadata.page_ammount += 1;
+    }
+
+    fn get_page(&mut self, page_nr: usize) -> &Self::Page {
+        self.pages.get(&page_nr).unwrap()
+    }
+
+    fn add_empty_page(&mut self, page_nr: usize) {
+        self.add_page(page_nr, Page::new(self.metadata.page_size))
+    }
+
+    fn get_depth(&self) -> usize {
+        self.metadata.depth
+    }
+
+    fn get_page_size(&self) -> usize {
+        self.metadata.page_size
+    }
+
+    fn get_page_ammount(&self) ->usize {
+        self.metadata.page_ammount
+    }
 }
 
-impl TemplatePage {
+impl Page for TemplatePage {
     fn new(size: usize) -> TemplatePage {
         TemplatePage { 
             nodes: vec![TemplateNode::default(); size] 
         }
     }
 }
-
 
 impl TemplateNode {
     pub fn new(ptr: u64, branches: [bool; 8], materials: [u8; 8]) -> TemplateNode {

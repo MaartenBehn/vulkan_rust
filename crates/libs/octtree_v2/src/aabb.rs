@@ -1,14 +1,14 @@
-use speedy::{Readable, Writable};
+use app::glam::IVec3;
 use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Copy, Debug, Default, Readable, Writable, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct AABB {
-    pub min: [u32; 3],
-    pub max: [u32; 3],
+    pub min: IVec3,
+    pub max: IVec3,
 }
 
 impl AABB {
-    pub fn new(min: [u32; 3], max: [u32; 3]) -> AABB {
+    pub fn new(min: IVec3, max: IVec3) -> AABB {
         AABB { min, max }
     }
 
