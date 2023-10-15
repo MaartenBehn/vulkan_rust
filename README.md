@@ -6,9 +6,9 @@ A side repo where I try a bunch of different rendering technics and Ideas with v
 ## Examples
 |  |  |
 -------------------------|-------------------------
-**Dynamik Voxel loader and raycasting** | 
-`sh scripts/run_voxel_renderer.sh` | 
-![Pic](assets/screenshots/voxel_renderer.png)  |  
+**Dynamik Voxel loader and raycasting** | **Dynamik Voxel loader and raycasting V2**
+`sh scripts/run_voxel_renderer.sh` | `sh scripts/run_voxel_renderer_v2.sh`
+![Pic](assets/screenshots/voxel_renderer.png) | ![Pic](assets/screenshots/voxel_renderer_v2.png)
 **Mirror scene with raytracing** | **Global ilumination scene raytracing**
 `sh scripts/run.sh rt_mirror` | `sh scripts/run.sh rt_global_ilumination`
 ![Pic](assets/screenshots/mirror.png)  |  ![Pic](assets/screenshots/global_ilumination.png) 
