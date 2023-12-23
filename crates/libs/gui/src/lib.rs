@@ -8,7 +8,7 @@ use anyhow::Result;
 use imgui::{Context, DrawData, FontConfig, FontSource};
 use imgui_rs_vulkan_renderer::{DynamicRendering, Options, Renderer};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use vulkan::{ash::vk, CommandBuffer, CommandPool, Context as VkContext};
+use vulkan::{ash::vk::{self, Format}, CommandBuffer, CommandPool, Context as VkContext};
 use winit::{event::Event, window::Window};
 
 pub struct GuiContext {
@@ -58,7 +58,7 @@ impl GuiContext {
             command_pool.inner,
             DynamicRendering {
                 color_attachment_format: format,
-                depth_attachment_format: None,
+                depth_attachment_format: Some(Format::D32_SFLOAT),
             },
             &mut imgui,
             Some(Options {

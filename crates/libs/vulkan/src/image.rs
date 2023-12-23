@@ -102,13 +102,19 @@ impl Image {
         }
     }
 
-    pub fn create_image_view(&self) -> Result<ImageView> {
+    pub fn create_image_view(&self, is_depth: bool) -> Result<ImageView> {
+        let aspect_mask = if !is_depth {
+            vk::ImageAspectFlags::COLOR
+        }else{
+            vk::ImageAspectFlags::DEPTH
+        };
+
         let view_info = vk::ImageViewCreateInfo::builder()
             .image(self.inner)
             .view_type(vk::ImageViewType::TYPE_2D)
             .format(self.format)
             .subresource_range(vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
+                aspect_mask,
                 base_mip_level: 0,
                 level_count: 1,
                 base_array_layer: 0,

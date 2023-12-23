@@ -253,6 +253,7 @@ impl App for Particles {
 
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
+            None,
             base.swapchain.extent,
             vk::AttachmentLoadOp::CLEAR,
             Some([0.0, 0.0, 0.0, 1.0]),

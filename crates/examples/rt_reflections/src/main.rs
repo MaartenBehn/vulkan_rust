@@ -372,7 +372,7 @@ fn create_model(context: &Context) -> Result<Model> {
             }]);
         })?;
 
-        let view = image.create_image_view()?;
+        let view = image.create_image_view(false)?;
 
         images.push(image);
         views.push(view);
@@ -402,7 +402,7 @@ fn create_model(context: &Context) -> Result<Model> {
             }]);
         })?;
 
-        let view = image.create_image_view()?;
+        let view = image.create_image_view(false)?;
 
         images.push(image);
         views.push(view);

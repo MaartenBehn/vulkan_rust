@@ -632,6 +632,7 @@ impl<B: App> BaseApp<B> {
         // UI
         buffer.begin_rendering(
             swapchain_image_view,
+            None,
             self.swapchain.extent,
             vk::AttachmentLoadOp::DONT_CARE,
             None,
@@ -684,7 +685,7 @@ fn create_storage_images(
             extent.height,
         )?;
 
-        let view = image.create_image_view()?;
+        let view = image.create_image_view(false)?;
 
         context.execute_one_time_commands(|cmd_buffer| {
             cmd_buffer.pipeline_image_barriers(&[ImageBarrier {

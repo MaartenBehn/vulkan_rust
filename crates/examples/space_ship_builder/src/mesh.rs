@@ -59,35 +59,35 @@ impl Mesh {
         let color = node_colors[node.id];
         let mut vertices = vec![
             Vertex {
-                position: vec3(-1.0, -1.0, -1.0) + v_pos,
+                position: vec3(0.0, -0.0, 0.0) + v_pos,
                 color,
             },
             Vertex {
-                position: vec3(1.0, -1.0, -1.0) + v_pos,
+                position: vec3(0.9, 0.0, 0.0) + v_pos,
                 color,
             },
             Vertex {
-                position: vec3(-1.0, 1.0, -1.0) + v_pos,
+                position: vec3(0.0, 0.9, 0.0) + v_pos,
                 color,
             },
             Vertex {
-                position: vec3(1.0, 1.0, -1.0) + v_pos,
+                position: vec3(0.9, 0.9, 0.0) + v_pos,
                 color,
             },
             Vertex {
-                position: vec3(-1.0, -1.0, 1.0) + v_pos,
+                position: vec3(0.0, 0.0, 0.9) + v_pos,
                 color,
             },
             Vertex {
-                position: vec3(1.0, -1.0, 1.0) + v_pos,
+                position: vec3(0.9, 0.0, 0.9) + v_pos,
                 color,
             },
             Vertex {
-                position: vec3(-1.0, 1.0, 1.0) + v_pos,
+                position: vec3(0.0, 0.9, 0.9) + v_pos,
                 color,
             },
             Vertex {
-                position: vec3(1.0, 1.0, 1.0) + v_pos,
+                position: vec3(0.9, 0.9, 0.9) + v_pos,
                 color,
             },
         ];

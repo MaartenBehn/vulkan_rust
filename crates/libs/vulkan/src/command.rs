@@ -429,6 +429,7 @@ impl CommandBuffer {
     pub fn begin_rendering(
         &self,
         image_view: &ImageView,
+        depth_view: Option<&ImageView>,
         extent: vk::Extent2D,
         load_op: vk::AttachmentLoadOp,
         clear_color: Option<[f32; 4]>,
@@ -444,13 +445,30 @@ impl CommandBuffer {
                 },
             });
 
-        let rendering_info = vk::RenderingInfo::builder()
+        let mut rendering_info = vk::RenderingInfo::builder()
             .render_area(vk::Rect2D {
                 offset: vk::Offset2D { x: 0, y: 0 },
                 extent,
             })
             .layer_count(1)
             .color_attachments(std::slice::from_ref(&color_attachment_info));
+        
+        let mut depth_attachment_info = vk::RenderingAttachmentInfo::builder();
+        if depth_view.is_some() {
+            depth_attachment_info = depth_attachment_info
+                .image_view(depth_view.unwrap().inner)
+                .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .clear_value(vk::ClearValue{
+                    depth_stencil: vk::ClearDepthStencilValue{
+                        depth: f32::MAX, 
+                        stencil: 0,
+                    }
+                });
+
+            rendering_info = rendering_info.depth_attachment(&depth_attachment_info);
+        }
 
         unsafe {
             self.device

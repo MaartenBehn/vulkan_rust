@@ -65,6 +65,7 @@ impl App for Mandelbrot {
     ) -> Result<()> {
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
+            None,
             base.swapchain.extent,
             vk::AttachmentLoadOp::CLEAR,
             None,

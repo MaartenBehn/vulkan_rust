@@ -4,10 +4,12 @@ use app::{
     anyhow::Result,
     glam::Mat4,
     vulkan::{
-        ash::vk, gpu_allocator::MemoryLocation, utils::create_gpu_only_buffer_from_data, Buffer,
-        Context, DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
-        GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout, WriteDescriptorSet,
-        WriteDescriptorSetKind,
+        ash::vk::{self, Extent2D, Format, ImageUsageFlags},
+        gpu_allocator::{self, MemoryLocation},
+        utils::create_gpu_only_buffer_from_data,
+        Buffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
+        GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, Image, ImageView, PipelineLayout,
+        WriteDescriptorSet, WriteDescriptorSetKind,
     },
 };
 
@@ -24,6 +26,9 @@ pub struct Renderer {
 
     pub pipeline_layout: PipelineLayout,
     pub pipeline: GraphicsPipeline,
+
+    pub depth_image: Image,
+    pub depth_image_view: ImageView,
 }
 
 #[derive(Clone, Copy)]
@@ -38,6 +43,8 @@ impl Renderer {
         context: &Context,
         images_len: u32,
         color_attachment_format: vk::Format,
+        depth_attachment_format: vk::Format,
+        extent: vk::Extent2D,
         mesh: &Mesh,
     ) -> Result<Self> {
         let render_buffer = context.create_buffer(
@@ -107,9 +114,20 @@ impl Renderer {
                 extent: None,
                 color_attachment_format,
                 color_attachment_blend: None,
+                depth_attachment_format: Some(depth_attachment_format),
                 dynamic_states: Some(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT]),
             },
         )?;
+
+        let depth_image = context.create_image(
+            ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            gpu_allocator::MemoryLocation::GpuOnly,
+            depth_attachment_format,
+            extent.width,
+            extent.height,
+        )?;
+
+        let depth_image_view = depth_image.create_image_view(true)?;
 
         Ok(Renderer {
             render_buffer,
@@ -120,6 +138,8 @@ impl Renderer {
             descriptor_sets,
             pipeline_layout,
             pipeline,
+            depth_image,
+            depth_image_view,
         })
     }
 }

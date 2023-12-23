@@ -153,7 +153,7 @@ impl Swapchain {
 
         let views = images
             .iter()
-            .map(Image::create_image_view)
+            .map(|x| Image::create_image_view(x, false))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {
@@ -253,7 +253,7 @@ impl Swapchain {
 
         let views = images
             .iter()
-            .map(Image::create_image_view)
+            .map(|x| Image::create_image_view(x, false))
             .collect::<Result<Vec<_>, _>>()?;
 
         self.swapchain_khr = swapchain_khr;
