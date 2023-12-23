@@ -12,7 +12,7 @@ fn start() -> Result<()> {
 
     log_init("octree_builder.log");
 
-    let depth = 10;
+    let depth = 8;
     let mut octtree = BasicOcttree::new(depth, 11261474734820965911, InitalFill::SpareseTree);
 
     octtree.save(SAVE_FOLDER, 1000000)?;

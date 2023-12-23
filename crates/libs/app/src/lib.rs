@@ -367,18 +367,17 @@ impl<B: App> BaseApp<B> {
         // Swapchain and dependent resources
         self.swapchain.resize(&self.context, width, height)?;
 
-        // Recreate storage image for RT and update descriptor set
-        let storage_images = create_storage_images(
-            &mut self.context,
-            self.swapchain.format,
-            self.swapchain.extent,
-            self.swapchain.images.len(),
-        )?;
+        if self.raytracing_enabled || self.compute_rendering_enabled {
+            // Recreate storage image for RT and update descriptor set
+            let storage_images = create_storage_images(
+                &mut self.context,
+                self.swapchain.format,
+                self.swapchain.extent,
+                self.swapchain.images.len(),
+            )?;
 
-        let _ = std::mem::replace(&mut self.storage_images, storage_images);
-
-        // Update camera aspect ration
-        // self.camera.aspect_ratio = width as f32 / height as f32;
+            let _ = std::mem::replace(&mut self.storage_images, storage_images);
+        }
 
         Ok(())
     }
