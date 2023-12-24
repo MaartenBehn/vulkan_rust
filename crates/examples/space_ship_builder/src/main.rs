@@ -9,6 +9,7 @@ use app::vulkan::CommandBuffer;
 use app::{log, App, BaseApp};
 use mesh::Mesh;
 use renderer::{RenderBuffer, Renderer};
+use ship::SHIP_TICK_LENGTH;
 
 use crate::rule::RuleSet;
 use crate::ship::Ship;
@@ -27,6 +28,11 @@ fn main() -> Result<()> {
     app::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct SpaceShipBuilder {
+    total_time: Duration,
+    last_ship_tick: Duration,
+
+    ruleset: RuleSet,
+    ship: Ship,
     mesh: Mesh,
     renderer: Renderer,
     camera: Camera,
@@ -38,10 +44,12 @@ impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
+        fastrand::seed(42);
+
         let ruleset = RuleSet::new();
         let ship = Ship::new(&ruleset)?;
 
-        let mesh = Mesh::from_ship(&ship)?;
+        let mesh = Mesh::from_ship(context, &ship)?;
 
         let renderer = Renderer::new(
             context,
@@ -49,7 +57,6 @@ impl App for SpaceShipBuilder {
             base.swapchain.format,
             Format::D32_SFLOAT,
             base.swapchain.extent,
-            &mesh,
         )?;
 
         log::info!("Creating Camera");
@@ -61,6 +68,11 @@ impl App for SpaceShipBuilder {
         camera.z_far = 100.0;
 
         Ok(Self {
+            total_time: Duration::ZERO,
+            last_ship_tick: Duration::ZERO,
+
+            ruleset,
+            ship,
             mesh,
             renderer,
             camera,
@@ -79,6 +91,8 @@ impl App for SpaceShipBuilder {
         delta_time: Duration,
         controls: &Controls,
     ) -> Result<()> {
+        self.total_time += delta_time;
+
         self.camera.update(controls, delta_time);
 
         self.renderer
@@ -87,13 +101,12 @@ impl App for SpaceShipBuilder {
                 view_proj_matrix: self.camera.projection_matrix() * self.camera.view_matrix(),
             }])?;
 
-        self.renderer
-            .vertex_buffer
-            .copy_data_to_buffer(self.mesh.vertecies.as_slice())?;
+        if self.last_ship_tick + SHIP_TICK_LENGTH < self.total_time {
+            self.last_ship_tick = self.total_time;
 
-        self.renderer
-            .index_buffer
-            .copy_data_to_buffer(self.mesh.indecies.as_slice())?;
+            self.ship.tick(&self.ruleset)?;
+            self.mesh.update(&self.ship)?;
+        }
 
         Ok(())
     }
@@ -113,8 +126,8 @@ impl App for SpaceShipBuilder {
         );
         buffer.bind_graphics_pipeline(&self.renderer.pipeline);
 
-        buffer.bind_vertex_buffer(&self.renderer.vertex_buffer);
-        buffer.bind_index_buffer(&self.renderer.index_buffer);
+        buffer.bind_vertex_buffer(&self.mesh.vertex_buffer);
+        buffer.bind_index_buffer(&self.mesh.index_buffer);
 
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,

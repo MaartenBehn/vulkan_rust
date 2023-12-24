@@ -1,10 +1,11 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, BinaryHeap, VecDeque};
+use std::time::Duration;
 
 use app::anyhow::{bail, Result};
 use app::glam::{ivec3, mat2, mat3, uvec3, vec2, vec3, IVec3, Mat2, UVec3, Vec4Swizzles};
 use app::log;
 
-use crate::math::{to_1d, to_3d};
+use crate::math::{to_1d, to_1d_i, to_3d};
 use crate::rule::{RuleIndex, RuleSet};
 
 pub type NodeID = usize;
@@ -14,6 +15,8 @@ pub const ID_BEAM_CON: NodeID = 2;
 pub const ID_HULL: NodeID = 3;
 pub const ID_MAX: NodeID = 4;
 
+pub const SHIP_TICK_LENGTH: Duration = Duration::from_millis(0);
+
 #[derive(Debug, Clone)]
 pub struct Node {
     pub m_id: NodeID,
@@ -22,13 +25,19 @@ pub struct Node {
     pub wave: Vec<(NodeID, Vec<RuleIndex>)>,
 }
 
+#[derive(Debug, Clone, Eq, Ord)]
+pub struct CollapseIndex {
+    index: usize,
+    wave_count: usize,
+}
+
 #[derive(Debug, Clone)]
 pub struct Ship {
     pub size: UVec3,
     pub nodes: Vec<Node>,
-    pub prop_indices: Vec<usize>,
+    pub prop_indices: VecDeque<usize>,
     pub prop_done_indices: Vec<usize>,
-    pub collap_indices: Vec<usize>,
+    pub collapse_indices: VecDeque<usize>,
 }
 
 impl Ship {
@@ -38,73 +47,33 @@ impl Ship {
         let mut ship = Ship {
             size,
             nodes: vec![Node::none(); (size.x * size.y * size.z) as usize],
-            prop_indices: Vec::new(),
+            prop_indices: VecDeque::new(),
             prop_done_indices: Vec::new(),
-            collap_indices: Vec::new(),
+            collapse_indices: VecDeque::new(),
         };
 
         ship.place_node(uvec3(5, 5, 0), ID_BEAM);
         ship.place_node(uvec3(7, 5, 0), ID_BEAM);
 
-        ship.clean_prop_indices();
-        ship.print_ship();
-
-        loop {
-            while ship.propergate(ruleset) {
-                ship.print_ship()
-            }
-
-            while ship.collapse() {
-                ship.print_ship()
-            }
-
-            if ship.prop_indices.is_empty() {
-                break;
-            }
-        }
-
         Ok(ship)
     }
 
-    fn print_ship(&self) {
-        log::info!("Ship: ");
+    pub fn tick(&mut self, ruleset: &RuleSet) -> Result<()> {
+        if !self.prop_indices.is_empty() {
+            self.propergate(ruleset);
 
-        let mut text = "".to_owned();
-        for x in 0..self.size.x {
-            text.push_str("|");
-            for y in 0..self.size.y {
-                let pos = uvec3(x, y, 0);
-                let node = self.get_node(pos).unwrap();
-
-                let mut t = "".to_owned();
-
-                if node.id != 0 {
-                    t.push_str(&format!(" {:?} ", node.id))
-                } else {
-                    for (i, _) in node.wave.iter() {
-                        t.push_str(&format!("{:?}, ", i))
-                    }
-                }
-
-                text.push_str(&t);
-
-                for _ in (t.len())..5 {
-                    text.push_str(" ");
-                }
-
-                if self.prop_indices.contains(&to_1d(pos, self.size)) {
-                    text.push_str("x");
-                } else if self.prop_done_indices.contains(&to_1d(pos, self.size)) {
-                    text.push_str("o");
-                } else {
-                    text.push_str(" ");
-                }
-
-                text.push_str("|");
+            if self.prop_indices.is_empty() {
+                self.prop_done_indices.clear();
             }
-            log::info!("{:?}", text);
-            text.clear();
+        } else if !self.collapse_indices.is_empty() {
+            self.collapse();
+        } else {
+            return Ok(());
         }
+
+        self.print_ship();
+
+        Ok(())
     }
 
     fn get_node(&self, pos: UVec3) -> Result<&Node> {
@@ -119,10 +88,10 @@ impl Ship {
         let index = to_1d(pos, self.size);
         self.nodes[index].id = id;
         self.nodes[index].m_id = id;
-        self.add_neigbors_to_prop(pos)
+        self.add_neigbors(pos, true)
     }
 
-    fn add_neigbors_to_prop(&mut self, pos: UVec3) {
+    fn add_neigbors(&mut self, pos: UVec3, collapse: bool) {
         let neigbors = [
             ivec3(-1, -1, 0),
             ivec3(-1, 0, 0),
@@ -134,44 +103,55 @@ impl Ship {
             ivec3(1, 1, 0),
         ];
 
-        for neigbor in neigbors.iter() {
-            let n_pos = (pos.as_ivec3() + *neigbor).as_uvec3();
-            if n_pos.cmplt(UVec3::ZERO).any() || n_pos.cmpge(self.size).any() {
-                continue;
+        let max_size = (self.size.x * self.size.y * self.size.z) as isize;
+
+        let mut indcies = VecDeque::new();
+        for n in neigbors {
+            let i = to_1d_i((pos.as_ivec3() + n), self.size.as_ivec3());
+            if i >= 0 && i < max_size {
+                indcies.push_back(i as usize)
             }
-
-            self.prop_indices.push(to_1d(n_pos, self.size))
         }
-    }
 
-    fn clean_prop_indices(&mut self) {
-        let set: BTreeSet<_> = self.prop_indices.drain(..).collect();
-        for x in set {
-            // data comes in in sorted order so you can further
-            // process adjacenct elements like this
-            if let Some(last) = self.prop_indices.last() {
-                if *last == x {
-                    continue;
+        if collapse {
+            let mut collapse_indecies = indcies.clone();
+
+            for i in self.collapse_indices.iter() {
+                let index = collapse_indecies.iter().position(|t| *t == *i);
+                if index.is_some() {
+                    collapse_indecies.swap_remove_back(index.unwrap());
                 }
             }
 
-            if !self.prop_done_indices.contains(&x) {
-                self.prop_indices.push(x);
+            self.collapse_indices.append(&mut collapse_indecies);
+        }
+
+        for i in self.prop_indices.iter() {
+            let index = indcies.iter().position(|t| *t == *i);
+            if index.is_some() {
+                indcies.swap_remove_back(index.unwrap());
             }
         }
-    }
 
-    fn propergate(&mut self, ruleset: &RuleSet) -> bool {
-        if self.prop_indices.is_empty() {
-            return false;
+        for i in self.prop_done_indices.iter() {
+            let index = indcies.iter().position(|t| *t == *i);
+            if index.is_some() {
+                indcies.swap_remove_back(index.unwrap());
+            }
         }
 
-        let index = self.prop_indices.pop().unwrap();
+        self.prop_indices.append(&mut indcies);
+    }
+
+    fn propergate(&mut self, ruleset: &RuleSet) {
+        let index = self.prop_indices.pop_front().unwrap();
         let pos = to_3d(index as u32, self.size);
         let node = &self.nodes[index];
 
+        self.prop_done_indices.push(index);
+
         if node.id != 0 {
-            return true;
+            return;
         }
 
         let rules = if node.wave.is_empty() {
@@ -236,35 +216,67 @@ impl Ship {
             }
         }
 
-        self.prop_done_indices.push(index);
-
         if node.wave != wave || node.m_wave != m_wave {
             self.nodes[index].wave = wave;
             self.nodes[index].m_wave = m_wave;
 
-            self.add_neigbors_to_prop(pos);
-            self.clean_prop_indices();
+            self.add_neigbors(pos, false);
         }
-
-        return true;
     }
 
-    fn collapse(&mut self) -> bool {
-        if self.prop_done_indices.is_empty() {
-            return false;
-        }
-
-        let index = self.prop_done_indices.pop().unwrap();
+    fn collapse(&mut self) {
+        let index = self.collapse_indices.pop_front().unwrap();
         let node = &self.nodes[index];
 
         if node.id != 0 || node.wave.is_empty() {
-            return true;
+            return;
         }
 
-        self.nodes[index].id = node.wave.first().unwrap().0;
-        self.add_neigbors_to_prop(to_3d(index as u32, self.size));
+        self.nodes[index].id = fastrand::choice(node.wave.iter()).unwrap().0;
+        self.add_neigbors(to_3d(index as u32, self.size), true);
+    }
 
-        return false;
+    fn print_ship(&self) {
+        log::info!("Ship: ");
+
+        let mut text = "".to_owned();
+        for x in 0..self.size.x {
+            text.push_str("|");
+            for y in 0..self.size.y {
+                let pos = uvec3(x, y, 0);
+                let node = self.get_node(pos).unwrap();
+
+                let mut t = "".to_owned();
+
+                if node.id != 0 {
+                    t.push_str(&format!(" {:?} ", node.id))
+                } else {
+                    for (i, _) in node.wave.iter() {
+                        t.push_str(&format!("{:?}, ", i))
+                    }
+                }
+
+                if self.prop_indices.contains(&to_1d(pos, self.size)) {
+                    t.push_str("p");
+                }
+                if self.prop_done_indices.contains(&to_1d(pos, self.size)) {
+                    t.push_str("d");
+                }
+                if self.collapse_indices.contains(&to_1d(pos, self.size)) {
+                    t.push_str("c");
+                }
+
+                text.push_str(&t);
+
+                for _ in (t.len())..8 {
+                    text.push_str(" ");
+                }
+
+                text.push_str("|");
+            }
+            log::info!("{:?}", text);
+            text.clear();
+        }
     }
 }
 
@@ -294,5 +306,17 @@ impl Node {
             m_wave: Vec::new(),
             wave: Vec::new(),
         }
+    }
+}
+
+impl PartialEq for CollapseIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index && self.wave_count == other.wave_count
+    }
+}
+
+impl PartialOrd for CollapseIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        other.wave_count.partial_cmp(&self.wave_count)
     }
 }

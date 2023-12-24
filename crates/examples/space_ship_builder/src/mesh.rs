@@ -1,8 +1,9 @@
-use std::future::IntoFuture;
+use std::{future::IntoFuture, mem::size_of};
 
 use app::{
     anyhow::Result,
     glam::{vec3, UVec3, Vec3},
+    vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, Context},
 };
 
 use crate::{
@@ -25,15 +26,43 @@ pub struct Mesh {
     pub vertecies: Vec<Vertex>,
     pub indecies: Vec<u32>,
     pub index_counter: u32,
+
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
 }
 
 impl Mesh {
-    pub fn from_ship(ship: &Ship) -> Result<Mesh> {
+    pub fn from_ship(context: &Context, ship: &Ship) -> Result<Mesh> {
+        let vertex_buffer = context.create_buffer(
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            MemoryLocation::CpuToGpu,
+            (size_of::<Vertex>() * MAX_VERTECIES) as _,
+        )?;
+
+        let index_buffer = context.create_buffer(
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            MemoryLocation::CpuToGpu,
+            (size_of::<Vertex>() * MAX_INDICES) as _,
+        )?;
+
         let mut mesh = Mesh {
             vertecies: Vec::new(),
             indecies: Vec::new(),
             index_counter: 0,
+
+            vertex_buffer,
+            index_buffer,
         };
+
+        mesh.update(ship)?;
+
+        Ok(mesh)
+    }
+
+    pub fn update(&mut self, ship: &Ship) -> Result<()> {
+        self.vertecies.clear();
+        self.indecies.clear();
+        self.index_counter = 0;
 
         for (i, node) in ship.nodes.iter().enumerate() {
             if node.id == 0 {
@@ -41,10 +70,16 @@ impl Mesh {
             }
 
             let pos = to_3d(i as u32, ship.size);
-            mesh.add_node(pos, node)
+            self.add_node(pos, node)
         }
 
-        Ok(mesh)
+        self.vertex_buffer
+            .copy_data_to_buffer(self.vertecies.as_slice())?;
+
+        self.index_buffer
+            .copy_data_to_buffer(self.indecies.as_slice())?;
+
+        Ok(())
     }
 
     fn add_node(&mut self, pos: UVec3, node: &Node) {

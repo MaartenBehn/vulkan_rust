@@ -8,3 +8,5 @@ authors.workspace = true
 
 [dependencies]
 app = { path = "../../libs/app" }
+
+fastrand.workspace = true

@@ -17,8 +17,6 @@ use crate::mesh::{Mesh, Vertex, MAX_INDICES, MAX_VERTECIES};
 
 pub struct Renderer {
     pub render_buffer: Buffer,
-    pub vertex_buffer: Buffer,
-    pub index_buffer: Buffer,
 
     pub descriptor_pool: DescriptorPool,
     pub descriptor_layout: DescriptorSetLayout,
@@ -45,24 +43,11 @@ impl Renderer {
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
         extent: vk::Extent2D,
-        mesh: &Mesh,
     ) -> Result<Self> {
         let render_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
             size_of::<RenderBuffer>() as _,
-        )?;
-
-        let vertex_buffer = context.create_buffer(
-            vk::BufferUsageFlags::VERTEX_BUFFER,
-            MemoryLocation::CpuToGpu,
-            (size_of::<Vertex>() * MAX_VERTECIES) as _,
-        )?;
-
-        let index_buffer = context.create_buffer(
-            vk::BufferUsageFlags::INDEX_BUFFER,
-            MemoryLocation::CpuToGpu,
-            (size_of::<Vertex>() * MAX_INDICES) as _,
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
@@ -131,8 +116,6 @@ impl Renderer {
 
         Ok(Renderer {
             render_buffer,
-            vertex_buffer,
-            index_buffer,
             descriptor_pool,
             descriptor_layout,
             descriptor_sets,

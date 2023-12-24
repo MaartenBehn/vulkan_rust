@@ -39,8 +39,10 @@ pub struct Rule {
 impl RuleSet {
     pub fn new() -> RuleSet {
         let rule_templates = vec![
-            RuleTemplate::new(ID_HULL, vec![(ivec3(0, 1, 0), ID_BEAM)], TMEP_ROT),
-            RuleTemplate::new(ID_HULL, vec![(ivec3(1, 1, 0), ID_BEAM)], TMEP_ROT),
+            RuleTemplate::new(ID_BEAM_CON, vec![(ivec3(0, 1, 0), ID_BEAM)], TMEP_FLIP),
+            RuleTemplate::new(ID_BEAM_CON, vec![(ivec3(0, 1, 0), ID_BEAM_CON)], TMEP_FLIP),
+            RuleTemplate::new(ID_HULL, vec![(ivec3(0, 1, 0), ID_BEAM_CON)], TMEP_ROT),
+            RuleTemplate::new(ID_HULL, vec![(ivec3(1, 1, 0), ID_BEAM_CON)], TMEP_ROT),
         ];
 
         let mut rules = vec![Vec::new(); ID_MAX];

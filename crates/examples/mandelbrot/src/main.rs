@@ -171,6 +171,7 @@ fn create_pipeline(
             extent: None,
             color_attachment_format,
             color_attachment_blend: None,
+            depth_attachment_format: None,
             dynamic_states: Some(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT]),
         },
     )

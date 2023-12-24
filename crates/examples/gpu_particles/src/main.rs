@@ -515,6 +515,7 @@ fn create_graphics_pipeline(
                 alpha_blend_op: vk::BlendOp::ADD,
                 color_write_mask: vk::ColorComponentFlags::RGBA,
             }),
+            depth_attachment_format: None,
             dynamic_states: Some(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT]),
         },
     )
