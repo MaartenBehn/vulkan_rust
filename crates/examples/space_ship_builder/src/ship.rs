@@ -93,14 +93,14 @@ impl Ship {
 
     fn add_neigbors(&mut self, pos: UVec3, collapse: bool) {
         let neigbors = [
-            ivec3(-1, -1, 0),
-            ivec3(-1, 0, 0),
-            ivec3(-1, 1, 0),
-            ivec3(0, -1, 0),
-            ivec3(0, 1, 0),
-            ivec3(1, -1, 0),
-            ivec3(1, 0, 0),
             ivec3(1, 1, 0),
+            ivec3(-1, -1, 0),
+            ivec3(1, 0, 0),
+            ivec3(-1, 0, 0),
+            ivec3(0, -1, 0),
+            ivec3(1, -1, 0),
+            ivec3(0, 1, 0),
+            ivec3(-1, 1, 0),
         ];
 
         let max_size = (self.size.x * self.size.y * self.size.z) as isize;
