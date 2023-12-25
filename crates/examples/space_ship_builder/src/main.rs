@@ -16,6 +16,7 @@ use crate::ship::Ship;
 
 pub mod math;
 pub mod mesh;
+pub mod builder;
 pub mod renderer;
 pub mod rule;
 pub mod ship;
@@ -44,7 +45,7 @@ impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
-        fastrand::seed(42);
+        // fastrand::seed(42);
 
         let ruleset = RuleSet::new();
         let ship = Ship::new(&ruleset)?;
@@ -119,7 +120,7 @@ impl App for SpaceShipBuilder {
     ) -> Result<()> {
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
-            Some(&self.renderer.depth_image_view),
+            None, //Some(&self.renderer.depth_image_view),
             base.swapchain.extent,
             vk::AttachmentLoadOp::CLEAR,
             None,

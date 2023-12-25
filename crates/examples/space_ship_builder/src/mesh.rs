@@ -70,7 +70,14 @@ impl Mesh {
             }
 
             let pos = to_3d(i as u32, ship.size);
-            self.add_node(pos, node)
+            let (vertecies, indecies) = self.get_node_mesh(offset, pos);
+
+            for i in indecies {
+                self.indecies.push(i + self.index_counter);
+            }
+    
+            self.index_counter += vertices.len() as u32;
+            self.vertecies.append(&mut vertices);
         }
 
         self.vertex_buffer
@@ -82,7 +89,7 @@ impl Mesh {
         Ok(())
     }
 
-    fn add_node(&mut self, pos: UVec3, node: &Node) {
+    pub fn get_node_mesh(&mut self,  node: &Node, offset: UVec3) -> (Vec<Vertex>, Vec<i32>) {
         let node_colors = [
             vec3(1.0, 0.0, 0.0),
             vec3(0.0, 1.0, 0.0),
@@ -90,7 +97,7 @@ impl Mesh {
             vec3(1.0, 0.0, 0.5),
         ];
 
-        let v_pos = pos.as_vec3();
+        let v_pos = offset.as_vec3();
         let color = node_colors[node.id];
         let mut vertices = vec![
             Vertex {
@@ -127,7 +134,7 @@ impl Mesh {
             },
         ];
 
-        let indecies = [
+        let indecies = vec![
             0, 1, 2, 3, 2, 1, //
             6, 5, 4, 5, 6, 7, //
             0, 4, 1, 1, 4, 5, //
@@ -135,11 +142,7 @@ impl Mesh {
             2, 3, 6, 3, 7, 6, //
             0, 2, 6, 6, 4, 0,
         ];
-        for i in indecies {
-            self.indecies.push(i + self.index_counter);
-        }
 
-        self.index_counter += vertices.len() as u32;
-        self.vertecies.append(&mut vertices);
+        (vertices, indecies)
     }
 }
