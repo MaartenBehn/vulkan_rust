@@ -1,25 +1,41 @@
-use app::camera::Camera;
+use std::mem::size_of;
 
-use crate::{ship::{NodeID, ID_BEAM}, mesh::Mesh};
+use app::{
+    anyhow::Result,
+    camera::Camera,
+    controls::Controls,
+    glam::IVec3,
+    log,
+    vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, CommandBuffer, Context},
+};
 
-const MAX_BUILDER_VERTECIES: usize = 4;
-const MAX_BUILDER_INDICES:   usize = 36;
+use crate::{
+    renderer::Vertex,
+    ship::{NodeID, Ship, ID_BEAM},
+    ship_mesh::ShipMesh,
+};
 
-type BUILDER_STATE = u32;
-const STATE_OFF: BUILDER_STATE = 0;
-const STATE_ON: BUILDER_STATE = 1;
+const MAX_BUILDER_VERTECIES: usize = 8;
+const MAX_BUILDER_INDICES: usize = 100;
+const SCROLL_SPEED: f32 = 0.01;
+
+type BuilderState = u32;
+const STATE_OFF: BuilderState = 0;
+const STATE_ON: BuilderState = 1;
 
 pub struct Builder {
-    state: BUILDER_STATE,
-    current_node: NodeID,
-    distance: f32, 
+    state: BuilderState,
+    current_node_id: NodeID,
+
+    distance: f32,
+    last_scroll: f32,
 
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
 }
 
 impl Builder {
-    pub fn new() -> Builder {
+    pub fn new(context: &Context) -> Result<Builder> {
         let vertex_buffer = context.create_buffer(
             vk::BufferUsageFlags::VERTEX_BUFFER,
             MemoryLocation::CpuToGpu,
@@ -32,22 +48,47 @@ impl Builder {
             (size_of::<Vertex>() * MAX_BUILDER_INDICES) as _,
         )?;
 
-        Builder {
+        Ok(Builder {
             state: STATE_ON,
-            current_node: ID_BEAM, 
-            distance: 1.0,
+            current_node_id: ID_BEAM,
+
+            distance: 3.0,
+            last_scroll: 0.0,
 
             vertex_buffer,
             index_buffer,
-        }
+        })
     }
 
-    pub fn update(&mut self, camera: &Camera, mesh: &Mesh) {
+    pub fn update(&mut self, controls: &Controls, camera: &Camera, ship: &mut Ship) -> Result<()> {
         if self.state == STATE_ON {
-            let pos = (camera.position + camera.direction * self.distance).as_uvec3();
+            self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
-            let node = 
-            let mesh = mesh.get_node_mesh(node, offset)
+            let pos = (camera.position + camera.direction * self.distance)
+                .round()
+                .as_ivec3();
+
+            let (vertecies, indecies) =
+                ShipMesh::get_node_mesh(self.current_node_id, pos, 0.95, 0.5);
+
+            self.vertex_buffer
+                .copy_data_to_buffer(vertecies.as_slice())?;
+
+            self.index_buffer.copy_data_to_buffer(indecies.as_slice())?;
+
+            let ship_node = ship.get_node_i(pos);
+
+            if ship_node.is_ok() && controls.left {
+                ship.place_node(pos.as_uvec3(), self.current_node_id)
+            }
         }
+
+        Ok(())
+    }
+
+    pub fn render(&self, buffer: &CommandBuffer) {
+        buffer.bind_vertex_buffer(&self.vertex_buffer);
+        buffer.bind_index_buffer(&self.index_buffer);
+        buffer.draw_indexed(MAX_BUILDER_INDICES as u32);
     }
 }

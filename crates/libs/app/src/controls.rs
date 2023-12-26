@@ -43,14 +43,14 @@ impl Controls {
     pub fn reset(self) -> Self {
         Self {
             cursor_delta: [0.0; 2],
+            scroll_delta: 0.0,
             ..self
         }
     }
 
     pub fn handle_event(self, event: &Event<()>) -> Self {
         let mut new_state = self;
-        //new_state.scroll_delta = 0.0;
-
+        
         match event {
             Event::WindowEvent { event, .. } => {
                 match event {

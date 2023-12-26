@@ -6,7 +6,7 @@ use app::glam::{ivec3, mat2, mat3, uvec3, vec2, vec3, IVec3, Mat2, UVec3, Vec4Sw
 use app::log;
 
 use crate::math::{to_1d, to_1d_i, to_3d};
-use crate::rule::{RuleIndex, RuleSet};
+use crate::rule::RuleSet;
 
 pub type NodeID = usize;
 
@@ -15,14 +15,13 @@ pub const ID_BEAM_CON: NodeID = 2;
 pub const ID_HULL: NodeID = 3;
 pub const ID_MAX: NodeID = 4;
 
-pub const SHIP_TICK_LENGTH: Duration = Duration::from_millis(0);
+pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
+pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 
 #[derive(Debug, Clone)]
 pub struct Node {
     pub m_id: NodeID,
     pub id: NodeID,
-    pub m_wave: Vec<(NodeID, Vec<RuleIndex>)>,
-    pub wave: Vec<(NodeID, Vec<RuleIndex>)>,
 }
 
 #[derive(Debug, Clone, Eq, Ord)]
@@ -34,64 +33,90 @@ pub struct CollapseIndex {
 #[derive(Debug, Clone)]
 pub struct Ship {
     pub size: UVec3,
+    pub max_index: isize,
+
     pub nodes: Vec<Node>,
+    pub m_prop_indices: VecDeque<usize>,
     pub prop_indices: VecDeque<usize>,
-    pub prop_done_indices: Vec<usize>,
-    pub collapse_indices: VecDeque<usize>,
+    pub collapses_per_tick: usize,
+    pub fully_collapsed: bool,
 }
 
 impl Ship {
     pub fn new(ruleset: &RuleSet) -> Result<Ship> {
-        let size = uvec3(10, 10, 1);
+        let size = uvec3(100, 100, 100);
 
         let mut ship = Ship {
             size,
+            max_index: (size.x * size.y * size.z) as isize,
             nodes: vec![Node::none(); (size.x * size.y * size.z) as usize],
+            m_prop_indices: VecDeque::new(),
             prop_indices: VecDeque::new(),
-            prop_done_indices: Vec::new(),
-            collapse_indices: VecDeque::new(),
+            collapses_per_tick: 2,
+            fully_collapsed: false,
         };
 
-        ship.place_node(uvec3(5, 5, 0), ID_BEAM);
-        ship.place_node(uvec3(7, 5, 0), ID_BEAM);
+        ship.place_node(uvec3(5, 5, 5), ID_BEAM);
 
         Ok(ship)
     }
 
-    pub fn tick(&mut self, ruleset: &RuleSet) -> Result<()> {
-        if !self.prop_indices.is_empty() {
-            self.propergate(ruleset);
-
-            if self.prop_indices.is_empty() {
-                self.prop_done_indices.clear();
+    pub fn tick(&mut self, ruleset: &RuleSet, deltatime: Duration) -> Result<()> {
+        if self.fully_collapsed {
+            if deltatime < MIN_TICK_LENGTH && self.collapses_per_tick < usize::MAX / 2 {
+                self.collapses_per_tick *= 2;
+            } else if deltatime > MAX_TICK_LENGTH && self.collapses_per_tick > 4 {
+                self.collapses_per_tick /= 2;
             }
-        } else if !self.collapse_indices.is_empty() {
-            self.collapse();
-        } else {
-            return Ok(());
+
+            log::info!("{:?} {:?}", self.collapses_per_tick, deltatime);
         }
 
-        self.print_ship();
+        self.fully_collapsed = true;
+        for _ in 0..(self.collapses_per_tick) {
+            if self.prop_indices.is_empty() {
+                self.fully_collapsed = false;
+                break;
+            }
+
+            self.collapse(ruleset);
+        }
 
         Ok(())
     }
 
-    fn get_node(&self, pos: UVec3) -> Result<&Node> {
-        if pos.cmplt(UVec3::ZERO).any() || pos.cmpge(self.size).any() {
-            bail!("Index out of bounds.")
-        }
-
-        Ok(&self.nodes[to_1d(pos, self.size)])
+    pub fn get_node(&self, pos: UVec3) -> Result<&Node> {
+        self.get_node_i(pos.as_ivec3())
     }
 
-    fn place_node(&mut self, pos: UVec3, id: NodeID) {
+    pub fn get_node_i(&self, pos: IVec3) -> Result<&Node> {
+        let index = to_1d_i(pos, self.size.as_ivec3());
+
+        if index < 0 || index >= self.max_index {
+            bail!("Pos not in ship")
+        }
+
+        Ok(&self.nodes[index as usize])
+    }
+
+    pub fn place_node(&mut self, pos: UVec3, id: NodeID) {
+        log::info!("Place: {pos:?}");
+
+        for i in 0..self.max_index {
+            let node = &mut self.nodes[i as usize];
+            node.id = node.m_id;
+        }
+
         let index = to_1d(pos, self.size);
         self.nodes[index].id = id;
         self.nodes[index].m_id = id;
-        self.add_neigbors(pos, true)
+
+        let mut neigbors = self.get_neigbors(pos);
+        self.m_prop_indices.append(&mut neigbors);
+        self.prop_indices = self.m_prop_indices.clone();
     }
 
-    fn add_neigbors(&mut self, pos: UVec3, collapse: bool) {
+    fn get_neigbors(&mut self, pos: UVec3) -> VecDeque<usize> {
         let neigbors = [
             ivec3(1, 1, 0),
             ivec3(-1, -1, 0),
@@ -101,76 +126,54 @@ impl Ship {
             ivec3(1, -1, 0),
             ivec3(0, 1, 0),
             ivec3(-1, 1, 0),
+            ivec3(1, 1, 1),
+            ivec3(-1, -1, 1),
+            ivec3(1, 0, 1),
+            ivec3(-1, 0, 1),
+            ivec3(0, -1, 1),
+            ivec3(1, -1, 1),
+            ivec3(0, 1, 1),
+            ivec3(-1, 1, 1),
+            ivec3(0, 0, 1),
+            ivec3(1, 1, -1),
+            ivec3(-1, -1, -1),
+            ivec3(1, 0, -1),
+            ivec3(-1, 0, -1),
+            ivec3(0, -1, -1),
+            ivec3(1, -1, -1),
+            ivec3(0, 1, -1),
+            ivec3(-1, 1, -1),
+            ivec3(0, 0, -1),
         ];
-
-        let max_size = (self.size.x * self.size.y * self.size.z) as isize;
 
         let mut indcies = VecDeque::new();
         for n in neigbors {
-            let i = to_1d_i((pos.as_ivec3() + n), self.size.as_ivec3());
-            if i >= 0 && i < max_size {
+            let i = to_1d_i(pos.as_ivec3() + n, self.size.as_ivec3());
+            if i >= 0 && i < self.max_index {
                 indcies.push_back(i as usize)
             }
         }
 
-        if collapse {
-            let mut collapse_indecies = indcies.clone();
-
-            for i in self.collapse_indices.iter() {
-                let index = collapse_indecies.iter().position(|t| *t == *i);
-                if index.is_some() {
-                    collapse_indecies.swap_remove_back(index.unwrap());
-                }
-            }
-
-            self.collapse_indices.append(&mut collapse_indecies);
-        }
-
-        for i in self.prop_indices.iter() {
-            let index = indcies.iter().position(|t| *t == *i);
-            if index.is_some() {
-                indcies.swap_remove_back(index.unwrap());
-            }
-        }
-
-        for i in self.prop_done_indices.iter() {
-            let index = indcies.iter().position(|t| *t == *i);
-            if index.is_some() {
-                indcies.swap_remove_back(index.unwrap());
-            }
-        }
-
-        self.prop_indices.append(&mut indcies);
+        indcies
     }
 
-    fn propergate(&mut self, ruleset: &RuleSet) {
+    fn collapse(&mut self, ruleset: &RuleSet) {
         let index = self.prop_indices.pop_front().unwrap();
         let pos = to_3d(index as u32, self.size);
         let node = &self.nodes[index];
-
-        self.prop_done_indices.push(index);
 
         if node.id != 0 {
             return;
         }
 
-        let rules = if node.wave.is_empty() {
-            &ruleset.rule_indecies
-        } else {
-            &node.wave
-        };
-
         let mut wave = Vec::new();
-        let mut m_wave = Vec::new();
 
-        for (id, rules) in rules.iter() {
+        for (id, rules) in ruleset.rule_indecies.iter() {
             let mut fitting_rules = Vec::new();
-            let mut m_fitting_rules = Vec::new();
 
             for rule_index in rules.iter() {
                 let rule = &ruleset.rules[*id][*rule_index];
                 let mut fits = true;
-                let mut m_fits = true;
 
                 for (offset, rule_id) in rule.req.iter() {
                     let rule_pos = (pos.as_ivec3() + *offset).as_uvec3();
@@ -178,62 +181,29 @@ impl Ship {
                     let res = self.get_node(rule_pos);
                     if res.is_err() {
                         fits = false;
-                        m_fits = false;
                         break;
                     }
                     let rule_node = res.unwrap();
 
-                    fits &= rule_node.id == *rule_id
-                        || (rule_node.id == 0
-                            && rule_node
-                                .wave
-                                .iter()
-                                .any(|(wave_id, _)| *wave_id == *rule_id));
-
-                    m_fits &= rule_node.m_id == *rule_id
-                        || (rule_node.m_id == 0
-                            && rule_node
-                                .m_wave
-                                .iter()
-                                .any(|(wave_id, _)| *wave_id == *rule_id));
+                    fits &= rule_node.id == *rule_id;
                 }
 
                 if fits {
                     fitting_rules.push(*rule_index);
                 }
-
-                if m_fits {
-                    m_fitting_rules.push(*rule_index);
-                }
             }
 
             if !fitting_rules.is_empty() {
-                wave.push((*id, fitting_rules))
-            }
-
-            if !m_fitting_rules.is_empty() {
-                m_wave.push((*id, m_fitting_rules))
+                wave.push(*id)
             }
         }
 
-        if node.wave != wave || node.m_wave != m_wave {
-            self.nodes[index].wave = wave;
-            self.nodes[index].m_wave = m_wave;
+        if !wave.is_empty() {
+            self.nodes[index].id = *fastrand::choice(wave.iter()).unwrap();
 
-            self.add_neigbors(pos, false);
+            let mut neigbors = self.get_neigbors(pos);
+            self.prop_indices.append(&mut neigbors);
         }
-    }
-
-    fn collapse(&mut self) {
-        let index = self.collapse_indices.pop_front().unwrap();
-        let node = &self.nodes[index];
-
-        if node.id != 0 || node.wave.is_empty() {
-            return;
-        }
-
-        self.nodes[index].id = fastrand::choice(node.wave.iter()).unwrap().0;
-        self.add_neigbors(to_3d(index as u32, self.size), true);
     }
 
     fn print_ship(&self) {
@@ -250,20 +220,10 @@ impl Ship {
 
                 if node.id != 0 {
                     t.push_str(&format!(" {:?} ", node.id))
-                } else {
-                    for (i, _) in node.wave.iter() {
-                        t.push_str(&format!("{:?}, ", i))
-                    }
                 }
 
                 if self.prop_indices.contains(&to_1d(pos, self.size)) {
                     t.push_str("p");
-                }
-                if self.prop_done_indices.contains(&to_1d(pos, self.size)) {
-                    t.push_str("d");
-                }
-                if self.collapse_indices.contains(&to_1d(pos, self.size)) {
-                    t.push_str("c");
                 }
 
                 text.push_str(&t);
@@ -282,30 +242,15 @@ impl Ship {
 
 impl Node {
     fn from_m_id(id: NodeID) -> Node {
-        Node {
-            m_id: id,
-            id: id,
-            m_wave: Vec::new(),
-            wave: Vec::new(),
-        }
+        Node { m_id: id, id: id }
     }
 
     fn from_id(id: NodeID) -> Node {
-        Node {
-            m_id: 0,
-            id,
-            m_wave: Vec::new(),
-            wave: Vec::new(),
-        }
+        Node { m_id: 0, id }
     }
 
     fn none() -> Node {
-        Node {
-            m_id: 0,
-            id: 0,
-            m_wave: Vec::new(),
-            wave: Vec::new(),
-        }
+        Node { m_id: 0, id: 0 }
     }
 }
 

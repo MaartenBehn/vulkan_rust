@@ -2,7 +2,7 @@ use std::mem::size_of;
 
 use app::{
     anyhow::Result,
-    glam::Mat4,
+    glam::{Mat4, Vec3, Vec4},
     vulkan::{
         ash::vk::{self, Extent2D, Format, ImageUsageFlags},
         gpu_allocator::{self, MemoryLocation},
@@ -13,7 +13,15 @@ use app::{
     },
 };
 
-use crate::mesh::{Mesh, Vertex, MAX_INDICES, MAX_VERTECIES};
+use crate::ship_mesh::{ShipMesh, MAX_INDICES, MAX_VERTECIES};
+
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+#[repr(C)]
+pub struct Vertex {
+    pub position: Vec3,
+    pub color: Vec4,
+}
 
 pub struct Renderer {
     pub render_buffer: Buffer,
@@ -98,7 +106,18 @@ impl Renderer {
                 primitive_topology: vk::PrimitiveTopology::TRIANGLE_LIST,
                 extent: None,
                 color_attachment_format,
-                color_attachment_blend: None,
+                color_attachment_blend: Some(
+                    vk::PipelineColorBlendAttachmentState::builder()
+                        .color_write_mask(vk::ColorComponentFlags::RGBA)
+                        .blend_enable(true)
+                        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+                        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                        .color_blend_op(vk::BlendOp::ADD)
+                        .src_alpha_blend_factor(vk::BlendFactor::ONE)
+                        .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+                        .alpha_blend_op(vk::BlendOp::ADD)
+                        .build(),
+                ),
                 depth_attachment_format: Some(depth_attachment_format),
                 dynamic_states: Some(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT]),
             },
@@ -127,11 +146,20 @@ impl Renderer {
     }
 }
 
+impl Vertex {
+    pub fn new(pos: Vec3, color: Vec4) -> Vertex {
+        Vertex {
+            position: pos,
+            color: color,
+        }
+    }
+}
+
 impl app::vulkan::Vertex for Vertex {
     fn bindings() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
-            stride: 24,
+            stride: size_of::<Vertex>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }]
     }
@@ -147,8 +175,8 @@ impl app::vulkan::Vertex for Vertex {
             vk::VertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
-                format: vk::Format::R32G32B32_SFLOAT,
-                offset: 12,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: 16,
             },
         ]
     }

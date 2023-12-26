@@ -128,6 +128,7 @@ impl GraphicsPipeline {
                     color_write_mask: vk::ColorComponentFlags::RGBA,
                     ..Default::default()
                 });
+        
         let color_blend_attachments = [color_blend_attachment];
         let color_blending_info = vk::PipelineColorBlendStateCreateInfo::builder()
             .logic_op_enable(false)

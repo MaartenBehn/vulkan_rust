@@ -7,19 +7,19 @@ use app::glam::Vec3;
 use app::vulkan::ash::vk::{self, Format};
 use app::vulkan::CommandBuffer;
 use app::{log, App, BaseApp};
-use mesh::Mesh;
 use renderer::{RenderBuffer, Renderer};
-use ship::SHIP_TICK_LENGTH;
+use ship_mesh::ShipMesh;
 
+use crate::builder::Builder;
 use crate::rule::RuleSet;
 use crate::ship::Ship;
 
-pub mod math;
-pub mod mesh;
 pub mod builder;
+pub mod math;
 pub mod renderer;
 pub mod rule;
 pub mod ship;
+pub mod ship_mesh;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -34,7 +34,8 @@ struct SpaceShipBuilder {
 
     ruleset: RuleSet,
     ship: Ship,
-    mesh: Mesh,
+    ship_mesh: ShipMesh,
+    builder: Builder,
     renderer: Renderer,
     camera: Camera,
 }
@@ -50,7 +51,9 @@ impl App for SpaceShipBuilder {
         let ruleset = RuleSet::new();
         let ship = Ship::new(&ruleset)?;
 
-        let mesh = Mesh::from_ship(context, &ship)?;
+        let mesh = ShipMesh::new(context, &ship)?;
+
+        let builder = Builder::new(&context)?;
 
         let renderer = Renderer::new(
             context,
@@ -63,7 +66,7 @@ impl App for SpaceShipBuilder {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
-        camera.position = Vec3::new(5.0, -5.0, -5.0);
+        camera.position = Vec3::new(5.0, 5.0, -5.0);
         camera.direction = Vec3::new(0.0, 0.0, 1.0).normalize();
         camera.speed = 2.0;
         camera.z_far = 100.0;
@@ -74,7 +77,8 @@ impl App for SpaceShipBuilder {
 
             ruleset,
             ship,
-            mesh,
+            ship_mesh: mesh,
+            builder,
             renderer,
             camera,
         })
@@ -102,12 +106,11 @@ impl App for SpaceShipBuilder {
                 view_proj_matrix: self.camera.projection_matrix() * self.camera.view_matrix(),
             }])?;
 
-        if self.last_ship_tick + SHIP_TICK_LENGTH < self.total_time {
-            self.last_ship_tick = self.total_time;
+        self.ship.tick(&self.ruleset, delta_time)?;
+        self.ship_mesh.update(&self.ship)?;
 
-            self.ship.tick(&self.ruleset)?;
-            self.mesh.update(&self.ship)?;
-        }
+        self.builder
+            .update(controls, &self.camera, &mut self.ship)?;
 
         Ok(())
     }
@@ -120,15 +123,15 @@ impl App for SpaceShipBuilder {
     ) -> Result<()> {
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
-            None, //Some(&self.renderer.depth_image_view),
+            Some(&self.renderer.depth_image_view),
             base.swapchain.extent,
             vk::AttachmentLoadOp::CLEAR,
             None,
         );
         buffer.bind_graphics_pipeline(&self.renderer.pipeline);
 
-        buffer.bind_vertex_buffer(&self.mesh.vertex_buffer);
-        buffer.bind_index_buffer(&self.mesh.index_buffer);
+        buffer.set_viewport(base.swapchain.extent);
+        buffer.set_scissor(base.swapchain.extent);
 
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,
@@ -137,10 +140,9 @@ impl App for SpaceShipBuilder {
             &[&self.renderer.descriptor_sets[image_index]],
         );
 
-        buffer.set_viewport(base.swapchain.extent);
-        buffer.set_scissor(base.swapchain.extent);
+        self.ship_mesh.render(buffer);
+        self.builder.render(buffer);
 
-        buffer.draw_indexed(self.mesh.indecies.len() as u32);
         buffer.end_rendering();
 
         Ok(())
