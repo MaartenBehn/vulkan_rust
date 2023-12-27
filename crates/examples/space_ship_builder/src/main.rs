@@ -13,13 +13,16 @@ use ship_mesh::ShipMesh;
 use crate::builder::Builder;
 use crate::rule::RuleSet;
 use crate::ship::Ship;
+use crate::voxel_loader::VoxelLoader;
 
+pub mod Rotation;
 pub mod builder;
 pub mod math;
 pub mod renderer;
 pub mod rule;
 pub mod ship;
 pub mod ship_mesh;
+pub mod voxel_loader;
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -47,6 +50,8 @@ impl App for SpaceShipBuilder {
         let context = &mut base.context;
 
         // fastrand::seed(42);
+
+        let voxel_loader = VoxelLoader::new("./assets/models/space_ship.vox".to_owned())?;
 
         let ruleset = RuleSet::new();
         let ship = Ship::new(&ruleset)?;

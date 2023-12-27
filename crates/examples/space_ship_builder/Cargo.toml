@@ -10,3 +10,4 @@ authors.workspace = true
 app = { path = "../../libs/app" }
 
 fastrand.workspace = true
+dot_vox.workspace = true
