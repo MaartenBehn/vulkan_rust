@@ -11,8 +11,8 @@ use renderer::{RenderBuffer, Renderer};
 use ship_mesh::ShipMesh;
 
 use crate::builder::Builder;
-use crate::rule::RuleSet;
 use crate::ship::Ship;
+use crate::voxel::NodeController;
 use crate::voxel_loader::VoxelLoader;
 
 pub mod builder;
@@ -20,7 +20,6 @@ pub mod math;
 pub mod voxel;
 pub mod renderer;
 pub mod rotation;
-pub mod rule;
 pub mod ship;
 pub mod ship_mesh;
 pub mod voxel_loader;
@@ -53,14 +52,12 @@ impl App for SpaceShipBuilder {
         // fastrand::seed(42);
 
         let voxel_loader = VoxelLoader::new("./assets/models/space_ship.vox".to_owned())?;
+        let node_controller = NodeController::new(voxel_loader)?;
 
-        let ruleset = RuleSet::new();
-        let ship = Ship::new(&ruleset)?;
-
+        let ship = Ship::new(&node_controller)?;
         let mesh = ShipMesh::new(context, &ship)?;
 
         let builder = Builder::new(&context)?;
-
         let renderer = Renderer::new(
             context,
             base.swapchain.images.len() as u32,
