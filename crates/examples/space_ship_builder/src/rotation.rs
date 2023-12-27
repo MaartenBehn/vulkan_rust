@@ -28,7 +28,7 @@ use app::glam::Mat3;
 /// [`Signed Permutation Matrix`]: https://en.wikipedia.org/wiki/Generalized_permutation_matrix#Signed_permutation_group
 /// [ROTATION]: https://github.com/ephtracy/voxel-model/blob/master/MagicaVoxel-file-format-vox-extension.txt#L24
 /// [^note]: A [`Signed Permutation Matrix`] is a square binary matrix that has exactly one entry of ±1 in each row and each column and 0s elsewhere.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Rot(u8);
 
 pub type Quat = [f32; 4];
@@ -213,5 +213,11 @@ impl std::ops::Mul<Rot> for Rot {
         let rhs_signs_permutated: u8 = rhs_signs_0 | (rhs_signs_1 << 1) | (rhs_signs_2 << 2);
         let signs = lhs_signs ^ rhs_signs_permutated;
         Rot(result_row_0 | (result_row_1 << 2) | (signs << 4))
+    }
+}
+
+impl Default for Rot {
+    fn default() -> Self {
+        Self::from(4)
     }
 }

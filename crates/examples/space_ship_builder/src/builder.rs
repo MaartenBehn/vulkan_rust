@@ -9,11 +9,7 @@ use app::{
     vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, CommandBuffer, Context},
 };
 
-use crate::{
-    renderer::Vertex,
-    ship::{NodeID, Ship},
-    ship_mesh::ShipMesh,
-};
+use crate::{node::NodeID, renderer::Vertex, rotation::Rot, ship::Ship, ship_mesh::ShipMesh};
 
 const MAX_BUILDER_VERTECIES: usize = 8;
 const MAX_BUILDER_INDICES: usize = 100;
@@ -50,7 +46,10 @@ impl Builder {
 
         Ok(Builder {
             state: STATE_ON,
-            current_node_id: 0,
+            current_node_id: NodeID {
+                index: 1,
+                rot: Rot::default(),
+            },
 
             distance: 3.0,
             last_scroll: 0.0,
@@ -76,7 +75,7 @@ impl Builder {
 
             self.index_buffer.copy_data_to_buffer(indecies.as_slice())?;
 
-            let ship_node = ship.get_node_i(pos);
+            let ship_node = ship.get_cell_i(pos);
 
             if ship_node.is_ok() && controls.left {
                 ship.place_node(pos.as_uvec3(), self.current_node_id)

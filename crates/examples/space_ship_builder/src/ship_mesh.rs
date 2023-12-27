@@ -2,18 +2,19 @@ use std::{future::IntoFuture, mem::size_of};
 
 use app::{
     anyhow::Result,
-    glam::{vec3, vec4, IVec3, UVec3, Vec3, Vec4},
+    glam::{uvec3, vec3, vec4, IVec3, UVec3, Vec3, Vec4},
     vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, CommandBuffer, Context},
 };
 
 use crate::{
-    math::to_3d,
+    math::{to_1d, to_3d},
+    node::NodeID,
     renderer::Vertex,
-    ship::{Node, NodeID, Ship},
+    ship::{self, Cell, Ship},
 };
 
-pub const MAX_VERTECIES: usize = 10000;
-pub const MAX_INDICES: usize = 50000;
+pub const MAX_VERTECIES: usize = 40000;
+pub const MAX_INDICES: usize = 6000;
 
 pub struct ShipMesh {
     pub vertecies: Vec<Vertex>,
@@ -57,8 +58,9 @@ impl ShipMesh {
         self.indecies.clear();
         self.index_counter = 0;
 
-        for (i, node) in ship.nodes.iter().enumerate() {
-            if node.id == 0 {
+        /*
+        for (i, node) in ship.cells.iter().enumerate() {
+            if node.id.index == 0 {
                 continue;
             }
 
@@ -71,6 +73,46 @@ impl ShipMesh {
 
             self.index_counter += vertices.len() as u32;
             self.vertecies.append(&mut vertices);
+        }*/
+
+        type ChunkShape = block_mesh::ndshape::RuntimeShape<u32, 3>;
+        let mut buffer = block_mesh::GreedyQuadsBuffer::new(ship.cells.len());
+        let faces = block_mesh::RIGHT_HANDED_Y_UP_CONFIG.faces;
+        block_mesh::greedy_quads(
+            &ship.cells,
+            &ChunkShape::new([ship.size.x, ship.size.y, ship.size.z]),
+            [0; 3],
+            [ship.size.x - 1, ship.size.y - 1, ship.size.z - 1],
+            &faces,
+            &mut buffer,
+        );
+
+        for (i, group) in buffer.quads.groups.iter().enumerate() {
+            for quad in group.iter() {
+                let pos = uvec3(quad.minimum[0], quad.minimum[1], quad.minimum[2]);
+                let cell = ship.cells[to_1d(pos, ship.size)];
+
+                let v = cell.id.index as f32 / 20.0;
+                let color = vec4(v, v, v, 1.0);
+
+                let vertecies = faces[i].quad_mesh_positions(&quad, 1.0);
+                let indecies = faces[i].quad_mesh_indices(self.index_counter);
+
+                self.index_counter += vertecies.len() as u32;
+
+                let color = [
+                    vec4(1.0, 0.0, 0.0, 1.0),
+                    vec4(0.0, 1.0, 0.0, 1.0),
+                    vec4(0.0, 0.0, 1.0, 1.0),
+                    vec4(1.0, 1.0, 1.0, 1.0),
+                ];
+                for (i, pos) in vertecies.iter().enumerate() {
+                    self.vertecies
+                        .push(Vertex::new(vec3(pos[0], pos[1], pos[2]), color[i]))
+                }
+
+                self.indecies.extend(indecies);
+            }
         }
 
         self.vertex_buffer
@@ -94,15 +136,9 @@ impl ShipMesh {
         size: f32,
         opacity: f32,
     ) -> (Vec<Vertex>, Vec<u32>) {
-        let node_colors = [
-            vec4(1.0, 0.0, 0.0, opacity),
-            vec4(1.0, 0.0, 0.0, opacity),
-            vec4(0.0, 0.0, 1.0, opacity),
-            vec4(0.0, 1.0, 0.0, opacity),
-        ];
-
         let v_pos = offset.as_vec3();
-        let color = node_colors[node_id];
+        let v = node_id.index as f32 / 20.0;
+        let color = vec4(v, v, v, 1.0);
         let vertices = vec![
             Vertex::new(vec3(-0.5, -0.5, -0.5) * size + v_pos, color),
             Vertex::new(vec3(0.5, -0.5, -0.5) * size + v_pos, color),

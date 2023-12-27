@@ -10,9 +10,8 @@ layout(binding = 0) uniform RenderBuffer {
 } ubo;
 
 void main() {
-    oColor = vColor;
-
     vec3 vPos = vec3(vPosition.x, vPosition.y, vPosition.z);
-
     gl_Position = ubo.projectionViewMatrix * vec4(vPos, 1.0);
+
+    oColor = vColor;
 }

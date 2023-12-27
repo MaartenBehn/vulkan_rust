@@ -11,13 +11,13 @@ use renderer::{RenderBuffer, Renderer};
 use ship_mesh::ShipMesh;
 
 use crate::builder::Builder;
+use crate::node::NodeController;
 use crate::ship::Ship;
-use crate::voxel::NodeController;
 use crate::voxel_loader::VoxelLoader;
 
 pub mod builder;
 pub mod math;
-pub mod voxel;
+pub mod node;
 pub mod renderer;
 pub mod rotation;
 pub mod ship;
@@ -33,9 +33,8 @@ fn main() -> Result<()> {
 }
 struct SpaceShipBuilder {
     total_time: Duration,
-    last_ship_tick: Duration,
 
-    ruleset: RuleSet,
+    node_controller: NodeController,
     ship: Ship,
     ship_mesh: ShipMesh,
     builder: Builder,
@@ -76,9 +75,8 @@ impl App for SpaceShipBuilder {
 
         Ok(Self {
             total_time: Duration::ZERO,
-            last_ship_tick: Duration::ZERO,
 
-            ruleset,
+            node_controller,
             ship,
             ship_mesh: mesh,
             builder,
@@ -109,7 +107,7 @@ impl App for SpaceShipBuilder {
                 view_proj_matrix: self.camera.projection_matrix() * self.camera.view_matrix(),
             }])?;
 
-        self.ship.tick(&self.ruleset, delta_time)?;
+        self.ship.tick(&self.node_controller, delta_time)?;
         self.ship_mesh.update(&self.ship)?;
 
         self.builder
