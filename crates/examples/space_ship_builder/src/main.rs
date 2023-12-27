@@ -15,10 +15,11 @@ use crate::rule::RuleSet;
 use crate::ship::Ship;
 use crate::voxel_loader::VoxelLoader;
 
-pub mod Rotation;
 pub mod builder;
 pub mod math;
+pub mod voxel;
 pub mod renderer;
+pub mod rotation;
 pub mod rule;
 pub mod ship;
 pub mod ship_mesh;

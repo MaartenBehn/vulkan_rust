@@ -6,14 +6,9 @@ use app::glam::{ivec3, mat2, mat3, uvec3, vec2, vec3, IVec3, Mat2, UVec3, Vec4Sw
 use app::log;
 
 use crate::math::{to_1d, to_1d_i, to_3d};
-use crate::rule::RuleSet;
+use crate::voxel::NodeController;
 
 pub type NodeID = usize;
-
-pub const ID_BEAM: NodeID = 1;
-pub const ID_BEAM_CON: NodeID = 2;
-pub const ID_HULL: NodeID = 3;
-pub const ID_MAX: NodeID = 4;
 
 pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
 pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
@@ -43,7 +38,7 @@ pub struct Ship {
 }
 
 impl Ship {
-    pub fn new(ruleset: &RuleSet) -> Result<Ship> {
+    pub fn new(node_controller: &NodeController) -> Result<Ship> {
         let size = uvec3(100, 100, 100);
 
         let mut ship = Ship {
@@ -56,12 +51,10 @@ impl Ship {
             fully_collapsed: false,
         };
 
-        ship.place_node(uvec3(5, 5, 5), ID_BEAM);
-
         Ok(ship)
     }
 
-    pub fn tick(&mut self, ruleset: &RuleSet, deltatime: Duration) -> Result<()> {
+    pub fn tick(&mut self, node_controller: &NodeController, deltatime: Duration) -> Result<()> {
         if self.fully_collapsed {
             if deltatime < MIN_TICK_LENGTH && self.collapses_per_tick < usize::MAX / 2 {
                 self.collapses_per_tick *= 2;
@@ -79,7 +72,7 @@ impl Ship {
                 break;
             }
 
-            self.collapse(ruleset);
+            self.collapse(node_controller);
         }
 
         Ok(())
@@ -157,7 +150,7 @@ impl Ship {
         indcies
     }
 
-    fn collapse(&mut self, ruleset: &RuleSet) {
+    fn collapse(&mut self, node_controller: &NodeController) {
         let index = self.prop_indices.pop_front().unwrap();
         let pos = to_3d(index as u32, self.size);
         let node = &self.nodes[index];
@@ -168,11 +161,10 @@ impl Ship {
 
         let mut wave = Vec::new();
 
-        for (id, rules) in ruleset.rule_indecies.iter() {
+        for (id, rules) in node_controller.rules.iter().enumerate() {
             let mut fitting_rules = Vec::new();
 
-            for rule_index in rules.iter() {
-                let rule = &ruleset.rules[*id][*rule_index];
+            for (rule_index, rule) in rules.iter().enumerate() {
                 let mut fits = true;
 
                 for (offset, rule_id) in rule.req.iter() {
@@ -189,12 +181,12 @@ impl Ship {
                 }
 
                 if fits {
-                    fitting_rules.push(*rule_index);
+                    fitting_rules.push(rule_index);
                 }
             }
 
             if !fitting_rules.is_empty() {
-                wave.push(*id)
+                wave.push(id)
             }
         }
 

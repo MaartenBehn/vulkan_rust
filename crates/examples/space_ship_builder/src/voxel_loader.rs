@@ -1,37 +1,67 @@
-use app::anyhow::{bail, format_err, Result};
-use app::glam::{ivec2, ivec3, mat3, IVec3, Mat3};
-use app::log;
-use dot_vox::{DotVoxData, SceneGroup, SceneNode};
+use app::anyhow::{bail, Result};
+use app::glam::{ivec3, uvec3, IVec3};
+use dot_vox::{DotVoxData, SceneNode};
 
-use crate::Rotation::Rot;
+use crate::math::to_1d;
+use crate::voxel::{Node, NODE_SIZE, NODE_VOXEL_LENGTH, Material};
+use crate::rotation::Rot;
 
 pub struct VoxelLoader {
     pub path: String,
+    pub mats: [Material; 256],
+    pub nodes: Vec<Node>,
+    pub rules: Vec<(IVec3, Rot, u32)>,
 }
 
 impl VoxelLoader {
-    pub fn new(path: String) -> Result<()> {
+    pub fn new(path: String) -> Result<VoxelLoader> {
         let r = dot_vox::load(&path);
-        let model = if r.is_err() {
+        let data = if r.is_err() {
             bail!("Could not load .vox file");
         } else {
             r.unwrap()
         };
 
-        let mut voxel_loader = Self { path };
+        let mats = Self::load_materials(&data)?;
+        let nodes = Self::load_models(&data)?;
+        let rules = Self::load_rules(&data)?;
 
-        voxel_loader.load_models(&model)?;
-        let rules = voxel_loader.load_rules(&model)?;
+        let mut voxel_loader = Self { 
+            path,  
+            mats,
+            nodes, 
+            rules,
+        };
 
-        Ok(())
+        Ok(voxel_loader)
     }
 
-    fn load_models(&mut self, model: &DotVoxData) -> Result<()> {
-        Ok(())
+    fn load_materials(data: &DotVoxData) -> Result<[Material; 256]> {
+
+        let mut mats = [Material::default(); 256];
+        for (i, color) in data.palette.iter().enumerate() {
+            mats[i] = color.into();
+        }
+
+        Ok(mats)
     }
 
-    fn load_rules(&mut self, model: &DotVoxData) -> Result<Vec<(IVec3, Rot, u32)>> {
-        let r = model.scenes.iter().find_map(|node| match node {
+    fn load_models(data: &DotVoxData) -> Result<Vec<Node>> {
+        let mut nodes = Vec::new();
+        for model in data.models.iter() {
+            let mut voxels = [0; NODE_VOXEL_LENGTH];
+            for v in model.voxels.iter() {
+                voxels[to_1d(uvec3(v.x as u32, v.y as u32, v.z as u32), NODE_SIZE)] = v.i
+            }
+
+            nodes.push(Node::new(voxels));
+        }
+
+        Ok(nodes)
+    }
+
+    fn load_rules(data: &DotVoxData) -> Result<Vec<(IVec3, Rot, u32)>> {
+        let r = data.scenes.iter().find_map(|node| match node {
             SceneNode::Transform {
                 attributes: a,
                 child: c,
@@ -39,7 +69,7 @@ impl VoxelLoader {
                 layer_id: _,
             } => {
                 if a.contains_key("_name") && a["_name"] == "rules" {
-                    let node = &model.scenes[*c as usize];
+                    let node = &data.scenes[*c as usize];
                     match node {
                         SceneNode::Group {
                             attributes: _,
@@ -62,7 +92,7 @@ impl VoxelLoader {
 
         let mut rules = Vec::new();
         for id in rule_ids {
-            let node = &model.scenes[id as usize];
+            let node = &data.scenes[id as usize];
             match node {
                 SceneNode::Transform {
                     attributes: _,
@@ -95,7 +125,7 @@ impl VoxelLoader {
                         })
                         .unwrap_or(Rot::IDENTITY);
 
-                    let node = &model.scenes[*c as usize];
+                    let node = &data.scenes[*c as usize];
                     let model_id = match node {
                         SceneNode::Shape {
                             attributes: _,

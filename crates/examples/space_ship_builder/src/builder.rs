@@ -11,7 +11,7 @@ use app::{
 
 use crate::{
     renderer::Vertex,
-    ship::{NodeID, Ship, ID_BEAM},
+    ship::{NodeID, Ship},
     ship_mesh::ShipMesh,
 };
 
@@ -50,7 +50,7 @@ impl Builder {
 
         Ok(Builder {
             state: STATE_ON,
-            current_node_id: ID_BEAM,
+            current_node_id: 0,
 
             distance: 3.0,
             last_scroll: 0.0,
