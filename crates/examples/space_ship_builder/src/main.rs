@@ -36,7 +36,6 @@ struct SpaceShipBuilder {
 
     node_controller: NodeController,
     ship: Ship,
-    ship_mesh: ShipMesh,
     builder: Builder,
     renderer: Renderer,
     camera: Camera,
@@ -53,8 +52,7 @@ impl App for SpaceShipBuilder {
         let voxel_loader = VoxelLoader::new("./assets/models/space_ship.vox".to_owned())?;
         let node_controller = NodeController::new(voxel_loader)?;
 
-        let ship = Ship::new(&node_controller)?;
-        let mesh = ShipMesh::new(context, &ship)?;
+        let ship = Ship::new(&context, &node_controller)?;
 
         let builder = Builder::new(&context)?;
         let renderer = Renderer::new(
@@ -78,7 +76,6 @@ impl App for SpaceShipBuilder {
 
             node_controller,
             ship,
-            ship_mesh: mesh,
             builder,
             renderer,
             camera,
@@ -104,11 +101,13 @@ impl App for SpaceShipBuilder {
         self.renderer
             .render_buffer
             .copy_data_to_buffer(&[RenderBuffer {
-                view_proj_matrix: self.camera.projection_matrix() * self.camera.view_matrix(),
+                proj_matrix: self.camera.projection_matrix(),
+                view_matrix: self.camera.view_matrix(),
+                dir: self.camera.direction,
+                fill: [0; 13],
             }])?;
 
         self.ship.tick(&self.node_controller, delta_time)?;
-        self.ship_mesh.update(&self.ship)?;
 
         self.builder
             .update(controls, &self.camera, &mut self.ship)?;
@@ -141,7 +140,7 @@ impl App for SpaceShipBuilder {
             &[&self.renderer.descriptor_sets[image_index]],
         );
 
-        self.ship_mesh.render(buffer);
+        self.ship.mesh.render(buffer);
         self.builder.render(buffer);
 
         buffer.end_rendering();

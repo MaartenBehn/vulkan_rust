@@ -1,9 +1,16 @@
-use std::{future::IntoFuture, mem::size_of};
+use std::{
+    future::IntoFuture,
+    mem::{align_of, size_of},
+};
 
 use app::{
     anyhow::Result,
     glam::{uvec3, vec3, vec4, IVec3, UVec3, Vec3, Vec4},
-    vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, CommandBuffer, Context},
+    log,
+    vulkan::{
+        ash::vk, gpu_allocator::MemoryLocation, utils::create_gpu_only_buffer_from_data, Buffer,
+        CommandBuffer, Context,
+    },
 };
 
 use crate::{
@@ -13,113 +20,125 @@ use crate::{
     ship::{self, Cell, Ship},
 };
 
-pub const MAX_VERTECIES: usize = 40000;
-pub const MAX_INDICES: usize = 6000;
-
 pub struct ShipMesh {
-    pub vertecies: Vec<Vertex>,
-    pub indecies: Vec<u32>,
-    pub index_counter: u32,
-
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
+    pub vertex_counter: usize,
+    pub index_counter: u32,
 }
 
 impl ShipMesh {
-    pub fn new(context: &Context, ship: &Ship) -> Result<ShipMesh> {
+    pub fn new(context: &Context, max_index: usize) -> Result<ShipMesh> {
+        let vertex_size = size_of::<Vertex>() * 8 * max_index;
+        log::info!(
+            "Ship Vertex Buffer: {:?} MB",
+            vertex_size as f32 / 1000000.0
+        );
+
         let vertex_buffer = context.create_buffer(
             vk::BufferUsageFlags::VERTEX_BUFFER,
             MemoryLocation::CpuToGpu,
-            (size_of::<Vertex>() * MAX_VERTECIES) as _,
+            vertex_size as _,
         )?;
 
-        let index_buffer = context.create_buffer(
+        let mut indecies: Vec<u32> = Vec::with_capacity(36 * max_index);
+        let mut j = 0;
+        for i in 0..max_index {
+            indecies.append(&mut vec![
+                0 + j,
+                2 + j,
+                1 + j,
+                3 + j,
+                1 + j,
+                2 + j,
+                6 + j,
+                4 + j,
+                5 + j,
+                5 + j,
+                7 + j,
+                6 + j,
+                0 + j,
+                1 + j,
+                4 + j,
+                1 + j,
+                5 + j,
+                4 + j,
+                1 + j,
+                3 + j,
+                5 + j,
+                3 + j,
+                7 + j,
+                5 + j,
+                2 + j,
+                6 + j,
+                3 + j,
+                3 + j,
+                6 + j,
+                7 + j,
+                0 + j,
+                6 + j,
+                2 + j,
+                6 + j,
+                0 + j,
+                4 + j,
+            ]);
+
+            j += 8;
+        }
+
+        let index_size = size_of::<u32>() * indecies.len();
+        log::info!("Ship Index Buffer: {:?} MB", index_size as f32 / 1000000.0);
+
+        let index_buffer = create_gpu_only_buffer_from_data(
+            context,
             vk::BufferUsageFlags::INDEX_BUFFER,
-            MemoryLocation::CpuToGpu,
-            (size_of::<Vertex>() * MAX_INDICES) as _,
+            &indecies,
         )?;
 
         let mut mesh = ShipMesh {
-            vertecies: Vec::new(),
-            indecies: Vec::new(),
-            index_counter: 0,
-
             vertex_buffer,
             index_buffer,
+            vertex_counter: 0,
+            index_counter: 0,
         };
-
-        mesh.update(ship)?;
 
         Ok(mesh)
     }
 
-    pub fn update(&mut self, ship: &Ship) -> Result<()> {
-        self.vertecies.clear();
-        self.indecies.clear();
+    pub fn reset(&mut self) {
+        self.vertex_counter = 0;
         self.index_counter = 0;
+    }
 
-        /*
-        for (i, node) in ship.cells.iter().enumerate() {
-            if node.id.index == 0 {
+    pub fn update(
+        &mut self,
+        cells: &Vec<Cell>,
+        size: UVec3,
+        changed_indcies: Vec<usize>,
+    ) -> Result<()> {
+        let last_vertices = self.vertex_counter;
+
+        let mut vertecies = Vec::new();
+        for i in changed_indcies {
+            let cell = cells[i];
+            if cell.id.index == 0 {
                 continue;
             }
 
-            let pos = to_3d(i as u32, ship.size);
-            let (mut vertices, indecies) = Self::get_node_mesh(node.id, pos.as_ivec3(), 0.9, 1.0);
+            let pos = to_3d(i as u32, size);
+            let (mut v, _) = Self::get_node_mesh(cell.id, pos.as_ivec3(), 1.0);
 
-            for i in indecies {
-                self.indecies.push(i + self.index_counter);
-            }
+            vertecies.append(&mut v);
 
-            self.index_counter += vertices.len() as u32;
-            self.vertecies.append(&mut vertices);
-        }*/
-
-        type ChunkShape = block_mesh::ndshape::RuntimeShape<u32, 3>;
-        let mut buffer = block_mesh::GreedyQuadsBuffer::new(ship.cells.len());
-        let faces = block_mesh::RIGHT_HANDED_Y_UP_CONFIG.faces;
-        block_mesh::greedy_quads(
-            &ship.cells,
-            &ChunkShape::new([ship.size.x, ship.size.y, ship.size.z]),
-            [0; 3],
-            [ship.size.x - 1, ship.size.y - 1, ship.size.z - 1],
-            &faces,
-            &mut buffer,
-        );
-
-        for (i, group) in buffer.quads.groups.iter().enumerate() {
-            for quad in group.iter() {
-                let pos = uvec3(quad.minimum[0], quad.minimum[1], quad.minimum[2]);
-                let cell = ship.cells[to_1d(pos, ship.size)];
-
-                let v = cell.id.index as f32 / 20.0;
-                let color = vec4(v, v, v, 1.0);
-
-                let vertecies = faces[i].quad_mesh_positions(&quad, 1.0);
-                let indecies = faces[i].quad_mesh_indices(self.index_counter);
-
-                self.index_counter += vertecies.len() as u32;
-
-                let color = [
-                    vec4(1.0, 0.0, 0.0, 1.0),
-                    vec4(0.0, 1.0, 0.0, 1.0),
-                    vec4(0.0, 0.0, 1.0, 1.0),
-                    vec4(1.0, 1.0, 1.0, 1.0),
-                ];
-                for (i, pos) in vertecies.iter().enumerate() {
-                    self.vertecies
-                        .push(Vertex::new(vec3(pos[0], pos[1], pos[2]), color[i]))
-                }
-
-                self.indecies.extend(indecies);
-            }
+            self.vertex_counter += 8;
+            self.index_counter += 36;
         }
 
-        self.vertex_buffer
-            .copy_data_to_buffer(self.vertecies.as_slice())?;
-
-        self.index_buffer
-            .copy_data_to_buffer(self.indecies.as_slice())?;
+        self.vertex_buffer.copy_data_to_buffer_complex(
+            &vertecies,
+            last_vertices,
+            align_of::<Vertex>(),
+        )?;
 
         Ok(())
     }
@@ -127,27 +146,25 @@ impl ShipMesh {
     pub fn render(&self, buffer: &CommandBuffer) {
         buffer.bind_vertex_buffer(&self.vertex_buffer);
         buffer.bind_index_buffer(&self.index_buffer);
-        buffer.draw_indexed(self.indecies.len() as u32);
+        buffer.draw_indexed(self.index_counter);
     }
 
-    pub fn get_node_mesh(
-        node_id: NodeID,
-        offset: IVec3,
-        size: f32,
-        opacity: f32,
-    ) -> (Vec<Vertex>, Vec<u32>) {
+    pub fn get_node_mesh(node_id: NodeID, offset: IVec3, opacity: f32) -> (Vec<Vertex>, Vec<u32>) {
         let v_pos = offset.as_vec3();
         let v = node_id.index as f32 / 20.0;
-        let color = vec4(v, v, v, 1.0);
+        let color = vec4(v, v, v, opacity);
+
+        let min = 0.0;
+        let max = 8.00001;
         let vertices = vec![
-            Vertex::new(vec3(-0.5, -0.5, -0.5) * size + v_pos, color),
-            Vertex::new(vec3(0.5, -0.5, -0.5) * size + v_pos, color),
-            Vertex::new(vec3(-0.5, 0.5, -0.5) * size + v_pos, color),
-            Vertex::new(vec3(0.5, 0.5, -0.5) * size + v_pos, color),
-            Vertex::new(vec3(-0.5, -0.5, 0.5) * size + v_pos, color),
-            Vertex::new(vec3(0.5, -0.5, 0.5) * size + v_pos, color),
-            Vertex::new(vec3(-0.5, 0.5, 0.5) * size + v_pos, color),
-            Vertex::new(vec3(0.5, 0.5, 0.5) * size + v_pos, color),
+            Vertex::new(vec3(-0.5, -0.5, -0.5) + v_pos, color, vec3(min, min, min)),
+            Vertex::new(vec3(0.5, -0.5, -0.5) + v_pos, color, vec3(max, min, min)),
+            Vertex::new(vec3(-0.5, 0.5, -0.5) + v_pos, color, vec3(min, max, min)),
+            Vertex::new(vec3(0.5, 0.5, -0.5) + v_pos, color, vec3(max, max, min)),
+            Vertex::new(vec3(-0.5, -0.5, 0.5) + v_pos, color, vec3(min, min, max)),
+            Vertex::new(vec3(0.5, -0.5, 0.5) + v_pos, color, vec3(max, min, max)),
+            Vertex::new(vec3(-0.5, 0.5, 0.5) + v_pos, color, vec3(min, max, max)),
+            Vertex::new(vec3(0.5, 0.5, 0.5) + v_pos, color, vec3(max, max, max)),
         ];
 
         let indecies: Vec<u32> = vec![

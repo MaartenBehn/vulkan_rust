@@ -67,8 +67,7 @@ impl Builder {
                 .round()
                 .as_ivec3();
 
-            let (vertecies, indecies) =
-                ShipMesh::get_node_mesh(self.current_node_id, pos, 0.95, 0.5);
+            let (vertecies, indecies) = ShipMesh::get_node_mesh(self.current_node_id, pos, 0.5);
 
             self.vertex_buffer
                 .copy_data_to_buffer(vertecies.as_slice())?;

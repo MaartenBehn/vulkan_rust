@@ -13,7 +13,7 @@ use app::{
     },
 };
 
-use crate::ship_mesh::{ShipMesh, MAX_INDICES, MAX_VERTECIES};
+use crate::ship_mesh::ShipMesh;
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -21,6 +21,7 @@ use crate::ship_mesh::{ShipMesh, MAX_INDICES, MAX_VERTECIES};
 pub struct Vertex {
     pub position: Vec3,
     pub color: Vec4,
+    pub uv: Vec3,
 }
 
 pub struct Renderer {
@@ -41,7 +42,10 @@ pub struct Renderer {
 #[allow(dead_code)]
 #[repr(C)]
 pub struct RenderBuffer {
-    pub view_proj_matrix: Mat4,
+    pub proj_matrix: Mat4,
+    pub view_matrix: Mat4,
+    pub dir: Vec3,
+    pub fill: [u32; 13],
 }
 
 impl Renderer {
@@ -71,7 +75,7 @@ impl Renderer {
                 binding: 0,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                stage_flags: vk::ShaderStageFlags::VERTEX,
+                stage_flags: vk::ShaderStageFlags::ALL_GRAPHICS,
                 ..Default::default()
             }])?;
 
@@ -147,10 +151,11 @@ impl Renderer {
 }
 
 impl Vertex {
-    pub fn new(pos: Vec3, color: Vec4) -> Vertex {
+    pub fn new(pos: Vec3, color: Vec4, uv: Vec3) -> Vertex {
         Vertex {
             position: pos,
             color: color,
+            uv: uv,
         }
     }
 }
@@ -177,6 +182,12 @@ impl app::vulkan::Vertex for Vertex {
                 location: 1,
                 format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: 16,
+            },
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 2,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: 32,
             },
         ]
     }

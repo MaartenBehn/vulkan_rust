@@ -4,10 +4,12 @@ use std::time::Duration;
 use app::anyhow::{bail, Result};
 use app::glam::{ivec3, mat2, mat3, uvec3, vec2, vec3, IVec3, Mat2, UVec3, Vec4Swizzles};
 use app::log;
+use app::vulkan::Context;
 
 use crate::math::{get_neigbor_offsets, to_1d, to_1d_i, to_3d};
 use crate::node::{NodeController, NodeID};
 use crate::rotation::Rot;
+use crate::ship_mesh::ShipMesh;
 
 pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
 pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
@@ -18,7 +20,6 @@ pub struct Cell {
     pub id: NodeID,
 }
 
-#[derive(Debug, Clone)]
 pub struct Ship {
     pub size: UVec3,
     pub max_index: isize,
@@ -28,47 +29,64 @@ pub struct Ship {
     pub prop_indices: VecDeque<usize>,
     pub collapses_per_tick: usize,
     pub fully_collapsed: bool,
+
+    pub mesh: ShipMesh,
 }
 
 impl Ship {
-    pub fn new(node_controller: &NodeController) -> Result<Ship> {
-        let size = uvec3(100, 100, 100);
+    pub fn new(context: &Context, node_controller: &NodeController) -> Result<Ship> {
+        let size = uvec3(10, 10, 10);
+        let max_index = (size.x * size.y * size.z) as usize;
+
+        let mesh = ShipMesh::new(context, max_index)?;
 
         let mut ship = Ship {
             size,
-            max_index: (size.x * size.y * size.z) as isize,
+            max_index: max_index as isize,
             cells: vec![Cell::default(); (size.x * size.y * size.z) as usize],
             m_prop_indices: VecDeque::new(),
             prop_indices: VecDeque::new(),
             collapses_per_tick: 2,
             fully_collapsed: false,
+            mesh,
         };
 
-        ship.place_node(uvec3(5, 5, 5), NodeID::new(5, Rot::default()));
+        //ship.place_node(uvec3(5, 5, 5), NodeID::new(5, Rot::default()));
 
         Ok(ship)
     }
 
     pub fn tick(&mut self, node_controller: &NodeController, deltatime: Duration) -> Result<()> {
+        if self.prop_indices.is_empty() {
+            return Ok(());
+        }
+
+        log::info!("{:?} {:?}", self.collapses_per_tick, deltatime);
+
         if self.fully_collapsed {
             if deltatime < MIN_TICK_LENGTH && self.collapses_per_tick < usize::MAX / 2 {
                 self.collapses_per_tick *= 2;
             } else if deltatime > MAX_TICK_LENGTH && self.collapses_per_tick > 4 {
                 self.collapses_per_tick /= 2;
             }
-
-            log::info!("{:?} {:?}", self.collapses_per_tick, deltatime);
         }
-
         self.fully_collapsed = true;
+
+        let mut changed_indices = Vec::new();
         for _ in 0..(self.collapses_per_tick) {
+            let i = self.collapse(node_controller);
+
+            if i.is_some() {
+                changed_indices.push(i.unwrap())
+            }
+
             if self.prop_indices.is_empty() {
                 self.fully_collapsed = false;
                 break;
             }
-
-            self.collapse(node_controller);
         }
+
+        self.mesh.update(&self.cells, self.size, changed_indices)?;
 
         Ok(())
     }
@@ -102,6 +120,8 @@ impl Ship {
         let mut neigbors = self.get_neigbors(pos);
         self.m_prop_indices.append(&mut neigbors);
         self.prop_indices = self.m_prop_indices.clone();
+
+        self.mesh.reset();
     }
 
     fn get_neigbors(&mut self, pos: UVec3) -> VecDeque<usize> {
@@ -116,7 +136,7 @@ impl Ship {
         indcies
     }
 
-    fn collapse(&mut self, node_controller: &NodeController) {
+    fn collapse(&mut self, node_controller: &NodeController) -> Option<usize> {
         let index = self.prop_indices.pop_front().unwrap();
         let pos = to_3d(index as u32, self.size);
         let cell = &self.cells[index];
@@ -125,7 +145,7 @@ impl Ship {
             || pos.cmpeq(UVec3::ONE).any()
             || pos.cmpge(self.size - uvec3(1, 1, 1)).any()
         {
-            return;
+            return None;
         }
 
         let mut wave = Vec::new();
@@ -155,6 +175,8 @@ impl Ship {
             let mut neigbors = self.get_neigbors(pos);
             self.prop_indices.append(&mut neigbors);
         }
+
+        return Some(index);
     }
 
     fn print_ship(&self) {
