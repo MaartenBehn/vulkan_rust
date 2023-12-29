@@ -107,21 +107,16 @@ impl VoxelLoader {
                     layer_id: _,
                 } => {
                     let r = f[0].position();
-                    let pos = if r.is_some() {
-                        let d = r.unwrap();
-                        let p = ivec3(d.x, d.y, d.z) + root_pos;
-                        let fp = (p - ivec3(4, 4, 4)) / 8;
-                        let tp = (p - ivec3(4, 4, 4)) % 8;
+                    let d = r.unwrap_or(Position { x: 0, y: 0, z: 0 });
+                    let p = ivec3(d.x, d.y, d.z) + root_pos;
+                    let fp = (p - ivec3(4, 4, 4)) / 8;
+                    let tp = (p - ivec3(4, 4, 4)) % 8;
 
-                        if fp.cmplt(IVec3::ZERO).any() || tp.cmpne(IVec3::ZERO).any() {
-                            log::warn!("Skipping Rule at {d:?}");
-                            continue;
-                        }
-
-                        fp.as_uvec3()
-                    } else {
-                        UVec3::ZERO
-                    };
+                    if fp.cmplt(IVec3::ZERO).any() || tp.cmpne(IVec3::ZERO).any() {
+                        log::warn!("Skipping Rule at {d:?}");
+                        continue;
+                    }
+                    let pos = fp.as_uvec3();
 
                     let rot = f[0]
                         .attributes

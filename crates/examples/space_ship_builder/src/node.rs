@@ -6,6 +6,7 @@ use app::log;
 use dot_vox::Color;
 
 use crate::math::get_neigbor_offsets;
+use crate::ship::{Cell, PID};
 use crate::{rotation::Rot, voxel_loader::VoxelLoader};
 
 pub const NODE_SIZE: UVec3 = uvec3(8, 8, 8);
@@ -16,7 +17,8 @@ pub type Voxel = u8;
 #[derive(Clone, Debug, Default)]
 pub struct NodeController {
     pub nodes: Vec<Node>,
-    pub rules: HashMap<NodeID, HashMap<IVec3, Vec<NodeID>>>,
+    pub rules: Vec<Rule>,
+    pub full_wave: Vec<PID>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -38,48 +40,59 @@ pub struct Material {
     pub a: u8,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct Rule {
+    pub req: HashMap<IVec3, NodeID>,
+}
+
+pub type RuleIndex = usize;
+
 impl NodeController {
     pub fn new(voxel_loader: VoxelLoader) -> Result<NodeController> {
-        let rules = Self::generate_rules(&voxel_loader)?;
-
-        Ok(NodeController {
-            nodes: voxel_loader.nodes,
-            rules,
-        })
-    }
-
-    fn generate_rules(
-        voxel_loader: &VoxelLoader,
-    ) -> Result<HashMap<NodeID, HashMap<IVec3, Vec<NodeID>>>> {
-        let mut rules: HashMap<NodeID, HashMap<IVec3, Vec<NodeID>>> = HashMap::new();
+        let mut rules = Vec::new();
+        let mut full_wave = HashMap::new();
 
         let neigbors = get_neigbor_offsets();
-
         for (pos, id) in voxel_loader.rules.iter() {
-            for n in neigbors.iter() {
-                let r = pos.as_ivec3() + *n;
-                let key = if r.cmplt(IVec3::ZERO).any() {
+            let mut rule = Rule::new();
+
+            for neigbor_offset in neigbors.iter() {
+                let r = pos.as_ivec3() + *neigbor_offset;
+                let neigbor_pos = if r.cmplt(IVec3::ZERO).any() {
                     continue;
                 } else {
                     r.as_uvec3()
                 };
 
-                if voxel_loader.rules.contains_key(&key) {
-                    let ids = rules
-                        .entry(*id)
-                        .or_insert(HashMap::new())
-                        .entry(*n)
-                        .or_insert(vec![]);
-
-                    let id = voxel_loader.rules.get(&key).unwrap();
-                    if !ids.contains(id) {
-                        ids.push(id.to_owned());
-                    }
+                if !voxel_loader.rules.contains_key(&neigbor_pos) {
+                    continue;
                 }
+
+                rule.req.insert(
+                    (*neigbor_offset) * -1,
+                    voxel_loader.rules.get(&neigbor_pos).unwrap().to_owned(),
+                );
+
+                full_wave
+                    .entry(*id)
+                    .or_insert(PID {
+                        p_id: *id,
+                        rules: HashMap::new(),
+                    })
+                    .rules
+                    .entry((*neigbor_offset) * -1)
+                    .or_insert(Vec::new())
+                    .push(rules.len());
             }
+
+            rules.push(rule);
         }
 
-        Ok(rules)
+        Ok(NodeController {
+            nodes: voxel_loader.nodes,
+            rules,
+            full_wave: full_wave.values().cloned().collect(),
+        })
     }
 }
 
@@ -154,6 +167,14 @@ impl From<&Color> for Material {
             g: value.g,
             b: value.b,
             a: value.a,
+        }
+    }
+}
+
+impl Rule {
+    pub fn new() -> Rule {
+        Rule {
+            req: HashMap::new(),
         }
     }
 }

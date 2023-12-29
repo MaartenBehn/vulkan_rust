@@ -111,8 +111,12 @@ impl App for SpaceShipBuilder {
 
         self.ship.tick(&self.node_controller, delta_time)?;
 
-        self.builder
-            .update(controls, &self.camera, &mut self.ship)?;
+        self.builder.update(
+            controls,
+            &self.camera,
+            &mut self.ship,
+            &self.node_controller,
+        )?;
 
         Ok(())
     }

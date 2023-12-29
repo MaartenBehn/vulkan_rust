@@ -9,7 +9,13 @@ use app::{
     vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, CommandBuffer, Context},
 };
 
-use crate::{node::NodeID, renderer::Vertex, rotation::Rot, ship::Ship, ship_mesh::ShipMesh};
+use crate::{
+    node::{NodeController, NodeID},
+    renderer::Vertex,
+    rotation::Rot,
+    ship::Ship,
+    ship_mesh::ShipMesh,
+};
 
 const MAX_BUILDER_VERTECIES: usize = 8;
 const MAX_BUILDER_INDICES: usize = 100;
@@ -57,7 +63,13 @@ impl Builder {
         })
     }
 
-    pub fn update(&mut self, controls: &Controls, camera: &Camera, ship: &mut Ship) -> Result<()> {
+    pub fn update(
+        &mut self,
+        controls: &Controls,
+        camera: &Camera,
+        ship: &mut Ship,
+        node_controller: &NodeController,
+    ) -> Result<()> {
         if self.state == STATE_ON {
             self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
@@ -75,7 +87,7 @@ impl Builder {
             let ship_node = ship.get_cell_i(pos);
 
             if ship_node.is_ok() && controls.left {
-                ship.place_node(pos.as_uvec3(), self.current_node_id)?;
+                ship.place_node(pos.as_uvec3(), self.current_node_id, node_controller)?;
             }
         }
 

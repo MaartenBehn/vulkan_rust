@@ -120,7 +120,7 @@ impl ShipMesh {
 
         let mut vertecies = Vec::new();
         for i in changed_indcies.iter() {
-            let cell = cells[*i];
+            let cell = &cells[*i];
             if cell.id.is_none() {
                 continue;
             }
