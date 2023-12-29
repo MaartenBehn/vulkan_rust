@@ -3,7 +3,7 @@ use std::time::Duration;
 use app::anyhow::Result;
 use app::camera::Camera;
 use app::controls::Controls;
-use app::glam::Vec3;
+use app::glam::{vec3, Vec3};
 use app::vulkan::ash::vk::{self, Format};
 use app::vulkan::CommandBuffer;
 use app::{log, App, BaseApp};
@@ -57,6 +57,7 @@ impl App for SpaceShipBuilder {
         let builder = Builder::new(&context)?;
         let renderer = Renderer::new(
             context,
+            &node_controller,
             base.swapchain.images.len() as u32,
             base.swapchain.format,
             Format::D32_SFLOAT,
@@ -66,10 +67,11 @@ impl App for SpaceShipBuilder {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
-        camera.position = Vec3::new(5.0, 5.0, -5.0);
-        camera.direction = Vec3::new(0.0, 0.0, 1.0).normalize();
+        camera.position = Vec3::new(5.0, -5.0, 5.0);
+        camera.direction = Vec3::new(0.0, 1.0, 0.0).normalize();
         camera.speed = 2.0;
         camera.z_far = 100.0;
+        camera.up = vec3(0.0, 0.0, 1.0);
 
         Ok(Self {
             total_time: Duration::ZERO,

@@ -31,11 +31,12 @@ pub struct Ship {
     pub fully_collapsed: bool,
 
     pub mesh: ShipMesh,
+    pub m_indices: Vec<usize>,
 }
 
 impl Ship {
     pub fn new(context: &Context, node_controller: &NodeController) -> Result<Ship> {
-        let size = uvec3(10, 10, 10);
+        let size = uvec3(100, 100, 1);
         let max_index = (size.x * size.y * size.z) as usize;
 
         let mesh = ShipMesh::new(context, max_index)?;
@@ -49,9 +50,10 @@ impl Ship {
             collapses_per_tick: 2,
             fully_collapsed: false,
             mesh,
+            m_indices: Vec::new(),
         };
 
-        //ship.place_node(uvec3(5, 5, 5), NodeID::new(5, Rot::default()));
+        ship.place_node(uvec3(5, 5, 0), NodeID::new(3, Rot::default()))?;
 
         Ok(ship)
     }
@@ -86,7 +88,9 @@ impl Ship {
             }
         }
 
-        self.mesh.update(&self.cells, self.size, changed_indices)?;
+        //self.print_ship();
+
+        self.mesh.update(&self.cells, self.size, &changed_indices)?;
 
         Ok(())
     }
@@ -105,7 +109,7 @@ impl Ship {
         Ok(self.cells[index as usize])
     }
 
-    pub fn place_node(&mut self, pos: UVec3, id: NodeID) {
+    pub fn place_node(&mut self, pos: UVec3, id: NodeID) -> Result<()> {
         log::info!("Place: {pos:?}");
 
         for i in 0..self.max_index {
@@ -116,21 +120,27 @@ impl Ship {
         let index = to_1d(pos, self.size);
         self.cells[index].id = id;
         self.cells[index].m_id = id;
+        self.m_indices.push(index);
 
         let mut neigbors = self.get_neigbors(pos);
         self.m_prop_indices.append(&mut neigbors);
         self.prop_indices = self.m_prop_indices.clone();
 
         self.mesh.reset();
+        self.mesh.update(&self.cells, self.size, &self.m_indices)?;
+
+        Ok(())
     }
 
     fn get_neigbors(&mut self, pos: UVec3) -> VecDeque<usize> {
         let mut indcies = VecDeque::new();
         for n in get_neigbor_offsets() {
-            let i = to_1d_i(pos.as_ivec3() + n, self.size.as_ivec3());
-            if i >= 0 && i < self.max_index {
-                indcies.push_back(i as usize)
+            let pos = pos.as_ivec3() + n;
+            if pos.cmplt(IVec3::ZERO).any() || pos.cmpeq(self.size.as_ivec3()).any() {
+                continue;
             }
+
+            indcies.push_back(to_1d(pos.as_uvec3(), self.size))
         }
 
         indcies
@@ -141,27 +151,33 @@ impl Ship {
         let pos = to_3d(index as u32, self.size);
         let cell = &self.cells[index];
 
-        if cell.id.index != 0
-            || pos.cmpeq(UVec3::ONE).any()
-            || pos.cmpge(self.size - uvec3(1, 1, 1)).any()
-        {
+        if cell.id.is_some() {
             return None;
         }
+
+        let neigbors = get_neigbor_offsets();
 
         let mut wave = Vec::new();
 
         for (id, rules) in node_controller.rules.iter() {
             let mut fits = true;
-            for (offset, possible_ids) in rules.iter() {
-                let rule_pos = (pos.as_ivec3() + *offset).as_uvec3();
-                let res = self.get_cell(rule_pos);
+
+            for neigbor in neigbors.iter() {
+                let rule_pos = pos.as_ivec3() + *neigbor;
+                let res = self.get_cell_i(rule_pos);
                 let test_cell = if res.is_err() {
                     continue;
                 } else {
                     res.unwrap()
                 };
 
-                fits &= possible_ids.contains(&test_cell.id);
+                fits &= test_cell.id.is_none()
+                    || if rules.contains_key(neigbor) {
+                        let possible_ids = rules.get(neigbor).unwrap();
+                        possible_ids.contains(&test_cell.id)
+                    } else {
+                        false
+                    };
             }
 
             if fits {
@@ -191,8 +207,8 @@ impl Ship {
 
                 let mut t = "".to_owned();
 
-                if cell.id.index != 0 {
-                    t.push_str(&format!(" {:?} ", cell.id))
+                if cell.id.is_some() {
+                    t.push_str(&format!(" {:?} ", cell.id.index))
                 }
 
                 if self.prop_indices.contains(&to_1d(pos, self.size)) {
@@ -220,22 +236,22 @@ impl Cell {
 
     fn from_id(id: NodeID) -> Cell {
         Cell {
-            m_id: NodeID::default(),
+            m_id: NodeID::none(),
             id,
         }
     }
 
     fn none() -> Cell {
         Cell {
-            m_id: NodeID::default(),
-            id: NodeID::default(),
+            m_id: NodeID::none(),
+            id: NodeID::none(),
         }
     }
 }
 
 impl block_mesh::Voxel for Cell {
     fn get_visibility(&self) -> block_mesh::VoxelVisibility {
-        if self.id.index == 0 {
+        if self.id.is_none() {
             block_mesh::VoxelVisibility::Empty
         } else {
             block_mesh::VoxelVisibility::Translucent

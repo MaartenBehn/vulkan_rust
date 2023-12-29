@@ -5,7 +5,6 @@ use vulkan::ash::vk::Extent2D;
 
 use crate::controls::Controls;
 
-const UP: Vec3 = vec3(0.0, 1.0, 0.0);
 const ANGLE_PER_POINT: f32 = 0.001745;
 
 #[derive(Debug, Clone, Copy)]
@@ -17,6 +16,7 @@ pub struct Camera {
     pub z_near: f32,
     pub z_far: f32,
     pub speed: f32,
+    pub up: Vec3,
 }
 
 impl Camera {
@@ -27,6 +27,7 @@ impl Camera {
         aspect_ratio: f32,
         z_near: f32,
         z_far: f32,
+        up: Vec3,
     ) -> Self {
         Self {
             position,
@@ -36,6 +37,7 @@ impl Camera {
             z_near,
             z_far,
             speed: 3.0,
+            up,
         }
     }
 
@@ -47,18 +49,19 @@ impl Camera {
             extent.width as f32 / extent.height as f32,
             0.1,
             10.0,
+            vec3(0.0, 1.0, 0.0)
         )
     }
 
     pub fn update(&mut self, controls: &Controls, delta_time: Duration) {
         let delta_time = delta_time.as_secs_f32();
-        let side = self.direction.cross(UP);
+        let side = self.direction.cross(self.up);
 
         // Update direction
         let new_direction = if controls.rigth {
             let side_rot = Quat::from_axis_angle(side, -controls.cursor_delta[1] * ANGLE_PER_POINT);
-            let y_rot = Quat::from_rotation_y(-controls.cursor_delta[0] * ANGLE_PER_POINT);
-            let rot = Mat3::from_quat(side_rot * y_rot);
+            let up_rot =  Quat::from_axis_angle(self.up, -controls.cursor_delta[0] * ANGLE_PER_POINT);
+            let rot = Mat3::from_quat(side_rot * up_rot);
 
             (rot * self.direction).normalize()
         } else {
@@ -81,10 +84,10 @@ impl Camera {
             direction -= side;
         }
         if controls.up {
-            direction += UP;
+            direction += self.up;
         }
         if controls.down {
-            direction -= UP;
+            direction -= self.up;
         }
 
         let direction = if direction.length_squared() == 0.0 {
@@ -94,14 +97,14 @@ impl Camera {
         };
 
         self.position += direction * self.speed * delta_time;
-        self.direction =new_direction;
+        self.direction = new_direction;
     }
 
     pub fn view_matrix(&self) -> Mat4 {
         Mat4::look_at_rh(
             self.position,
             self.position + self.direction,
-            vec3(0.0, 1.0, 0.0),
+            self.up,
         )
     }
 

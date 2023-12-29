@@ -5,7 +5,7 @@ use std::{
 
 use app::{
     anyhow::Result,
-    glam::{uvec3, vec3, vec4, IVec3, UVec3, Vec3, Vec4},
+    glam::{uvec3, vec3, vec4, BVec3, IVec3, UVec3, Vec3, Vec4},
     log,
     vulkan::{
         ash::vk, gpu_allocator::MemoryLocation, utils::create_gpu_only_buffer_from_data, Buffer,
@@ -43,7 +43,7 @@ impl ShipMesh {
 
         let mut indecies: Vec<u32> = Vec::with_capacity(36 * max_index);
         let mut j = 0;
-        for i in 0..max_index {
+        for _ in 0..max_index {
             indecies.append(&mut vec![
                 0 + j,
                 2 + j,
@@ -114,18 +114,18 @@ impl ShipMesh {
         &mut self,
         cells: &Vec<Cell>,
         size: UVec3,
-        changed_indcies: Vec<usize>,
+        changed_indcies: &[usize],
     ) -> Result<()> {
         let last_vertices = self.vertex_counter;
 
         let mut vertecies = Vec::new();
-        for i in changed_indcies {
-            let cell = cells[i];
-            if cell.id.index == 0 {
+        for i in changed_indcies.iter() {
+            let cell = cells[*i];
+            if cell.id.is_none() {
                 continue;
             }
 
-            let pos = to_3d(i as u32, size);
+            let pos = to_3d(*i as u32, size);
             let (mut v, _) = Self::get_node_mesh(cell.id, pos.as_ivec3(), 1.0);
 
             vertecies.append(&mut v);
@@ -154,17 +154,48 @@ impl ShipMesh {
         let v = node_id.index as f32 / 20.0;
         let color = vec4(v, v, v, opacity);
 
-        let min = 0.0;
-        let max = 8.00001;
+        let node_id_bits: u32 = node_id.into();
         let vertices = vec![
-            Vertex::new(vec3(-0.5, -0.5, -0.5) + v_pos, color, vec3(min, min, min)),
-            Vertex::new(vec3(0.5, -0.5, -0.5) + v_pos, color, vec3(max, min, min)),
-            Vertex::new(vec3(-0.5, 0.5, -0.5) + v_pos, color, vec3(min, max, min)),
-            Vertex::new(vec3(0.5, 0.5, -0.5) + v_pos, color, vec3(max, max, min)),
-            Vertex::new(vec3(-0.5, -0.5, 0.5) + v_pos, color, vec3(min, min, max)),
-            Vertex::new(vec3(0.5, -0.5, 0.5) + v_pos, color, vec3(max, min, max)),
-            Vertex::new(vec3(-0.5, 0.5, 0.5) + v_pos, color, vec3(min, max, max)),
-            Vertex::new(vec3(0.5, 0.5, 0.5) + v_pos, color, vec3(max, max, max)),
+            Vertex::new(
+                vec3(-0.5, -0.5, -0.5) + v_pos,
+                BVec3::new(false, false, false),
+                node_id_bits,
+            ),
+            Vertex::new(
+                vec3(0.5, -0.5, -0.5) + v_pos,
+                BVec3::new(true, false, false),
+                node_id_bits,
+            ),
+            Vertex::new(
+                vec3(-0.5, 0.5, -0.5) + v_pos,
+                BVec3::new(false, true, false),
+                node_id_bits,
+            ),
+            Vertex::new(
+                vec3(0.5, 0.5, -0.5) + v_pos,
+                BVec3::new(true, true, false),
+                node_id_bits,
+            ),
+            Vertex::new(
+                vec3(-0.5, -0.5, 0.5) + v_pos,
+                BVec3::new(false, false, true),
+                node_id_bits,
+            ),
+            Vertex::new(
+                vec3(0.5, -0.5, 0.5) + v_pos,
+                BVec3::new(true, false, true),
+                node_id_bits,
+            ),
+            Vertex::new(
+                vec3(-0.5, 0.5, 0.5) + v_pos,
+                BVec3::new(false, true, true),
+                node_id_bits,
+            ),
+            Vertex::new(
+                vec3(0.5, 0.5, 0.5) + v_pos,
+                BVec3::new(true, true, true),
+                node_id_bits,
+            ),
         ];
 
         let indecies: Vec<u32> = vec![

@@ -24,7 +24,6 @@ pub struct Builder {
     current_node_id: NodeID,
 
     distance: f32,
-    last_scroll: f32,
 
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
@@ -47,12 +46,11 @@ impl Builder {
         Ok(Builder {
             state: STATE_ON,
             current_node_id: NodeID {
-                index: 1,
+                index: 0,
                 rot: Rot::default(),
             },
 
             distance: 3.0,
-            last_scroll: 0.0,
 
             vertex_buffer,
             index_buffer,
@@ -77,7 +75,7 @@ impl Builder {
             let ship_node = ship.get_cell_i(pos);
 
             if ship_node.is_ok() && controls.left {
-                ship.place_node(pos.as_uvec3(), self.current_node_id)
+                ship.place_node(pos.as_uvec3(), self.current_node_id)?;
             }
         }
 

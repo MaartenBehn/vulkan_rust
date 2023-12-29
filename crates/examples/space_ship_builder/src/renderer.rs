@@ -2,7 +2,8 @@ use std::mem::size_of;
 
 use app::{
     anyhow::Result,
-    glam::{Mat4, Vec3, Vec4},
+    glam::{uvec4, BVec3, Mat4, UVec3, Vec3, Vec4},
+    log,
     vulkan::{
         ash::vk::{self, Extent2D, Format, ImageUsageFlags},
         gpu_allocator::{self, MemoryLocation},
@@ -13,19 +14,19 @@ use app::{
     },
 };
 
-use crate::ship_mesh::ShipMesh;
+use crate::node::{Node, NodeController};
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 #[repr(C)]
 pub struct Vertex {
-    pub position: Vec3,
-    pub color: Vec4,
-    pub uv: Vec3,
+    pub pos: Vec3,
+    pub data: u32, // node_index : 22, rot : 7, uv: 3
 }
 
 pub struct Renderer {
     pub render_buffer: Buffer,
+    pub node_buffer: Buffer,
 
     pub descriptor_pool: DescriptorPool,
     pub descriptor_layout: DescriptorSetLayout,
@@ -51,6 +52,7 @@ pub struct RenderBuffer {
 impl Renderer {
     pub fn new(
         context: &Context,
+        node_controller: &NodeController,
         images_len: u32,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
@@ -62,33 +64,67 @@ impl Renderer {
             size_of::<RenderBuffer>() as _,
         )?;
 
-        let descriptor_pool = context.create_descriptor_pool(
-            images_len * 1,
-            &[vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: images_len,
-            }],
+        let node_buffer_size = node_controller.nodes.len() * size_of::<Node>();
+        log::info!(
+            "Node Buffer Size: {:?} MB",
+            node_buffer_size as f32 / 1000000.0
+        );
+
+        let node_buffer = create_gpu_only_buffer_from_data(
+            context,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            &node_controller.nodes,
         )?;
 
-        let descriptor_layout =
-            context.create_descriptor_set_layout(&[vk::DescriptorSetLayoutBinding {
+        let descriptor_pool = context.create_descriptor_pool(
+            images_len * 2,
+            &[
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::UNIFORM_BUFFER,
+                    descriptor_count: images_len,
+                },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: images_len,
+                },
+            ],
+        )?;
+
+        let descriptor_layout = context.create_descriptor_set_layout(&[
+            vk::DescriptorSetLayoutBinding {
                 binding: 0,
                 descriptor_count: 1,
                 descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
                 stage_flags: vk::ShaderStageFlags::ALL_GRAPHICS,
                 ..Default::default()
-            }])?;
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 1,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::FRAGMENT,
+                ..Default::default()
+            },
+        ])?;
 
         let mut descriptor_sets = Vec::new();
         for _ in 0..images_len {
             let render_descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
 
-            render_descriptor_set.update(&[WriteDescriptorSet {
-                binding: 0,
-                kind: WriteDescriptorSetKind::UniformBuffer {
-                    buffer: &render_buffer,
+            render_descriptor_set.update(&[
+                WriteDescriptorSet {
+                    binding: 0,
+                    kind: WriteDescriptorSetKind::UniformBuffer {
+                        buffer: &render_buffer,
+                    },
                 },
-            }]);
+                WriteDescriptorSet {
+                    binding: 1,
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &node_buffer,
+                    },
+                },
+            ]);
             descriptor_sets.push(render_descriptor_set);
         }
 
@@ -139,6 +175,7 @@ impl Renderer {
 
         Ok(Renderer {
             render_buffer,
+            node_buffer,
             descriptor_pool,
             descriptor_layout,
             descriptor_sets,
@@ -151,12 +188,10 @@ impl Renderer {
 }
 
 impl Vertex {
-    pub fn new(pos: Vec3, color: Vec4, uv: Vec3) -> Vertex {
-        Vertex {
-            position: pos,
-            color: color,
-            uv: uv,
-        }
+    pub fn new(pos: Vec3, uv: BVec3, node_id_bits: u32) -> Vertex {
+        let data: u32 =
+            (node_id_bits << 3) + ((uv.x as u32) << 2) + ((uv.y as u32) << 1) + (uv.z as u32);
+        Vertex { pos, data }
     }
 }
 
@@ -170,25 +205,11 @@ impl app::vulkan::Vertex for Vertex {
     }
 
     fn attributes() -> Vec<vk::VertexInputAttributeDescription> {
-        vec![
-            vk::VertexInputAttributeDescription {
-                binding: 0,
-                location: 0,
-                format: vk::Format::R32G32B32_SFLOAT,
-                offset: 0,
-            },
-            vk::VertexInputAttributeDescription {
-                binding: 0,
-                location: 1,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: 16,
-            },
-            vk::VertexInputAttributeDescription {
-                binding: 0,
-                location: 2,
-                format: vk::Format::R32G32B32_SFLOAT,
-                offset: 32,
-            },
-        ]
+        vec![vk::VertexInputAttributeDescription {
+            binding: 0,
+            location: 0,
+            format: vk::Format::R32G32B32A32_SFLOAT,
+            offset: 0,
+        }]
     }
 }

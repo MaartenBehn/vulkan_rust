@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use app::anyhow::Result;
 use app::glam::{uvec3, IVec3, UVec3};
+use app::log;
 use dot_vox::Color;
 
 use crate::math::get_neigbor_offsets;
@@ -23,7 +24,7 @@ pub struct Node {
     voxels: [Voxel; NODE_VOXEL_LENGTH],
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, Default, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub struct NodeID {
     pub index: usize,
     pub rot: Rot,
@@ -64,12 +65,16 @@ impl NodeController {
                 };
 
                 if voxel_loader.rules.contains_key(&key) {
-                    rules
+                    let ids = rules
                         .entry(*id)
                         .or_insert(HashMap::new())
                         .entry(*n)
-                        .or_insert(vec![NodeID::default()])
-                        .push(voxel_loader.rules[&key])
+                        .or_insert(vec![]);
+
+                    let id = voxel_loader.rules.get(&key).unwrap();
+                    if !ids.contains(id) {
+                        ids.push(id.to_owned());
+                    }
                 }
             }
         }
@@ -88,11 +93,37 @@ impl NodeID {
     pub fn new(index: usize, rot: Rot) -> NodeID {
         NodeID { index, rot }
     }
+
+    pub fn none() -> NodeID {
+        NodeID::default()
+    }
+
+    pub fn is_none(self) -> bool {
+        self.index == usize::MAX
+    }
+
+    pub fn is_some(self) -> bool {
+        self.index != usize::MAX
+    }
 }
 
-impl Into<u16> for NodeID {
-    fn into(self) -> u16 {
-        (self.index as u16) << 7 + <Rot as Into<u8>>::into(self.rot) as u16
+impl Default for NodeID {
+    fn default() -> Self {
+        Self {
+            index: usize::MAX,
+            rot: Default::default(),
+        }
+    }
+}
+
+impl Into<u32> for NodeID {
+    fn into(self) -> u32 {
+        if self.is_none() {
+            log::warn!("None Node Id was converted!");
+            0
+        } else {
+            ((self.index as u32) << 7) + <Rot as Into<u8>>::into(self.rot) as u32
+        }
     }
 }
 
