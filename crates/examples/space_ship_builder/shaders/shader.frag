@@ -169,5 +169,11 @@ void main() {
     vec4 color = raycaster(ray, node, rot);
 
     finalColor = color;
+
+    if (color.w == 0) {
+        gl_FragDepth = 1.0;
+    } else {
+        gl_FragDepth = gl_FragCoord.z;
+    }
     //finalColor = vec4(rot.a, 1.0);
 }
