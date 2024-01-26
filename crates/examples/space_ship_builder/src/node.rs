@@ -14,11 +14,12 @@ pub const NODE_VOXEL_LENGTH: usize = (NODE_SIZE.x * NODE_SIZE.y * NODE_SIZE.z) a
 
 pub type Voxel = u8;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct NodeController {
     pub nodes: Vec<Node>,
     pub rules: Vec<Rule>,
     pub full_wave: Vec<PID>,
+    pub mats: [Material; 256],
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -92,6 +93,7 @@ impl NodeController {
             nodes: voxel_loader.nodes,
             rules,
             full_wave: full_wave.values().cloned().collect(),
+            mats: voxel_loader.mats,
         })
     }
 }

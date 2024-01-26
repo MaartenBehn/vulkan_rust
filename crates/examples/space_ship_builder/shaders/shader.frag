@@ -33,6 +33,13 @@ layout(binding = 1) buffer Nodes {
 } nodes;
 
 
+#define GET_MAT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
+
+layout(binding = 2) buffer Mats {
+    uint mats[];
+} mats;
+
+
 // Render
 struct Ray{
     vec3 pos;
@@ -133,7 +140,9 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
         voxel = GET_VOXEL(node, voxelIndex);
 
         if (voxel != 0) {
-            return vec4(vec3((rayLen + 1) / 10), 1.0);
+
+            uint mat = mats.mats[voxel];
+            return GET_MAT(mat);
         }
 
         checkHit(ray, vec3(voxelPos), 1, tMin, tMax);                     
@@ -175,5 +184,6 @@ void main() {
     } else {
         gl_FragDepth = gl_FragCoord.z;
     }
+
     //finalColor = vec4(rot.a, 1.0);
 }

@@ -14,7 +14,10 @@ use app::{
     },
 };
 
-use crate::node::{Node, NodeController};
+use crate::{
+    node::{Node, NodeController},
+    voxel_loader::{self, VoxelLoader},
+};
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -27,6 +30,7 @@ pub struct Vertex {
 pub struct Renderer {
     pub render_buffer: Buffer,
     pub node_buffer: Buffer,
+    pub mat_buffer: Buffer,
 
     pub descriptor_pool: DescriptorPool,
     pub descriptor_layout: DescriptorSetLayout,
@@ -76,11 +80,21 @@ impl Renderer {
             &node_controller.nodes,
         )?;
 
+        let mat_buffer = create_gpu_only_buffer_from_data(
+            context,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            &node_controller.mats,
+        )?;
+
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 2,
+            images_len * 3,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
+                    descriptor_count: images_len,
+                },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
                     descriptor_count: images_len,
                 },
                 vk::DescriptorPoolSize {
@@ -105,6 +119,13 @@ impl Renderer {
                 stage_flags: vk::ShaderStageFlags::FRAGMENT,
                 ..Default::default()
             },
+            vk::DescriptorSetLayoutBinding {
+                binding: 2,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::FRAGMENT,
+                ..Default::default()
+            },
         ])?;
 
         let mut descriptor_sets = Vec::new();
@@ -122,6 +143,12 @@ impl Renderer {
                     binding: 1,
                     kind: WriteDescriptorSetKind::StorageBuffer {
                         buffer: &node_buffer,
+                    },
+                },
+                WriteDescriptorSet {
+                    binding: 2,
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &mat_buffer,
                     },
                 },
             ]);
@@ -176,6 +203,8 @@ impl Renderer {
         Ok(Renderer {
             render_buffer,
             node_buffer,
+            mat_buffer,
+
             descriptor_pool,
             descriptor_layout,
             descriptor_sets,
