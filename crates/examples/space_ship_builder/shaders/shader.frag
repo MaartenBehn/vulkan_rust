@@ -72,6 +72,7 @@ Rot getRot() {
 }
 
 ivec3 applyRot(Rot rot, ivec3 v) {
+    
     return ivec3(
         rot.a.x * v.x + rot.a.y * v.y + rot.a.z * v.z, 
         rot.b.x * v.x + rot.b.y * v.y + rot.b.z * v.z,
@@ -82,11 +83,14 @@ ivec3 applyRot(Rot rot, ivec3 v) {
         rot.a.x * v.x + rot.b.x * v.y + rot.c.x * v.z,
         rot.a.y * v.x + rot.b.y * v.y + rot.c.y * v.z,
         rot.a.z * v.x + rot.b.z * v.y + rot.c.z * v.z);
+*/
+    /*
     return ivec3(
         rot.a.x * v.x + rot.b.x * v.x + rot.c.x * v.x,
         rot.a.y * v.y + rot.b.y * v.y + rot.c.y * v.y,
         rot.a.z * v.z + rot.b.z * v.z + rot.c.z * v.z);
-    */
+        */
+    
 }
 
 bool checkHit(in Ray ray, in vec3 nodePos, in uint size, out float tMin, out float tMax) {
