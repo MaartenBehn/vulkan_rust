@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use app::anyhow::{bail, Result};
 use app::glam::{ivec3, uvec3, IVec3, UVec3};
-use app::log;
+use app::log::{self, debug};
 use dot_vox::{DotVoxData, Position, SceneNode};
 
 use crate::math::to_1d;
@@ -52,7 +52,10 @@ impl VoxelLoader {
         for model in data.models.iter() {
             let mut voxels = [0; NODE_VOXEL_LENGTH];
             for v in model.voxels.iter() {
-                voxels[to_1d(uvec3(v.x as u32, v.y as u32, v.z as u32), NODE_SIZE)] = v.i
+                let x = (NODE_SIZE.x - 1) - v.x as u32; // Flip x to match game axis system.
+                let y = (NODE_SIZE.y - 1) - v.y as u32; // Flip x to match game axis system.
+
+                voxels[to_1d(uvec3(x as u32, y as u32, v.z as u32), NODE_SIZE)] = v.i
             }
 
             nodes.push(Node::new(voxels));
@@ -101,7 +104,7 @@ impl VoxelLoader {
             let node = &data.scenes[id as usize];
             match node {
                 SceneNode::Transform {
-                    attributes: _,
+                    attributes: a,
                     frames: f,
                     child: c,
                     layer_id: _,

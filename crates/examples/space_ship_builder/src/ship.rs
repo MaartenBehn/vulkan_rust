@@ -45,7 +45,7 @@ pub struct PID {
 
 impl Ship {
     pub fn new(context: &Context, node_controller: &NodeController) -> Result<Ship> {
-        let size = uvec3(100, 100, 1);
+        let size = uvec3(10, 10, 10);
         let max_index = (size.x * size.y * size.z) as usize;
 
         let mesh = ShipMesh::new(context, max_index)?;
@@ -65,8 +65,8 @@ impl Ship {
         };
 
         ship.place_node(
-            uvec3(5, 5, 0),
-            NodeID::new(0, Rot::default()),
+            uvec3(5, 5, 5),
+            NodeID::new(1, Rot::default()),
             node_controller,
         )?;
 
@@ -164,6 +164,8 @@ impl Ship {
         self.mesh
             .update(&self.cells, self.size, self.m_indices.as_slices().0)?;
 
+        self.collapses_per_tick = 2;
+
         Ok(())
     }
 
@@ -190,7 +192,7 @@ impl Ship {
 
         for offset in neigbors_offsets {
             let neigbor_pos = cell_pos.as_ivec3() + offset;
-            let inv_offset = offset * -1;
+            let inv_offset = offset;
             if !self.pos_in_bounds(neigbor_pos) {
                 continue;
             }

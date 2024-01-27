@@ -89,6 +89,13 @@ impl Builder {
             if ship_node.is_ok() && controls.left {
                 ship.place_node(pos.as_uvec3(), self.current_node_id, node_controller)?;
             }
+
+            if controls.q {
+                self.current_node_id.index += 1;
+                if self.current_node_id.index >= node_controller.nodes.len() {
+                    self.current_node_id.index = 0;
+                }
+            }
         }
 
         Ok(())

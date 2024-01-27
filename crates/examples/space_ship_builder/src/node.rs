@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use app::anyhow::Result;
-use app::glam::{uvec3, IVec3, UVec3};
+use app::glam::{ivec3, uvec3, IVec3, UVec3};
 use app::log;
 use dot_vox::Color;
 
@@ -64,13 +64,14 @@ impl NodeController {
                 } else {
                     r.as_uvec3()
                 };
+                let offset = *neigbor_offset * ivec3(1, 1, -1); // Because Y in Magica Voxel is wierd
 
                 if !voxel_loader.rules.contains_key(&neigbor_pos) {
                     continue;
                 }
 
                 rule.req.insert(
-                    (*neigbor_offset) * -1,
+                    offset,
                     voxel_loader.rules.get(&neigbor_pos).unwrap().to_owned(),
                 );
 
@@ -81,7 +82,7 @@ impl NodeController {
                         rules: HashMap::new(),
                     })
                     .rules
-                    .entry((*neigbor_offset) * -1)
+                    .entry(offset)
                     .or_insert(Vec::new())
                     .push(rules.len());
             }
