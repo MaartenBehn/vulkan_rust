@@ -1835,6 +1835,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "space_ship_builder_v2"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "block-mesh",
+ "dot_vox",
+ "fastrand",
+]
+
+[[package]]
 name = "speedy"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
