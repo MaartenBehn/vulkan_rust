@@ -103,11 +103,13 @@ impl ShipMesh {
         &mut self,
         size: UVec3,
         blocks: &Vec<BlockIndex>,
+        nodes: &Vec<NodeID>,
         node_controller: &NodeController,
     ) -> Result<()> {
         let mut vertecies = Vec::new();
         self.index_counter = 0;
 
+        // Blocks
         for (i, block_index) in blocks.iter().enumerate() {
             if *block_index == BLOCK_INDEX_NONE {
                 continue;
@@ -115,7 +117,20 @@ impl ShipMesh {
 
             let pos = to_3d(i as u32, size);
             let node_id = node_controller.blocks[*block_index].get_node_id();
-            let (mut v, _) = Self::get_node_mesh(node_id, pos.as_ivec3(), 1.0);
+            let (mut v, _) = Self::get_node_mesh(node_id, pos.as_ivec3(), 1.0, false);
+
+            vertecies.append(&mut v);
+            self.index_counter += 36;
+        }
+
+        // Nodes
+        for (i, node_id) in nodes.iter().enumerate() {
+            if node_id.is_none() {
+                continue;
+            }
+
+            let pos = to_3d(i as u32, size + uvec3(1, 1, 1));
+            let (mut v, _) = Self::get_node_mesh(*node_id, pos.as_ivec3(), 1.0, true);
 
             vertecies.append(&mut v);
             self.index_counter += 36;
@@ -133,8 +148,17 @@ impl ShipMesh {
         buffer.draw_indexed(self.index_counter);
     }
 
-    pub fn get_node_mesh(node_id: NodeID, offset: IVec3, opacity: f32) -> (Vec<Vertex>, Vec<u32>) {
-        let v_pos = offset.as_vec3();
+    pub fn get_node_mesh(
+        node_id: NodeID,
+        offset: IVec3,
+        opacity: f32,
+        is_node: bool,
+    ) -> (Vec<Vertex>, Vec<u32>) {
+        let mut v_pos = offset.as_vec3();
+        if is_node {
+            v_pos -= vec3(0.5, 0.5, 0.5)
+        }
+
         let v = node_id.index as f32 / 20.0;
         let color = vec4(v, v, v, opacity);
 

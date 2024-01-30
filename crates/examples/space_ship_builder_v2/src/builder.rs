@@ -75,7 +75,7 @@ impl Builder {
                 .as_ivec3();
 
             let node_id = node_controller.blocks[self.current_block_index].get_node_id();
-            let (vertecies, indecies) = ShipMesh::get_node_mesh(node_id, pos, 0.5);
+            let (vertecies, indecies) = ShipMesh::get_node_mesh(node_id, pos, 0.5, false);
 
             self.vertex_buffer
                 .copy_data_to_buffer(vertecies.as_slice())?;

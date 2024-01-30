@@ -5,17 +5,18 @@ use app::vulkan::Context;
 
 use crate::math::to_1d;
 use crate::math::to_1d_i;
-use crate::node::Block;
 use crate::node::BlockIndex;
 use crate::node::NodeController;
-use crate::node::NodeIndex;
+use crate::node::NodeID;
 use crate::node::BLOCK_INDEX_NONE;
+use crate::pattern_config::Config;
 use crate::ship_mesh::ShipMesh;
 
 pub struct Ship {
     pub size: UVec3,
     pub max_index: isize,
     pub blocks: Vec<BlockIndex>,
+    pub nodes: Vec<NodeID>,
 
     pub mesh: ShipMesh,
 }
@@ -31,6 +32,7 @@ impl Ship {
             size,
             max_index: max_index as isize,
             blocks: vec![BLOCK_INDEX_NONE; (size.x * size.y * size.z) as usize],
+            nodes: vec![NodeID::default(); ((size.x + 1) * (size.y + 1) * (size.z + 1)) as usize],
             mesh,
         };
 
@@ -43,17 +45,17 @@ impl Ship {
         pos.cmpge(IVec3::ZERO).all() && pos.cmplt(self.size.as_ivec3()).all()
     }
 
-    pub fn get_block_u(&self, pos: UVec3) -> Result<&BlockIndex> {
+    pub fn get_block_u(&self, pos: UVec3) -> Result<BlockIndex> {
         self.get_block_i(pos.as_ivec3())
     }
 
-    pub fn get_block_i(&self, pos: IVec3) -> Result<&BlockIndex> {
+    pub fn get_block_i(&self, pos: IVec3) -> Result<BlockIndex> {
         if !self.pos_in_bounds(pos) {
             bail!("Pos not in ship")
         }
 
         let index = to_1d_i(pos, self.size.as_ivec3());
-        Ok(&self.blocks[index as usize])
+        Ok(self.blocks[index as usize])
     }
 
     pub fn place_node(
@@ -67,8 +69,57 @@ impl Ship {
         let cell_index = to_1d(pos, self.size);
         self.blocks[cell_index] = block_index;
 
-        self.mesh.update(self.size, &self.blocks, node_controller)?;
+        self.update_nodes(pos, node_controller);
+
+        self.mesh
+            .update(self.size, &self.blocks, &self.nodes, node_controller)?;
 
         Ok(())
+    }
+
+    pub fn get_neigbors(pos: IVec3) -> [IVec3; 8] {
+        [
+            pos + ivec3(0, 0, 0),
+            pos + ivec3(0, 0, 1),
+            pos + ivec3(0, 1, 0),
+            pos + ivec3(0, 1, 1),
+            pos + ivec3(1, 0, 0),
+            pos + ivec3(1, 0, 1),
+            pos + ivec3(1, 1, 0),
+            pos + ivec3(1, 1, 1),
+        ]
+    }
+
+    fn update_nodes(&mut self, pos: UVec3, node_controller: &NodeController) {
+        let neigbors = Self::get_neigbors(pos.as_ivec3());
+
+        for neigbor in neigbors {
+            let config = self.get_node_config(neigbor);
+            let index: usize = config.into();
+            let patterns = &node_controller.pattern[index];
+            if patterns.is_empty() {
+                continue;
+            }
+
+            let node_id = patterns[0].id;
+
+            let node_index = to_1d_i(neigbor, self.size.as_ivec3() + ivec3(1, 1, 1)) as usize;
+            self.nodes[node_index] = node_id;
+        }
+    }
+
+    fn get_node_config(&mut self, node_pos: IVec3) -> Config {
+        let blocks = Self::get_neigbors(node_pos - ivec3(1, 1, 1));
+
+        let mut config = [false; 8];
+        for (i, block) in blocks.iter().enumerate() {
+            if block.is_negative_bitmask() != 0 || block.cmpge(self.size.as_ivec3()).any() {
+                continue;
+            }
+
+            let block = self.get_block_i(*block).unwrap();
+            config[i] = block != BLOCK_INDEX_NONE;
+        }
+        config.into()
     }
 }

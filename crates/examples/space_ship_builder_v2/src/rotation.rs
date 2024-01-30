@@ -1,4 +1,4 @@
-use app::glam::{BVec3, Mat3};
+use app::glam::{BVec3, Mat3, Mat4, Vec4Swizzles};
 
 /// Origanl from https://docs.rs/dot_vox/latest/dot_vox/struct.Rotation.html
 ///
@@ -155,6 +155,38 @@ impl From<u8> for Rot {
             "Invalid Rotation"
         );
         Rot(byte)
+    }
+}
+
+impl From<Mat3> for Rot {
+    fn from(mat: Mat3) -> Self {
+        let index_nz1 =
+            (mat.y_axis.x.round() != 0.0) as u8 + (mat.z_axis.x.round() != 0.0) as u8 * 2;
+        let index_nz2 =
+            (mat.y_axis.y.round() != 0.0) as u8 + (mat.z_axis.y.round() != 0.0) as u8 * 2;
+        let index_nz3 =
+            (mat.y_axis.z.round() != 0.0) as u8 + (mat.z_axis.z.round() != 0.0) as u8 * 2;
+
+        assert!(index_nz3 == (3 - index_nz1 - index_nz2), "Invalid Rotation");
+
+        let sign_nz1 = (mat.x_axis.x.round() == -1.0) as u8
+            + (mat.y_axis.x.round() == -1.0) as u8
+            + (mat.z_axis.x.round() == -1.0) as u8;
+        let sign_nz2 = (mat.x_axis.y.round() == -1.0) as u8
+            + (mat.y_axis.y.round() == -1.0) as u8
+            + (mat.z_axis.y.round() == -1.0) as u8;
+        let sign_nz3 = (mat.x_axis.z.round() == -1.0) as u8
+            + (mat.y_axis.z.round() == -1.0) as u8
+            + (mat.z_axis.z.round() == -1.0) as u8;
+
+        assert!(
+            sign_nz1 <= 1 && sign_nz2 <= 1 && sign_nz3 <= 1,
+            "Invalid Rotation"
+        );
+
+        let new_rot =
+            index_nz1 + (index_nz2 << 2) + (sign_nz1 << 4) + (sign_nz2 << 5) + (sign_nz3 << 6);
+        Rot(new_rot)
     }
 }
 

@@ -56,7 +56,7 @@ pub struct Block {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Pattern {
-    id: NodeID,
+    pub id: NodeID,
 }
 
 impl NodeController {
@@ -73,27 +73,27 @@ impl NodeController {
 
     fn make_pattern(voxel_loader: &VoxelLoader) -> Result<[Vec<Pattern>; 256]> {
         let config_to_id = [
-            Config::from([true, false, false, false, false, false, false, false]),
-            Config::from([true, true, false, false, false, false, false, false]),
-            Config::from([true, false, false, true, false, false, false, false]),
-            Config::from([true, false, false, false, false, false, false, true]),
-            Config::from([true, true, true, false, false, false, false, false]),
-            Config::from([true, true, false, false, false, false, true, false]),
-            Config::from([true, false, false, true, false, true, false, false]),
-            Config::from([true, true, true, true, false, false, false, false]),
-            Config::from([true, true, true, false, true, false, false, false]),
-            Config::from([true, true, true, false, false, true, false, false]),
-            Config::from([true, true, true, false, false, false, false, true]),
-            Config::from([true, true, false, false, false, false, true, true]),
-            Config::from([true, false, false, true, false, true, true, false]),
-            Config::from([true, true, true, true, true, false, false, false]),
-            Config::from([true, true, true, false, true, false, false, true]),
-            Config::from([true, true, true, false, false, true, true, false]),
-            Config::from([true, true, true, true, true, true, false, false]),
-            Config::from([true, true, true, true, true, false, false, true]),
-            Config::from([true, true, true, false, false, true, true, true]),
-            Config::from([true, true, true, true, true, true, true, false]),
-            Config::from([true, true, true, true, true, true, true, true]),
+            Config::from(0b00000001),
+            Config::from(0b00000011),
+            Config::from(0b00001001),
+            Config::from(0b10000001),
+            Config::from(0b00000111),
+            Config::from(0b01000011),
+            Config::from(0b00101001),
+            Config::from(0b00001111),
+            Config::from(0b00010111),
+            Config::from(0b00100111),
+            Config::from(0b10000111),
+            Config::from(0b11000011),
+            Config::from(0b01101001),
+            Config::from(0b00011111),
+            Config::from(0b10010111),
+            Config::from(0b01100111),
+            Config::from(0b00111111),
+            Config::from(0b10011111),
+            Config::from(0b11100111),
+            Config::from(0b01111111),
+            Config::from(0b11111111),
         ];
 
         let mut pattern = std::array::from_fn(|_| Vec::new());
