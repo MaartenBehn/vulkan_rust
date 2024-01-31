@@ -2,7 +2,8 @@ use std::mem::size_of;
 
 use app::{
     anyhow::Result,
-    glam::{uvec4, BVec3, Mat4, UVec3, Vec3, Vec4},
+    camera::{self, Camera},
+    glam::{uvec4, vec2, BVec3, Mat4, UVec3, Vec2, Vec3, Vec4},
     log,
     vulkan::{
         ash::vk::{self, Extent2D, Format, ImageUsageFlags},
@@ -39,6 +40,7 @@ pub struct Renderer {
     pub pipeline_layout: PipelineLayout,
     pub pipeline: GraphicsPipeline,
 
+    pub depth_attachment_format: vk::Format,
     pub depth_image: Image,
     pub depth_image_view: ImageView,
 }
@@ -50,7 +52,9 @@ pub struct RenderBuffer {
     pub proj_matrix: Mat4,
     pub view_matrix: Mat4,
     pub dir: Vec3,
-    pub fill: [u32; 13],
+    pub fill: u32,
+    pub screen_size: Vec2,
+    pub fill_1: [u32; 10],
 }
 
 impl Renderer {
@@ -210,9 +214,36 @@ impl Renderer {
             descriptor_sets,
             pipeline_layout,
             pipeline,
+            depth_attachment_format,
             depth_image,
             depth_image_view,
         })
+    }
+
+    pub fn on_update(&mut self, camera: &Camera, extent: vk::Extent2D) -> Result<()> {
+        self.render_buffer.copy_data_to_buffer(&[RenderBuffer {
+            proj_matrix: camera.projection_matrix(),
+            view_matrix: camera.view_matrix(),
+            dir: camera.direction,
+            fill: 0,
+            screen_size: vec2(extent.width as f32, extent.height as f32),
+            fill_1: [0; 10],
+        }])?;
+        Ok(())
+    }
+
+    pub fn on_recreate_swapchain(&mut self, context: &Context, extent: vk::Extent2D) -> Result<()> {
+        self.depth_image = context.create_image(
+            ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            gpu_allocator::MemoryLocation::GpuOnly,
+            self.depth_attachment_format,
+            extent.width,
+            extent.height,
+        )?;
+
+        self.depth_image_view = self.depth_image.create_image_view(true)?;
+
+        Ok(())
     }
 }
 

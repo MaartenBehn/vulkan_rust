@@ -3,9 +3,9 @@ use std::time::Duration;
 use app::anyhow::Result;
 use app::camera::Camera;
 use app::controls::Controls;
-use app::glam::{vec3, Vec3};
-use app::vulkan::ash::vk::{self, Format};
-use app::vulkan::CommandBuffer;
+use app::glam::{vec2, vec3, Vec3};
+use app::vulkan::ash::vk::{self, Format, ImageUsageFlags};
+use app::vulkan::{gpu_allocator, CommandBuffer};
 use app::{log, App, BaseApp};
 use renderer::RenderBuffer;
 
@@ -85,13 +85,16 @@ impl App for SpaceShipBuilder {
         })
     }
 
-    fn on_recreate_swapchain(&mut self, _: &BaseApp<Self>) -> Result<()> {
+    fn on_recreate_swapchain(&mut self, base: &BaseApp<Self>) -> Result<()> {
+        self.renderer
+            .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
+
         Ok(())
     }
 
     fn update(
         &mut self,
-        _: &mut BaseApp<Self>,
+        base: &mut BaseApp<Self>,
         _: &mut <Self as App>::Gui,
         _: usize,
         delta_time: Duration,
@@ -102,13 +105,7 @@ impl App for SpaceShipBuilder {
         self.camera.update(controls, delta_time);
 
         self.renderer
-            .render_buffer
-            .copy_data_to_buffer(&[RenderBuffer {
-                proj_matrix: self.camera.projection_matrix(),
-                view_matrix: self.camera.view_matrix(),
-                dir: self.camera.direction,
-                fill: [0; 13],
-            }])?;
+            .on_update(&self.camera, base.swapchain.extent)?;
 
         self.builder.update(
             controls,

@@ -9,6 +9,7 @@ layout(binding = 0) uniform RenderBuffer {
   mat4 proj_mat;
   mat4 view_mat;
   vec3 dir;
+  vec2 size;
 } ubo;
 
 #define POSITION oUV * 8
@@ -18,7 +19,7 @@ layout(binding = 0) uniform RenderBuffer {
 #define NODE_SIZE 8
 #define MAX_STEPS 100
 #define RAY_POS_OFFSET 0.0001
-#define SCREEN_SIZE vec2(1024, 576)
+#define SCREEN_SIZE ubo.size
 
 struct Node {
     uint voxels[(NODE_SIZE * NODE_SIZE * NODE_SIZE) / 4];

@@ -167,7 +167,7 @@ impl From<Mat3> for Rot {
         let index_nz3 =
             (mat.y_axis.z.round() != 0.0) as u8 + (mat.z_axis.z.round() != 0.0) as u8 * 2;
 
-        assert!(index_nz3 == (3 - index_nz1 - index_nz2), "Invalid Rotation");
+        debug_assert!(index_nz3 == (3 - index_nz1 - index_nz2), "Invalid Rotation");
 
         let sign_nz1 = (mat.x_axis.x.round() == -1.0) as u8
             + (mat.y_axis.x.round() == -1.0) as u8

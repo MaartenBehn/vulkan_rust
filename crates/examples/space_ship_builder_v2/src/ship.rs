@@ -9,6 +9,7 @@ use crate::node::BlockIndex;
 use crate::node::NodeController;
 use crate::node::NodeID;
 use crate::node::BLOCK_INDEX_NONE;
+use crate::node::NODE_INDEX_NONE;
 use crate::pattern_config::Config;
 use crate::ship_mesh::ShipMesh;
 
@@ -80,12 +81,12 @@ impl Ship {
     pub fn get_neigbors(pos: IVec3) -> [IVec3; 8] {
         [
             pos + ivec3(0, 0, 0),
-            pos + ivec3(0, 0, 1),
-            pos + ivec3(0, 1, 0),
-            pos + ivec3(0, 1, 1),
             pos + ivec3(1, 0, 0),
-            pos + ivec3(1, 0, 1),
+            pos + ivec3(0, 1, 0),
             pos + ivec3(1, 1, 0),
+            pos + ivec3(0, 0, 1),
+            pos + ivec3(1, 0, 1),
+            pos + ivec3(0, 1, 1),
             pos + ivec3(1, 1, 1),
         ]
     }
@@ -95,16 +96,20 @@ impl Ship {
 
         for neigbor in neigbors {
             let config = self.get_node_config(neigbor);
+
+            let bools: [bool; 8] = config.into();
+            log::debug!("{:?}", bools);
+
             let index: usize = config.into();
             let patterns = &node_controller.pattern[index];
-            if patterns.is_empty() {
-                continue;
-            }
-
-            let node_id = patterns[0].id;
 
             let node_index = to_1d_i(neigbor, self.size.as_ivec3() + ivec3(1, 1, 1)) as usize;
-            self.nodes[node_index] = node_id;
+
+            self.nodes[node_index] = if patterns.is_empty() {
+                NodeID::default()
+            } else {
+                patterns[0].id
+            }
         }
     }
 
