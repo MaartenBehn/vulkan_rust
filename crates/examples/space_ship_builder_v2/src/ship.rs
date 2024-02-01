@@ -97,9 +97,6 @@ impl Ship {
         for neigbor in neigbors {
             let config = self.get_node_config(neigbor);
 
-            let bools: [bool; 8] = config.into();
-            log::debug!("{:?}", bools);
-
             let index: usize = config.into();
             let patterns = &node_controller.pattern[index];
 

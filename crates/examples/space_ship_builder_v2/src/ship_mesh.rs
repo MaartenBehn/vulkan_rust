@@ -110,6 +110,7 @@ impl ShipMesh {
         self.index_counter = 0;
 
         // Blocks
+        /*
         for (i, block_index) in blocks.iter().enumerate() {
             if *block_index == BLOCK_INDEX_NONE {
                 continue;
@@ -122,6 +123,7 @@ impl ShipMesh {
             vertecies.append(&mut v);
             self.index_counter += 36;
         }
+        */
 
         // Nodes
         for (i, node_id) in nodes.iter().enumerate() {
