@@ -25,8 +25,7 @@ pub struct Ship {
 impl Ship {
     pub fn new(context: &Context, node_controller: &NodeController) -> Result<Ship> {
         let size = uvec3(10, 10, 10);
-        let max_index = (size.x * size.y * size.z) as usize;
-
+        let max_index = ((size.x + 1) * (size.y + 1) * (size.z + 1) + 1) as usize;
         let mesh = ShipMesh::new(context, max_index)?;
 
         let mut ship = Ship {
@@ -37,7 +36,8 @@ impl Ship {
             mesh,
         };
 
-        ship.place_node(uvec3(5, 5, 5), 0, node_controller)?;
+        ship.place_block(uvec3(5, 5, 5), 0, node_controller)?;
+        ship.fill_all(0, node_controller)?;
 
         Ok(ship)
     }
@@ -59,7 +59,7 @@ impl Ship {
         Ok(self.blocks[index as usize])
     }
 
-    pub fn place_node(
+    pub fn place_block(
         &mut self,
         pos: UVec3,
         block_index: BlockIndex,
@@ -123,5 +123,21 @@ impl Ship {
             config[i] = block != BLOCK_INDEX_NONE;
         }
         config.into()
+    }
+
+    pub fn fill_all(
+        &mut self,
+        block_index: BlockIndex,
+        node_controller: &NodeController,
+    ) -> Result<()> {
+        for x in 0..self.size.x {
+            for y in 0..self.size.y {
+                for z in 0..self.size.z {
+                    self.place_block(uvec3(x, y, z), block_index, node_controller)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }

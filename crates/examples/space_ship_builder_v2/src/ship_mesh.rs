@@ -90,7 +90,7 @@ impl ShipMesh {
             &indecies,
         )?;
 
-        let mut mesh = ShipMesh {
+        let mesh = ShipMesh {
             vertex_buffer,
             index_buffer,
             index_counter: 0,

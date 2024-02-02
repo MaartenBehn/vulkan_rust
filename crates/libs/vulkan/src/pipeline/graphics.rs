@@ -1,7 +1,7 @@
 use std::{ffi::CString, sync::Arc};
 
 use anyhow::Result;
-use ash::vk::{self, Format};
+use ash::vk::{self};
 
 use crate::{device::Device, Context, PipelineLayout, ShaderModule};
 

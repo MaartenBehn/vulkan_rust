@@ -17,9 +17,11 @@ layout(binding = 0) uniform RenderBuffer {
 #define DIRECTION ubo.dir
 
 #define NODE_SIZE 8
-#define MAX_STEPS 100
+#define MAX_STEPS 25
 #define RAY_POS_OFFSET 0.0001
 #define BORDER_SIZE 0.01
+
+#define DEBUG_STEPS true
 
 struct Node {
     uint voxels[(NODE_SIZE * NODE_SIZE * NODE_SIZE) / 4];
@@ -40,6 +42,20 @@ layout(binding = 2) buffer Mats {
     uint mats[];
 } mats;
 
+// Debugging
+vec3 getColorGradient(float x){
+    if (x == 0){
+        return vec3(0);
+    }
+
+    vec3 firstColor = vec3(0, 1, 0); // green
+    vec3 middleColor = vec3(0, 0, 1); // blue
+    vec3 endColor = vec3(1, 0, 0); // red
+
+    float h = 0.5; // adjust position of middleColor
+    vec3 col = mix(mix(firstColor, middleColor, x/h), mix(middleColor, endColor, (x - h)/(1.0 - h)), step(h, x));
+    return col;
+}
 
 // Render
 struct Ray{
@@ -142,13 +158,13 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
 
     bool hit = checkHit(ray, vec3(0), 8, tMin, tMax); 
     if (!hit) {
-        return vec4(1.0, 0.0, 0.0, 1.0);
+        return vec4(0);
     }
     ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);  
     rayLen += tMin;   
     
-    int counter = 0;
-    while (counter < MAX_STEPS) {
+    int counter = 1;
+    while (true) {
         voxelPos = ivec3(ray.pos) - ivec3(ray.pos.x < 0, ray.pos.y < 0, ray.pos.z < 0);
 
         cellPos = voxelPos - ivec3(4, 4, 4);
@@ -159,6 +175,10 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
         voxel = GET_VOXEL(node, voxelIndex);
 
         if (voxel != 0) {
+            if (DEBUG_STEPS) {
+                return vec4(getColorGradient(float(counter) / MAX_STEPS), 1.0);
+            }
+
            return voxelColor(ray, voxel);
         }
 
@@ -171,13 +191,16 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
         }
 
         counter++;
+        if (counter > MAX_STEPS){
+            return vec4(getColorGradient(1.0), 1.0);
+        }
     }
 
     return vec4(0);
 }
 
 void main() {
-    vec2 uv = ((gl_FragCoord.xy * 2 - ubo.size) / ubo.size.y) * vec2(-0.59);
+    vec2 uv = -((2 * gl_FragCoord.xy - ubo.size.xy) / ubo.size.x);
 
     vec3 ro = POSITION;
     vec3 fwd = DIRECTION;
@@ -201,4 +224,6 @@ void main() {
     } else {
         gl_FragDepth = gl_FragCoord.z;
     }
+
+    //finalColor = vec4(uv, 0.0, 1.0);
 }

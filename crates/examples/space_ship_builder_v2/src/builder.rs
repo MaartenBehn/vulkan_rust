@@ -85,7 +85,7 @@ impl Builder {
             let ship_node = ship.get_block_i(pos);
 
             if ship_node.is_ok() && controls.left {
-                ship.place_node(pos.as_uvec3(), self.current_block_index, node_controller)?;
+                ship.place_block(pos.as_uvec3(), self.current_block_index, node_controller)?;
             }
 
             if controls.q {
