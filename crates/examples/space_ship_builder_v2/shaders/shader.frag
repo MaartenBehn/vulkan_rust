@@ -148,7 +148,6 @@ vec4 voxelColor(in Ray ray, in uint voxel) {
 }
 
 vec4 raycaster(in Ray ray, in Node node, in Rot rot){
-    
     float tMin, tMax = 0;
     float rayLen = 0;
     ivec3 voxelPos = ivec3(0);
@@ -156,15 +155,14 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
     uint voxelIndex = 0;
     uint voxel = 0;
 
-    bool hit = checkHit(ray, vec3(0), 8, tMin, tMax); 
-    if (!hit) {
+    if (!checkHit(ray, vec3(0), 8, tMin, tMax)) {
         return vec4(0);
     }
     ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);  
     rayLen += tMin;   
     
     int counter = 1;
-    while (true) {
+    while (counter < MAX_STEPS) {
         voxelPos = ivec3(ray.pos) - ivec3(ray.pos.x < 0, ray.pos.y < 0, ray.pos.z < 0);
 
         cellPos = voxelPos - ivec3(4, 4, 4);
@@ -187,16 +185,13 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
         rayLen += tMax; 
 
         if (ray.pos.x < 0 || ray.pos.x >= 8 || ray.pos.y < 0 || ray.pos.y >= 8 || ray.pos.z < 0 || ray.pos.z >= 8){
-            break;
+            return vec4(0);
         }
 
         counter++;
-        if (counter > MAX_STEPS){
-            return vec4(getColorGradient(1.0), 1.0);
-        }
     }
 
-    return vec4(0);
+    return vec4(getColorGradient(1.0), 1.0);
 }
 
 void main() {
