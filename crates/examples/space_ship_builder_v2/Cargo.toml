@@ -9,6 +9,6 @@ authors.workspace = true
 [dependencies]
 app = { path = "../../libs/app" }
 
-fastrand.workspace = true
 dot_vox.workspace = true
-block-mesh.workspace = true
+serde_json.workspace = true
+

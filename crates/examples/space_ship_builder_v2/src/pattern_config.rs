@@ -181,6 +181,21 @@ impl From<[bool; 8]> for Config {
     }
 }
 
+impl From<Vec<bool>> for Config {
+    fn from(value: Vec<bool>) -> Self {
+        Config(
+            value[0] as u8
+                + ((value[1] as u8) << 1)
+                + ((value[2] as u8) << 2)
+                + ((value[3] as u8) << 3)
+                + ((value[4] as u8) << 4)
+                + ((value[5] as u8) << 5)
+                + ((value[6] as u8) << 6)
+                + ((value[7] as u8) << 7),
+        )
+    }
+}
+
 impl From<u8> for Config {
     fn from(value: u8) -> Self {
         Config(value)

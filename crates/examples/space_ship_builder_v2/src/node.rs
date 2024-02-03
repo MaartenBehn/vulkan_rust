@@ -1,10 +1,15 @@
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
 use std::mem::size_of;
+use std::ops::Mul;
 
-use app::anyhow::{bail, Result};
-use app::glam::{ivec3, uvec3, IVec3, UVec3};
+use app::anyhow::{anyhow, bail, ensure, Result};
+use app::glam::{ivec3, uvec3, IVec3, Mat3, Mat4, UVec3, Vec3};
 use app::log;
 use app::vulkan::ash::vk::ExtTransformFeedbackFn;
 use dot_vox::Color;
+use serde_json::Value;
 
 use crate::pattern_config::Config;
 use crate::voxel_loader;
@@ -56,12 +61,15 @@ pub struct Block {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Pattern {
+    pub prio: usize,
     pub id: NodeID,
+    pub req: Vec<(IVec3, NodeID)>,
 }
 
 impl NodeController {
-    pub fn new(voxel_loader: VoxelLoader) -> Result<NodeController> {
-        let pattern = Self::make_pattern(&voxel_loader)?;
+    pub fn new(voxel_loader: VoxelLoader, path: &str) -> Result<NodeController> {
+        let (config_to_id, complex_pattern) = Self::load_config(path)?;
+        let pattern = Self::make_pattern(&voxel_loader, config_to_id, complex_pattern)?;
 
         Ok(NodeController {
             nodes: voxel_loader.nodes,
@@ -71,58 +79,135 @@ impl NodeController {
         })
     }
 
-    fn make_pattern(voxel_loader: &VoxelLoader) -> Result<[Vec<Pattern>; 256]> {
-        let config_to_id = [
-            Config::from(0b00000001),
-            Config::from(0b00000011),
-            Config::from(0b00001001),
-            Config::from(0b10000001),
-            Config::from(0b00000111),
-            Config::from(0b01000011),
-            Config::from(0b00101001),
-            Config::from(0b00001111),
-            Config::from(0b00010111),
-            Config::from(0b00100111),
-            Config::from(0b10000111),
-            Config::from(0b11000011),
-            Config::from(0b01101001),
-            Config::from(0b00011111),
-            Config::from(0b10010111),
-            Config::from(0b01100111),
-            Config::from(0b00111111),
-            Config::from(0b10011111),
-            Config::from(0b11100111),
-            Config::from(0b01111111),
-            Config::from(0b11111111),
-        ];
+    fn load_config(
+        path: &str,
+    ) -> Result<(
+        Vec<Config>,
+        HashMap<String, (Vec<(IVec3, String, Rot)>, usize)>,
+    )> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let v: Value = serde_json::from_reader(reader)?;
 
-        let mut pattern = std::array::from_fn(|_| Vec::new());
+        let config_to_id = v["config_ids"]
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .map(|config| {
+                let bools: Vec<bool> = config.as_str().unwrap().chars().map(|c| c == '1').collect();
+                ensure!(bools.len() == 8, "Config string wrong size!");
+
+                Ok(Config::from(bools))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let complex_pattern = v["complex_patterns"]
+            .as_object()
+            .unwrap()
+            .into_iter()
+            .map(|(name, complex)| {
+                let prio = complex["prio"].as_u64().unwrap() as usize;
+                let xs = complex["x"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_i64().unwrap() as i32);
+                let ys = complex["y"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_i64().unwrap() as i32);
+                let zs = complex["z"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_i64().unwrap() as i32);
+                let names = complex["name"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap());
+                let rot = complex["rot"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| Rot::from(v.as_u64().unwrap() as u8));
+
+                let req: Vec<_> = xs
+                    .zip(ys)
+                    .zip(zs)
+                    .zip(names)
+                    .zip(rot)
+                    .map(|((((x, y), z), name), rot)| (ivec3(x, y, z), name.to_owned(), rot))
+                    .collect();
+
+                (name.to_owned(), (req, prio))
+            })
+            .collect();
+
+        Ok((config_to_id, complex_pattern))
+    }
+
+    fn make_pattern(
+        voxel_loader: &VoxelLoader,
+        config_to_id: Vec<Config>,
+        complex_pattern: HashMap<String, (Vec<(IVec3, String, Rot)>, usize)>,
+    ) -> Result<[Vec<Pattern>; 256]> {
+        let mut patterns = std::array::from_fn(|_| Vec::new());
 
         for block in voxel_loader.pattern.iter() {
-            let parts: Vec<_> = block.name.split("_").collect();
-            if parts.len() != 2 {
-                bail!("Invalid Pattern name! Not exactly one underscore in name!")
-            }
+            let name = &block.name;
+            let parts: Vec<_> = name.split("_").collect();
 
-            //let name = parts[0];
-            let r = parts[1].parse::<i32>();
-            let id = if r.is_ok() {
-                r.unwrap()
-            } else {
-                bail!("Invalid Pattern name! Part after underscore is not a number!")
-            };
+            //let base = parts[0];
+            let id = parts[1].parse::<usize>()?;
 
-            let config = config_to_id[id as usize - 1];
+            let config = config_to_id[id - 1];
             let possibilities = config.get_possibilities();
 
-            for (c, rot) in possibilities.into_iter() {
-                let index: usize = c.into();
+            let (reqs, prio) = if parts.len() > 2 {
+                ensure!(
+                    complex_pattern.contains_key(name),
+                    "Config file dose not contain the block name {name} !"
+                );
+                complex_pattern[name].to_owned()
+            } else {
+                (Vec::new(), 0)
+            };
 
-                pattern[index].push(Pattern::new(NodeID::new(block.node_index, rot)));
+            for (c, rot) in possibilities.into_iter() {
+                let p_reqs: Vec<_> = reqs
+                    .iter()
+                    .map(|(pos, name, p_rot)| {
+                        let mat = Mat4::from_mat3(rot.into());
+                        let pos1 = mat.transform_point3(pos.as_vec3());
+                        let rot1 = rot.mul(*p_rot);
+                        let node_index = voxel_loader
+                            .pattern
+                            .iter()
+                            .find_map(|block| {
+                                if block.name == *name {
+                                    Some(block.node_index)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_default();
+
+                        (pos1.as_ivec3(), NodeID::new(node_index, rot1))
+                    })
+                    .collect();
+
+                let index: usize = c.into();
+                patterns[index].push(Pattern::new(
+                    NodeID::new(block.node_index, rot),
+                    p_reqs,
+                    prio,
+                ));
             }
         }
 
-        Ok(pattern)
+        Ok(patterns)
     }
 }
 
@@ -221,7 +306,11 @@ impl Block {
 }
 
 impl Pattern {
-    pub fn new(node_id: NodeID) -> Self {
-        Pattern { id: node_id }
+    pub fn new(node_id: NodeID, req: Vec<(IVec3, NodeID)>, prio: usize) -> Self {
+        Pattern {
+            id: node_id,
+            req: req,
+            prio: prio,
+        }
     }
 }

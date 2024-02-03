@@ -52,7 +52,8 @@ impl App for SpaceShipBuilder {
 
         let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v2.vox".to_owned())?;
 
-        let node_controller = NodeController::new(voxel_loader)?;
+        let node_controller =
+            NodeController::new(voxel_loader, "./assets/models/space_ship_config.json")?;
         let ship = Ship::new(context, &node_controller)?;
 
         let builder = Builder::new(context)?;

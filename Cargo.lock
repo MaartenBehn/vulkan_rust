@@ -1839,9 +1839,8 @@ name = "space_ship_builder_v2"
 version = "0.1.0"
 dependencies = [
  "app",
- "block-mesh",
  "dot_vox",
- "fastrand",
+ "serde_json",
 ]
 
 [[package]]
