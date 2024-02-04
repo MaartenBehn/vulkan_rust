@@ -131,7 +131,7 @@ impl ShipMesh {
                 continue;
             }
 
-            let pos = to_3d(i as u32, size + uvec3(1, 1, 1));
+            let pos = to_3d(i as u32, size);
             let (mut v, _) = Self::get_node_mesh(*node_id, pos.as_ivec3(), 1.0, true);
 
             vertecies.append(&mut v);

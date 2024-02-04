@@ -59,11 +59,11 @@ pub struct Block {
     pub node_index: NodeIndex,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct Pattern {
     pub prio: usize,
     pub id: NodeID,
-    pub req: Vec<(IVec3, NodeID)>,
+    pub req: Vec<(UVec3, NodeID)>,
 }
 
 impl NodeController {
@@ -154,6 +154,7 @@ impl NodeController {
         complex_pattern: HashMap<String, (Vec<(IVec3, String, Rot)>, usize)>,
     ) -> Result<[Vec<Pattern>; 256]> {
         let mut patterns = std::array::from_fn(|_| Vec::new());
+        patterns[0] = vec![Pattern::new(NodeID::none(), Vec::new(), 0)];
 
         for block in voxel_loader.pattern.iter() {
             let name = &block.name;
@@ -194,7 +195,7 @@ impl NodeController {
                             })
                             .unwrap_or_default();
 
-                        (pos1.as_ivec3(), NodeID::new(node_index, rot1))
+                        (pos1.as_uvec3(), NodeID::new(node_index, rot1))
                     })
                     .collect();
 
@@ -205,6 +206,10 @@ impl NodeController {
                     prio,
                 ));
             }
+        }
+
+        for pattern in patterns.iter_mut(){
+            pattern.sort_by(|a, b| {a.id.cmp(&b.id)});
         }
 
         Ok(patterns)
@@ -306,7 +311,7 @@ impl Block {
 }
 
 impl Pattern {
-    pub fn new(node_id: NodeID, req: Vec<(IVec3, NodeID)>, prio: usize) -> Self {
+    pub fn new(node_id: NodeID, req: Vec<(UVec3, NodeID)>, prio: usize) -> Self {
         Pattern {
             id: node_id,
             req: req,
