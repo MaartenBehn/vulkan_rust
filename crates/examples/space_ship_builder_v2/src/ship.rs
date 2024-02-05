@@ -11,6 +11,7 @@ use app::vulkan::Context;
 
 use crate::math::to_1d;
 use crate::math::to_1d_i;
+use crate::math::to_3d;
 use crate::node;
 use crate::node::BlockIndex;
 use crate::node::NodeController;
@@ -212,8 +213,11 @@ impl Ship {
     }
 
     fn reset_wave(&mut self) {
-        for wave in self.wave.iter_mut() {
+        for (i, wave) in self.wave.iter_mut().enumerate() {
             wave.possible_pattern = wave.all_possible_pattern.to_owned();
+
+            let pos = to_3d(i as u32, self.wave_size);
+            self.to_propergate.push_back(pos);
         }
     }
 
