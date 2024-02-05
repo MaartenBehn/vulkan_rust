@@ -14,6 +14,7 @@ use crate::{
     math::to_3d,
     node::{BlockIndex, NodeController, NodeID, BLOCK_INDEX_NONE},
     renderer::Vertex,
+    ship::Wave,
 };
 
 pub struct ShipMesh {
@@ -99,13 +100,7 @@ impl ShipMesh {
         Ok(mesh)
     }
 
-    pub fn update(
-        &mut self,
-        size: UVec3,
-        blocks: &Vec<BlockIndex>,
-        nodes: &Vec<NodeID>,
-        node_controller: &NodeController,
-    ) -> Result<()> {
+    pub fn update(&mut self, size: UVec3, wave: &Vec<Wave>) -> Result<()> {
         let mut vertecies = Vec::new();
         self.index_counter = 0;
 
@@ -126,13 +121,14 @@ impl ShipMesh {
         */
 
         // Nodes
-        for (i, node_id) in nodes.iter().enumerate() {
-            if node_id.is_none() {
+        for (i, wave) in wave.iter().enumerate() {
+            if wave.possible_pattern.is_empty() || wave.possible_pattern[0].id.is_none() {
                 continue;
             }
 
             let pos = to_3d(i as u32, size);
-            let (mut v, _) = Self::get_node_mesh(*node_id, pos.as_ivec3(), 1.0, true);
+            let (mut v, _) =
+                Self::get_node_mesh(wave.possible_pattern[0].id, pos.as_ivec3(), 1.0, true);
 
             vertecies.append(&mut v);
             self.index_counter += 36;

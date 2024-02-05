@@ -21,7 +21,7 @@ layout(binding = 0) uniform RenderBuffer {
 #define RAY_POS_OFFSET 0.0001
 #define BORDER_SIZE 0.01
 
-#define DEBUG_STEPS true
+#define DEBUG_STEPS false
 
 struct Node {
     uint voxels[(NODE_SIZE * NODE_SIZE * NODE_SIZE) / 4];

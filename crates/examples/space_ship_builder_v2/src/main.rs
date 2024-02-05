@@ -105,6 +105,8 @@ impl App for SpaceShipBuilder {
 
         self.camera.update(controls, delta_time);
 
+        self.ship.tick(delta_time)?;
+
         self.renderer
             .on_update(&self.camera, base.swapchain.extent)?;
 

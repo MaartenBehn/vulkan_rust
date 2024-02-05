@@ -63,7 +63,7 @@ pub struct Block {
 pub struct Pattern {
     pub prio: usize,
     pub id: NodeID,
-    pub req: Vec<(UVec3, NodeID)>,
+    pub req: HashMap<UVec3, Vec<NodeID>>,
 }
 
 impl NodeController {
@@ -154,7 +154,7 @@ impl NodeController {
         complex_pattern: HashMap<String, (Vec<(IVec3, String, Rot)>, usize)>,
     ) -> Result<[Vec<Pattern>; 256]> {
         let mut patterns = std::array::from_fn(|_| Vec::new());
-        patterns[0] = vec![Pattern::new(NodeID::none(), Vec::new(), 0)];
+        patterns[0] = vec![Pattern::new(NodeID::none(), HashMap::new(), 0)];
 
         for block in voxel_loader.pattern.iter() {
             let name = &block.name;
@@ -199,17 +199,22 @@ impl NodeController {
                     })
                     .collect();
 
+                let mut req_map = HashMap::new();
+                for (pos, id) in p_reqs {
+                    req_map.entry(pos).or_insert(Vec::new()).push(id);
+                }
+
                 let index: usize = c.into();
                 patterns[index].push(Pattern::new(
                     NodeID::new(block.node_index, rot),
-                    p_reqs,
+                    req_map,
                     prio,
                 ));
             }
         }
 
-        for pattern in patterns.iter_mut(){
-            pattern.sort_by(|a, b| {a.id.cmp(&b.id)});
+        for pattern in patterns.iter_mut() {
+            pattern.sort_by(|a, b| b.prio.cmp(&a.prio));
         }
 
         Ok(patterns)
@@ -311,7 +316,7 @@ impl Block {
 }
 
 impl Pattern {
-    pub fn new(node_id: NodeID, req: Vec<(UVec3, NodeID)>, prio: usize) -> Self {
+    pub fn new(node_id: NodeID, req: HashMap<UVec3, Vec<NodeID>>, prio: usize) -> Self {
         Pattern {
             id: node_id,
             req: req,
