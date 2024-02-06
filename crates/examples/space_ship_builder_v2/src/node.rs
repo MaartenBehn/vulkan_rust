@@ -63,7 +63,7 @@ pub struct Block {
 pub struct Pattern {
     pub prio: usize,
     pub id: NodeID,
-    pub req: HashMap<UVec3, Vec<NodeID>>,
+    pub req: HashMap<IVec3, Vec<NodeID>>,
 }
 
 impl NodeController {
@@ -133,6 +133,14 @@ impl NodeController {
                     .iter()
                     .map(|v| Rot::from(v.as_u64().unwrap() as u8));
 
+                if xs.len() == ys.len()
+                    && ys.len() == zs.len()
+                    && zs.len() == names.len()
+                    && names.len() == rot.len()
+                {
+                    log::error!("Config file complex pattern not same length!");
+                }
+
                 let req: Vec<_> = xs
                     .zip(ys)
                     .zip(zs)
@@ -195,7 +203,7 @@ impl NodeController {
                             })
                             .unwrap_or_default();
 
-                        (pos1.as_uvec3(), NodeID::new(node_index, rot1))
+                        (pos1.as_ivec3(), NodeID::new(node_index, rot1))
                     })
                     .collect();
 
@@ -316,7 +324,7 @@ impl Block {
 }
 
 impl Pattern {
-    pub fn new(node_id: NodeID, req: HashMap<UVec3, Vec<NodeID>>, prio: usize) -> Self {
+    pub fn new(node_id: NodeID, req: HashMap<IVec3, Vec<NodeID>>, prio: usize) -> Self {
         Pattern {
             id: node_id,
             req: req,
