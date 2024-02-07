@@ -175,7 +175,7 @@ impl NodeController {
                 let p_reqs: Vec<_> = reqs
                     .iter()
                     .map(|(pos, name)| {
-                        let mat = Mat4::from_mat3(rot.into());
+                        let mat = Mat4::from_mat3(rot.into()).inverse();
                         let pos1 = mat.transform_point3(pos.as_vec3());
                         let node_index = voxel_loader
                             .pattern

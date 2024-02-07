@@ -53,6 +53,7 @@ dot_vox = "5.1.1"
 
 # Math
 glam = { version = "0.22", features = ["serde"] }
+index_queue = "0.1.0"
 
 # Vulkan
 winit = "0.27"
@@ -65,6 +66,3 @@ gpu-allocator = { version = "0.21", default-features = false, features = ["vulka
 imgui = "0.9"
 imgui-winit-support = "0.9"
 imgui-rs-vulkan-renderer = { version = "1.6", features = ["gpu-allocator", "dynamic-rendering"] }
-
-# Voxel Greedy Meshing
-block-mesh = "0.2.0"

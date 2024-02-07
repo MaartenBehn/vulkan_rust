@@ -11,4 +11,5 @@ app = { path = "../../libs/app" }
 
 dot_vox.workspace = true
 serde_json.workspace = true
+index_queue.workspace = true
 

@@ -11,4 +11,3 @@ app = { path = "../../libs/app" }
 
 fastrand.workspace = true
 dot_vox.workspace = true
-block-mesh.workspace = true
