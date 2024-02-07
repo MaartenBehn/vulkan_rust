@@ -288,7 +288,8 @@ impl Ship {
 
                 let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
 
-                if node_id.contains(&self.wave[req_index].possible_pattern[0].id) {
+                let index = self.wave[req_index].possible_pattern[0].id.index;
+                if node_id.contains(&index) {
                     continue;
                 }
 

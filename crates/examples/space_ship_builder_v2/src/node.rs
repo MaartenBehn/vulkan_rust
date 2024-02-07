@@ -63,7 +63,7 @@ pub struct Block {
 pub struct Pattern {
     pub prio: usize,
     pub id: NodeID,
-    pub req: HashMap<IVec3, Vec<NodeID>>,
+    pub req: HashMap<IVec3, Vec<NodeIndex>>,
 }
 
 impl NodeController {
@@ -81,10 +81,7 @@ impl NodeController {
 
     fn load_config(
         path: &str,
-    ) -> Result<(
-        Vec<Config>,
-        HashMap<String, (Vec<(IVec3, String, Rot)>, usize)>,
-    )> {
+    ) -> Result<(Vec<Config>, HashMap<String, (Vec<(IVec3, String)>, usize)>)> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let v: Value = serde_json::from_reader(reader)?;
@@ -127,17 +124,8 @@ impl NodeController {
                     .unwrap()
                     .iter()
                     .map(|v| v.as_str().unwrap());
-                let rot = complex["rot"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| Rot::from(v.as_u64().unwrap() as u8));
 
-                if xs.len() == ys.len()
-                    && ys.len() == zs.len()
-                    && zs.len() == names.len()
-                    && names.len() == rot.len()
-                {
+                if !(xs.len() == ys.len() && ys.len() == zs.len() && zs.len() == names.len()) {
                     log::error!("Config file complex pattern not same length!");
                 }
 
@@ -145,8 +133,7 @@ impl NodeController {
                     .zip(ys)
                     .zip(zs)
                     .zip(names)
-                    .zip(rot)
-                    .map(|((((x, y), z), name), rot)| (ivec3(x, y, z), name.to_owned(), rot))
+                    .map(|(((x, y), z), name)| (ivec3(x, y, z), name.to_owned()))
                     .collect();
 
                 (name.to_owned(), (req, prio))
@@ -159,7 +146,7 @@ impl NodeController {
     fn make_pattern(
         voxel_loader: &VoxelLoader,
         config_to_id: Vec<Config>,
-        complex_pattern: HashMap<String, (Vec<(IVec3, String, Rot)>, usize)>,
+        complex_pattern: HashMap<String, (Vec<(IVec3, String)>, usize)>,
     ) -> Result<[Vec<Pattern>; 256]> {
         let mut patterns = std::array::from_fn(|_| Vec::new());
         patterns[0] = vec![Pattern::new(NodeID::none(), HashMap::new(), 0)];
@@ -187,10 +174,9 @@ impl NodeController {
             for (c, rot) in possibilities.into_iter() {
                 let p_reqs: Vec<_> = reqs
                     .iter()
-                    .map(|(pos, name, p_rot)| {
+                    .map(|(pos, name)| {
                         let mat = Mat4::from_mat3(rot.into());
                         let pos1 = mat.transform_point3(pos.as_vec3());
-                        let rot1 = rot.mul(*p_rot);
                         let node_index = voxel_loader
                             .pattern
                             .iter()
@@ -203,7 +189,7 @@ impl NodeController {
                             })
                             .unwrap_or_default();
 
-                        (pos1.as_ivec3(), NodeID::new(node_index, rot1))
+                        (pos1.as_ivec3(), node_index)
                     })
                     .collect();
 
@@ -324,7 +310,7 @@ impl Block {
 }
 
 impl Pattern {
-    pub fn new(node_id: NodeID, req: HashMap<IVec3, Vec<NodeID>>, prio: usize) -> Self {
+    pub fn new(node_id: NodeID, req: HashMap<IVec3, Vec<NodeIndex>>, prio: usize) -> Self {
         Pattern {
             id: node_id,
             req: req,

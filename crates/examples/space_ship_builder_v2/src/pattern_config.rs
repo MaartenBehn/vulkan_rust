@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use app::glam::{BVec3, Mat3, Mat4, Vec3};
+use app::glam::{vec3, BVec3, Mat3, Mat4, Vec3};
 
 use crate::rotation::Rot;
 
@@ -19,23 +19,10 @@ impl Config {
                     for rot_x in rots {
                         for rot_y in rots {
                             for rot_z in rots {
-                                let flip_mat = Mat4::from_scale(Vec3::new(
-                                    if flip_x { -1.0 } else { 1.0 },
-                                    if flip_y { -1.0 } else { 1.0 },
-                                    if flip_z { -1.0 } else { 1.0 },
-                                ));
-                                let rot_x_mat = Mat4::from_rotation_x(rot_x);
-                                let rot_y_mat = Mat4::from_rotation_y(rot_y);
-                                let rot_z_mat = Mat4::from_rotation_z(rot_z);
-                                let trans_mat = rot_x_mat
-                                    .mul_mat4(&rot_y_mat)
-                                    .mul_mat4(&rot_z_mat)
-                                    .mul_mat4(&flip_mat);
-
-                                let mat = trans_mat.mul_mat4(&Mat4::from_mat3(base_rot.into()));
-                                let rot: Rot = Mat3::from_mat4(mat).into();
-
                                 let flip = BVec3::new(flip_x, flip_y, flip_z);
+                                let rot: Rot =
+                                    base_rot.get_permutation(flip, vec3(rot_x, rot_y, rot_z));
+
                                 let mut config = self.rotate_x(rot_x);
                                 config = config.rotate_y(rot_y);
                                 config = config.rotate_z(rot_z);
