@@ -272,10 +272,11 @@ impl Ship {
         let mut wave = self.wave[wave_index].to_owned();
 
         let old_pattern = wave.possible_pattern.to_owned();
-        wave.possible_pattern = wave.all_possible_pattern.to_owned();
+        let mut pattern = wave.all_possible_pattern.to_owned();
+        let mut pattern_extended = wave.all_possible_pattern.to_owned();
 
-        for i in (0..wave.possible_pattern.len()).rev() {
-            let pattern = &wave.possible_pattern[i];
+        for i in (0..pattern.len()).rev() {
+            let pattern = &pattern[i];
             if pattern.req.is_empty() {
                 continue;
             }
@@ -285,14 +286,14 @@ impl Ship {
                 if !Self::pos_in_bounds(req_pos, self.wave_size) {
                     continue;
                 }
-
                 let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
 
+                let 
                 if node_id.contains(&self.wave[req_index].possible_pattern[0].id) {
                     continue;
                 }
 
-                wave.possible_pattern.remove(i);
+                pattern.remove(i);
                 break;
             }
         }
@@ -354,3 +355,4 @@ impl Wave {
         }
     }
 }
+
