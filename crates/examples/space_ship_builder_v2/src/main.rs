@@ -12,6 +12,7 @@ use renderer::RenderBuffer;
 use crate::builder::Builder;
 use crate::node::NodeController;
 use crate::renderer::Renderer;
+use crate::rotation::Rot;
 use crate::ship::Ship;
 use crate::voxel_loader::VoxelLoader;
 
@@ -48,7 +49,7 @@ impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
-        // fastrand::seed(42);
+        Rot::print_rot_permutations();
 
         let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v2.vox".to_owned())?;
 
