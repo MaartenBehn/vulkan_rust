@@ -4,7 +4,7 @@
     [
         {
             "label": "build_debug",
-            "command": "sh scripts/build_debug.sh space_ship_builder_v2",
+            "command": "sh scripts/build_debug.sh space_ship_builder_v3",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -14,7 +14,17 @@
         },
         {
             "label": "build_release",
-            "command": "sh scripts/build_release.sh space_ship_builder_v2",
+            "command": "sh scripts/build_release.sh space_ship_builder_v3",
+            "type": "shell",
+            "options": {
+                "statusbar": {
+                    "hide" : true
+                }
+            },
+        },
+        {
+            "label": "build_config_debug",
+            "command": "sh scripts/build_debug.sh space_ship_builder_v3_config",
             "type": "shell",
             "options": {
                 "statusbar": {
@@ -24,22 +34,22 @@
         },
         {
             "label": "run_debug",
-            "command": "sh scripts/run_debug.sh space_ship_builder_v2",
+            "command": "sh scripts/run_debug.sh space_ship_builder_v3",
             "type": "shell",
         },
         {
             "label": "run_release",
-            "command": "sh scripts/run.sh space_ship_builder_v2",
+            "command": "sh scripts/run.sh space_ship_builder_v3",
             "type": "shell",
         },
         {
             "label": "profile",
-            "command": "sh scripts/profile.sh space_ship_builder_v2",
+            "command": "sh scripts/profile.sh space_ship_builder_v3",
             "type": "shell",
         },
         {
-            "label": "oct_builder",
-            "command": "sh scripts/run.sh space_ship_builder_v2",
+            "label": "config_builder",
+            "command": "sh scripts/run.sh space_ship_builder_v3_config",
             "type": "shell",
             "options": {
                 "statusbar": {

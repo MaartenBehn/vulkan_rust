@@ -24,7 +24,7 @@ layout(binding = 1) uniform RenderBuffer {
 
 
 // ----- Octtree Start --------
-#define OCTTREE_DEPTH 8
+#define OCTTREE_DEPTH 12
 #define PAGE_AMMOUNT 100
 
 #define PAGE_BITS 20

@@ -7,12 +7,10 @@ use app::glam::{vec2, vec3, Vec3};
 use app::vulkan::ash::vk::{self, Format, ImageUsageFlags};
 use app::vulkan::{gpu_allocator, CommandBuffer};
 use app::{log, App, BaseApp};
-use renderer::RenderBuffer;
 
 use crate::builder::Builder;
 use crate::node::NodeController;
 use crate::renderer::Renderer;
-use crate::rotation::Rot;
 use crate::ship::Ship;
 use crate::voxel_loader::VoxelLoader;
 
@@ -49,12 +47,12 @@ impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
-        Rot::print_rot_permutations();
+        //Rot::print_rot_permutations();
 
-        let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v2.vox".to_owned())?;
+        let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox".to_owned())?;
 
-        let node_controller =
-            NodeController::new(voxel_loader, "./assets/models/space_ship_config_v2.json")?;
+        let node_controller = NodeController::new(voxel_loader)?;
+
         let ship = Ship::new(context, &node_controller)?;
 
         let builder = Builder::new(context)?;

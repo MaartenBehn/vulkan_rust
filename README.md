@@ -16,6 +16,18 @@ A side repo where I try a bunch of different rendering technics and Ideas with v
 `sh scripts/run.sh gpu_particles` | `sh scripts/run.sh mandelbrot`
 ![Pic](assets/screenshots/particles.png)  |  ![Pic](assets/screenshots/mandelbrot.png)
 
+### Other
+- `sh scripts/run.sh space_ship_builder_v2`
+- `sh scripts/run.sh space_ship_builder`
+- `sh scripts/run.sh rt_reflections`
+- `sh scripts/run.sh rt_shadows`
+- `sh scripts/run.sh comp_mandelbulb`
+- `sh scripts/run.sh comp_mandelbrot`
+- `sh scripts/run.sh rt-tringle`
+- `sh scripts/run.sh tringle`
+
+
+
 
 
 ## Install
