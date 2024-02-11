@@ -51,7 +51,7 @@ impl Builder {
 
         Ok(Builder {
             state: STATE_ON,
-            current_block_index: 0,
+            current_block_index: 1,
 
             distance: 3.0,
 
@@ -70,11 +70,13 @@ impl Builder {
         if self.state == STATE_ON {
             self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
-            let pos = (camera.position + camera.direction * self.distance)
+            let pos = ((camera.position + camera.direction * self.distance) / 2.0)
                 .round()
-                .as_ivec3();
+                .as_ivec3()
+                * 2;
 
-            let (vertecies, indecies) = ShipMesh::get_node_mesh(NodeID::default(), pos, 0.5, false);
+            let (vertecies, indecies) =
+                ShipMesh::get_node_mesh(NodeID::new(0, Rot::default()), pos, 0.5, false);
 
             self.vertex_buffer
                 .copy_data_to_buffer(vertecies.as_slice())?;
@@ -84,7 +86,11 @@ impl Builder {
             let ship_node = ship.get_block_i(pos);
 
             if ship_node.is_ok() && controls.left {
-                ship.place_block(pos.as_uvec3(), self.current_block_index, node_controller)?;
+                ship.place_block(
+                    pos.as_uvec3() / 2,
+                    self.current_block_index,
+                    node_controller,
+                )?;
             }
 
             if controls.q {

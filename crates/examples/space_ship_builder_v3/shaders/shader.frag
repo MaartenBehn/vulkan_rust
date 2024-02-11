@@ -155,8 +155,9 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
     ivec3 cellPos = ivec3(0);
     uint voxelIndex = 0;
     uint voxel = 0;
+    ivec3 node_size_half = ivec3(NODE_SIZE / 2);
 
-    if (!checkHit(ray, vec3(0), 8, tMin, tMax)) {
+    if (!checkHit(ray, vec3(0), NODE_SIZE, tMin, tMax)) {
         return vec4(0);
     }
     ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);  
@@ -166,9 +167,9 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
     while (counter < MAX_STEPS) {
         voxelPos = ivec3(ray.pos) - ivec3(ray.pos.x < 0, ray.pos.y < 0, ray.pos.z < 0);
 
-        cellPos = voxelPos - ivec3(4, 4, 4);
+        cellPos = voxelPos - node_size_half;
         cellPos = applyRot(rot, cellPos);
-        cellPos += ivec3(4, 4, 4) - rot.offset;
+        cellPos += node_size_half - rot.offset;
 
         voxelIndex = TO_INDEX(cellPos);
         voxel = GET_VOXEL(node, voxelIndex);
@@ -185,7 +186,7 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
         ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);              
         rayLen += tMax; 
 
-        if (ray.pos.x < 0 || ray.pos.x >= 8 || ray.pos.y < 0 || ray.pos.y >= 8 || ray.pos.z < 0 || ray.pos.z >= 8){
+        if (ray.pos.x < 0 || ray.pos.x >= NODE_SIZE || ray.pos.y < 0 || ray.pos.y >= NODE_SIZE || ray.pos.z < 0 || ray.pos.z >= NODE_SIZE){
             return vec4(0);
         }
 

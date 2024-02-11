@@ -51,7 +51,7 @@ impl Ship {
 
         let max_block_index = (block_size.x * block_size.y * block_size.z) as usize;
         let max_wave_index = (wave_size.x * wave_size.y * wave_size.z) as usize;
-        let mesh = ShipMesh::new(context, max_wave_index + 1)?;
+        let mesh = ShipMesh::new(context, (max_wave_index + 1) * 8)?;
 
         let mut ship = Ship {
             block_size,
@@ -223,7 +223,7 @@ impl Ship {
                 .collect();
             for (i, block_pos) in block_poses {
                 let block_index = self.get_block(block_pos).unwrap();
-                indecies[i] = block_index;
+                indecies[7 - i] = block_index;
             }
             let block_config: BlockConfig = indecies.into();
             let config: Config = block_config.into();
@@ -283,7 +283,7 @@ impl Ship {
         let wave = self.wave[wave_index].to_owned();
 
         let old_pattern = wave.possible_pattern.to_owned();
-        let mut patterns = wave.all_possible_pattern.to_owned();
+        let patterns = wave.all_possible_pattern.to_owned();
 
         for i in (0..patterns.len()).rev() {
             let pattern = &patterns[i];
