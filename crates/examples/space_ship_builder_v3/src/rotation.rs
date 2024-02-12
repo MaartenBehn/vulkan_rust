@@ -105,6 +105,20 @@ impl Rot {
             .collect();
         log::info!("rot z: {} {}", r[0].0, r[1].0);
     }
+
+    pub fn from_magica(b: u8) -> Self {
+        let index_nz2 = b & 0b11;
+        let index_nz3 = (b >> 2) & 0b11;
+        let index_nz1 = 3 - index_nz2 - index_nz3;
+
+        let sign_nz1: u8 = b & (1 << 4);
+        let sign_nz2: u8 = b & (1 << 5);
+        let sign_nz3: u8 = b & (1 << 6);
+
+        let new_rot =
+            index_nz1 + (index_nz2 << 2) + (sign_nz1 << 4) + (sign_nz2 << 5) + (sign_nz3 << 6);
+        Rot(new_rot)
+    }
 }
 
 impl From<u8> for Rot {

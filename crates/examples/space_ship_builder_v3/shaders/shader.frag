@@ -221,6 +221,4 @@ void main() {
     } else {
         gl_FragDepth = gl_FragCoord.z;
     }
-
-    //finalColor = vec4(uv, 0.0, 1.0);
 }

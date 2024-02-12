@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use app::anyhow::{bail, Result};
-use app::glam::{ivec3, uvec3, IVec3, UVec3};
+use app::glam::{ivec3, uvec3, IVec3, Mat3, UVec3};
 use app::log::{self, debug};
 use dot_vox::{DotVoxData, Position, SceneNode};
 
@@ -138,6 +138,10 @@ impl VoxelLoader {
                 bail!("{} has not 8 children!", name)
             }
 
+            if name == "P_00000001" {
+                log::info!("Test")
+            }
+
             let mut node_ids = [NodeID::default(); 8];
             let mut block_indices = [0; 8];
 
@@ -151,13 +155,13 @@ impl VoxelLoader {
                         child: child_id,
                         layer_id: _,
                     } => {
-                        let pattern_name = if attributes.contains_key("_name") {
+                        let node_name = if attributes.contains_key("_name") {
                             attributes["_name"].to_owned()
                         } else {
                             bail!("Pattern Child has no name")
                         };
 
-                        let parts: Vec<_> = pattern_name.split("_").collect();
+                        let parts: Vec<_> = node_name.split("_").collect();
 
                         if parts.len() != 2 {
                             bail!("Pattern Child Name to short")
@@ -177,14 +181,14 @@ impl VoxelLoader {
                         let node_pos =
                             (pos.x > 0) as u8 + ((pos.y > 0) as u8) * 2 + ((pos.z > 0) as u8) * 4;
 
-                        let rot = frames[0]
+                        let mut rot = frames[0]
                             .attributes
                             .iter()
                             .find_map(|(key, val)| {
                                 if key == "_r" {
                                     let r = val.parse::<u8>();
                                     if r.is_ok() {
-                                        Some(r.unwrap().into())
+                                        Some(Rot::from_magica(r.unwrap()))
                                     } else {
                                         None
                                     }
@@ -208,6 +212,9 @@ impl VoxelLoader {
                             }
                             _ => bail!("Rule child is not Model!"),
                         };
+
+                        let mat3: Mat3 = rot.into();
+                        log::info!("{}", mat3);
 
                         let r = blocks
                             .iter()

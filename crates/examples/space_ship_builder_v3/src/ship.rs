@@ -336,7 +336,7 @@ impl Ship {
         let wave = self.wave[wave_index].to_owned();
 
         let old_pattern = wave.possible_pattern.to_owned();
-        let mut patterns = wave.possible_pattern.to_owned();
+        let patterns = wave.possible_pattern.to_owned();
 
         for i in (0..patterns.len()).rev() {
             let pattern = &patterns[i];
