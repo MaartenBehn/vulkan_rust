@@ -108,6 +108,7 @@ impl Rot {
     pub fn from_magica(b: u8) -> Self {
         let mut mat = Mat3::from_cols_array(&[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
 
+        /*
         let low_b = b & 15;
         if low_b == 8 {
             mat = Mat3::from_cols_array(&[1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0]);
@@ -120,6 +121,7 @@ impl Rot {
         if low_b == 1 {
             mat = Mat3::from_cols_array(&[-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0]);
         }
+        */
 
         Rot::from(mat) * Rot(b)
     }

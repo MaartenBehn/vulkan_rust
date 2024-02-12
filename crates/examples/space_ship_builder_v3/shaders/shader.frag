@@ -66,9 +66,7 @@ struct Ray{
 };
 
 struct Rot {
-    ivec3 a;
-    ivec3 b;
-    ivec3 c; 
+    mat4 mat;
     ivec3 offset;
 };
 
@@ -81,19 +79,17 @@ Rot getRot() {
     int row_2_sign = (oNodeId & (1 << 5)) == 0 ? 1 : -1;
     int row_3_sign = (oNodeId & (1 << 6)) == 0 ? 1 : -1;
 
-    Rot rot = Rot(ivec3(0), ivec3(0), ivec3(0), ivec3(row_1_sign == -1, row_2_sign == -1, row_3_sign == -1));
-    rot.a[index_nz1] = row_1_sign;
-    rot.b[index_nz2] = row_2_sign;
-    rot.c[index_nz3] = row_3_sign;
+    mat4 mat = mat4(0);
+    mat[index_nz1][0] = row_1_sign;
+    mat[index_nz2][1] = row_2_sign;
+    mat[index_nz3][2] = row_3_sign;
 
+    Rot rot = Rot(mat, ivec3(row_1_sign == -1, row_2_sign == -1, row_3_sign == -1));
     return rot;
 }
 
 ivec3 applyRot(Rot rot, ivec3 v) {
-    return ivec3(
-        rot.a.x * v.x + rot.a.y * v.y + rot.a.z * v.z, 
-        rot.b.x * v.x + rot.b.y * v.y + rot.b.z * v.z,
-        rot.c.x * v.x + rot.c.y * v.y + rot.c.z * v.z);     
+    return ivec3(rot.mat * vec4(v, 1.0));    
 }
 
 bool checkHit(in Ray ray, in vec3 nodePos, in uint size, out float tMin, out float tMax) {
