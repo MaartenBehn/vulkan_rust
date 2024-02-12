@@ -82,23 +82,8 @@ impl NodeController {
         let mut patterns = core::array::from_fn(|_| Vec::new());
 
         for pattern in voxel_loader.patterns.iter() {
-            if pattern.block_config
-                == BlockConfig::from([
-                    1,
-                    NODE_INDEX_NONE,
-                    NODE_INDEX_NONE,
-                    NODE_INDEX_NONE,
-                    NODE_INDEX_NONE,
-                    NODE_INDEX_NONE,
-                    NODE_INDEX_NONE,
-                    NODE_INDEX_NONE,
-                ])
-            {
-                log::info!("Test")
-            }
-
             let mut possibilities = pattern.block_config.get_possibilities(pattern.nodes);
-            possibilities = vec![(pattern.block_config, pattern.nodes)];
+            //possibilities = vec![(pattern.block_config, pattern.nodes)];
 
             for (bc, nodes) in possibilities.into_iter() {
                 let config: Config = bc.into();

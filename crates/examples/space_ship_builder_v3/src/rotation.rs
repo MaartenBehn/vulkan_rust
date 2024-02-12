@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use app::{
-    glam::{vec3, BVec3, Mat3, Mat4, Vec3},
+    glam::{ivec3, ivec4, vec3, vec4, BVec3, IVec3, Mat3, Mat4, Vec3},
     log,
 };
 
@@ -78,8 +78,8 @@ impl Rot {
             .mul_mat4(&rot_y_mat)
             .mul_mat4(&rot_z_mat)
             .mul_mat4(&flip_mat);
-
-        self * Mat3::from_mat4(trans_mat).into()
+        let trans_rot: Rot = Mat3::from_mat4(trans_mat).into();
+        trans_rot * self
     }
 
     pub fn print_rot_permutations() {
@@ -106,34 +106,22 @@ impl Rot {
     }
 
     pub fn from_magica(b: u8) -> Self {
-        let mat: Mat3 = Rot(b).into();
-        let mut rot_x = 0.0;
-        let mut rot_y = 0.0;
-        let mut rot_z = 0.0;
+        let mut mat = Mat3::from_cols_array(&[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
 
-        // https://www.geometrictools.com/Documentation/EulerAngles.pdf
-        if mat.z_axis.x < 1.0 {
-            if mat.z_axis.x > -1.0 {
-                rot_y = f32::asin(mat.z_axis.x);
-                rot_x = f32::atan2(-mat.z_axis.y, mat.z_axis.z);
-                rot_z = f32::atan2(-mat.x_axis.y, mat.x_axis.x);
-            } else {
-                // r 0 2 = −1
-                rot_y = -PI / 2.0;
-                rot_x = -f32::atan2(mat.x_axis.y, mat.y_axis.y);
-                rot_z = 0.0;
-            }
-        } else {
-            // r 0 2 = +1
-            rot_y = PI / 2.0;
-            rot_x = f32::atan2(mat.x_axis.y, mat.y_axis.y);
-            rot_z = 0.0;
+        let low_b = b & 15;
+        if low_b == 8 {
+            mat = Mat3::from_cols_array(&[1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0]);
         }
 
-        let new_rot = Rot::get_permutation(Rot::IDENTITY, BVec3::FALSE, vec3(rot_x, rot_y, rot_z));
-        let new_mat: Mat3 = new_rot.into();
-        log::info!("{}", new_mat);
-        new_rot
+        if low_b == 6 {
+            mat = Mat3::from_cols_array(&[-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]);
+        }
+
+        if low_b == 1 {
+            mat = Mat3::from_cols_array(&[-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0]);
+        }
+
+        Rot::from(mat) * Rot(b)
     }
 }
 

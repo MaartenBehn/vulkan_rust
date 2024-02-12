@@ -138,10 +138,6 @@ impl VoxelLoader {
                 bail!("{} has not 8 children!", name)
             }
 
-            if name == "P_00000001" {
-                log::info!("Test")
-            }
-
             let mut node_ids = [NodeID::default(); 8];
             let mut block_indices = [0; 8];
 
@@ -181,7 +177,7 @@ impl VoxelLoader {
                         let node_pos =
                             (pos.x > 0) as u8 + ((pos.y > 0) as u8) * 2 + ((pos.z > 0) as u8) * 4;
 
-                        let mut rot = frames[0]
+                        let rot = frames[0]
                             .attributes
                             .iter()
                             .find_map(|(key, val)| {
@@ -212,9 +208,6 @@ impl VoxelLoader {
                             }
                             _ => bail!("Rule child is not Model!"),
                         };
-
-                        let mat3: Mat3 = rot.into();
-                        log::info!("{}", mat3);
 
                         let r = blocks
                             .iter()
