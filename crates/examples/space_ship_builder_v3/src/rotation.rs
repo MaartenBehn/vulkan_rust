@@ -79,8 +79,7 @@ impl Rot {
             .mul_mat4(&rot_z_mat)
             .mul_mat4(&flip_mat);
 
-        let mat = trans_mat.mul_mat4(&Mat4::from_mat3(self.into()));
-        Mat3::from_mat4(mat).into()
+        self * Mat3::from_mat4(trans_mat).into()
     }
 
     pub fn print_rot_permutations() {
@@ -107,17 +106,34 @@ impl Rot {
     }
 
     pub fn from_magica(b: u8) -> Self {
-        let index_nz2 = b & 0b11;
-        let index_nz3 = (b >> 2) & 0b11;
-        let index_nz1 = 3 - index_nz2 - index_nz3;
+        let mat: Mat3 = Rot(b).into();
+        let mut rot_x = 0.0;
+        let mut rot_y = 0.0;
+        let mut rot_z = 0.0;
 
-        let sign_nz1: u8 = b & (1 << 4);
-        let sign_nz2: u8 = b & (1 << 5);
-        let sign_nz3: u8 = b & (1 << 6);
+        // https://www.geometrictools.com/Documentation/EulerAngles.pdf
+        if mat.z_axis.x < 1.0 {
+            if mat.z_axis.x > -1.0 {
+                rot_y = f32::asin(mat.z_axis.x);
+                rot_x = f32::atan2(-mat.z_axis.y, mat.z_axis.z);
+                rot_z = f32::atan2(-mat.x_axis.y, mat.x_axis.x);
+            } else {
+                // r 0 2 = −1
+                rot_y = -PI / 2.0;
+                rot_x = -f32::atan2(mat.x_axis.y, mat.y_axis.y);
+                rot_z = 0.0;
+            }
+        } else {
+            // r 0 2 = +1
+            rot_y = PI / 2.0;
+            rot_x = f32::atan2(mat.x_axis.y, mat.y_axis.y);
+            rot_z = 0.0;
+        }
 
-        let new_rot =
-            index_nz1 + (index_nz2 << 2) + (sign_nz1 << 4) + (sign_nz2 << 5) + (sign_nz3 << 6);
-        Rot(new_rot)
+        let new_rot = Rot::get_permutation(Rot::IDENTITY, BVec3::FALSE, vec3(rot_x, rot_y, rot_z));
+        let new_mat: Mat3 = new_rot.into();
+        log::info!("{}", new_mat);
+        new_rot
     }
 }
 

@@ -203,7 +203,7 @@ void main() {
     vec3 fwd = DIRECTION;
     vec3 up = vec3(0.,0.,1.);
     vec3 right = normalize(cross(up, fwd));
-    up = cross(fwd,right);
+    up = cross(fwd, right);
     vec3 rd = right * uv.x + up * uv.y + fwd;
     rd = normalize(rd);
 

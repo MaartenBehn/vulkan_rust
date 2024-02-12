@@ -97,7 +97,8 @@ impl NodeController {
                 log::info!("Test")
             }
 
-            let possibilities = pattern.block_config.get_possibilities(pattern.nodes);
+            let mut possibilities = pattern.block_config.get_possibilities(pattern.nodes);
+            possibilities = vec![(pattern.block_config, pattern.nodes)];
 
             for (bc, nodes) in possibilities.into_iter() {
                 let config: Config = bc.into();

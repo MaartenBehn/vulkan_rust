@@ -68,8 +68,8 @@ impl App for SpaceShipBuilder {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
-        camera.position = Vec3::new(5.0, -5.0, 5.0);
-        camera.direction = Vec3::new(0.0, 1.0, 0.0).normalize();
+        camera.position = Vec3::new(0.5, -2.0, 3.0);
+        camera.direction = Vec3::new(0.0, 1.0, -1.0).normalize();
         camera.speed = 2.0;
         camera.z_far = 100.0;
         camera.up = vec3(0.0, 0.0, 1.0);
