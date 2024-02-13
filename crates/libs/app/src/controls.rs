@@ -5,9 +5,10 @@ const W_SCANCODE: u32 = 17;
 const S_SCANCODE: u32 = 31;
 const D_SCANCODE: u32 = 32;
 const A_SCANCODE: u32 = 30;
+const Q_SCANCODE: u32 = 16;
+const E_SCANCODE: u32 = 18;
 const UP_SCANCODE: u32 = 57;
 const DOWN_SCANCODE: u32 = 29;
-const Q_SCANCODE: u32 = 16;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Controls {
@@ -19,7 +20,10 @@ pub struct Controls {
     pub down: bool,
     pub rigth: bool,
     pub left: bool,
+
     pub q: bool,
+    pub e: bool,
+
     pub cursor_delta: [f32; 2],
     pub scroll_delta: f32,
 }
@@ -35,7 +39,10 @@ impl Default for Controls {
             down: false,
             rigth: false,
             left: false,
+
             q: false,
+            e: false,
+            
             cursor_delta: [0.0; 2],
             scroll_delta: 0.0
         }
@@ -83,6 +90,9 @@ impl Controls {
                             new_state.down = *state == ElementState::Pressed;
                         }
                         if *scancode == Q_SCANCODE {
+                            new_state.q = *state == ElementState::Pressed;
+                        }
+                        if *scancode == E_SCANCODE {
                             new_state.q = *state == ElementState::Pressed;
                         }
                     }

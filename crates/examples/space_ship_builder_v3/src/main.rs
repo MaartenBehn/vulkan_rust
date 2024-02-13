@@ -27,12 +27,14 @@ pub mod voxel_loader;
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Space ship builder";
+const VOX_FILE_RELODE_INTERVALL: Duration = Duration::from_secs(1);
 
 fn main() -> Result<()> {
     app::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct SpaceShipBuilder {
     total_time: Duration,
+    last_vox_reloade: Duration,
 
     node_controller: NodeController,
     ship: Ship,
@@ -76,6 +78,7 @@ impl App for SpaceShipBuilder {
 
         Ok(Self {
             total_time: Duration::ZERO,
+            last_vox_reloade: Duration::ZERO,
 
             node_controller,
             ship,
@@ -103,6 +106,24 @@ impl App for SpaceShipBuilder {
         self.total_time += delta_time;
 
         self.camera.update(controls, delta_time);
+
+        if controls.q && self.last_vox_reloade + VOX_FILE_RELODE_INTERVALL < self.total_time {
+            self.last_vox_reloade = self.total_time;
+
+            log::info!("reloading .vox File");
+            let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox".to_owned())?;
+            self.node_controller.load(voxel_loader)?;
+            self.ship.on_node_controller_change(&self.node_controller)?;
+            self.renderer = Renderer::new(
+                &base.context,
+                &self.node_controller,
+                base.swapchain.images.len() as u32,
+                base.swapchain.format,
+                Format::D32_SFLOAT,
+                base.swapchain.extent,
+            )?;
+            log::info!(".vox File loaded");
+        }
 
         self.ship.tick(delta_time)?;
 

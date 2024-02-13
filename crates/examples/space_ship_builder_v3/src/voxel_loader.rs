@@ -133,6 +133,7 @@ impl VoxelLoader {
         blocks.push(Block::new("Other6".to_owned()));
         blocks.push(Block::new("Other7".to_owned()));
 
+        let mut print_rot = true;
         for (name, children_ids) in pattern_children_ids.into_iter() {
             if children_ids.len() != 8 {
                 bail!("{} has not 8 children!", name)
@@ -184,6 +185,11 @@ impl VoxelLoader {
                                 if key == "_r" {
                                     let r = val.parse::<u8>();
                                     if r.is_ok() {
+                                        if print_rot {
+                                            log::info!("Rot: {}", r.clone().unwrap());
+                                            print_rot = false;
+                                        }
+
                                         Some(Rot::from_magica(r.unwrap()))
                                     } else {
                                         None

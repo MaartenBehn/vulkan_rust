@@ -419,6 +419,33 @@ impl Ship {
             }
         }
     }
+
+    pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
+        while !self.to_propergate.is_empty() {
+            self.to_collapse.pop_front();
+        }
+
+        while !self.to_collapse.is_empty() {
+            self.to_collapse.pop_front();
+        }
+
+        let max_wave_index = (self.wave_size.x * self.wave_size.y * self.wave_size.z) as usize;
+        for i in 0..max_wave_index {
+            self.wave[i].possible_pattern = node_controller.patterns[0].to_owned();
+            self.wave[i].all_possible_pattern = node_controller.patterns[0].to_owned();
+        }
+
+        for x in 0..self.block_size.x {
+            for y in 0..self.block_size.y {
+                for z in 0..self.block_size.z {
+                    let pos = uvec3(x, y, z);
+                    self.update_wave(pos, node_controller);
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Wave {

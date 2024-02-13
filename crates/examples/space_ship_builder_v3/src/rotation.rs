@@ -188,12 +188,64 @@ impl Rot {
 
     pub fn from_magica(b: u8) -> Self {
         let mut map = HashMap::new();
+        // x rot
         map.insert(17, 33);
         map.insert(33, 17);
-        
-        // TODO Remapping all the wierd magica voxel rotations.
 
-        Rot(b)
+        // y rot
+        map.insert(40, 72);
+        map.insert(72, 40);
+
+        // z rot
+        map.insert(22, 70);
+        map.insert(70, 22);
+
+        // x flip rot
+        map.insert(56, 88);
+        map.insert(88, 56);
+
+        // y flip rot
+        map.insert(56, 88);
+        map.insert(88, 56);
+
+        // z flip rot
+        map.insert(54, 102);
+        map.insert(102, 54);
+
+        // x y rot
+        map.insert(82, 105);
+        map.insert(105, 82);
+
+        // x z rot
+        map.insert(2, 9);
+        map.insert(9, 2);
+
+        // y z rot
+        map.insert(41, 66);
+        map.insert(66, 41);
+
+        map.insert(121, 114);
+        map.insert(114, 121);
+
+        map.insert(98, 57);
+        map.insert(57, 98);
+
+        map.insert(50, 89);
+        map.insert(89, 50);
+
+        map.insert(81, 97);
+        map.insert(97, 81);
+
+        map.insert(73, 18);
+        map.insert(18, 73);
+
+        let rot = if map.contains_key(&b) {
+            Rot(map[&b])
+        } else {
+            Rot(b)
+        };
+
+        rot
     }
 }
 

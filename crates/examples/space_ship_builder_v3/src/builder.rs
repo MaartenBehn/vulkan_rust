@@ -93,12 +93,14 @@ impl Builder {
                 )?;
             }
 
+            /*
             if controls.q {
                 self.current_block_index += 1;
                 if self.current_block_index >= node_controller.blocks.len() {
                     self.current_block_index = 0;
                 }
             }
+            */
         }
 
         Ok(())

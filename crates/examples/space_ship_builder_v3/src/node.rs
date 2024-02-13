@@ -78,6 +78,17 @@ impl NodeController {
         })
     }
 
+    pub fn load(&mut self, voxel_loader: VoxelLoader) -> Result<()> {
+        let patterns = Self::make_patterns(&voxel_loader)?;
+
+        self.nodes = voxel_loader.nodes;
+        self.mats = voxel_loader.mats;
+        self.blocks = voxel_loader.blocks;
+        self.patterns = patterns;
+
+        Ok(())
+    }
+
     fn make_patterns(voxel_loader: &VoxelLoader) -> Result<[Vec<Pattern>; 256]> {
         let mut patterns = core::array::from_fn(|_| Vec::new());
 
