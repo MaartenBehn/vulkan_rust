@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use app::{
-    glam::{ivec3, ivec4, vec3, vec4, BVec3, IVec3, Mat3, Mat4, Vec3},
+    glam::{ivec3, ivec4, vec3, vec4, BVec3, IVec3, Mat3, Mat4, Quat, Vec3},
     log,
 };
 
@@ -39,6 +39,88 @@ pub struct Rot(u8);
 impl Rot {
     pub const IDENTITY: Self = Rot(0b0000100);
 
+    /// Decompose the Signed Permutation Matrix into a rotation component, represented by a Quaternion,
+    /// and a flip component, represented by a Vec3 which is either Vec3::ONE or -Vec3::ONE.
+    pub fn to_quat_scale(&self) -> (Quat, Vec3) {
+        let index_nz1 = self.0 & 0b11;
+        let index_nz2 = (self.0 >> 2) & 0b11;
+        let flip = (self.0 >> 4) as usize;
+
+        let si = [1.0, 1.0, 1.0]; // scale_identity
+        let sf = [-1.0, -1.0, -1.0]; // scale_flip
+        const SQRT_2_2: f32 = std::f32::consts::SQRT_2 / 2.0;
+        match (index_nz1, index_nz2) {
+            (0, 1) => {
+                let quats = [
+                    [0.0, 0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0, 0.0],
+                ];
+                let mapping = [0, 3, 2, 1, 1, 2, 3, 0];
+                let scales = [si, sf, sf, si, sf, si, si, sf];
+                (Quat::from_array(quats[mapping[flip]]), scales[flip].into())
+            }
+            (0, 2) => {
+                let quats = [
+                    [0.0, SQRT_2_2, SQRT_2_2, 0.0],
+                    [SQRT_2_2, 0.0, 0.0, SQRT_2_2],
+                    [SQRT_2_2, 0.0, 0.0, -SQRT_2_2],
+                    [0.0, SQRT_2_2, -SQRT_2_2, 0.0],
+                ];
+                let mapping = [3, 0, 1, 2, 2, 1, 0, 3];
+                let scales = [sf, si, si, sf, si, sf, sf, si];
+                (Quat::from_array(quats[mapping[flip]]), scales[flip].into())
+            }
+            (1, 2) => {
+                let quats = [
+                    [0.5, 0.5, 0.5, -0.5],
+                    [0.5, -0.5, 0.5, 0.5],
+                    [0.5, -0.5, -0.5, -0.5],
+                    [0.5, 0.5, -0.5, 0.5],
+                ];
+                let mapping = [0, 3, 2, 1, 1, 2, 3, 0];
+                let scales = [si, sf, sf, si, sf, si, si, sf];
+                (Quat::from_array(quats[mapping[flip]]), scales[flip].into())
+            }
+            (1, 0) => {
+                let quats = [
+                    [0.0, 0.0, SQRT_2_2, SQRT_2_2],
+                    [0.0, 0.0, SQRT_2_2, -SQRT_2_2],
+                    [SQRT_2_2, SQRT_2_2, 0.0, 0.0],
+                    [SQRT_2_2, -SQRT_2_2, 0.0, 0.0],
+                ];
+                let mapping = [3, 0, 1, 2, 2, 1, 0, 3];
+                let scales = [sf, si, si, sf, si, sf, sf, si];
+
+                (Quat::from_array(quats[mapping[flip]]), scales[flip].into())
+            }
+            (2, 0) => {
+                let quats = [
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.5, -0.5, -0.5, 0.5],
+                    [0.5, 0.5, -0.5, -0.5],
+                    [0.5, -0.5, 0.5, -0.5],
+                ];
+                let mapping = [0, 3, 2, 1, 1, 2, 3, 0];
+                let scales = [si, sf, sf, si, sf, si, si, sf];
+                (Quat::from_array(quats[mapping[flip]]), scales[flip].into())
+            }
+            (2, 1) => {
+                let quats = [
+                    [0.0, SQRT_2_2, 0.0, -SQRT_2_2],
+                    [SQRT_2_2, 0.0, SQRT_2_2, 0.0],
+                    [0.0, SQRT_2_2, 0.0, SQRT_2_2],
+                    [SQRT_2_2, 0.0, -SQRT_2_2, 0.0],
+                ];
+                let mapping = [3, 0, 1, 2, 2, 1, 0, 3];
+                let scales = [sf, si, si, sf, si, sf, sf, si];
+                (Quat::from_array(quats[mapping[flip]]), scales[flip].into())
+            }
+            _ => unreachable!(),
+        }
+    }
+
     pub fn flip(self, axis: BVec3) -> Self {
         let index_nz1 = self.0 & 0b11;
         let index_nz2 = (self.0 >> 2) & 0b11;
@@ -66,19 +148,18 @@ impl Rot {
     }
 
     pub fn get_permutation(self, flip: BVec3, r: Vec3) -> Rot {
-        let flip_mat = Mat4::from_scale(Vec3::new(
+        let scale = Vec3::new(
             if flip.x { -1.0 } else { 1.0 },
             if flip.y { -1.0 } else { 1.0 },
             if flip.z { -1.0 } else { 1.0 },
-        ));
-        let rot_x_mat = Mat4::from_rotation_x(r.x);
-        let rot_y_mat = Mat4::from_rotation_y(r.y);
-        let rot_z_mat = Mat4::from_rotation_z(r.z);
-        let trans_mat = rot_x_mat
-            .mul_mat4(&rot_y_mat)
-            .mul_mat4(&rot_z_mat)
-            .mul_mat4(&flip_mat);
-        let trans_rot: Rot = Mat3::from_mat4(trans_mat).into();
+        );
+        let quat = Quat::from_euler(app::glam::EulerRot::XYZ, r.x, r.y, r.z);
+        let trans_rot: Rot = Mat3::from_mat4(Mat4::from_scale_rotation_translation(
+            scale,
+            quat,
+            Vec3::ZERO,
+        ))
+        .into();
         trans_rot * self
     }
 
@@ -106,24 +187,14 @@ impl Rot {
     }
 
     pub fn from_magica(b: u8) -> Self {
-        let mut mat = Mat3::from_cols_array(&[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+        let rot = Rot(b);
+        let mat = rot.into();
+        let (scale, quat, pos) = Mat4::to_scale_rotation_translation(&Mat4::from_mat3(mat));
+        let new_quat = Quat::from_xyzw(quat.x, quat.y, quat.z, quat.w);
+        let new_mat = Mat4::from_scale_rotation_translation(scale, new_quat, Vec3::ZERO);
+        let new_rot: Rot = Mat3::from_mat4(new_mat).into();
 
-        /*
-        let low_b = b & 15;
-        if low_b == 8 {
-            mat = Mat3::from_cols_array(&[1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0]);
-        }
-
-        if low_b == 6 {
-            mat = Mat3::from_cols_array(&[-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]);
-        }
-
-        if low_b == 1 {
-            mat = Mat3::from_cols_array(&[-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0]);
-        }
-        */
-
-        Rot::from(mat) * Rot(b)
+        rot
     }
 }
 
@@ -141,6 +212,10 @@ impl From<u8> for Rot {
 
 impl From<Mat3> for Rot {
     fn from(mat: Mat3) -> Self {
+        if mat.is_nan() {
+            return Rot::IDENTITY;
+        }
+
         let index_nz1 =
             (mat.y_axis.x.round() != 0.0) as u8 + (mat.z_axis.x.round() != 0.0) as u8 * 2;
         let index_nz2 =
