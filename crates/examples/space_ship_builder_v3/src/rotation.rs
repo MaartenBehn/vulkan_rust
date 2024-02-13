@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{collections::HashMap, f32::consts::PI};
 
 use app::{
     glam::{ivec3, ivec4, vec3, vec4, BVec3, IVec3, Mat3, Mat4, Quat, Vec3},
@@ -187,14 +187,13 @@ impl Rot {
     }
 
     pub fn from_magica(b: u8) -> Self {
-        let rot = Rot(b);
-        let mat = rot.into();
-        let (scale, quat, pos) = Mat4::to_scale_rotation_translation(&Mat4::from_mat3(mat));
-        let new_quat = Quat::from_xyzw(quat.x, quat.y, quat.z, quat.w);
-        let new_mat = Mat4::from_scale_rotation_translation(scale, new_quat, Vec3::ZERO);
-        let new_rot: Rot = Mat3::from_mat4(new_mat).into();
+        let mut map = HashMap::new();
+        map.insert(17, 33);
+        map.insert(33, 17);
+        
+        // TODO Remapping all the wierd magica voxel rotations.
 
-        rot
+        Rot(b)
     }
 }
 
