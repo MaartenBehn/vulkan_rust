@@ -1,14 +1,4 @@
-use winit::event::{Event, WindowEvent, KeyboardInput, ElementState, MouseButton, DeviceEvent};
-
-
-const W_SCANCODE: u32 = 17;
-const S_SCANCODE: u32 = 31;
-const D_SCANCODE: u32 = 32;
-const A_SCANCODE: u32 = 30;
-const Q_SCANCODE: u32 = 16;
-const E_SCANCODE: u32 = 18;
-const UP_SCANCODE: u32 = 57;
-const DOWN_SCANCODE: u32 = 29;
+use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Controls {
@@ -23,6 +13,8 @@ pub struct Controls {
 
     pub q: bool,
     pub e: bool,
+    pub r: bool, 
+    pub t: bool,
 
     pub cursor_delta: [f32; 2],
     pub scroll_delta: f32,
@@ -42,6 +34,8 @@ impl Default for Controls {
 
             q: false,
             e: false,
+            r: false,
+            t: false,
             
             cursor_delta: [0.0; 2],
             scroll_delta: 0.0
@@ -67,34 +61,30 @@ impl Controls {
                     WindowEvent::KeyboardInput {
                         input:
                             KeyboardInput {
-                                scancode, state, ..
+                                state, virtual_keycode, ..
                             },
                         ..
                     } => {
-                        if *scancode == W_SCANCODE {
-                            new_state.w = *state == ElementState::Pressed;
-                        }
-                        if *scancode == S_SCANCODE {
-                            new_state.s = *state == ElementState::Pressed;
-                        }
-                        if *scancode == D_SCANCODE {
-                            new_state.d = *state == ElementState::Pressed;
-                        }
-                        if *scancode == A_SCANCODE {
-                            new_state.a = *state == ElementState::Pressed;
-                        }
-                        if *scancode == UP_SCANCODE {
-                            new_state.up = *state == ElementState::Pressed;
-                        }
-                        if *scancode == DOWN_SCANCODE {
-                            new_state.down = *state == ElementState::Pressed;
-                        }
-                        if *scancode == Q_SCANCODE {
-                            new_state.q = *state == ElementState::Pressed;
-                        }
-                        if *scancode == E_SCANCODE {
-                            new_state.q = *state == ElementState::Pressed;
-                        }
+                        if virtual_keycode.is_some() {
+                            match virtual_keycode.unwrap() {
+                                VirtualKeyCode::W => { new_state.w = *state == ElementState::Pressed; },
+                                VirtualKeyCode::S => { new_state.s = *state == ElementState::Pressed; },
+                                VirtualKeyCode::A => { new_state.a = *state == ElementState::Pressed; },
+                                VirtualKeyCode::D => { new_state.d = *state == ElementState::Pressed; },
+
+                                VirtualKeyCode::Up => { new_state.up = *state == ElementState::Pressed; },
+                                VirtualKeyCode::Down => { new_state.down = *state == ElementState::Pressed; },
+                                VirtualKeyCode::Left => { new_state.left = *state == ElementState::Pressed; },
+                                VirtualKeyCode::Right => { new_state.rigth = *state == ElementState::Pressed; },
+
+                                VirtualKeyCode::Q => { new_state.q = *state == ElementState::Pressed; },
+                                VirtualKeyCode::E => { new_state.e = *state == ElementState::Pressed; },
+                                VirtualKeyCode::R => { new_state.r = *state == ElementState::Pressed; },
+                                VirtualKeyCode::T => { new_state.t = *state == ElementState::Pressed; },
+                                _ => {}
+                            }
+                            
+                        } 
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
                         if *button == MouseButton::Right {
