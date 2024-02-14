@@ -1,47 +1,61 @@
 #version 450
 
-layout(location = 0) in vec3 oUV;
-layout(location = 1) flat in uint oNodeId;
 
-layout(location = 0) out vec4 finalColor;
-
-layout(binding = 0) uniform RenderBuffer {
-  mat4 proj_mat;
-  mat4 view_mat;
-  vec3 dir;
-  vec2 size;
-} ubo;
-
-
+// General
+#define DEBUG_STEPS false
 #define NODE_SIZE 4
 #define MAX_STEPS 25
 #define RAY_POS_OFFSET 0.0001
 #define BORDER_SIZE 0.01
 
+
+// Out
+layout(location = 0) out vec4 finalColor;
+
+
+// UV input
+layout(location = 0) in vec3 oUV;
 #define POSITION oUV * NODE_SIZE
+
+
+// ID input
+layout(location = 1) flat in uint oNodeId;
 #define NODE_INDEX oNodeId >> 7
-#define DIRECTION ubo.dir
 
-#define DEBUG_STEPS false
 
+// Render buffer
+layout(binding = 0) uniform RenderBuffer {
+  mat4 proj_mat;
+  mat4 view_mat;
+  vec3 dir;
+  vec2 size;
+} renderbuffer;
+#define DIRECTION renderbuffer.dir
+
+// Voxels
 struct Node {
     uint voxels[(NODE_SIZE * NODE_SIZE * NODE_SIZE) / 4];
 };
 
-
-#define TO_INDEX(pos) ((pos.z * NODE_SIZE * NODE_SIZE) + (pos.y * NODE_SIZE) + pos.x)
-#define GET_VOXEL(node, index) (node.voxels[index / 4] >> ((index % 4) * 8)) & 255
-
 layout(binding = 1) buffer Nodes {
     Node nodes[];
 } nodes;
+#define TO_INDEX(pos) ((pos.z * NODE_SIZE * NODE_SIZE) + (pos.y * NODE_SIZE) + pos.x)
+#define GET_VOXEL(node, index) (node.voxels[index / 4] >> ((index % 4) * 8)) & 255
 
 
-#define GET_MAT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
-
+// Materials 
 layout(binding = 2) buffer Mats {
     uint mats[];
 } mats;
+#define GET_MAT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
+
+
+// Ship type (Push constant)
+layout(push_constant, std430) uniform PushConstant {
+    uint ship_type;
+} push_constant;
+#define SHIP_TYPE push_constant.ship_type
 
 // Debugging
 vec3 getColorGradient(float x){
@@ -57,6 +71,7 @@ vec3 getColorGradient(float x){
     vec3 col = mix(mix(firstColor, middleColor, x/h), mix(middleColor, endColor, (x - h)/(1.0 - h)), step(h, x));
     return col;
 }
+
 
 // Render
 struct Ray{
@@ -175,7 +190,7 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
                 return vec4(getColorGradient(float(counter) / MAX_STEPS), 1.0);
             }
 
-           return voxelColor(ray, voxel);
+            return voxelColor(ray, voxel);
         }
 
         checkHit(ray, vec3(voxelPos), 1, tMin, tMax);                     
@@ -193,7 +208,7 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
 }
 
 void main() {
-    vec2 uv = -((2 * gl_FragCoord.xy - ubo.size.xy) / ubo.size.x);
+    vec2 uv = -((2 * gl_FragCoord.xy - renderbuffer.size.xy) / renderbuffer.size.x);
 
     vec3 ro = POSITION;
     vec3 fwd = DIRECTION;
@@ -209,6 +224,10 @@ void main() {
 
     float tMin, tMax;
     vec4 color = raycaster(ray, node, rot);
+
+    if (SHIP_TYPE == 1) {
+        color.w *= 0.5;
+    }
 
     finalColor = color;
 

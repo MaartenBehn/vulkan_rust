@@ -31,7 +31,7 @@ impl App for Triangle {
 
         let vertex_buffer = create_vertex_buffer(context)?;
 
-        let pipeline_layout = context.create_pipeline_layout(&[])?;
+        let pipeline_layout = context.create_pipeline_layout(&[], &[])?;
 
         let pipeline = create_pipeline(context, &pipeline_layout, base.swapchain.format)?;
 

@@ -1,16 +1,17 @@
-use std::collections::HashMap;
-
-use app::anyhow::{bail, Result};
-use app::glam::{ivec3, uvec3, IVec3, Mat3, UVec3};
-use app::log::{self, debug};
-use dot_vox::{DotVoxData, Position, SceneNode};
-
-use crate::math::to_1d;
-use crate::node::{
-    Block, Material, Node, NodeID, NodeIndex, Pattern, BLOCK_INDEX_NONE, NODE_SIZE,
-    NODE_VOXEL_LENGTH,
+use crate::{
+    math::to_1d,
+    node::{
+        Block, Material, Node, NodeID, Pattern, BLOCK_INDEX_NONE, NODE_SIZE, NODE_VOXEL_LENGTH,
+    },
+    rotation::Rot,
 };
-use crate::rotation::Rot;
+use app::{
+    anyhow::{bail, Result},
+    glam::uvec3,
+    log,
+};
+use dot_vox::{DotVoxData, SceneNode};
+use std::collections::HashMap;
 
 pub struct VoxelLoader {
     pub path: String,

@@ -1,29 +1,25 @@
+use crate::{
+    math::{to_1d, to_1d_i, to_3d},
+    node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_NONE},
+    pattern_config::{BlockConfig, Config},
+    ship_mesh::ShipMesh,
+};
+use app::{anyhow::*, glam::*, log, vulkan::Context};
+use index_queue::IndexQueue;
 use std::time::Duration;
 
-use app::anyhow::*;
-use app::glam::*;
-use app::log;
-use app::vulkan::Context;
-use index_queue::IndexQueue;
-
-use crate::math::to_1d;
-use crate::math::to_1d_i;
-use crate::math::to_3d;
-use crate::node::BlockIndex;
-use crate::node::NodeController;
-use crate::node::Pattern;
-use crate::node::BLOCK_INDEX_NONE;
-use crate::node::NODE_INDEX_NONE;
-use crate::pattern_config::BlockConfig;
-use crate::pattern_config::Config;
-use crate::ship_mesh::ShipMesh;
-
 pub type WaveIndex = usize;
+pub type ShipType = u32;
+
+pub const SHIP_TYPE_BASE: ShipType = 0;
+pub const SHIP_TYPE_BUILDER: ShipType = 1;
 
 pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
 pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 
 pub struct Ship {
+    pub ship_type: ShipType,
+
     pub block_size: UVec3,
     pub wave_size: UVec3,
 
@@ -45,15 +41,19 @@ pub struct Wave {
 }
 
 impl Ship {
-    pub fn new(context: &Context, node_controller: &NodeController) -> Result<Ship> {
-        let block_size = uvec3(10, 10, 10);
+    pub fn new(
+        block_size: UVec3,
+        context: &Context,
+        node_controller: &NodeController,
+        ship_type: ShipType,
+    ) -> Result<Ship> {
         let wave_size = block_size + uvec3(1, 1, 1);
-
         let max_block_index = (block_size.x * block_size.y * block_size.z) as usize;
         let max_wave_index = (wave_size.x * wave_size.y * wave_size.z) as usize;
-        let mesh = ShipMesh::new(context, (max_wave_index + 1) * 8)?;
+        let mesh = ShipMesh::new(context, max_wave_index * 8)?;
 
         let mut ship = Ship {
+            ship_type,
             block_size,
             wave_size,
             blocks: vec![BLOCK_INDEX_NONE; max_block_index],
@@ -66,7 +66,7 @@ impl Ship {
             mesh,
         };
 
-        ship.place_block(uvec3(0, 0, 0), 1, node_controller)?;
+        //ship.place_block(uvec3(0, 0, 0), 1, node_controller)?;
         //ship.fill_all(0, node_controller)?;
 
         Ok(ship)
@@ -76,11 +76,11 @@ impl Ship {
         pos.cmpge(IVec3::ZERO).all() && pos.cmplt(size.as_ivec3()).all()
     }
 
-    pub fn get_block(&self, pos: UVec3) -> Result<BlockIndex> {
+    pub fn get_block(&self, pos: UVec3) -> Result<usize> {
         self.get_block_i(pos.as_ivec3())
     }
 
-    pub fn get_block_i(&self, pos: IVec3) -> Result<BlockIndex> {
+    pub fn get_block_i(&self, pos: IVec3) -> Result<usize> {
         if !Self::pos_in_bounds(pos, self.block_size) {
             bail!("Pos not in ship")
         }
@@ -129,7 +129,7 @@ impl Ship {
             return Ok(());
         }
 
-        log::info!("Place: {pos:?}");
+        //log::info!("Place: {pos:?}");
         self.blocks[cell_index] = block_index;
 
         self.update_wave(pos, node_controller);
@@ -443,6 +443,21 @@ impl Ship {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    pub fn clone_from(&mut self, other: &Ship) -> Result<()> {
+        debug_assert!(self.block_size == other.block_size);
+
+        self.blocks.clone_from(&other.blocks);
+        self.wave.clone_from(&other.wave);
+        self.to_propergate.clone_from(&other.to_propergate);
+        self.to_collapse.clone_from(&other.to_collapse);
+        self.actions_per_tick.clone_from(&other.actions_per_tick);
+        self.full_tick = other.full_tick;
+
+        self.mesh.update(self.wave_size, &self.wave)?;
 
         Ok(())
     }

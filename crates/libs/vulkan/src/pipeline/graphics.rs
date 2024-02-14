@@ -168,7 +168,6 @@ impl GraphicsPipeline {
             .dynamic_state(&dynamic_state_info)
             .layout(layout.inner)
             .depth_stencil_state(&depth_stencil_info)
-            //.render_pass(renderpass)
             .push_next(&mut rendering_info);
 
         let inner = unsafe {

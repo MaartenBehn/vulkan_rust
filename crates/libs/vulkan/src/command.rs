@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use core::slice;
+use std::{mem, sync::Arc};
 
 use anyhow::Result;
 use ash::vk::{self, IndexType};
@@ -180,6 +181,22 @@ impl CommandBuffer {
                 index_buffer.inner,
                 0,
                 IndexType::UINT32,
+            )
+        };
+    }
+
+    pub fn push_constant<T>(&self, layout: &PipelineLayout, stage_flags: vk::ShaderStageFlags, push_constant: &T) 
+        where T: Sized
+    {
+        unsafe {
+            let date = slice::from_raw_parts((push_constant as *const T) as *const u8, mem::size_of::<T>());
+
+            self.device.inner.cmd_push_constants(
+                self.inner,
+                layout.inner,
+                stage_flags,
+                0,
+                date
             )
         };
     }

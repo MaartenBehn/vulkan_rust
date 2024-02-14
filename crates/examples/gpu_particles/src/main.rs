@@ -115,7 +115,7 @@ impl App for Particles {
         ]);
 
         let compute_pipeline_layout =
-            context.create_pipeline_layout(&[&compute_descriptor_layout])?;
+            context.create_pipeline_layout(&[&compute_descriptor_layout], &[])?;
 
         let compute_pipeline = context.create_compute_pipeline(
             &compute_pipeline_layout,
@@ -158,7 +158,7 @@ impl App for Particles {
         }]);
 
         let graphics_pipeline_layout =
-            context.create_pipeline_layout(&[&graphics_descriptor_layout])?;
+            context.create_pipeline_layout(&[&graphics_descriptor_layout], &[])?;
 
         let graphics_pipeline =
             create_graphics_pipeline(context, &graphics_pipeline_layout, base.swapchain.format)?;

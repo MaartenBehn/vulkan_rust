@@ -665,7 +665,7 @@ fn create_pipeline(context: &Context, model: &Model) -> Result<PipelineRes> {
     let dynamic_dsl = context.create_descriptor_set_layout(&dynamic_layout_bindings)?;
     let dsls = [&static_dsl, &dynamic_dsl];
 
-    let pipeline_layout = context.create_pipeline_layout(&dsls)?;
+    let pipeline_layout = context.create_pipeline_layout(&dsls, &[])?;
 
     // Shaders
     let shaders_create_info = [

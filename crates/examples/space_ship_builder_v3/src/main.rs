@@ -1,18 +1,24 @@
 use std::time::Duration;
 
-use app::anyhow::Result;
-use app::camera::Camera;
-use app::controls::Controls;
-use app::glam::{vec2, vec3, Vec3};
-use app::vulkan::ash::vk::{self, Format, ImageUsageFlags};
-use app::vulkan::{gpu_allocator, CommandBuffer};
+use app::vulkan::{
+    ash::vk::{self, Format},
+    CommandBuffer,
+};
+use app::{
+    anyhow::Result,
+    camera::Camera,
+    controls::Controls,
+    glam::{uvec3, vec3, Vec3},
+};
 use app::{log, App, BaseApp};
 
-use crate::builder::Builder;
-use crate::node::NodeController;
-use crate::renderer::Renderer;
-use crate::ship::Ship;
-use crate::voxel_loader::VoxelLoader;
+use crate::{
+    builder::Builder,
+    node::NodeController,
+    renderer::Renderer,
+    ship::{Ship, SHIP_TYPE_BASE},
+    voxel_loader::VoxelLoader,
+};
 
 pub mod builder;
 pub mod math;
@@ -37,7 +43,6 @@ struct SpaceShipBuilder {
     last_vox_reloade: Duration,
 
     node_controller: NodeController,
-    ship: Ship,
     builder: Builder,
     renderer: Renderer,
     camera: Camera,
@@ -55,9 +60,11 @@ impl App for SpaceShipBuilder {
 
         let node_controller = NodeController::new(voxel_loader)?;
 
-        let ship = Ship::new(context, &node_controller)?;
+        let ship_size = uvec3(10, 10, 10);
+        let ship = Ship::new(ship_size, context, &node_controller, SHIP_TYPE_BASE)?;
 
-        let builder = Builder::new(context)?;
+        let builder = Builder::new(ship, context, &node_controller)?;
+
         let renderer = Renderer::new(
             context,
             &node_controller,
@@ -81,7 +88,6 @@ impl App for SpaceShipBuilder {
             last_vox_reloade: Duration::ZERO,
 
             node_controller,
-            ship,
             builder,
             renderer,
             camera,
@@ -113,7 +119,10 @@ impl App for SpaceShipBuilder {
             log::info!("reloading .vox File");
             let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox".to_owned())?;
             self.node_controller.load(voxel_loader)?;
-            self.ship.on_node_controller_change(&self.node_controller)?;
+
+            self.builder
+                .on_node_controller_change(&self.node_controller)?;
+
             self.renderer = Renderer::new(
                 &base.context,
                 &self.node_controller,
@@ -125,17 +134,15 @@ impl App for SpaceShipBuilder {
             log::info!(".vox File loaded");
         }
 
-        self.ship.tick(delta_time)?;
-
-        self.renderer
-            .on_update(&self.camera, base.swapchain.extent)?;
-
         self.builder.update(
             controls,
             &self.camera,
-            &mut self.ship,
             &self.node_controller,
+            delta_time,
+            self.total_time,
         )?;
+
+        self.renderer.update(&self.camera, base.swapchain.extent)?;
 
         Ok(())
     }
@@ -165,8 +172,7 @@ impl App for SpaceShipBuilder {
             &[&self.renderer.descriptor_sets[image_index]],
         );
 
-        self.ship.mesh.render(buffer);
-        self.builder.render(buffer);
+        self.renderer.render_builder(buffer, &self.builder);
 
         buffer.end_rendering();
 

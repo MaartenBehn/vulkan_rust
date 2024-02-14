@@ -1,21 +1,19 @@
-use std::mem::{align_of, size_of};
-
+use crate::{
+    math::to_3d,
+    node::NodeID,
+    renderer::{self, Vertex},
+    ship::Wave,
+};
 use app::{
     anyhow::Result,
-    glam::{ivec3, uvec3, vec3, vec4, BVec3, IVec3, UVec3, Vec3, Vec4},
+    glam::{uvec3, vec3, BVec3, IVec3, UVec3},
     log,
     vulkan::{
         ash::vk, gpu_allocator::MemoryLocation, utils::create_gpu_only_buffer_from_data, Buffer,
         CommandBuffer, Context,
     },
 };
-
-use crate::{
-    math::to_3d,
-    node::{BlockIndex, NodeController, NodeID, BLOCK_INDEX_NONE},
-    renderer::Vertex,
-    ship::Wave,
-};
+use std::mem::{align_of, size_of};
 
 pub struct ShipMesh {
     pub vertex_buffer: Buffer,
@@ -132,7 +130,7 @@ impl ShipMesh {
                 }
 
                 let pos = to_3d(i as u32, size) * 2 + to_3d(j as u32, uvec3(2, 2, 2));
-                let (mut v, _) = Self::get_node_mesh(*node_id, pos.as_ivec3(), 1.0, true);
+                let (mut v, _) = Self::get_node_mesh(*node_id, pos.as_ivec3(), true);
 
                 vertecies.append(&mut v);
                 self.index_counter += 36;
@@ -145,25 +143,11 @@ impl ShipMesh {
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer) {
-        buffer.bind_vertex_buffer(&self.vertex_buffer);
-        buffer.bind_index_buffer(&self.index_buffer);
-        buffer.draw_indexed(self.index_counter);
-    }
-
-    pub fn get_node_mesh(
-        node_id: NodeID,
-        offset: IVec3,
-        opacity: f32,
-        is_node: bool,
-    ) -> (Vec<Vertex>, Vec<u32>) {
+    pub fn get_node_mesh(node_id: NodeID, offset: IVec3, is_node: bool) -> (Vec<Vertex>, Vec<u32>) {
         let mut v_pos = offset.as_vec3();
         if is_node {
             v_pos -= vec3(1.5, 1.5, 1.5)
         }
-
-        let v = node_id.index as f32 / 20.0;
-        let color = vec4(v, v, v, opacity);
 
         let node_id_bits: u32 = node_id.into();
         let vertices = vec![

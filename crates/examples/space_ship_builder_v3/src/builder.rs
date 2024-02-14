@@ -1,62 +1,63 @@
-use std::mem::size_of;
-
-use app::{
-    anyhow::Result,
-    camera::Camera,
-    controls::Controls,
-    glam::IVec3,
-    log,
-    vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, CommandBuffer, Context},
-};
-
 use crate::{
-    node::{BlockIndex, NodeController, NodeID},
-    renderer::Vertex,
-    rotation::Rot,
-    ship::Ship,
-    ship_mesh::ShipMesh,
+    node::{BlockIndex, NodeController},
+    ship::{Ship, SHIP_TYPE_BASE, SHIP_TYPE_BUILDER},
 };
+use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, vulkan::Context};
+use std::{mem, ops::Index, time::Duration};
 
-const MAX_BUILDER_VERTECIES: usize = 8;
-const MAX_BUILDER_INDICES: usize = 36;
 const SCROLL_SPEED: f32 = 0.01;
+const PLACE_SPEED: Duration = Duration::from_secs(1);
 
-type BuilderState = u32;
-const STATE_OFF: BuilderState = 0;
-const STATE_ON: BuilderState = 1;
+enum BuilderState {
+    ON,
+    OFF,
+}
 
 pub struct Builder {
-    state: BuilderState,
-    current_block_index: BlockIndex,
+    pub base_ship: Ship,
+    pub build_ship: Ship,
 
+    state: BuilderState,
+
+    possible_blocks: Vec<BlockIndex>,
+    block_to_build: usize,
     distance: f32,
 
-    pub vertex_buffer: Buffer,
-    pub index_buffer: Buffer,
+    last_block_to_build: BlockIndex,
+    last_pos: Option<UVec3>,
+    last_action_time: Duration,
 }
 
 impl Builder {
-    pub fn new(context: &Context) -> Result<Builder> {
-        let vertex_buffer = context.create_buffer(
-            vk::BufferUsageFlags::VERTEX_BUFFER,
-            MemoryLocation::CpuToGpu,
-            (size_of::<Vertex>() * MAX_BUILDER_VERTECIES) as _,
-        )?;
-
-        let index_buffer = context.create_buffer(
-            vk::BufferUsageFlags::INDEX_BUFFER,
-            MemoryLocation::CpuToGpu,
-            (size_of::<Vertex>() * MAX_BUILDER_INDICES) as _,
-        )?;
+    pub fn new(ship: Ship, context: &Context, node_controller: &NodeController) -> Result<Builder> {
+        let mut possible_blocks = Vec::new();
+        possible_blocks.push(
+            node_controller
+                .blocks
+                .iter()
+                .position(|b| b.name == "Base")
+                .unwrap(),
+        );
+        possible_blocks.push(
+            node_controller
+                .blocks
+                .iter()
+                .position(|b| b.name == "Empty")
+                .unwrap(),
+        );
 
         Ok(Builder {
-            state: STATE_ON,
-            current_block_index: 1,
+            build_ship: Ship::new(ship.block_size, context, node_controller, SHIP_TYPE_BUILDER)?,
+            base_ship: ship,
 
+            state: BuilderState::ON,
+            block_to_build: 0,
+            possible_blocks,
             distance: 3.0,
 
-            vertex_buffer,
-            index_buffer,
+            last_block_to_build: 0,
+            last_pos: None,
+            last_action_time: Duration::ZERO,
         })
     }
 
@@ -64,49 +65,77 @@ impl Builder {
         &mut self,
         controls: &Controls,
         camera: &Camera,
-        ship: &mut Ship,
         node_controller: &NodeController,
+        delta_time: Duration,
+        total_time: Duration,
     ) -> Result<()> {
-        if self.state == STATE_ON {
-            self.distance -= controls.scroll_delta * SCROLL_SPEED;
+        match self.state {
+            BuilderState::ON => {
+                if controls.e && (self.last_action_time + PLACE_SPEED) < total_time {
+                    self.last_action_time = total_time;
 
-            let pos = ((camera.position + camera.direction * self.distance) / 2.0)
-                .round()
-                .as_ivec3()
-                * 2;
-
-            let (vertecies, indecies) =
-                ShipMesh::get_node_mesh(NodeID::new(0, Rot::default()), pos, 0.5, false);
-
-            self.vertex_buffer
-                .copy_data_to_buffer(vertecies.as_slice())?;
-
-            self.index_buffer.copy_data_to_buffer(indecies.as_slice())?;
-
-            let ship_node = ship.get_block_i(pos);
-
-            if ship_node.is_ok() && controls.left {
-                ship.place_block(
-                    pos.as_uvec3() / 2,
-                    self.current_block_index,
-                    node_controller,
-                )?;
-            }
-
-            if controls.e {
-                self.current_block_index += 1;
-                if self.current_block_index >= node_controller.blocks.len() {
-                    self.current_block_index = 0;
+                    self.block_to_build += 1;
+                    if self.block_to_build >= self.possible_blocks.len() {
+                        self.block_to_build = 0;
+                    }
                 }
+
+                self.distance -= controls.scroll_delta * SCROLL_SPEED;
+                let pos = ((camera.position + camera.direction * self.distance) / 2.0)
+                    .round()
+                    .as_ivec3()
+                    * 2;
+
+                // Get the index of the block that could be placed
+                let selected_block_index = self.base_ship.get_block_i(pos);
+                let selected_pos = if selected_block_index.is_ok() {
+                    Some(pos.as_uvec3())
+                } else {
+                    None
+                };
+
+                if self.last_pos != selected_pos || self.last_block_to_build != self.block_to_build
+                {
+                    self.last_pos = selected_pos;
+
+                    // Reset the build ship to the state of the current ship.
+                    self.build_ship.clone_from(&self.base_ship)?;
+
+                    // If block index is valid.
+                    if selected_pos.is_some() {
+                        // Simulate placement of the block to create preview in build_ship.
+                        self.build_ship.place_block(
+                            selected_pos.unwrap() / 2,
+                            self.possible_blocks[self.block_to_build],
+                            node_controller,
+                        )?;
+                    }
+                }
+                self.last_block_to_build = self.block_to_build;
+
+                if controls.left && (self.last_action_time + PLACE_SPEED) < total_time {
+                    mem::swap(&mut self.base_ship, &mut self.build_ship);
+                    self.base_ship.ship_type = SHIP_TYPE_BASE;
+                    self.build_ship.ship_type = SHIP_TYPE_BUILDER;
+                    self.last_block_to_build = usize::MAX;
+
+                    self.last_action_time = total_time;
+                }
+
+                self.build_ship.tick(delta_time)?;
             }
+            BuilderState::OFF => {}
         }
+
+        self.base_ship.tick(delta_time)?;
 
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer) {
-        buffer.bind_vertex_buffer(&self.vertex_buffer);
-        buffer.bind_index_buffer(&self.index_buffer);
-        buffer.draw_indexed(MAX_BUILDER_INDICES as u32);
+    pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
+        self.base_ship.on_node_controller_change(node_controller)?;
+        self.build_ship.on_node_controller_change(node_controller)?;
+
+        Ok(())
     }
 }

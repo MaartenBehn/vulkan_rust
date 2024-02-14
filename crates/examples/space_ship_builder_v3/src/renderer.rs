@@ -1,24 +1,25 @@
-use std::mem::size_of;
-
+use crate::{
+    builder::{self, Builder},
+    node::{Node, NodeController},
+    ship::{Ship, ShipType},
+    ship_mesh::{self, ShipMesh},
+};
 use app::{
     anyhow::Result,
-    camera::{self, Camera},
-    glam::{uvec4, vec2, BVec3, Mat4, UVec3, Vec2, Vec3, Vec4},
+    camera::Camera,
+    glam::{vec2, BVec3, Mat4, Vec2, Vec3},
     log,
     vulkan::{
-        ash::vk::{self, Extent2D, Format, ImageUsageFlags},
+        ash::vk::{self, ImageUsageFlags, PushConstantRange, ShaderStageFlags},
         gpu_allocator::{self, MemoryLocation},
+        push_constant::create_push_constant_range,
         utils::create_gpu_only_buffer_from_data,
-        Buffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
-        GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, Image, ImageView, PipelineLayout,
-        WriteDescriptorSet, WriteDescriptorSetKind,
+        Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
+        GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, Image, ImageView,
+        PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
     },
 };
-
-use crate::{
-    node::{Node, NodeController},
-    voxel_loader::{self, VoxelLoader},
-};
+use std::mem::size_of;
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -55,6 +56,13 @@ pub struct RenderBuffer {
     pub fill: u32,
     pub screen_size: Vec2,
     pub fill_1: [u32; 10],
+}
+
+#[derive(Clone, Copy)]
+#[allow(dead_code)]
+#[repr(C)]
+pub struct PushConstant {
+    pub ship_type: ShipType,
 }
 
 impl Renderer {
@@ -159,7 +167,11 @@ impl Renderer {
             descriptor_sets.push(render_descriptor_set);
         }
 
-        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout])?;
+        let push_constant_range =
+            create_push_constant_range(ShaderStageFlags::FRAGMENT, size_of::<PushConstant>());
+
+        let pipeline_layout =
+            context.create_pipeline_layout(&[&descriptor_layout], &[push_constant_range])?;
 
         let pipeline = context.create_graphics_pipeline::<Vertex>(
             &pipeline_layout,
@@ -220,7 +232,7 @@ impl Renderer {
         })
     }
 
-    pub fn on_update(&mut self, camera: &Camera, extent: vk::Extent2D) -> Result<()> {
+    pub fn update(&mut self, camera: &Camera, extent: vk::Extent2D) -> Result<()> {
         self.render_buffer.copy_data_to_buffer(&[RenderBuffer {
             proj_matrix: camera.projection_matrix(),
             view_matrix: camera.view_matrix(),
@@ -244,6 +256,24 @@ impl Renderer {
         self.depth_image_view = self.depth_image.create_image_view(true)?;
 
         Ok(())
+    }
+
+    pub fn render_builder(&self, buffer: &CommandBuffer, builder: &Builder) {
+        self.render_ship(buffer, &builder.base_ship);
+        self.render_ship(buffer, &builder.build_ship);
+    }
+
+    pub fn render_ship(&self, buffer: &CommandBuffer, ship: &Ship) {
+        buffer.bind_vertex_buffer(&ship.mesh.vertex_buffer);
+        buffer.bind_index_buffer(&ship.mesh.index_buffer);
+        buffer.push_constant(
+            &self.pipeline_layout,
+            ShaderStageFlags::FRAGMENT,
+            &PushConstant {
+                ship_type: ship.ship_type,
+            },
+        );
+        buffer.draw_indexed(ship.mesh.index_counter);
     }
 }
 

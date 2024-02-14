@@ -1,7 +1,7 @@
 use std::{collections::HashMap, f32::consts::PI};
 
 use app::{
-    glam::{ivec3, ivec4, vec3, vec4, BVec3, IVec3, Mat3, Mat4, Quat, Vec3},
+    glam::{vec3, BVec3, Mat3, Mat4, Quat, Vec3},
     log,
 };
 

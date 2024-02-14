@@ -155,7 +155,7 @@ impl Renderer {
             descriptor_sets.push(render_descriptor_set);
         }
 
-        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout])?;
+        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout], &[])?;
 
         let pipeline = context.create_graphics_pipeline::<Vertex>(
             &pipeline_layout,

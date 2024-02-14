@@ -20,6 +20,7 @@ mod surface;
 mod swapchain;
 mod sync;
 
+pub mod push_constant;
 pub mod utils;
 
 pub use buffer::*;

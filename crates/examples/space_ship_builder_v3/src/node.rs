@@ -1,26 +1,22 @@
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
-use std::mem::size_of;
-use std::ops::Mul;
-
-use app::anyhow::{anyhow, bail, ensure, Result};
-use app::glam::{ivec3, uvec3, IVec3, Mat3, Mat4, UVec3, Vec3};
-use app::log;
-use app::vulkan::ash::vk::ExtTransformFeedbackFn;
+use crate::{
+    pattern_config::{BlockConfig, Config},
+    rotation::Rot,
+    voxel_loader::VoxelLoader,
+};
+use app::{
+    anyhow::Result,
+    glam::{uvec3, IVec3, UVec3},
+    log,
+};
 use dot_vox::Color;
-use serde_json::Value;
-
-use crate::pattern_config::{BlockConfig, Config};
-use crate::voxel_loader;
-use crate::{rotation::Rot, voxel_loader::VoxelLoader};
+use std::collections::HashMap;
 
 pub type NodeIndex = usize;
 pub type BlockIndex = usize;
 pub type Voxel = u8;
 
 pub const NODE_INDEX_NONE: NodeIndex = NodeIndex::MAX;
-pub const BLOCK_INDEX_NONE: BlockIndex = BlockIndex::MAX;
+pub const BLOCK_INDEX_NONE: BlockIndex = 0;
 pub const VOXEL_EMPTY: Voxel = 0;
 
 pub const NODE_SIZE: UVec3 = uvec3(4, 4, 4);
@@ -93,7 +89,7 @@ impl NodeController {
         let mut patterns = core::array::from_fn(|_| Vec::new());
 
         for pattern in voxel_loader.patterns.iter() {
-            let mut possibilities = pattern.block_config.get_possibilities(pattern.nodes);
+            let possibilities = pattern.block_config.get_possibilities(pattern.nodes);
             //possibilities = vec![(pattern.block_config, pattern.nodes)];
 
             for (bc, nodes) in possibilities.into_iter() {
