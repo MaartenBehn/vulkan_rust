@@ -12,6 +12,7 @@ use app::{
 };
 use dot_vox::{DotVoxData, SceneNode};
 use std::collections::HashMap;
+use crate::node::{NODE_INDEX_NONE, NodeIndex};
 
 pub struct VoxelLoader {
     pub path: String,
@@ -32,7 +33,7 @@ impl VoxelLoader {
 
         let mats = Self::load_materials(&data)?;
         let nodes = Self::load_models(&data)?;
-        let (pattern, blocks) = Self::load_patterns(&data)?;
+        let (pattern, blocks) = Self::load_patterns_and_blocks(&data, &nodes)?;
 
         let voxel_loader = Self {
             path,
@@ -71,7 +72,7 @@ impl VoxelLoader {
         Ok(nodes)
     }
 
-    fn load_patterns(data: &DotVoxData) -> Result<(Vec<Pattern>, Vec<Block>)> {
+    fn load_patterns_and_blocks(data: &DotVoxData, nodes: &Vec<Node>) -> Result<(Vec<Pattern>, Vec<Block>)> {
         let root_children_ids = match &data.scenes[1] {
             SceneNode::Group {
                 attributes: _,
@@ -82,6 +83,7 @@ impl VoxelLoader {
             }
         };
 
+        let mut block_children_ids = Vec::new();
         let mut pattern_children_ids = Vec::new();
         for root_child_id in root_children_ids.into_iter() {
             let root_child = &data.scenes[root_child_id as usize];
@@ -101,19 +103,35 @@ impl VoxelLoader {
 
                     let parts: Vec<_> = pattern_name.split("_").collect();
 
-                    if parts.len() < 2 || parts[0] != "P" {
+                    if parts.len() < 2 {
                         continue;
                     }
 
-                    let child = &data.scenes[*child_id as usize];
-                    match child {
-                        SceneNode::Group {
-                            attributes: _,
-                            children,
-                        } => pattern_children_ids
-                            .push((pattern_name.to_owned(), children.to_owned())),
-                        _ => {
-                            unreachable!()
+                    if parts[0] == "B" {
+                        let block_name  = parts[1];
+
+                        let child = &data.scenes[*child_id as usize];
+                        match child {
+                            SceneNode::Group {
+                                attributes: _,
+                                children,
+                            } => block_children_ids
+                                .push((block_name.to_owned(), children.to_owned())),
+                            _ => {
+                                unreachable!()
+                            }
+                        }
+                    } else if parts[0] == "P" {
+                        let child = &data.scenes[*child_id as usize];
+                        match child {
+                            SceneNode::Group {
+                                attributes: _,
+                                children,
+                            } => pattern_children_ids
+                                .push((pattern_name.to_owned(), children.to_owned())),
+                            _ => {
+                                unreachable!()
+                            }
                         }
                     }
                 }
@@ -123,17 +141,86 @@ impl VoxelLoader {
             }
         }
 
-        let mut patterns = Vec::new();
-        let mut blocks: Vec<Block> = Vec::new();
-        blocks.push(Block::new("Empty".to_owned()));
-        blocks.push(Block::new("Base".to_owned()));
-        blocks.push(Block::new("Other2".to_owned()));
-        blocks.push(Block::new("Other3".to_owned()));
-        blocks.push(Block::new("Other4".to_owned()));
-        blocks.push(Block::new("Other5".to_owned()));
-        blocks.push(Block::new("Other6".to_owned()));
-        blocks.push(Block::new("Other7".to_owned()));
+        let mut blocks: Vec<Block> = vec![Block::default(); 9];
+        let general_blocks = ["Empty", "Base", "Other2", "Other3", "Other3", "Other4", "Other5", "Other6", "Other7"];
 
+        let mut found_nodes = vec![false; nodes.len()];
+        for (block_name, children_ids) in block_children_ids.into_iter() {
+
+            let mut general_node_indices = [NODE_INDEX_NONE, NODE_INDEX_NONE, NODE_INDEX_NONE, NODE_INDEX_NONE];
+            for child_id in children_ids.into_iter() {
+                let child = &data.scenes[child_id as usize];
+
+                match child {
+                    SceneNode::Transform {
+                        attributes,
+                        frames,
+                        child: child_id,
+                        layer_id: _,
+                    } => {
+                        let node_name = if attributes.contains_key("_name") {
+                            attributes["_name"].to_owned()
+                        } else {
+                            bail!("Block Child has no name")
+                        };
+
+                        let parts: Vec<_> = node_name.split("_").collect();
+
+                        if parts.len() != 2 {
+                            bail!("Block Child Name to short")
+                        }
+
+                        let r = parts[1].parse::<u32>();
+                        if r.is_err() {
+                            bail!("Block Child Name Number invalid")
+                        }
+
+                        let node_type = r.unwrap();
+                        if node_type == 0 || node_type > 4 {
+                            continue
+                        }
+
+                        let child = &data.scenes[*child_id as usize];
+                        let model_id = match child {
+                            SceneNode::Shape {
+                                attributes: _,
+                                models: m,
+                            } => {
+                                if m.is_empty() {
+                                    bail!("Rule child model list is empty!");
+                                }
+
+                                m[0].model_id
+                            }
+                            _ => bail!("Rule child is not Model!"),
+                        };
+
+                        general_node_indices[(node_type - 1) as usize] = model_id as NodeIndex;
+                        found_nodes[model_id as usize] = true;
+                    }
+                    _ => {
+                        bail!("Block Child is not Transform Node")
+                    }
+                };
+            }
+
+            let r = general_blocks.iter().position(|n| (**n) == block_name);
+            if r.is_some() {
+                blocks[r.unwrap()] = Block::new(block_name, general_node_indices);
+            } else {
+                blocks.push(Block::new(block_name, general_node_indices));
+            }
+        }
+
+        let mut double_error_nodes = Vec::new();
+        for (i, found_node) in found_nodes.into_iter().enumerate() {
+            if i != 0 && !found_node {
+                log::warn!("Node: {i} was not used in Blocks!");
+                double_error_nodes.push(i);
+            }
+        }
+
+        let mut patterns = Vec::new();
         let mut print_rot = true;
         for (name, children_ids) in pattern_children_ids.into_iter() {
             if children_ids.len() != 8 {
@@ -216,17 +303,21 @@ impl VoxelLoader {
                             _ => bail!("Rule child is not Model!"),
                         };
 
+                        let r = double_error_nodes.iter().find(|id| (**id) == model_id as usize);
+                        if r.is_some() {
+                            log::warn!("Double Node {model_id} in Pattern {name}");
+                        }
+
                         let r = blocks
                             .iter()
-                            .enumerate()
-                            .find(|(_, block)| (**block).name == parts[0]);
+                            .position(|block| block.name == parts[0]);
+
                         let block_index = if node_type == 0 {
                             BLOCK_INDEX_EMPTY
-                        } else if r.is_none() {
-                            blocks.push(Block::new(parts[0].to_owned()));
-                            blocks.len() - 1
+                        } else if r.is_some() {
+                            r.unwrap()
                         } else {
-                            r.unwrap().0
+                            bail!("Unknown Block in Pattern");
                         };
 
                         block_indices[node_pos as usize] = block_index;

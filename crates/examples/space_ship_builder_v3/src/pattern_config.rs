@@ -81,6 +81,14 @@ impl BlockConfig {
         self.0[0]
     }
 
+    pub fn get(self, i: usize) -> BlockIndex {
+        self.0[i]
+    }
+
+    pub fn set(&mut self, i: usize, v: BlockIndex) {
+        self.0[i] = v;
+    }
+
     pub fn get_possibilities(self, nodes: [NodeID; 8]) -> Vec<(BlockConfig, [NodeID; 8])> {
         let mut possibilities = Vec::new();
         let base_rot = Rot::default();

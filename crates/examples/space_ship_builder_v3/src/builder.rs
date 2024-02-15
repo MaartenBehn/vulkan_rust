@@ -42,6 +42,13 @@ impl Builder {
             node_controller
                 .blocks
                 .iter()
+                .position(|b| b.name == "Hull")
+                .unwrap(),
+        );
+        possible_blocks.push(
+            node_controller
+                .blocks
+                .iter()
                 .position(|b| b.name == "Empty")
                 .unwrap(),
         );

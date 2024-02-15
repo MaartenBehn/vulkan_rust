@@ -228,9 +228,13 @@ impl Ship {
 
             let mut indecies = [BLOCK_INDEX_EMPTY; 8];
             let mut general_indecies = [BLOCK_INDEX_EMPTY; 8];
-            let mut general_indecies_counter = 0;
+            let mut general_indecies_counter = 1;
             for (i, block_pos) in block_poses {
                 let block_index = self.get_block(block_pos).unwrap();
+
+                if block_index == BLOCK_INDEX_EMPTY {
+                    continue;
+                }
 
                 indecies[7 - i] = block_index;
 
@@ -260,22 +264,27 @@ impl Ship {
             let pattern: Vec<_> = node_controller.patterns[config_index]
                 .to_owned()
                 .into_iter()
-                .map_while(|p| {
+                .filter_map(|p| {
                     if p.block_config == block_config {
                         return Some(p);
                     }
                     if p.block_config == general_block_config {
-                        let mut new_p = p;
+                        let mut new_p = p.clone();
                         for (j, n) in p.nodes.iter().enumerate() {
-                            let block_node_pos = node_controller.blocks[general_indecies[j]]
+                            let r = node_controller.blocks[general_indecies[j]]
                                 .general_nodes
                                 .iter()
-                                .find(|tn| (**tn) == n.index)
-                                .unwrap()
-                                .to_owned();
+                                .position(|tn| (*tn) == n.index);
+
+                            let block_node_pos = if r.is_some() {
+                                r.unwrap()
+                            } else {
+                                continue;
+                            };
 
                             new_p.nodes[j].index =
                                 node_controller.blocks[indecies[j]].general_nodes[block_node_pos];
+                            new_p.block_config.set(j, block_config.get(j));
                         }
                         return Some(new_p);
                     }

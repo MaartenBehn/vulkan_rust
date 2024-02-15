@@ -195,8 +195,11 @@ impl From<&Color> for Material {
 }
 
 impl Block {
-    pub fn new(name: String) -> Self {
-        Block { name }
+    pub fn new(name: String, general_nodes: [NodeIndex; 4]) -> Self {
+        Block {
+            name,
+            general_nodes,
+        }
     }
 }
 
