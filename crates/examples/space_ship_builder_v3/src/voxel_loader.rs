@@ -1,7 +1,7 @@
 use crate::{
     math::to_1d,
     node::{
-        Block, Material, Node, NodeID, Pattern, BLOCK_INDEX_NONE, NODE_SIZE, NODE_VOXEL_LENGTH,
+        Block, Material, Node, NodeID, Pattern, BLOCK_INDEX_EMPTY, NODE_SIZE, NODE_VOXEL_LENGTH,
     },
     rotation::Rot,
 };
@@ -221,7 +221,7 @@ impl VoxelLoader {
                             .enumerate()
                             .find(|(_, block)| (**block).name == parts[0]);
                         let block_index = if node_type == 0 {
-                            BLOCK_INDEX_NONE
+                            BLOCK_INDEX_EMPTY
                         } else if r.is_none() {
                             blocks.push(Block::new(parts[0].to_owned()));
                             blocks.len() - 1

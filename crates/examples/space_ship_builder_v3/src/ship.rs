@@ -1,10 +1,15 @@
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
-    node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_NONE},
+    node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
     pattern_config::{BlockConfig, Config},
     ship_mesh::ShipMesh,
 };
-use app::{anyhow::*, glam::*, log, vulkan::Context};
+use app::{
+    anyhow::*,
+    glam::*,
+    log,
+    vulkan::{ash::extensions::khr::RayTracingMaintenance1, Context},
+};
 use index_queue::IndexQueue;
 use std::time::Duration;
 
@@ -56,7 +61,7 @@ impl Ship {
             ship_type,
             block_size,
             wave_size,
-            blocks: vec![BLOCK_INDEX_NONE; max_block_index],
+            blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
             wave: vec![Wave::new(node_controller); max_wave_index],
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
@@ -217,22 +222,66 @@ impl Ship {
         for wave_pos in Self::get_wave_poses_of_block_pos(pos.as_ivec3()) {
             let wave_index = to_1d(wave_pos, self.wave_size) as usize;
 
-            let mut indecies = [BLOCK_INDEX_NONE; 8];
             let block_poses: Vec<_> = self
                 .get_block_poses_of_wave_pos(wave_pos.as_ivec3())
                 .collect();
+
+            let mut indecies = [BLOCK_INDEX_EMPTY; 8];
+            let mut general_indecies = [BLOCK_INDEX_EMPTY; 8];
+            let mut general_indecies_counter = 0;
             for (i, block_pos) in block_poses {
                 let block_index = self.get_block(block_pos).unwrap();
+
                 indecies[7 - i] = block_index;
+
+                let mut general_block_index = general_indecies_counter;
+                for j in 0..i {
+                    if indecies[7 - j] == block_index {
+                        general_block_index = general_indecies[7 - j];
+                        break;
+                    }
+                }
+
+                general_indecies[7 - i] = general_block_index;
+
+                if general_block_index == general_indecies_counter {
+                    general_indecies_counter += 1;
+                }
             }
+
             let block_config: BlockConfig = indecies.into();
             let config: Config = block_config.into();
             let config_index: usize = config.into();
 
+            let general_block_config: BlockConfig = general_indecies.into();
+            let general_config: Config = general_block_config.into();
+            debug_assert_eq!(config, general_config);
+
             let pattern: Vec<_> = node_controller.patterns[config_index]
                 .to_owned()
                 .into_iter()
-                .filter(|p| p.block_config == block_config)
+                .map_while(|p| {
+                    if p.block_config == block_config {
+                        return Some(p);
+                    }
+                    if p.block_config == general_block_config {
+                        let mut new_p = p;
+                        for (j, n) in p.nodes.iter().enumerate() {
+                            let block_node_pos = node_controller.blocks[general_indecies[j]]
+                                .general_nodes
+                                .iter()
+                                .find(|tn| (**tn) == n.index)
+                                .unwrap()
+                                .to_owned();
+
+                            new_p.nodes[j].index =
+                                node_controller.blocks[indecies[j]].general_nodes[block_node_pos];
+                        }
+                        return Some(new_p);
+                    }
+
+                    None
+                })
                 .collect();
 
             let wave = &mut self.wave[wave_index];

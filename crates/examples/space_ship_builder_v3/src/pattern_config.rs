@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use app::glam::{vec3, BVec3};
 
 use crate::{
-    node::{BlockIndex, NodeID, BLOCK_INDEX_NONE},
+    node::{BlockIndex, NodeID, BLOCK_INDEX_EMPTY},
     rotation::Rot,
 };
 
@@ -254,14 +254,14 @@ impl Into<String> for BlockConfig {
 impl Into<Config> for BlockConfig {
     fn into(self) -> Config {
         let b = [
-            self.0[0] != BLOCK_INDEX_NONE,
-            self.0[1] != BLOCK_INDEX_NONE,
-            self.0[2] != BLOCK_INDEX_NONE,
-            self.0[3] != BLOCK_INDEX_NONE,
-            self.0[4] != BLOCK_INDEX_NONE,
-            self.0[5] != BLOCK_INDEX_NONE,
-            self.0[6] != BLOCK_INDEX_NONE,
-            self.0[7] != BLOCK_INDEX_NONE,
+            self.0[0] != BLOCK_INDEX_EMPTY,
+            self.0[1] != BLOCK_INDEX_EMPTY,
+            self.0[2] != BLOCK_INDEX_EMPTY,
+            self.0[3] != BLOCK_INDEX_EMPTY,
+            self.0[4] != BLOCK_INDEX_EMPTY,
+            self.0[5] != BLOCK_INDEX_EMPTY,
+            self.0[6] != BLOCK_INDEX_EMPTY,
+            self.0[7] != BLOCK_INDEX_EMPTY,
         ];
         b.into()
     }

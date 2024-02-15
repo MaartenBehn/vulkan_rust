@@ -15,8 +15,11 @@ pub type NodeIndex = usize;
 pub type BlockIndex = usize;
 pub type Voxel = u8;
 
+pub const BLOCK_INDEX_EMPTY: BlockIndex = 0;
+pub const BLOCK_INDEX_BASE: BlockIndex = 1;
+pub const BLOCK_INDECIES_GENERAL: [BlockIndex; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+
 pub const NODE_INDEX_NONE: NodeIndex = NodeIndex::MAX;
-pub const BLOCK_INDEX_NONE: BlockIndex = 0;
 pub const VOXEL_EMPTY: Voxel = 0;
 
 pub const NODE_SIZE: UVec3 = uvec3(4, 4, 4);
@@ -52,6 +55,7 @@ pub struct Material {
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct Block {
     pub name: String,
+    pub general_nodes: [NodeIndex; 4],
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
