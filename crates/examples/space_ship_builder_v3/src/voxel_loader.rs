@@ -106,7 +106,7 @@ impl VoxelLoader {
 
                     let parts: Vec<_> = pattern_name.split("_").collect();
 
-                    if parts.len() < 2 {
+                    if parts.len() < 1 {
                         continue;
                     }
 
@@ -125,13 +125,23 @@ impl VoxelLoader {
                             }
                         }
                     } else if parts[0] == "P" {
+                        let r = parts[1].parse::<u32>();
+                        if r.is_err() {
+                            bail!("Patter Prio not number")
+                        }
+
+                        let prio = r.unwrap();
+
                         let child = &data.scenes[*child_id as usize];
                         match child {
                             SceneNode::Group {
                                 attributes: _,
                                 children,
-                            } => pattern_children_ids
-                                .push((pattern_name.to_owned(), children.to_owned())),
+                            } => pattern_children_ids.push((
+                                pattern_name.to_owned(),
+                                prio,
+                                children.to_owned(),
+                            )),
                             _ => {
                                 unreachable!()
                             }
@@ -146,7 +156,7 @@ impl VoxelLoader {
 
         let mut blocks: Vec<Block> = vec![Block::default(); 9];
         let general_blocks = [
-            "Empty", "Base", "Other2", "Other3", "Other3", "Other4", "Other5", "Other6", "Other7",
+            "Empty", "Base", "Other1", "Other2", "Other3", "Other4", "Other5", "Other6", "Other7",
         ];
 
         let mut found_nodes = vec![false; nodes.len()];
@@ -173,6 +183,22 @@ impl VoxelLoader {
                             bail!("Block Child has no name")
                         };
 
+                        let child = &data.scenes[*child_id as usize];
+                        let model_id = match child {
+                            SceneNode::Shape {
+                                attributes: _,
+                                models: m,
+                            } => {
+                                if m.is_empty() {
+                                    bail!("Rule child model list is empty!");
+                                }
+
+                                m[0].model_id
+                            }
+                            _ => bail!("Rule child is not Model!"),
+                        };
+                        found_nodes[model_id as usize] = true;
+
                         let parts: Vec<_> = node_name.split("_").collect();
 
                         if parts.len() != 2 {
@@ -189,23 +215,7 @@ impl VoxelLoader {
                             continue;
                         }
 
-                        let child = &data.scenes[*child_id as usize];
-                        let model_id = match child {
-                            SceneNode::Shape {
-                                attributes: _,
-                                models: m,
-                            } => {
-                                if m.is_empty() {
-                                    bail!("Rule child model list is empty!");
-                                }
-
-                                m[0].model_id
-                            }
-                            _ => bail!("Rule child is not Model!"),
-                        };
-
                         general_node_indices[(node_type - 1) as usize] = model_id as NodeIndex;
-                        found_nodes[model_id as usize] = true;
                     }
                     _ => {
                         bail!("Block Child is not Transform Node")
@@ -231,7 +241,7 @@ impl VoxelLoader {
 
         let mut patterns = Vec::new();
         let mut print_rot = true;
-        for (name, children_ids) in pattern_children_ids.into_iter() {
+        for (name, prio, children_ids) in pattern_children_ids.into_iter() {
             if children_ids.len() != 8 {
                 bail!("{} has not 8 children!", name)
             }
@@ -267,9 +277,6 @@ impl VoxelLoader {
                         }
 
                         let node_type = r.unwrap();
-                        if node_type > 4 {
-                            bail!("Node type to big")
-                        }
 
                         let pos = frames[0].position().unwrap();
                         let node_pos =
@@ -316,7 +323,9 @@ impl VoxelLoader {
                             .iter()
                             .find(|id| (**id) == model_id as usize);
                         if r.is_some() {
-                            log::warn!("Double Node {model_id} in Pattern {name}");
+                            log::warn!(
+                                "Double Node {model_id} in Node {node_name} in Pos {node_pos} of Pattern {name}"
+                            );
                         }
 
                         let r = blocks.iter().position(|block| block.name == parts[0]);
@@ -342,7 +351,7 @@ impl VoxelLoader {
                 block_indices.into(),
                 node_ids,
                 HashMap::new(),
-                0,
+                prio as usize,
             ))
         }
 
