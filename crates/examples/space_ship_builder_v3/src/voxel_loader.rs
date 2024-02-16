@@ -1,3 +1,4 @@
+use crate::node::{NodeIndex, NODE_INDEX_NONE};
 use crate::{
     math::to_1d,
     node::{
@@ -12,7 +13,6 @@ use app::{
 };
 use dot_vox::{DotVoxData, SceneNode};
 use std::collections::HashMap;
-use crate::node::{NODE_INDEX_NONE, NodeIndex};
 
 pub struct VoxelLoader {
     pub path: String,
@@ -72,7 +72,10 @@ impl VoxelLoader {
         Ok(nodes)
     }
 
-    fn load_patterns_and_blocks(data: &DotVoxData, nodes: &Vec<Node>) -> Result<(Vec<Pattern>, Vec<Block>)> {
+    fn load_patterns_and_blocks(
+        data: &DotVoxData,
+        nodes: &Vec<Node>,
+    ) -> Result<(Vec<Pattern>, Vec<Block>)> {
         let root_children_ids = match &data.scenes[1] {
             SceneNode::Group {
                 attributes: _,
@@ -108,7 +111,7 @@ impl VoxelLoader {
                     }
 
                     if parts[0] == "B" {
-                        let block_name  = parts[1];
+                        let block_name = parts[1];
 
                         let child = &data.scenes[*child_id as usize];
                         match child {
@@ -142,12 +145,18 @@ impl VoxelLoader {
         }
 
         let mut blocks: Vec<Block> = vec![Block::default(); 9];
-        let general_blocks = ["Empty", "Base", "Other2", "Other3", "Other3", "Other4", "Other5", "Other6", "Other7"];
+        let general_blocks = [
+            "Empty", "Base", "Other2", "Other3", "Other3", "Other4", "Other5", "Other6", "Other7",
+        ];
 
         let mut found_nodes = vec![false; nodes.len()];
         for (block_name, children_ids) in block_children_ids.into_iter() {
-
-            let mut general_node_indices = [NODE_INDEX_NONE, NODE_INDEX_NONE, NODE_INDEX_NONE, NODE_INDEX_NONE];
+            let mut general_node_indices = [
+                NODE_INDEX_NONE,
+                NODE_INDEX_NONE,
+                NODE_INDEX_NONE,
+                NODE_INDEX_NONE,
+            ];
             for child_id in children_ids.into_iter() {
                 let child = &data.scenes[child_id as usize];
 
@@ -177,7 +186,7 @@ impl VoxelLoader {
 
                         let node_type = r.unwrap();
                         if node_type == 0 || node_type > 4 {
-                            continue
+                            continue;
                         }
 
                         let child = &data.scenes[*child_id as usize];
@@ -303,14 +312,14 @@ impl VoxelLoader {
                             _ => bail!("Rule child is not Model!"),
                         };
 
-                        let r = double_error_nodes.iter().find(|id| (**id) == model_id as usize);
+                        let r = double_error_nodes
+                            .iter()
+                            .find(|id| (**id) == model_id as usize);
                         if r.is_some() {
                             log::warn!("Double Node {model_id} in Pattern {name}");
                         }
 
-                        let r = blocks
-                            .iter()
-                            .position(|block| block.name == parts[0]);
+                        let r = blocks.iter().position(|block| block.name == parts[0]);
 
                         let block_index = if node_type == 0 {
                             BLOCK_INDEX_EMPTY

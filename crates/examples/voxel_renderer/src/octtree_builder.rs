@@ -74,7 +74,7 @@ impl OcttreeBuilder {
             },
         ]);
 
-        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout])?;
+        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout], &[])?;
 
         let pipeline = context.create_compute_pipeline(
             &pipeline_layout,

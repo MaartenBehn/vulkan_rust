@@ -159,7 +159,7 @@ impl Renderer {
             descriptor_sets.push(render_descriptor_set);
         }
 
-        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout])?;
+        let pipeline_layout = context.create_pipeline_layout(&[&descriptor_layout], &[])?;
 
         let pipeline = context.create_compute_pipeline(
             &pipeline_layout,
