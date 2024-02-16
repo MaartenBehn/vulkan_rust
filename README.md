@@ -28,8 +28,6 @@ A side repo where I try a bunch of different rendering technics and Ideas with v
 
 
 
-
-
 ## Install
 ### Dependecies
 
