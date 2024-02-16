@@ -146,7 +146,7 @@ impl VoxelLoader {
 
         let mut blocks: Vec<Block> = vec![Block::default(); 9];
         let general_blocks = [
-            "Empty", "Base", "Other2", "Other3", "Other3", "Other4", "Other5", "Other6", "Other7",
+            "Empty", "Base", "Other1", "Other2", "Other3", "Other4", "Other5", "Other6", "Other7",
         ];
 
         let mut found_nodes = vec![false; nodes.len()];
@@ -268,7 +268,7 @@ impl VoxelLoader {
 
                         let node_type = r.unwrap();
                         if node_type > 4 {
-                            bail!("Node type to big")
+                            continue;
                         }
 
                         let pos = frames[0].position().unwrap();
