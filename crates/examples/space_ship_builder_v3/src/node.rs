@@ -3,13 +3,15 @@ use crate::{
     rotation::Rot,
     voxel_loader::VoxelLoader,
 };
+use app::anyhow::bail;
 use app::{
     anyhow::Result,
     glam::{uvec3, IVec3, UVec3},
     log,
 };
 use dot_vox::Color;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 pub type NodeIndex = usize;
 pub type BlockIndex = usize;
@@ -18,6 +20,7 @@ pub type Voxel = u8;
 pub const BLOCK_INDEX_EMPTY: BlockIndex = 0;
 pub const BLOCK_INDEX_BASE: BlockIndex = 1;
 pub const BLOCK_INDECIES_GENERAL: [BlockIndex; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+pub const BLOCK_INDECIES_OTHER: [BlockIndex; 7] = [2, 3, 4, 5, 6, 7, 8];
 
 pub const NODE_INDEX_NONE: NodeIndex = NodeIndex::MAX;
 pub const VOXEL_EMPTY: Voxel = 0;
@@ -92,9 +95,11 @@ impl NodeController {
     fn make_patterns(voxel_loader: &VoxelLoader) -> Result<[Vec<Pattern>; 256]> {
         let mut patterns = core::array::from_fn(|_| Vec::new());
 
+        let mut base_patterns: [Vec<Pattern>; 256] = core::array::from_fn(|_| Vec::new());
+        let mut last_patterns = Vec::new();
+
         for pattern in voxel_loader.patterns.iter() {
             let possibilities = pattern.block_config.get_possibilities(pattern.nodes);
-            //possibilities = vec![(pattern.block_config, pattern.nodes)];
 
             for (bc, nodes) in possibilities.into_iter() {
                 let config: Config = bc.into();
@@ -105,8 +110,122 @@ impl NodeController {
                     continue;
                 }
 
-                patterns[index].push(new_pattern);
+                patterns[index].push(new_pattern.to_owned());
+
+                let block_indecies: [BlockIndex; 8] = bc.into();
+                if block_indecies
+                    .iter()
+                    .all(|b| (*b) == BLOCK_INDEX_EMPTY || (*b) == BLOCK_INDEX_BASE)
+                {
+                    base_patterns[index].push(new_pattern);
+                }
             }
+
+            let block_indecies: [BlockIndex; 8] = pattern.block_config.into();
+            if block_indecies
+                .iter()
+                .all(|b| (*b) == BLOCK_INDEX_EMPTY || (*b) == BLOCK_INDEX_BASE)
+            {
+                last_patterns.push(pattern.to_owned());
+            }
+        }
+
+        let mut final_patterns = Vec::new();
+        for other_block_index in BLOCK_INDECIES_OTHER {
+            log::info!("Other Block: {other_block_index}");
+
+            let mut next_patterns = Vec::new();
+
+            for pattern in last_patterns.iter() {
+                // Skip other pattern that is not base pattern.
+                let block_indecies: [BlockIndex; 8] = pattern.block_config.into();
+
+                let pattern_config = !Into::<u8>::into(Into::<Config>::into(pattern.block_config));
+
+                for other_pattern_list in base_patterns.iter() {
+                    for other_pattern in other_pattern_list.iter() {
+                        // Skip other pattern that is not base pattern.
+                        let block_indecies: [BlockIndex; 8] = other_pattern.block_config.into();
+                        if block_indecies
+                            .iter()
+                            .find(|b| (**b) != BLOCK_INDEX_EMPTY && (**b) != BLOCK_INDEX_BASE)
+                            .is_some()
+                        {
+                            continue;
+                        }
+
+                        let other_pattern_config =
+                            Into::<u8>::into(Into::<Config>::into(other_pattern.block_config));
+
+                        if (pattern_config & other_pattern_config) == other_pattern_config {
+                            let mut new_pattern = pattern.to_owned();
+
+                            let mut biggest_other = 0;
+                            let mut apply = true;
+                            for i in 0..8 {
+                                let other_block = other_pattern.block_config.get(i);
+
+                                if other_block == BLOCK_INDEX_EMPTY {
+                                    continue;
+                                }
+
+                                if biggest_other < other_block - 1 {
+                                    apply = false;
+                                    break;
+                                } else if biggest_other == other_block - 1 {
+                                    biggest_other = other_block;
+                                }
+
+                                new_pattern.block_config.set(i, other_block_index);
+
+                                let r = voxel_loader.blocks[other_block]
+                                    .general_nodes
+                                    .iter()
+                                    .position(|g| *g == other_pattern.nodes[i].index);
+                                if r.is_none() {
+                                    bail!("General node index not found!")
+                                }
+
+                                new_pattern.nodes[i].index = voxel_loader.blocks[other_block_index]
+                                    .general_nodes[r.unwrap()];
+                            }
+
+                            if apply {
+                                next_patterns.push(new_pattern.to_owned());
+                                final_patterns.push(new_pattern.to_owned());
+                            }
+                        }
+                    }
+                }
+            }
+
+            last_patterns = next_patterns;
+        }
+
+        let l = final_patterns.len();
+        for (i, pattern) in final_patterns.into_iter().enumerate() {
+            if i % 1000 == 0 {
+                log::info!("{i} of {l}");
+            }
+
+            let possibilities = pattern.block_config.get_possibilities(pattern.nodes);
+
+            for (bc, nodes) in possibilities.into_iter() {
+                let config: Config = bc.into();
+                let index: usize = config.into();
+
+                let new_pattern = Pattern::new(bc, nodes, HashMap::new(), 0);
+
+                patterns[index].push(new_pattern.to_owned());
+            }
+        }
+
+        for pattern_list in patterns.iter_mut() {
+            let set: HashSet<_> = pattern_list.iter().cloned().collect();
+            let mut new: Vec<_> = set.into_iter().collect();
+
+            pattern_list.clear();
+            pattern_list.append(&mut new);
         }
 
         Ok(patterns)
@@ -215,6 +334,14 @@ impl Pattern {
             nodes,
             req: req,
             prio: prio,
+        }
+    }
+}
+
+impl Hash for Pattern {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for i in 0..8 {
+            state.write_usize(self.block_config.get(i));
         }
     }
 }
