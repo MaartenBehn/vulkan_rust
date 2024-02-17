@@ -56,9 +56,10 @@ impl App for SpaceShipBuilder {
 
         //Rot::print_rot_permutations();
 
-        let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox".to_owned())?;
+        let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox")?;
 
-        let node_controller = NodeController::new(voxel_loader)?;
+        let node_controller =
+            NodeController::new(voxel_loader, "./assets/models/space_ship_config_v3.json")?;
 
         let ship_size = uvec3(10, 10, 10);
         let ship = Ship::new(ship_size, context, &node_controller, SHIP_TYPE_BASE)?;
@@ -117,7 +118,7 @@ impl App for SpaceShipBuilder {
             self.last_vox_reloade = self.total_time;
 
             log::info!("reloading .vox File");
-            let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox".to_owned())?;
+            let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox")?;
             self.node_controller.load(voxel_loader)?;
 
             self.builder

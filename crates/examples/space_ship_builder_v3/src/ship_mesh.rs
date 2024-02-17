@@ -99,6 +99,7 @@ impl ShipMesh {
     }
 
     pub fn update(&mut self, size: UVec3, wave: &Vec<Wave>) -> Result<()> {
+        /*
         let mut vertecies = Vec::new();
         self.index_counter = 0;
 
@@ -139,6 +140,8 @@ impl ShipMesh {
 
         self.vertex_buffer
             .copy_data_to_buffer_complex(&vertecies, 0, align_of::<Vertex>())?;
+
+         */
 
         Ok(())
     }

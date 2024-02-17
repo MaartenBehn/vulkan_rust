@@ -317,6 +317,13 @@ impl Into<Mat3> for Rot {
     }
 }
 
+impl Into<Mat4> for Rot {
+    fn into(self) -> Mat4 {
+        let mat: Mat3 = self.into();
+        Mat4::from_mat3(mat)
+    }
+}
+
 impl Into<u8> for Rot {
     fn into(self) -> u8 {
         self.0

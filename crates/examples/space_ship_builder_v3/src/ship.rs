@@ -52,7 +52,7 @@ impl Ship {
         node_controller: &NodeController,
         ship_type: ShipType,
     ) -> Result<Ship> {
-        let wave_size = block_size + uvec3(1, 1, 1);
+        let wave_size = block_size * 2;
         let max_block_index = (block_size.x * block_size.y * block_size.z) as usize;
         let max_wave_index = (wave_size.x * wave_size.y * wave_size.z) as usize;
         let mesh = ShipMesh::new(context, max_wave_index * 8)?;
@@ -62,7 +62,7 @@ impl Ship {
             block_size,
             wave_size,
             blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
-            wave: vec![Wave::new(node_controller); max_wave_index],
+            wave: vec![Wave::default(); max_wave_index],
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
             actions_per_tick: 4,
@@ -137,7 +137,7 @@ impl Ship {
         //log::info!("Place: {pos:?}");
         self.blocks[cell_index] = block_index;
 
-        self.update_wave(pos, node_controller);
+        self.update_wave(pos, block_index, node_controller);
 
         while !self.to_collapse.is_empty() {
             self.to_collapse.pop_front();
@@ -146,34 +146,37 @@ impl Ship {
         Ok(())
     }
 
-    pub fn get_wave_poses_of_block_pos(pos: IVec3) -> impl Iterator<Item = UVec3> {
+    pub fn get_wave_poses_of_block_pos(pos: IVec3) -> impl Iterator<Item = (usize, UVec3)> {
+        let p = pos * 2;
         [
-            pos + ivec3(0, 0, 0),
-            pos + ivec3(1, 0, 0),
-            pos + ivec3(0, 1, 0),
-            pos + ivec3(1, 1, 0),
-            pos + ivec3(0, 0, 1),
-            pos + ivec3(1, 0, 1),
-            pos + ivec3(0, 1, 1),
-            pos + ivec3(1, 1, 1),
+            p + ivec3(0, 0, 0),
+            p + ivec3(1, 0, 0),
+            p + ivec3(0, 1, 0),
+            p + ivec3(1, 1, 0),
+            p + ivec3(0, 0, 1),
+            p + ivec3(1, 0, 1),
+            p + ivec3(0, 1, 1),
+            p + ivec3(1, 1, 1),
         ]
         .into_iter()
         .map(|pos| pos.as_uvec3())
+        .enumerate()
     }
 
     pub fn get_block_poses_of_wave_pos(
         &mut self,
         pos: IVec3,
     ) -> impl Iterator<Item = (usize, UVec3)> + '_ {
+        let p = pos / 2;
         [
-            pos + ivec3(0, 0, 0),
-            pos + ivec3(-1, 0, 0),
-            pos + ivec3(0, -1, 0),
-            pos + ivec3(-1, -1, 0),
-            pos + ivec3(0, 0, -1),
-            pos + ivec3(-1, 0, -1),
-            pos + ivec3(0, -1, -1),
-            pos + ivec3(-1, -1, -1),
+            p + ivec3(0, 0, 0),
+            p + ivec3(-1, 0, 0),
+            p + ivec3(0, -1, 0),
+            p + ivec3(-1, -1, 0),
+            p + ivec3(0, 0, -1),
+            p + ivec3(-1, 0, -1),
+            p + ivec3(0, -1, -1),
+            p + ivec3(-1, -1, -1),
         ]
         .into_iter()
         .enumerate()
@@ -218,83 +221,17 @@ impl Ship {
         .map(|pos| to_1d(pos.as_uvec3(), self.wave_size))
     }
 
-    fn update_wave(&mut self, pos: UVec3, node_controller: &NodeController) {
-        for wave_pos in Self::get_wave_poses_of_block_pos(pos.as_ivec3()) {
+    fn update_wave(
+        &mut self,
+        block_pos: UVec3,
+        block_index: BlockIndex,
+        node_controller: &NodeController,
+    ) {
+        for (i, wave_pos) in Self::get_wave_poses_of_block_pos(block_pos.as_ivec3()) {
             let wave_index = to_1d(wave_pos, self.wave_size) as usize;
 
-            let block_poses: Vec<_> = self
-                .get_block_poses_of_wave_pos(wave_pos.as_ivec3())
-                .collect();
-
-            let mut indecies = [BLOCK_INDEX_EMPTY; 8];
-            let mut general_indecies = [BLOCK_INDEX_EMPTY; 8];
-            let mut general_indecies_counter = 1;
-            for (i, block_pos) in block_poses {
-                let block_index = self.get_block(block_pos).unwrap();
-
-                if block_index == BLOCK_INDEX_EMPTY {
-                    continue;
-                }
-
-                indecies[7 - i] = block_index;
-
-                let mut general_block_index = general_indecies_counter;
-                for j in 0..i {
-                    if indecies[7 - j] == block_index {
-                        general_block_index = general_indecies[7 - j];
-                        break;
-                    }
-                }
-
-                general_indecies[7 - i] = general_block_index;
-
-                if general_block_index == general_indecies_counter {
-                    general_indecies_counter += 1;
-                }
-            }
-
-            let block_config: BlockConfig = indecies.into();
-            let config: Config = block_config.into();
-            let config_index: usize = config.into();
-
-            let general_block_config: BlockConfig = general_indecies.into();
-            let general_config: Config = general_block_config.into();
-            debug_assert_eq!(config, general_config);
-
-            let pattern: Vec<_> = node_controller.patterns[config_index]
-                .to_owned()
-                .into_iter()
-                .filter_map(|p| {
-                    if p.block_config == block_config {
-                        return Some(p);
-                    }
-                    if p.block_config == general_block_config {
-                        let mut new_p = p.clone();
-                        for (j, n) in p.nodes.iter().enumerate() {
-                            let r = node_controller.blocks[general_indecies[j]]
-                                .general_nodes
-                                .iter()
-                                .position(|tn| (*tn) == n.index);
-
-                            let block_node_pos = if r.is_some() {
-                                r.unwrap()
-                            } else {
-                                continue;
-                            };
-
-                            new_p.nodes[j].index =
-                                node_controller.blocks[indecies[j]].general_nodes[block_node_pos];
-                            new_p.block_config.set(j, block_config.get(j));
-                        }
-                        return Some(new_p);
-                    }
-
-                    None
-                })
-                .collect();
-
-            let wave = &mut self.wave[wave_index];
-            wave.all_possible_pattern = pattern;
+            let wave = Wave::new(block_index, node_controller);
+            self.wave[wave_index] = wave;
 
             self.to_propergate.push_back(wave_index);
         }
@@ -337,6 +274,7 @@ impl Ship {
     }
 
     fn propergate(&mut self, wave_index: WaveIndex) {
+        /*
         let pos = to_3d(wave_index as u32, self.wave_size);
         let wave = self.wave[wave_index].to_owned();
 
@@ -387,9 +325,12 @@ impl Ship {
         }
 
         self.to_collapse.push_back(wave_index);
+
+         */
     }
 
     fn collapse(&mut self, wave_index: WaveIndex) {
+        /*
         let pos = to_3d(wave_index as u32, self.wave_size);
         let wave = self.wave[wave_index].to_owned();
 
@@ -429,6 +370,8 @@ impl Ship {
 
             self.wave[wave_index].possible_pattern = patterns;
         }
+
+         */
     }
 
     fn print_ship(&self) {
@@ -479,6 +422,7 @@ impl Ship {
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
+        /*
         while !self.to_propergate.is_empty() {
             self.to_collapse.pop_front();
         }
@@ -502,6 +446,8 @@ impl Ship {
             }
         }
 
+         */
+
         Ok(())
     }
 
@@ -522,10 +468,10 @@ impl Ship {
 }
 
 impl Wave {
-    pub fn new(node_controller: &NodeController) -> Self {
+    pub fn new(block_index: BlockIndex, node_controller: &NodeController) -> Self {
         Self {
-            possible_pattern: node_controller.patterns[0].to_owned(),
-            all_possible_pattern: node_controller.patterns[0].to_owned(),
+            possible_pattern: node_controller.patterns[block_index].to_owned(),
+            all_possible_pattern: node_controller.patterns[block_index].to_owned(),
         }
     }
 }

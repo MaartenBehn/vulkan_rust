@@ -1,3 +1,33 @@
 {
-    
+  "blocks": {
+    "Base": {
+      "nodes": [
+        {
+          "prio": 1,
+          "flip": []
+        },
+        {
+          "prio": 2,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Base"] }
+          ]
+        },
+        {
+          "prio": 3,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Base"] },
+            { "pos": [0, 1, 0], "name": ["Base"] }
+          ]
+        },
+        {
+          "prio": 4,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Base"] },
+            { "pos": [0, 1, 0], "name": ["Base"] },
+            { "pos": [0, 0, 1], "name": ["Base"] }
+          ]
+        }
+      ]
+    }
+  }
 }
