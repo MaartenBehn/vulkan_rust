@@ -105,108 +105,110 @@ impl NodeController {
         let v: Value = serde_json::from_reader(reader)?;
 
         let mut patterns = Vec::new();
-        for (i, (block_name, v)) in v["blocks"].as_object().unwrap().iter().enumerate() {
-            let block = voxel_loader
-                .blocks
-                .iter()
-                .find(|b| (**b).name == (*block_name))
-                .unwrap();
-            let node_index = block.nodes[i];
-
+        let v = v["blocks"].as_object().unwrap();
+        for block in voxel_loader.blocks.iter() {
             let mut block_patterns: Vec<Pattern> = Vec::new();
-            for v in v["nodes"].as_array().unwrap().iter() {
-                let prio = v["prio"].as_u64().unwrap() as usize;
 
-                let r = v["block_req"].as_array();
-                let block_req: HashMap<_, _> = if r.is_some() {
-                    r.unwrap()
-                        .iter()
-                        .map(|p| {
-                            let pos_array = p["pos"].as_array().unwrap();
-                            let pos = ivec3(
-                                pos_array[0].as_i64().unwrap() as i32,
-                                pos_array[1].as_i64().unwrap() as i32,
-                                pos_array[2].as_i64().unwrap() as i32,
-                            );
+            if v.contains_key(&block.name) {
+                let v = v[&block.name].as_object().unwrap();
 
-                            let blocks: Vec<_> = p["name"]
-                                .as_array()
-                                .unwrap()
-                                .iter()
-                                .map(|n| {
-                                    let name = n.as_str().unwrap();
-                                    let block_index = voxel_loader
-                                        .blocks
-                                        .iter()
-                                        .position(|b| b.name == name)
-                                        .unwrap();
-                                    block_index
-                                })
-                                .collect();
+                for (node_type, v) in v["nodes"].as_array().unwrap().iter().enumerate() {
+                    let node_index = block.nodes[node_type];
 
-                            (pos, blocks)
-                        })
-                        .collect()
-                } else {
-                    HashMap::new()
-                };
+                    let prio = v["prio"].as_u64().unwrap() as usize;
 
-                let r = v["node_req"].as_array();
-                let node_req: HashMap<_, _> = if r.is_some() {
-                    r.unwrap()
-                        .iter()
-                        .map(|p| {
-                            let pos_array = p["pos"].as_array().unwrap();
-                            let pos = ivec3(
-                                pos_array[0].as_i64().unwrap() as i32,
-                                pos_array[1].as_i64().unwrap() as i32,
-                                pos_array[2].as_i64().unwrap() as i32,
-                            );
+                    let r = v["block_req"].as_array();
+                    let block_req: HashMap<_, _> = if r.is_some() {
+                        r.unwrap()
+                            .iter()
+                            .map(|p| {
+                                let pos_array = p["pos"].as_array().unwrap();
+                                let pos = ivec3(
+                                    pos_array[0].as_i64().unwrap() as i32,
+                                    pos_array[1].as_i64().unwrap() as i32,
+                                    pos_array[2].as_i64().unwrap() as i32,
+                                );
 
-                            let blocks: Vec<_> = p["name"]
-                                .as_array()
-                                .unwrap()
-                                .iter()
-                                .map(|n| {
-                                    let name = n.as_str().unwrap();
+                                let blocks: Vec<_> = p["name"]
+                                    .as_array()
+                                    .unwrap()
+                                    .iter()
+                                    .map(|n| {
+                                        let name = n.as_str().unwrap();
+                                        let block_index = voxel_loader
+                                            .blocks
+                                            .iter()
+                                            .position(|b| b.name == name)
+                                            .unwrap();
+                                        block_index
+                                    })
+                                    .collect();
 
-                                    let parts: Vec<_> = name.split("_").collect();
-                                    let node_type = parts[1].parse::<usize>().unwrap();
+                                (pos, blocks)
+                            })
+                            .collect()
+                    } else {
+                        HashMap::new()
+                    };
 
-                                    let block = voxel_loader
-                                        .blocks
-                                        .iter()
-                                        .find(|b| b.name == parts[0])
-                                        .unwrap();
-                                    let node_index = block.nodes[node_type];
+                    let r = v["node_req"].as_array();
+                    let node_req: HashMap<_, _> = if r.is_some() {
+                        r.unwrap()
+                            .iter()
+                            .map(|p| {
+                                let pos_array = p["pos"].as_array().unwrap();
+                                let pos = ivec3(
+                                    pos_array[0].as_i64().unwrap() as i32,
+                                    pos_array[1].as_i64().unwrap() as i32,
+                                    pos_array[2].as_i64().unwrap() as i32,
+                                );
 
-                                    node_index
-                                })
-                                .collect();
+                                let blocks: Vec<_> = p["name"]
+                                    .as_array()
+                                    .unwrap()
+                                    .iter()
+                                    .map(|n| {
+                                        let name = n.as_str().unwrap();
 
-                            (pos, blocks)
-                        })
-                        .collect()
-                } else {
-                    HashMap::new()
-                };
+                                        let parts: Vec<_> = name.split("_").collect();
+                                        let node_type = parts[1].parse::<usize>().unwrap();
 
-                let pattern = Pattern::new(NodeID::from(node_index), block_req, node_req, prio);
-                let permuations = Self::permutate_pattern(pattern);
+                                        let block = voxel_loader
+                                            .blocks
+                                            .iter()
+                                            .find(|b| b.name == parts[0])
+                                            .unwrap();
+                                        let node_index = block.nodes[node_type];
 
-                for pattern in permuations.into_iter() {
-                    if block_patterns
-                        .iter()
-                        .find(|p| (**p).block_req == pattern.block_req)
-                        .is_some()
-                    {
-                        continue;
+                                        node_index
+                                    })
+                                    .collect();
+
+                                (pos, blocks)
+                            })
+                            .collect()
+                    } else {
+                        HashMap::new()
+                    };
+
+                    let pattern = Pattern::new(NodeID::from(node_index), block_req, node_req, prio);
+                    let permuations = Self::permutate_pattern(pattern);
+
+                    for pattern in permuations.into_iter() {
+                        if block_patterns
+                            .iter()
+                            .find(|p| (**p).block_req == pattern.block_req)
+                            .is_some()
+                        {
+                            continue;
+                        }
+
+                        block_patterns.push(pattern);
                     }
-
-                    block_patterns.push(pattern);
                 }
             }
 
+            block_patterns.sort_by(|p1, p2| p2.prio.cmp(&p1.prio));
             patterns.push(block_patterns);
         }
 
@@ -214,47 +216,57 @@ impl NodeController {
     }
 
     fn permutate_pattern(pattern: Pattern) -> Vec<Pattern> {
-        let rot_angles = [0.0, PI * 0.5];
-        let base_rot = pattern.node.rot;
-
         let mut patterns: Vec<Pattern> = Vec::new();
-        for rot_x in rot_angles {
-            for rot_y in rot_angles {
-                for rot_z in rot_angles {
-                    let rot = base_rot.get_permutation(BVec3::FALSE, vec3(rot_x, rot_y, rot_z));
-                    let mat: Mat4 = rot.into();
 
-                    let block_reqs: HashMap<_, _> = pattern
-                        .block_req
-                        .iter()
-                        .map(|(pos, indecies)| {
-                            let new_pos = (*pos)
-                                + ivec3(
-                                    (rot_x != 0.0) as u8 as i32,
-                                    (rot_y != 0.0) as u8 as i32,
-                                    (rot_z != 0.0) as u8 as i32,
-                                );
-                            let rotated_pos = mat.transform_point3(new_pos.as_vec3());
-                            (rotated_pos.round().as_ivec3(), indecies.to_owned())
-                        })
-                        .collect();
+        let rots = [
+            Rot::from(Mat3::from_cols_array(&[
+                1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+            ])),
+            Rot::from(Mat3::from_cols_array(&[
+                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+            ])),
+            Rot::from(Mat3::from_cols_array(&[
+                0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+            ])),
+            Rot::from(Mat3::from_cols_array(&[
+                0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0,
+            ])),
+            Rot::from(Mat3::from_cols_array(&[
+                0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+            ])),
+            Rot::from(Mat3::from_cols_array(&[
+                0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
+            ])),
+        ];
 
-                    if patterns
-                        .iter()
-                        .find(|p| (**p).block_req == block_reqs)
-                        .is_some()
-                    {
-                        continue;
-                    }
+        log::debug!("{:?}", rots);
 
-                    patterns.push(Pattern::new(
-                        NodeID::new(pattern.node.index, rot),
-                        block_reqs,
-                        pattern.node_req.to_owned(),
-                        pattern.prio,
-                    ))
-                }
+        for rot in rots.into_iter() {
+            let mat: Mat4 = rot.into();
+
+            let block_reqs: HashMap<_, _> = pattern
+                .block_req
+                .iter()
+                .map(|(pos, indecies)| {
+                    let rotated_pos = mat.transform_point3(pos.as_vec3());
+                    (rotated_pos.round().as_ivec3(), indecies.to_owned())
+                })
+                .collect();
+
+            if patterns
+                .iter()
+                .find(|p| (**p).block_req == block_reqs)
+                .is_some()
+            {
+                continue;
             }
+
+            patterns.push(Pattern::new(
+                NodeID::new(pattern.node.index, rot),
+                block_reqs,
+                pattern.node_req.to_owned(),
+                pattern.prio,
+            ))
         }
 
         patterns
@@ -351,7 +363,7 @@ impl Block {
 impl Pattern {
     pub fn new(
         node: NodeID,
-        block_req: HashMap<IVec3, Vec<NodeIndex>>,
+        block_req: HashMap<IVec3, Vec<BlockIndex>>,
         node_req: HashMap<IVec3, Vec<NodeIndex>>,
         prio: usize,
     ) -> Self {

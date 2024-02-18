@@ -99,25 +99,8 @@ impl ShipMesh {
     }
 
     pub fn update(&mut self, size: UVec3, wave: &Vec<Wave>) -> Result<()> {
-        /*
         let mut vertecies = Vec::new();
         self.index_counter = 0;
-
-        // Blocks
-        /*
-        for (i, block_index) in blocks.iter().enumerate() {
-            if *block_index == BLOCK_INDEX_NONE {
-                continue;
-            }
-
-            let pos = to_3d(i as u32, size);
-            let node_id = node_controller.blocks[*block_index].get_node_id();
-            let (mut v, _) = Self::get_node_mesh(node_id, pos.as_ivec3(), 1.0, false);
-
-            vertecies.append(&mut v);
-            self.index_counter += 36;
-        }
-        */
 
         // Nodes
         for (i, wave) in wave.iter().enumerate() {
@@ -125,23 +108,16 @@ impl ShipMesh {
                 continue;
             }
 
-            for (j, node_id) in wave.possible_pattern[0].nodes.iter().enumerate() {
-                if node_id.is_none() {
-                    continue;
-                }
+            let pos = to_3d(i as u32, size);
+            let (mut v, _) =
+                Self::get_node_mesh(wave.possible_pattern[0].node, pos.as_ivec3(), true);
 
-                let pos = to_3d(i as u32, size) * 2 + to_3d(j as u32, uvec3(2, 2, 2));
-                let (mut v, _) = Self::get_node_mesh(*node_id, pos.as_ivec3(), true);
-
-                vertecies.append(&mut v);
-                self.index_counter += 36;
-            }
+            vertecies.append(&mut v);
+            self.index_counter += 36;
         }
 
         self.vertex_buffer
             .copy_data_to_buffer_complex(&vertecies, 0, align_of::<Vertex>())?;
-
-         */
 
         Ok(())
     }

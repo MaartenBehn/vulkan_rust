@@ -38,20 +38,6 @@ impl Builder {
                 .position(|b| b.name == "Base")
                 .unwrap(),
         );
-        possible_blocks.push(
-            node_controller
-                .blocks
-                .iter()
-                .position(|b| b.name == "Hull")
-                .unwrap(),
-        );
-        possible_blocks.push(
-            node_controller
-                .blocks
-                .iter()
-                .position(|b| b.name == "Empty")
-                .unwrap(),
-        );
 
         Ok(Builder {
             build_ship: Ship::new(ship.block_size, context, node_controller, SHIP_TYPE_BUILDER)?,

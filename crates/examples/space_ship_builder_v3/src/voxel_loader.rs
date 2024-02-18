@@ -127,6 +127,7 @@ impl VoxelLoader {
         }
 
         let mut blocks: Vec<Block> = Vec::new();
+        blocks.push(Block::new("Empty".to_owned(), Vec::new()));
         for (block_name, children_ids) in block_children_ids.into_iter() {
             let mut nodes = Vec::new();
             for child_id in children_ids.into_iter() {

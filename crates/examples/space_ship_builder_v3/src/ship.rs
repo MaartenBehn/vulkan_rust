@@ -1,3 +1,4 @@
+use crate::node::NodeID;
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
     node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
@@ -11,6 +12,7 @@ use app::{
     vulkan::{ash::extensions::khr::RayTracingMaintenance1, Context},
 };
 use index_queue::IndexQueue;
+use std::collections::HashMap;
 use std::time::Duration;
 
 pub type WaveIndex = usize;
@@ -134,7 +136,7 @@ impl Ship {
             return Ok(());
         }
 
-        //log::info!("Place: {pos:?}");
+        log::info!("Place: {pos:?}");
         self.blocks[cell_index] = block_index;
 
         self.update_wave(pos, block_index, node_controller);
@@ -146,7 +148,7 @@ impl Ship {
         Ok(())
     }
 
-    pub fn get_wave_poses_of_block_pos(pos: IVec3) -> impl Iterator<Item = (usize, UVec3)> {
+    pub fn get_wave_poses_of_block_pos(pos: IVec3) -> impl Iterator<Item = UVec3> {
         let p = pos * 2;
         [
             p + ivec3(0, 0, 0),
@@ -160,7 +162,6 @@ impl Ship {
         ]
         .into_iter()
         .map(|pos| pos.as_uvec3())
-        .enumerate()
     }
 
     pub fn get_block_poses_of_wave_pos(
@@ -227,10 +228,11 @@ impl Ship {
         block_index: BlockIndex,
         node_controller: &NodeController,
     ) {
-        for (i, wave_pos) in Self::get_wave_poses_of_block_pos(block_pos.as_ivec3()) {
+        for wave_pos in Self::get_wave_poses_of_block_pos(block_pos.as_ivec3()) {
             let wave_index = to_1d(wave_pos, self.wave_size) as usize;
+            let config = (wave_pos % 2).cmpeq(UVec3::ZERO);
 
-            let wave = Wave::new(block_index, node_controller);
+            let wave = Wave::new(block_index, config, node_controller);
             self.wave[wave_index] = wave;
 
             self.to_propergate.push_back(wave_index);
@@ -274,32 +276,31 @@ impl Ship {
     }
 
     fn propergate(&mut self, wave_index: WaveIndex) {
-        /*
         let pos = to_3d(wave_index as u32, self.wave_size);
         let wave = self.wave[wave_index].to_owned();
 
-        let old_pattern = wave.possible_pattern.to_owned();
-        let patterns = wave.all_possible_pattern.to_owned();
+        let block_pos = pos / 2;
 
+        let old_pattern = wave.possible_pattern.to_owned();
+        let mut patterns = wave.all_possible_pattern.to_owned();
         for i in (0..patterns.len()).rev() {
-            let pattern = &patterns[i];
-            if pattern.req.is_empty() {
+            let pattern = patterns[i].to_owned();
+            if pattern.block_req.is_empty() {
                 continue;
             }
 
-            /*
-            for (offset, node_id) in pattern.req.iter() {
-                let req_pos = pos.as_ivec3() + *offset;
-                if !Self::pos_in_bounds(req_pos, self.wave_size) {
-                    continue;
-                }
-                let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
-
+            for (offset, block_indecies) in pattern.block_req.iter() {
                 let mut found = false;
-                for test_pattern in self.wave[req_index].all_possible_pattern.iter() {
-                    if node_id.contains(&test_pattern.id.index) {
-                        found = true;
-                        break;
+
+                let req_pos = block_pos.as_ivec3() + *offset;
+                if Self::pos_in_bounds(req_pos, self.block_size) {
+                    let req_index = to_1d(req_pos.as_uvec3(), self.block_size);
+
+                    for index in block_indecies.iter() {
+                        if self.blocks[req_index] == *index {
+                            found = true;
+                            break;
+                        }
                     }
                 }
 
@@ -308,7 +309,6 @@ impl Ship {
                     break;
                 }
             }
-            */
         }
 
         if old_pattern != patterns {
@@ -325,39 +325,45 @@ impl Ship {
         }
 
         self.to_collapse.push_back(wave_index);
-
-         */
     }
 
     fn collapse(&mut self, wave_index: WaveIndex) {
-        /*
         let pos = to_3d(wave_index as u32, self.wave_size);
         let wave = self.wave[wave_index].to_owned();
 
         let old_pattern = wave.possible_pattern.to_owned();
-        let patterns = wave.possible_pattern.to_owned();
-
+        let mut patterns = wave.possible_pattern.to_owned();
         for i in (0..patterns.len()).rev() {
-            let pattern = &patterns[i];
-            if pattern.req.is_empty() {
+            let pattern = patterns[i].to_owned();
+            if pattern.node_req.is_empty() {
                 continue;
             }
 
-            /*
-            for (offset, node_id) in pattern.req.iter() {
+            for (offset, node_indecies) in pattern.node_req.iter() {
                 let req_pos = pos.as_ivec3() + *offset;
-                if Self::pos_in_bounds(req_pos, self.wave_size) {
-                    let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
-                    let index = self.wave[req_index].possible_pattern[0].id.index;
-                    if node_id.contains(&index) {
-                        continue;
+                if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                    continue;
+                }
+                let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
+
+                let mut found = false;
+                for index in node_indecies.iter() {
+                    if self.wave[req_index]
+                        .possible_pattern
+                        .iter()
+                        .find(|p| (**p).node.index == *index)
+                        .is_some()
+                    {
+                        found = true;
+                        break;
                     }
                 }
 
-                patterns.remove(i);
-                break;
+                if !found {
+                    patterns.remove(i);
+                    break;
+                }
             }
-            */
         }
 
         if old_pattern != patterns {
@@ -370,8 +376,6 @@ impl Ship {
 
             self.wave[wave_index].possible_pattern = patterns;
         }
-
-         */
     }
 
     fn print_ship(&self) {
@@ -468,10 +472,40 @@ impl Ship {
 }
 
 impl Wave {
-    pub fn new(block_index: BlockIndex, node_controller: &NodeController) -> Self {
+    pub fn new(block_index: BlockIndex, config: BVec3, node_controller: &NodeController) -> Self {
+        let flip = ivec3(
+            if config.x { -1 } else { 1 },
+            if config.y { -1 } else { 1 },
+            if config.z { -1 } else { 1 },
+        );
+
+        let mut patterns = Vec::new();
+        for pattern in node_controller.patterns[block_index].iter() {
+            let rot = pattern.node.rot.get_permutation(config, Vec3::ZERO);
+            let mat: Mat4 = rot.into();
+
+            let node = NodeID::new(pattern.node.index, rot);
+            let block_req: HashMap<_, _> = pattern
+                .block_req
+                .iter()
+                .map(|(pos, i)| {
+                    let flipped_pos = (*pos) * flip;
+                    (flipped_pos, i.to_owned())
+                })
+                .collect();
+
+            let node_req: HashMap<_, _> = pattern
+                .node_req
+                .iter()
+                .map(|(pos, i)| ((*pos) * flip, i.to_owned()))
+                .collect();
+
+            patterns.push(Pattern::new(node, block_req, node_req, pattern.prio))
+        }
+
         Self {
-            possible_pattern: node_controller.patterns[block_index].to_owned(),
-            all_possible_pattern: node_controller.patterns[block_index].to_owned(),
+            possible_pattern: Vec::new(),
+            all_possible_pattern: patterns,
         }
     }
 }
