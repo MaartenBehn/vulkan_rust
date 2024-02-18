@@ -21,9 +21,6 @@ pub type ShipType = u32;
 pub const SHIP_TYPE_BASE: ShipType = 0;
 pub const SHIP_TYPE_BUILDER: ShipType = 1;
 
-pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
-pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
-
 pub struct Ship {
     pub ship_type: ShipType,
 
@@ -34,9 +31,6 @@ pub struct Ship {
     pub wave: Vec<Wave>,
     pub to_propergate: IndexQueue,
     pub to_collapse: IndexQueue,
-
-    pub actions_per_tick: usize,
-    pub full_tick: bool,
 
     pub mesh: ShipMesh,
 }
@@ -67,8 +61,6 @@ impl Ship {
             wave: vec![Wave::default(); max_wave_index],
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
-            actions_per_tick: 4,
-            full_tick: false,
 
             mesh,
         };
@@ -239,26 +231,13 @@ impl Ship {
         }
     }
 
-    pub fn tick(&mut self, delta_time: Duration) -> Result<()> {
+    pub fn tick(&mut self, actions_per_tick: usize) -> Result<bool> {
         if self.to_propergate.is_empty() && self.to_collapse.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
 
-        if self.full_tick
-            && delta_time < MIN_TICK_LENGTH
-            && self.actions_per_tick < (usize::MAX / 2)
-        {
-            self.actions_per_tick *= 2;
-        } else if delta_time > MAX_TICK_LENGTH && self.actions_per_tick > 4 {
-            self.actions_per_tick /= 2;
-        }
-
-        log::info!("Tick: {}", self.actions_per_tick);
-
-        self.full_tick = true;
-        for _ in 0..self.actions_per_tick {
-            //self.print_ship();
-
+        let mut full_tick = true;
+        for _ in 0..actions_per_tick {
             if !self.to_propergate.is_empty() {
                 let index = self.to_propergate.pop_front().unwrap();
                 self.propergate(index);
@@ -266,14 +245,14 @@ impl Ship {
                 let index = self.to_collapse.pop_front().unwrap();
                 self.collapse(index);
             } else {
-                self.full_tick = false;
+                full_tick = false;
                 break;
             }
         }
 
         self.mesh.update(self.wave_size, &self.wave)?;
 
-        Ok(())
+        Ok(full_tick)
     }
 
     fn propergate(&mut self, wave_index: WaveIndex) {
@@ -344,21 +323,17 @@ impl Ship {
 
             for (offset, node_indecies) in pattern.node_req.iter() {
                 let req_pos = pos.as_ivec3() + *offset;
-                if !Self::pos_in_bounds(req_pos, self.wave_size) {
-                    continue;
-                }
-                let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
 
                 let mut found = false;
-                for index in node_indecies.iter() {
-                    if self.wave[req_index]
-                        .possible_pattern
-                        .iter()
-                        .find(|p| (**p).node.index == *index)
-                        .is_some()
-                    {
-                        found = true;
-                        break;
+                if Self::pos_in_bounds(req_pos, self.wave_size) {
+                    let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
+                    for index in node_indecies.iter() {
+                        if self.wave[req_index].possible_pattern.len() > 0
+                            && self.wave[req_index].possible_pattern[0].node.index == *index
+                        {
+                            found = true;
+                            break;
+                        }
                     }
                 }
 
@@ -429,14 +404,6 @@ impl Ship {
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
-        while !self.to_propergate.is_empty() {
-            self.to_collapse.pop_front();
-        }
-
-        while !self.to_collapse.is_empty() {
-            self.to_collapse.pop_front();
-        }
-
         let max_wave_index = (self.wave_size.x * self.wave_size.y * self.wave_size.z) as usize;
         for i in 0..max_wave_index {
             self.wave[i].possible_pattern = node_controller.patterns[0].to_owned();
@@ -464,8 +431,6 @@ impl Ship {
         self.wave.clone_from(&other.wave);
         self.to_propergate.clone_from(&other.to_propergate);
         self.to_collapse.clone_from(&other.to_collapse);
-        self.actions_per_tick.clone_from(&other.actions_per_tick);
-        self.full_tick = other.full_tick;
 
         self.mesh.update(self.wave_size, &self.wave)?;
 
@@ -489,10 +454,7 @@ impl Wave {
             let block_req: HashMap<_, _> = pattern
                 .block_req
                 .iter()
-                .map(|(pos, i)| {
-                    let flipped_pos = (*pos) * flip;
-                    (flipped_pos, i.to_owned())
-                })
+                .map(|(pos, i)| ((*pos) * flip, i.to_owned()))
                 .collect();
 
             let node_req: HashMap<_, _> = pattern

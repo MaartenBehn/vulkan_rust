@@ -31,23 +31,23 @@
     "Hull": {
       "nodes": [
         {
-          "prio": 1
+          "prio": 0
         },
         {
-          "prio": 2,
+          "prio": 1,
           "block_req": [
             { "pos": [1, 0, 0], "name": ["Hull"] }
           ]
         },
         {
-          "prio": 3,
+          "prio": 2,
           "block_req": [
             { "pos": [1, 0, 0], "name": ["Hull"] },
             { "pos": [0, 1, 0], "name": ["Hull"] }
           ]
         },
         {
-          "prio": 4,
+          "prio": 3,
           "block_req": [
             { "pos": [1, 0, 0], "name": ["Hull"] },
             { "pos": [0, 1, 0], "name": ["Hull"] },
@@ -55,7 +55,7 @@
           ]
         },
         {
-          "prio": 5,
+          "prio": 4,
           "block_req": [
             { "pos": [1, 0, 0], "name": ["Hull"] },
             { "pos": [0, 1, 0], "name": ["Hull"] },
@@ -63,27 +63,107 @@
           ]
         },
         {
-          "prio": 2,
+          "prio": 5,
           "block_req": [
-            { "pos": [1, 0, 0], "name": ["Base"] },
-            { "pos": [0, 1, 0], "name": ["Empty"] },
-            { "pos": [0, 0, 1], "name": ["Empty"] }
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 1], "name": ["Hull"] },
+            { "pos": [1, 1, 0], "name": ["Hull"] }
           ]
+        },
+        {
+          "prio": 6,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 1], "name": ["Hull"] },
+            { "pos": [1, 1, 0], "name": ["Hull"] },
+            { "pos": [1, 0, 1], "name": ["Hull"] }
+          ]
+        },
+        {
+          "prio": 7,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 1], "name": ["Hull"] },
+            { "pos": [1, 1, 0], "name": ["Hull"] },
+            { "pos": [1, 0, 1], "name": ["Hull"] },
+            { "pos": [0, 1, 1], "name": ["Hull"] }
+          ]
+        },
+        {
+          "prio": 8,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [1, 1, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 1], "name": ["Empty"] }
+          ],
+          "node_req": [
+            { "pos": [1, 0, 0], "name": ["Hull_4", "Hull_5", "Hull_6", "Hull_7", "Hull_8", "Hull_9", "Hull_10"] },
+            { "pos": [-1, 0, 0], "name": ["Hull_4", "Hull_5", "Hull_6", "Hull_7", "Hull_8", "Hull_9", "Hull_10"] }
+          ]
+        },
+        {
+          "prio": 9,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [1, 1, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 1], "name": ["Empty"] }
+          ],
+          "node_req": [
+            { "pos": [ 1, 0, 0], "name": ["Hull_4" ,"Hull_5", "Hull_6", "Hull_7", "Hull_8", "Hull_9", "Hull_10"] },
+            { "pos": [-1, 0, 0], "name": ["Hull_4" ,"Hull_5", "Hull_6", "Hull_7", "Hull_8", "Hull_9", "Hull_10"] },
+            { "pos": [0,  1, 0], "name": ["Hull_4" ,"Hull_5", "Hull_6", "Hull_7", "Hull_8", "Hull_9", "Hull_10"] },
+            { "pos": [0, -1, 0], "name": ["Hull_4" ,"Hull_5", "Hull_6", "Hull_7", "Hull_8", "Hull_9", "Hull_10"]  }
+          ]
+        },
+        {
+          "prio": 10,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 1], "name": ["Hull"] },
+            { "pos": [1, 1, 0], "name": ["Hull"] },
+            { "pos": [1, 0, 1], "name": ["Hull"] },
+            { "pos": [0, 1, 1], "name": ["Empty"] }
+          ],
+          "node_req": [
+            { "pos": [ 1, 0, 0], "name": ["Hull_6", "Hull_7", "Hull_10"] },
+            { "pos": [-1, 0, 0], "name": ["Hull_6", "Hull_7", "Hull_10"] }
+          ]
+        }
+      ]
+    },
+    "Thruster": {
+      "nodes": [
+        {
+          "prio": 1
+        },
+        {
+          "prio": 2
         },
         {
           "prio": 3,
           "block_req": [
-            { "pos": [1, 0, 0], "name": ["Base"] },
-            { "pos": [0, 1, 0], "name": ["Base"] },
-            { "pos": [0, 0, 1], "name": ["Empty"] }
+            { "pos": [1, 0, 0], "name": ["Thruster"] }
+          ],
+          "node_req": [
+            { "pos": [1, 0, 0], "name": ["Thruster_2"] },
+            { "pos": [-1, 0, 0], "name": ["Thruster_0", "Thruster_3"] },
+            { "pos": [0, -1, 0], "name": ["Thruster_2"] },
+            { "pos": [0, 0, -1], "name": ["Thruster_2"] }
           ]
         },
         {
-          "prio": 4,
-          "block_req": [
-            { "pos": [1, 0, 0], "name": ["Base"] },
-            { "pos": [0, 1, 0], "name": ["Base"] },
-            { "pos": [0, 0, 1], "name": ["Base"] }
+          "prio": 2,
+          "node_req": [
+            { "pos": [-1, 0, 0], "name": ["Thruster_2"] },
+            { "pos": [-3, 0, 0], "name": ["Thruster_0"] },
+            { "pos": [0, -1, 0], "name": ["Thruster_3"] },
+            { "pos": [0, 0, -1], "name": ["Thruster_3"] }
           ]
         }
       ]

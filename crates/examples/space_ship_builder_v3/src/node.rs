@@ -179,7 +179,7 @@ impl NodeController {
                                     pos_array[2].as_i64().unwrap() as i32,
                                 );
 
-                                let blocks: Vec<_> = p["name"]
+                                let nodes: Vec<_> = p["name"]
                                     .as_array()
                                     .unwrap()
                                     .iter()
@@ -200,7 +200,7 @@ impl NodeController {
                                     })
                                     .collect();
 
-                                (pos, blocks)
+                                (pos, nodes)
                             })
                             .collect()
                     } else {
@@ -213,7 +213,10 @@ impl NodeController {
                     for pattern in permuations.into_iter() {
                         if block_patterns
                             .iter()
-                            .find(|p| (**p).block_req == pattern.block_req)
+                            .find(|p| {
+                                (**p).block_req == pattern.block_req
+                                    && (**p).node_req == pattern.node_req
+                            })
                             .is_some()
                         {
                             continue;
@@ -263,8 +266,17 @@ impl NodeController {
         for rot in rots.into_iter() {
             let mat: Mat4 = rot.into();
 
-            let block_reqs: HashMap<_, _> = pattern
+            let block_req: HashMap<_, _> = pattern
                 .block_req
+                .iter()
+                .map(|(pos, indecies)| {
+                    let rotated_pos = mat.transform_point3(pos.as_vec3());
+                    (rotated_pos.round().as_ivec3(), indecies.to_owned())
+                })
+                .collect();
+
+            let node_req: HashMap<_, _> = pattern
+                .node_req
                 .iter()
                 .map(|(pos, indecies)| {
                     let rotated_pos = mat.transform_point3(pos.as_vec3());
@@ -274,7 +286,7 @@ impl NodeController {
 
             if patterns
                 .iter()
-                .find(|p| (**p).block_req == block_reqs)
+                .find(|p| (**p).block_req == block_req && (**p).node_req == node_req)
                 .is_some()
             {
                 continue;
@@ -282,8 +294,8 @@ impl NodeController {
 
             patterns.push(Pattern::new(
                 NodeID::new(pattern.node.index, rot),
-                block_reqs,
-                pattern.node_req.to_owned(),
+                block_req,
+                node_req,
                 pattern.prio,
             ))
         }

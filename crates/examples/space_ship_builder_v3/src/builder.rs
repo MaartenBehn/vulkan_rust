@@ -2,11 +2,14 @@ use crate::{
     node::{BlockIndex, NodeController},
     ship::{Ship, SHIP_TYPE_BASE, SHIP_TYPE_BUILDER},
 };
-use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, vulkan::Context};
+use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context};
 use std::{mem, ops::Index, time::Duration};
 
 const SCROLL_SPEED: f32 = 0.01;
 const PLACE_SPEED: Duration = Duration::from_millis(100);
+
+pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
+pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 
 enum BuilderState {
     ON,
@@ -23,6 +26,9 @@ pub struct Builder {
     block_to_build: usize,
     distance: f32,
 
+    pub actions_per_tick: usize,
+    pub full_tick: bool,
+
     last_block_to_build: BlockIndex,
     last_pos: Option<UVec3>,
     last_action_time: Duration,
@@ -31,6 +37,13 @@ pub struct Builder {
 impl Builder {
     pub fn new(ship: Ship, context: &Context, node_controller: &NodeController) -> Result<Builder> {
         let mut possible_blocks = Vec::new();
+        possible_blocks.push(
+            node_controller
+                .blocks
+                .iter()
+                .position(|b| b.name == "Thruster")
+                .unwrap(),
+        );
         possible_blocks.push(
             node_controller
                 .blocks
@@ -62,6 +75,9 @@ impl Builder {
             possible_blocks,
             distance: 3.0,
 
+            actions_per_tick: 4,
+            full_tick: false,
+
             last_block_to_build: 0,
             last_pos: None,
             last_action_time: Duration::ZERO,
@@ -76,6 +92,15 @@ impl Builder {
         delta_time: Duration,
         total_time: Duration,
     ) -> Result<()> {
+        if self.full_tick
+            && delta_time < MIN_TICK_LENGTH
+            && self.actions_per_tick < (usize::MAX / 2)
+        {
+            self.actions_per_tick *= 2;
+        } else if delta_time > MAX_TICK_LENGTH && self.actions_per_tick > 4 {
+            self.actions_per_tick /= 2;
+        }
+
         match self.state {
             BuilderState::ON => {
                 if controls.e && (self.last_action_time + PLACE_SPEED) < total_time {
@@ -129,12 +154,15 @@ impl Builder {
                     self.last_action_time = total_time;
                 }
 
-                self.build_ship.tick(delta_time)?;
+                self.full_tick = self.build_ship.tick(self.actions_per_tick)?;
+                if self.full_tick {
+                    log::info!("Tick: {}", self.actions_per_tick);
+                }
             }
             BuilderState::OFF => {}
         }
 
-        self.base_ship.tick(delta_time)?;
+        self.build_ship.tick(self.actions_per_tick)?;
 
         Ok(())
     }
