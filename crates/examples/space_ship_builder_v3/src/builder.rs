@@ -6,7 +6,7 @@ use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, vulka
 use std::{mem, ops::Index, time::Duration};
 
 const SCROLL_SPEED: f32 = 0.01;
-const PLACE_SPEED: Duration = Duration::from_secs(1);
+const PLACE_SPEED: Duration = Duration::from_millis(100);
 
 enum BuilderState {
     ON,
@@ -36,6 +36,20 @@ impl Builder {
                 .blocks
                 .iter()
                 .position(|b| b.name == "Base")
+                .unwrap(),
+        );
+        possible_blocks.push(
+            node_controller
+                .blocks
+                .iter()
+                .position(|b| b.name == "Hull")
+                .unwrap(),
+        );
+        possible_blocks.push(
+            node_controller
+                .blocks
+                .iter()
+                .position(|b| b.name == "Empty")
                 .unwrap(),
         );
 

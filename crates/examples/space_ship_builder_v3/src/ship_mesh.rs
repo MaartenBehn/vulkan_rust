@@ -109,8 +109,7 @@ impl ShipMesh {
             }
 
             let pos = to_3d(i as u32, size);
-            let (mut v, _) =
-                Self::get_node_mesh(wave.possible_pattern[0].node, pos.as_ivec3(), true);
+            let (mut v, _) = Self::get_node_mesh(wave.possible_pattern[0].node, pos.as_ivec3());
 
             vertecies.append(&mut v);
             self.index_counter += 36;
@@ -122,11 +121,8 @@ impl ShipMesh {
         Ok(())
     }
 
-    pub fn get_node_mesh(node_id: NodeID, offset: IVec3, is_node: bool) -> (Vec<Vertex>, Vec<u32>) {
+    pub fn get_node_mesh(node_id: NodeID, offset: IVec3) -> (Vec<Vertex>, Vec<u32>) {
         let mut v_pos = offset.as_vec3();
-        if is_node {
-            v_pos -= vec3(1.5, 1.5, 1.5)
-        }
 
         let node_id_bits: u32 = node_id.into();
         let vertices = vec![

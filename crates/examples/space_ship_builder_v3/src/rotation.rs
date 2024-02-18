@@ -160,7 +160,7 @@ impl Rot {
             Vec3::ZERO,
         ))
         .into();
-        trans_rot * self
+        self * trans_rot
     }
 
     pub fn print_rot_permutations() {

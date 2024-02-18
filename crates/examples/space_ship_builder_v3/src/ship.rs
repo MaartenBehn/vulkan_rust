@@ -244,12 +244,13 @@ impl Ship {
             return Ok(());
         }
 
-        if self.full_tick {
-            if delta_time < MIN_TICK_LENGTH && self.actions_per_tick < (usize::MAX / 2) {
-                self.actions_per_tick *= 2;
-            } else if delta_time > MAX_TICK_LENGTH && self.actions_per_tick > 4 {
-                self.actions_per_tick /= 2;
-            }
+        if self.full_tick
+            && delta_time < MIN_TICK_LENGTH
+            && self.actions_per_tick < (usize::MAX / 2)
+        {
+            self.actions_per_tick *= 2;
+        } else if delta_time > MAX_TICK_LENGTH && self.actions_per_tick > 4 {
+            self.actions_per_tick /= 2;
         }
 
         log::info!("Tick: {}", self.actions_per_tick);
@@ -302,6 +303,8 @@ impl Ship {
                             break;
                         }
                     }
+                } else if block_indecies.contains(&BLOCK_INDEX_EMPTY) {
+                    found = true;
                 }
 
                 if !found {
@@ -426,7 +429,6 @@ impl Ship {
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
-        /*
         while !self.to_propergate.is_empty() {
             self.to_collapse.pop_front();
         }
@@ -445,12 +447,12 @@ impl Ship {
             for y in 0..self.block_size.y {
                 for z in 0..self.block_size.z {
                     let pos = uvec3(x, y, z);
-                    self.update_wave(pos, node_controller);
+
+                    let block_index = self.blocks[to_1d(pos, self.block_size)];
+                    self.update_wave(pos, block_index, node_controller);
                 }
             }
         }
-
-         */
 
         Ok(())
     }
@@ -481,8 +483,7 @@ impl Wave {
 
         let mut patterns = Vec::new();
         for pattern in node_controller.patterns[block_index].iter() {
-            let rot = pattern.node.rot.get_permutation(config, Vec3::ZERO);
-            let mat: Mat4 = rot.into();
+            let rot = pattern.node.rot.flip(config);
 
             let node = NodeID::new(pattern.node.index, rot);
             let block_req: HashMap<_, _> = pattern

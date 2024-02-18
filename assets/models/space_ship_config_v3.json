@@ -3,20 +3,79 @@
     "Base": {
       "nodes": [
         {
-          "prio": 1,
-          "flip": []
+          "prio": 1
         },
         {
           "prio": 2,
           "block_req": [
-            { "pos": [1, 0, 0], "name": ["Base"] }
+            { "pos": [1, 0, 0], "name": ["Base", "Hull"] }
+          ]
+        },
+        {
+          "prio": 3,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Base", "Hull"] },
+            { "pos": [0, 1, 0], "name": ["Base", "Hull"] }
+          ]
+        },
+        {
+          "prio": 4,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Base", "Hull"] },
+            { "pos": [0, 1, 0], "name": ["Base", "Hull"] },
+            { "pos": [0, 0, 1], "name": ["Base", "Hull"] }
+          ]
+        }
+      ]
+    },
+    "Hull": {
+      "nodes": [
+        {
+          "prio": 1
+        },
+        {
+          "prio": 2,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] }
+          ]
+        },
+        {
+          "prio": 3,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] }
+          ]
+        },
+        {
+          "prio": 4,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 1], "name": ["Hull"] }
+          ]
+        },
+        {
+          "prio": 5,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 1, 0], "name": ["Hull"] },
+            { "pos": [1, 1, 0], "name": ["Hull"] }
+          ]
+        },
+        {
+          "prio": 2,
+          "block_req": [
+            { "pos": [1, 0, 0], "name": ["Base"] },
+            { "pos": [0, 1, 0], "name": ["Empty"] },
+            { "pos": [0, 0, 1], "name": ["Empty"] }
           ]
         },
         {
           "prio": 3,
           "block_req": [
             { "pos": [1, 0, 0], "name": ["Base"] },
-            { "pos": [0, 1, 0], "name": ["Base"] }
+            { "pos": [0, 1, 0], "name": ["Base"] },
+            { "pos": [0, 0, 1], "name": ["Empty"] }
           ]
         },
         {

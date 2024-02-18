@@ -77,7 +77,13 @@ pub struct Pattern {
 
 impl NodeController {
     pub fn new(voxel_loader: VoxelLoader, path: &str) -> Result<NodeController> {
-        let patterns = Self::make_patterns(&voxel_loader, path)?;
+        let r = Self::make_patterns(&voxel_loader, path);
+        let patterns = if r.is_err() {
+            log::error!("{}", r.err().unwrap());
+            Vec::new()
+        } else {
+            r.unwrap()
+        };
 
         Ok(NodeController {
             config_path: path.to_owned(),
@@ -89,7 +95,13 @@ impl NodeController {
     }
 
     pub fn load(&mut self, voxel_loader: VoxelLoader) -> Result<()> {
-        let patterns = Self::make_patterns(&voxel_loader, &self.config_path)?;
+        let r = Self::make_patterns(&voxel_loader, &self.config_path);
+        let patterns = if r.is_err() {
+            log::error!("{}", r.err().unwrap());
+            return Ok(());
+        } else {
+            r.unwrap()
+        };
 
         self.nodes = voxel_loader.nodes;
         self.mats = voxel_loader.mats;
@@ -113,6 +125,10 @@ impl NodeController {
                 let v = v[&block.name].as_object().unwrap();
 
                 for (node_type, v) in v["nodes"].as_array().unwrap().iter().enumerate() {
+                    if node_type >= block.nodes.len() {
+                        bail!("Config Nodetype {node_type} not in voxel file!");
+                    }
+
                     let node_index = block.nodes[node_type];
 
                     let prio = v["prio"].as_u64().unwrap() as usize;
@@ -223,21 +239,24 @@ impl NodeController {
                 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
             ])),
             Rot::from(Mat3::from_cols_array(&[
-                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-            ])),
-            Rot::from(Mat3::from_cols_array(&[
                 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-            ])),
-            Rot::from(Mat3::from_cols_array(&[
-                0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0,
-            ])),
-            Rot::from(Mat3::from_cols_array(&[
-                0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
             ])),
             Rot::from(Mat3::from_cols_array(&[
                 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
             ])),
+            Rot::from(Mat3::from_cols_array(&[
+                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+            ])),
         ];
+
+        /*
+        Rot::from(Mat3::from_cols_array(&[
+            0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0,
+        ])),
+        Rot::from(Mat3::from_cols_array(&[
+            0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+        ])),
+        */
 
         log::debug!("{:?}", rots);
 
