@@ -161,12 +161,7 @@ impl VoxelLoader {
                             _ => bail!("Rule child is not Model!"),
                         };
 
-                        let parts: Vec<_> = node_name.split("_").collect();
-                        if parts.len() != 2 {
-                            bail!("Block Child Name to short")
-                        }
-
-                        let r = parts[1].parse::<usize>();
+                        let r = node_name.parse::<usize>();
                         if r.is_err() {
                             bail!("Block Child Name Number invalid")
                         }

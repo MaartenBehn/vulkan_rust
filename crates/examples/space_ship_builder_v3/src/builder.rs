@@ -41,20 +41,6 @@ impl Builder {
             node_controller
                 .blocks
                 .iter()
-                .position(|b| b.name == "Thruster")
-                .unwrap(),
-        );
-        possible_blocks.push(
-            node_controller
-                .blocks
-                .iter()
-                .position(|b| b.name == "Base")
-                .unwrap(),
-        );
-        possible_blocks.push(
-            node_controller
-                .blocks
-                .iter()
                 .position(|b| b.name == "Hull")
                 .unwrap(),
         );

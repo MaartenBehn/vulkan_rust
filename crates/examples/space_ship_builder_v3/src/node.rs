@@ -38,7 +38,7 @@ pub struct NodeController {
     pub config_path: String,
     pub nodes: Vec<Node>,
     pub mats: [Material; 256],
-    pub patterns: Vec<Vec<Pattern>>,
+    pub patterns: Vec<Pattern>,
     pub blocks: Vec<Block>,
 }
 
@@ -111,7 +111,7 @@ impl NodeController {
         Ok(())
     }
 
-    fn make_patterns(voxel_loader: &VoxelLoader, path: &str) -> Result<Vec<Vec<Pattern>>> {
+    fn make_patterns(voxel_loader: &VoxelLoader, path: &str) -> Result<Vec<Pattern>> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let v: Value = serde_json::from_reader(reader)?;
@@ -119,8 +119,6 @@ impl NodeController {
         let mut patterns = Vec::new();
         let v = v["blocks"].as_object().unwrap();
         for block in voxel_loader.blocks.iter() {
-            let mut block_patterns: Vec<Pattern> = Vec::new();
-
             if v.contains_key(&block.name) {
                 let v = v[&block.name].as_object().unwrap();
 
@@ -208,96 +206,62 @@ impl NodeController {
                     };
 
                     let pattern = Pattern::new(NodeID::from(node_index), block_req, node_req, prio);
-                    let permuations = Self::permutate_pattern(pattern);
-
-                    for pattern in permuations.into_iter() {
-                        if block_patterns
-                            .iter()
-                            .find(|p| {
-                                (**p).block_req == pattern.block_req
-                                    && (**p).node_req == pattern.node_req
-                            })
-                            .is_some()
-                        {
-                            continue;
-                        }
-
-                        block_patterns.push(pattern);
-                    }
+                    let mut permuations = Self::permutate_pattern(pattern);
+                    patterns.append(&mut permuations);
                 }
             }
-
-            block_patterns.sort_by(|p1, p2| p2.prio.cmp(&p1.prio));
-            patterns.push(block_patterns);
         }
 
+        patterns.sort_by(|p1, p2| p2.prio.cmp(&p1.prio));
         Ok(patterns)
     }
 
     fn permutate_pattern(pattern: Pattern) -> Vec<Pattern> {
         let mut patterns: Vec<Pattern> = Vec::new();
+        let base_rot = Rot::default();
 
-        let rots = [
-            Rot::from(Mat3::from_cols_array(&[
-                1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
-            ])),
-            Rot::from(Mat3::from_cols_array(&[
-                0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-            ])),
-            Rot::from(Mat3::from_cols_array(&[
-                0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
-            ])),
-            Rot::from(Mat3::from_cols_array(&[
-                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-            ])),
-        ];
+        for flip_x in [false, true] {
+            for flip_y in [false, true] {
+                for flip_z in [false, true] {
+                    let flip = BVec3::new(flip_x, flip_y, flip_z);
+                    let flip_a = ivec3(
+                        if flip_x { -1 } else { 1 },
+                        if flip_y { -1 } else { 1 },
+                        if flip_z { -1 } else { 1 },
+                    );
+                    let flip_b = ivec3(
+                        if flip_x { 1 } else { 0 },
+                        if flip_y { 1 } else { 0 },
+                        if flip_z { 1 } else { 0 },
+                    );
+                    let rot = base_rot.flip(flip);
 
-        /*
-        Rot::from(Mat3::from_cols_array(&[
-            0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0,
-        ])),
-        Rot::from(Mat3::from_cols_array(&[
-            0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-        ])),
-        */
+                    let block_req: HashMap<_, _> = pattern
+                        .block_req
+                        .iter()
+                        .map(|(pos, indecies)| {
+                            let flipped_pos = ((*pos) + flip_b) * flip_a;
+                            (flipped_pos, indecies.to_owned())
+                        })
+                        .collect();
 
-        log::debug!("{:?}", rots);
+                    let node_req: HashMap<_, _> = pattern
+                        .node_req
+                        .iter()
+                        .map(|(pos, indecies)| {
+                            let flipped_pos = (*pos) * flip_a;
+                            (*pos, indecies.to_owned())
+                        })
+                        .collect();
 
-        for rot in rots.into_iter() {
-            let mat: Mat4 = rot.into();
-
-            let block_req: HashMap<_, _> = pattern
-                .block_req
-                .iter()
-                .map(|(pos, indecies)| {
-                    let rotated_pos = mat.transform_point3(pos.as_vec3());
-                    (rotated_pos.round().as_ivec3(), indecies.to_owned())
-                })
-                .collect();
-
-            let node_req: HashMap<_, _> = pattern
-                .node_req
-                .iter()
-                .map(|(pos, indecies)| {
-                    let rotated_pos = mat.transform_point3(pos.as_vec3());
-                    (rotated_pos.round().as_ivec3(), indecies.to_owned())
-                })
-                .collect();
-
-            if patterns
-                .iter()
-                .find(|p| (**p).block_req == block_req && (**p).node_req == node_req)
-                .is_some()
-            {
-                continue;
+                    patterns.push(Pattern::new(
+                        NodeID::new(pattern.node.index, rot),
+                        block_req,
+                        node_req,
+                        pattern.prio,
+                    ))
+                }
             }
-
-            patterns.push(Pattern::new(
-                NodeID::new(pattern.node.index, rot),
-                block_req,
-                node_req,
-                pattern.prio,
-            ))
         }
 
         patterns
