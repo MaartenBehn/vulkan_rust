@@ -58,7 +58,7 @@ impl Ship {
             block_size,
             wave_size,
             blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
-            wave: vec![Wave::default(); max_wave_index],
+            wave: vec![Wave::new(node_controller); max_wave_index],
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
 
@@ -133,9 +133,11 @@ impl Ship {
 
         self.update_wave(pos, node_controller);
 
+        /*
         while !self.to_collapse.is_empty() {
             self.to_collapse.pop_front();
         }
+        */
 
         Ok(())
     }
@@ -157,7 +159,7 @@ impl Ship {
     }
 
     pub fn get_block_poses_of_wave_pos(
-        &mut self,
+        &self,
         pos: IVec3,
     ) -> impl Iterator<Item = (usize, UVec3)> + '_ {
         let p = pos / 2;
@@ -178,7 +180,7 @@ impl Ship {
     }
 
     pub fn get_neigbor_indices_of_wave_pos(
-        &mut self,
+        &self,
         pos: IVec3,
     ) -> impl Iterator<Item = WaveIndex> + '_ {
         [
@@ -214,12 +216,16 @@ impl Ship {
         .map(|pos| to_1d(pos.as_uvec3(), self.wave_size))
     }
 
+    pub fn get_all_wave_indecies(&self) -> impl Iterator<Item = WaveIndex> + '_ {
+        let max_wave_index = (self.wave_size.x * self.wave_size.y * self.wave_size.z) as usize;
+        0..(max_wave_index - 1)
+    }
+
     fn update_wave(&mut self, block_pos: UVec3, node_controller: &NodeController) {
         for wave_pos in Self::get_wave_poses_of_block_pos(block_pos.as_ivec3()) {
             let wave_index = to_1d(wave_pos, self.wave_size) as usize;
-            let config = (wave_pos % 2).cmpeq(UVec3::ZERO);
 
-            let wave = Wave::new(config, node_controller);
+            let wave = Wave::new(node_controller);
             self.wave[wave_index] = wave;
 
             self.to_propergate.push_back(wave_index);
@@ -227,7 +233,7 @@ impl Ship {
     }
 
     pub fn tick(&mut self, actions_per_tick: usize) -> Result<bool> {
-        if self.to_propergate.is_empty() && self.to_collapse.is_empty() {
+        if self.to_propergate.is_empty() {
             return Ok(false);
         }
 
@@ -236,9 +242,6 @@ impl Ship {
             if !self.to_propergate.is_empty() {
                 let index = self.to_propergate.pop_front().unwrap();
                 self.propergate(index);
-            } else if !self.to_collapse.is_empty() {
-                let index = self.to_collapse.pop_front().unwrap();
-                self.collapse(index);
             } else {
                 full_tick = false;
                 break;
@@ -252,6 +255,7 @@ impl Ship {
 
     fn propergate(&mut self, wave_index: WaveIndex) {
         let pos = to_3d(wave_index as u32, self.wave_size);
+
         let wave = self.wave[wave_index].to_owned();
 
         let old_pattern = wave.possible_pattern.to_owned();
@@ -265,7 +269,7 @@ impl Ship {
             for (offset, block_indecies) in pattern.block_req.iter() {
                 let mut found = false;
 
-                let req_pos = pos.as_ivec3() - *offset;
+                let req_pos = pos.as_ivec3() + *offset;
                 let block_pos = req_pos / 2;
                 if (req_pos % 2).cmpeq(IVec3::ONE).all()
                     && Self::pos_in_bounds(block_pos, self.block_size)
@@ -290,10 +294,10 @@ impl Ship {
         }
 
         if old_pattern != patterns {
-            let to_collapse = self.to_collapse.to_owned();
+            //let to_collapse = self.to_collapse.to_owned();
             let neigbors: Vec<_> = self
-                .get_neigbor_indices_of_wave_pos(pos.as_ivec3())
-                .filter(|index| !to_collapse.contains(*index))
+                .get_all_wave_indecies()
+                //.filter(|index| !to_collapse.contains(*index))
                 .collect();
             for neigbor in neigbors {
                 self.to_propergate.push_back(neigbor);
@@ -302,7 +306,7 @@ impl Ship {
             self.wave[wave_index].possible_pattern = patterns;
         }
 
-        self.to_collapse.push_back(wave_index);
+        //self.to_collapse.push_back(wave_index);
     }
 
     fn collapse(&mut self, wave_index: WaveIndex) {
@@ -341,9 +345,7 @@ impl Ship {
         }
 
         if old_pattern != patterns {
-            let neigbors: Vec<_> = self
-                .get_neigbor_indices_of_wave_pos(pos.as_ivec3())
-                .collect();
+            let neigbors: Vec<_> = self.get_all_wave_indecies().collect();
             for neigbor in neigbors {
                 self.to_collapse.push_back(neigbor);
             }
@@ -433,7 +435,7 @@ impl Ship {
 }
 
 impl Wave {
-    pub fn new(config: BVec3, node_controller: &NodeController) -> Self {
+    pub fn new(node_controller: &NodeController) -> Self {
         Self {
             possible_pattern: Vec::new(),
             all_possible_pattern: node_controller.patterns.to_owned(),

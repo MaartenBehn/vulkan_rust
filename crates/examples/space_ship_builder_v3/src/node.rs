@@ -122,14 +122,44 @@ impl NodeController {
             if v.contains_key(&block.name) {
                 let v = v[&block.name].as_object().unwrap();
 
-                for (node_type, v) in v["nodes"].as_array().unwrap().iter().enumerate() {
+                for v in v["nodes"].as_array().unwrap().iter() {
+                    let node_type = v["type"].as_u64().unwrap() as usize;
                     if node_type >= block.nodes.len() {
                         bail!("Config Nodetype {node_type} not in voxel file!");
                     }
-
                     let node_index = block.nodes[node_type];
 
                     let prio = v["prio"].as_u64().unwrap() as usize;
+
+                    let r = v["flip"].as_array();
+                    let flip: Vec<_> = if r.is_some() {
+                        r.unwrap()
+                            .iter()
+                            .map(|v| {
+                                let x = v.as_array().unwrap()[0].as_u64().unwrap() == 1;
+                                let y = v.as_array().unwrap()[1].as_u64().unwrap() == 1;
+                                let z = v.as_array().unwrap()[2].as_u64().unwrap() == 1;
+                                BVec3::new(x, y, z)
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
+
+                    let r = v["rotate"].as_array();
+                    let rotate: Vec<_> = if r.is_some() {
+                        r.unwrap()
+                            .iter()
+                            .map(|v| {
+                                let x = v.as_array().unwrap()[0].as_u64().unwrap() as u32;
+                                let y = v.as_array().unwrap()[1].as_u64().unwrap() as u32;
+                                let z = v.as_array().unwrap()[2].as_u64().unwrap() as u32;
+                                uvec3(x, y, z)
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
 
                     let r = v["block_req"].as_array();
                     let block_req: HashMap<_, _> = if r.is_some() {
@@ -206,7 +236,8 @@ impl NodeController {
                     };
 
                     let pattern = Pattern::new(NodeID::from(node_index), block_req, node_req, prio);
-                    let mut permuations = Self::permutate_pattern(pattern);
+                    let mut permuations = Self::permutate_pattern(&pattern, flip, rotate);
+                    patterns.push(pattern);
                     patterns.append(&mut permuations);
                 }
             }
@@ -216,52 +247,81 @@ impl NodeController {
         Ok(patterns)
     }
 
-    fn permutate_pattern(pattern: Pattern) -> Vec<Pattern> {
+    fn permutate_pattern(
+        pattern: &Pattern,
+        flips: Vec<BVec3>,
+        rotates: Vec<UVec3>,
+    ) -> Vec<Pattern> {
         let mut patterns: Vec<Pattern> = Vec::new();
         let base_rot = Rot::default();
 
-        for flip_x in [false, true] {
-            for flip_y in [false, true] {
-                for flip_z in [false, true] {
-                    let flip = BVec3::new(flip_x, flip_y, flip_z);
-                    let flip_a = ivec3(
-                        if flip_x { -1 } else { 1 },
-                        if flip_y { -1 } else { 1 },
-                        if flip_z { -1 } else { 1 },
-                    );
-                    let flip_b = ivec3(
-                        if flip_x { 1 } else { 0 },
-                        if flip_y { 1 } else { 0 },
-                        if flip_z { 1 } else { 0 },
-                    );
-                    let rot = base_rot.flip(flip);
+        let mut base_flipped = Self::flip_pattern(pattern, &flips);
+        patterns.append(&mut base_flipped);
 
-                    let block_req: HashMap<_, _> = pattern
-                        .block_req
-                        .iter()
-                        .map(|(pos, indecies)| {
-                            let flipped_pos = ((*pos) + flip_b) * flip_a;
-                            (flipped_pos, indecies.to_owned())
-                        })
-                        .collect();
+        let rots = [0.0, PI * 0.5, PI * 1.5];
+        for rotate in rotates {
+            let mat = Mat4::from_mat3(base_rot.into());
+            let mat_x = Mat4::from_rotation_x(rots[rotate.x as usize]);
+            let mat_y = Mat4::from_rotation_y(rots[rotate.y as usize]);
+            let mat_z = Mat4::from_rotation_z(rots[rotate.z as usize]);
+            let rot_mat = mat_x * mat_y * mat_z;
+            let rotated_rot: Rot = Mat3::from_mat4(rot_mat * mat).into();
 
-                    let node_req: HashMap<_, _> = pattern
-                        .node_req
-                        .iter()
-                        .map(|(pos, indecies)| {
-                            let flipped_pos = (*pos) * flip_a;
-                            (*pos, indecies.to_owned())
-                        })
-                        .collect();
+            let rotated_block_req: HashMap<_, _> = pattern
+                .block_req
+                .iter()
+                .map(|(pos, indecies)| {
+                    let rotated_pos = rot_mat.transform_point3(pos.as_vec3()).round().as_ivec3();
+                    (rotated_pos, indecies.to_owned())
+                })
+                .collect();
 
-                    patterns.push(Pattern::new(
-                        NodeID::new(pattern.node.index, rot),
-                        block_req,
-                        node_req,
-                        pattern.prio,
-                    ))
-                }
-            }
+            let rotated_pattern = Pattern::new(
+                NodeID::new(pattern.node.index, rotated_rot),
+                rotated_block_req,
+                pattern.node_req.to_owned(),
+                pattern.prio,
+            );
+
+            let mut rotated_flipped = Self::flip_pattern(&rotated_pattern, &flips);
+            patterns.push(rotated_pattern);
+            patterns.append(&mut rotated_flipped);
+        }
+
+        patterns
+    }
+
+    fn flip_pattern(pattern: &Pattern, flips: &Vec<BVec3>) -> Vec<Pattern> {
+        let mut patterns: Vec<Pattern> = Vec::new();
+
+        for flip in flips.iter() {
+            let flip_a = ivec3(
+                if flip.x { -1 } else { 1 },
+                if flip.y { -1 } else { 1 },
+                if flip.z { -1 } else { 1 },
+            );
+            let flip_b = ivec3(
+                if flip.x { 1 } else { 0 },
+                if flip.y { 1 } else { 0 },
+                if flip.z { 1 } else { 0 },
+            );
+            let rot = pattern.node.rot.flip(flip.to_owned());
+
+            let block_req: HashMap<_, _> = pattern
+                .block_req
+                .iter()
+                .map(|(pos, indecies)| {
+                    let flipped_pos = ((*pos) - flip_b) * flip_a;
+                    (flipped_pos, indecies.to_owned())
+                })
+                .collect();
+
+            patterns.push(Pattern::new(
+                NodeID::new(pattern.node.index, rot),
+                block_req,
+                pattern.node_req.to_owned(),
+                pattern.prio,
+            ))
         }
 
         patterns

@@ -148,7 +148,7 @@ impl Builder {
             BuilderState::OFF => {}
         }
 
-        self.build_ship.tick(self.actions_per_tick)?;
+        self.base_ship.tick(self.actions_per_tick)?;
 
         Ok(())
     }
