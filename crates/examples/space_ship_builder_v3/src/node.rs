@@ -20,6 +20,7 @@ use std::io::BufReader;
 
 pub type NodeIndex = usize;
 pub type BlockIndex = usize;
+pub type PatternIndex = usize;
 pub type Voxel = u8;
 
 pub const BLOCK_INDEX_EMPTY: BlockIndex = 0;
@@ -38,8 +39,10 @@ pub struct NodeController {
     pub config_path: String,
     pub nodes: Vec<Node>,
     pub mats: [Material; 256],
-    pub patterns: Vec<Pattern>,
     pub blocks: Vec<Block>,
+
+    pub patterns: Vec<Pattern>,
+    pub req_poses: HashMap<IVec3, Vec<PatternIndex>>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -72,15 +75,14 @@ pub struct Pattern {
     pub prio: usize,
     pub node: NodeID,
     pub block_req: HashMap<IVec3, Vec<BlockIndex>>,
-    pub node_req: HashMap<IVec3, Vec<NodeIndex>>,
 }
 
 impl NodeController {
     pub fn new(voxel_loader: VoxelLoader, path: &str) -> Result<NodeController> {
         let r = Self::make_patterns(&voxel_loader, path);
-        let patterns = if r.is_err() {
+        let (patterns, req_poses) = if r.is_err() {
             log::error!("{}", r.err().unwrap());
-            Vec::new()
+            (Vec::new(), HashMap::new())
         } else {
             r.unwrap()
         };
@@ -90,13 +92,14 @@ impl NodeController {
             nodes: voxel_loader.nodes,
             mats: voxel_loader.mats,
             blocks: voxel_loader.blocks,
-            patterns: patterns,
+            patterns,
+            req_poses,
         })
     }
 
     pub fn load(&mut self, voxel_loader: VoxelLoader) -> Result<()> {
         let r = Self::make_patterns(&voxel_loader, &self.config_path);
-        let patterns = if r.is_err() {
+        let (patterns, req_poses) = if r.is_err() {
             log::error!("{}", r.err().unwrap());
             return Ok(());
         } else {
@@ -111,7 +114,10 @@ impl NodeController {
         Ok(())
     }
 
-    fn make_patterns(voxel_loader: &VoxelLoader, path: &str) -> Result<Vec<Pattern>> {
+    fn make_patterns(
+        voxel_loader: &VoxelLoader,
+        path: &str,
+    ) -> Result<(Vec<Pattern>, HashMap<IVec3, Vec<PatternIndex>>)> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let v: Value = serde_json::from_reader(reader)?;
@@ -195,6 +201,7 @@ impl NodeController {
                         HashMap::new()
                     };
 
+                    /*
                     let r = v["node_req"].as_array();
                     let node_req: HashMap<_, _> = if r.is_some() {
                         r.unwrap()
@@ -234,8 +241,9 @@ impl NodeController {
                     } else {
                         HashMap::new()
                     };
+                     */
 
-                    let pattern = Pattern::new(NodeID::from(node_index), block_req, node_req, prio);
+                    let pattern = Pattern::new(NodeID::from(node_index), block_req, prio);
                     let mut permuations = Self::permutate_pattern(&pattern, flip, rotate);
                     patterns.push(pattern);
                     patterns.append(&mut permuations);
@@ -244,7 +252,19 @@ impl NodeController {
         }
 
         patterns.sort_by(|p1, p2| p2.prio.cmp(&p1.prio));
-        Ok(patterns)
+
+        let mut req_poses: HashMap<IVec3, Vec<PatternIndex>> = HashMap::new();
+        for (i, pattern) in patterns.iter().enumerate().rev() {
+            for (&pos, _) in pattern.block_req.iter() {
+                if !req_poses.contains_key(&pos) {
+                    req_poses.insert(pos, Vec::new());
+                }
+
+                req_poses.get_mut(&pos).unwrap().push(i);
+            }
+        }
+
+        Ok((patterns, req_poses))
     }
 
     fn permutate_pattern(
@@ -253,14 +273,28 @@ impl NodeController {
         rotates: Vec<UVec3>,
     ) -> Vec<Pattern> {
         let mut patterns: Vec<Pattern> = Vec::new();
-        let base_rot = Rot::default();
 
-        let mut base_flipped = Self::flip_pattern(pattern, &flips);
-        patterns.append(&mut base_flipped);
+        let mut flipped_patterns = Self::flip_pattern(pattern, &flips);
+        patterns.append(&mut flipped_patterns);
+
+        let mut rotated_patterns = Self::rotate_pattern(pattern, &rotates);
+
+        for rotated_pattern in rotated_patterns.iter() {
+            let mut flipped_patterns = Self::flip_pattern(rotated_pattern, &flips);
+            patterns.append(&mut flipped_patterns);
+        }
+
+        patterns.append(&mut rotated_patterns);
+
+        patterns
+    }
+
+    fn rotate_pattern(pattern: &Pattern, rotates: &Vec<UVec3>) -> Vec<Pattern> {
+        let mut patterns: Vec<Pattern> = Vec::new();
 
         let rots = [0.0, PI * 0.5, PI * 1.5];
         for rotate in rotates {
-            let mat = Mat4::from_mat3(base_rot.into());
+            let mat = Mat4::from_mat3(pattern.node.rot.into());
             let mat_x = Mat4::from_rotation_x(rots[rotate.x as usize]);
             let mat_y = Mat4::from_rotation_y(rots[rotate.y as usize]);
             let mat_z = Mat4::from_rotation_z(rots[rotate.z as usize]);
@@ -279,13 +313,10 @@ impl NodeController {
             let rotated_pattern = Pattern::new(
                 NodeID::new(pattern.node.index, rotated_rot),
                 rotated_block_req,
-                pattern.node_req.to_owned(),
                 pattern.prio,
             );
 
-            let mut rotated_flipped = Self::flip_pattern(&rotated_pattern, &flips);
             patterns.push(rotated_pattern);
-            patterns.append(&mut rotated_flipped);
         }
 
         patterns
@@ -319,7 +350,6 @@ impl NodeController {
             patterns.push(Pattern::new(
                 NodeID::new(pattern.node.index, rot),
                 block_req,
-                pattern.node_req.to_owned(),
                 pattern.prio,
             ))
         }
@@ -416,16 +446,10 @@ impl Block {
 }
 
 impl Pattern {
-    pub fn new(
-        node: NodeID,
-        block_req: HashMap<IVec3, Vec<BlockIndex>>,
-        node_req: HashMap<IVec3, Vec<NodeIndex>>,
-        prio: usize,
-    ) -> Self {
+    pub fn new(node: NodeID, block_req: HashMap<IVec3, Vec<BlockIndex>>, prio: usize) -> Self {
         Pattern {
             node,
             block_req,
-            node_req,
             prio,
         }
     }

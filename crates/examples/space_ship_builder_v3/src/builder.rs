@@ -117,7 +117,8 @@ impl Builder {
                     self.last_pos = selected_pos;
 
                     // Reset the build ship to the state of the current ship.
-                    self.build_ship.clone_from(&self.base_ship)?;
+                    self.build_ship
+                        .clone_from(&self.base_ship, node_controller)?;
 
                     // If block index is valid.
                     if selected_pos.is_some() {
@@ -139,16 +140,9 @@ impl Builder {
 
                     self.last_action_time = total_time;
                 }
-
-                self.full_tick = self.build_ship.tick(self.actions_per_tick)?;
-                if self.full_tick {
-                    log::info!("Tick: {}", self.actions_per_tick);
-                }
             }
             BuilderState::OFF => {}
         }
-
-        self.base_ship.tick(self.actions_per_tick)?;
 
         Ok(())
     }

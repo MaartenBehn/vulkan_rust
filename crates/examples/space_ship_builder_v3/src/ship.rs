@@ -1,4 +1,4 @@
-use crate::node::NodeID;
+use crate::node::{NodeID, PatternIndex};
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
     node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
@@ -30,15 +30,16 @@ pub struct Ship {
     pub blocks: Vec<BlockIndex>,
     pub wave: Vec<Wave>,
     pub to_propergate: IndexQueue,
-    pub to_collapse: IndexQueue,
 
     pub mesh: ShipMesh,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct Wave {
-    pub possible_pattern: Vec<Pattern>,
-    pub all_possible_pattern: Vec<Pattern>,
+    pub some: bool,
+    pub current_pattern: PatternIndex,
+    pub req_state: HashMap<IVec3, Vec<bool>>,
+    pub pattern_state: Vec<HashMap<IVec3, bool>>,
 }
 
 impl Ship {
@@ -60,7 +61,6 @@ impl Ship {
             blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
             wave: vec![Wave::new(node_controller); max_wave_index],
             to_propergate: IndexQueue::default(),
-            to_collapse: IndexQueue::default(),
 
             mesh,
         };
@@ -131,13 +131,10 @@ impl Ship {
         log::info!("Place: {pos:?}");
         self.blocks[cell_index] = block_index;
 
-        self.update_wave(pos, node_controller);
+        self.update_wave(pos, block_index, node_controller);
 
-        /*
-        while !self.to_collapse.is_empty() {
-            self.to_collapse.pop_front();
-        }
-        */
+        self.mesh
+            .update(self.wave_size, &self.wave, node_controller)?;
 
         Ok(())
     }
@@ -221,136 +218,49 @@ impl Ship {
         0..(max_wave_index - 1)
     }
 
-    fn update_wave(&mut self, block_pos: UVec3, node_controller: &NodeController) {
+    fn update_wave(
+        &mut self,
+        block_pos: UVec3,
+        block_index: BlockIndex,
+        node_controller: &NodeController,
+    ) {
         for wave_pos in Self::get_wave_poses_of_block_pos(block_pos.as_ivec3()) {
-            let wave_index = to_1d(wave_pos, self.wave_size) as usize;
+            for (&offset, pattern_indecies) in node_controller.req_poses.iter() {
+                let req_pos = wave_pos.as_ivec3() - offset;
 
-            let wave = Wave::new(node_controller);
-            self.wave[wave_index] = wave;
+                if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                    continue;
+                }
+                let index = to_1d(req_pos.as_uvec3(), self.wave_size);
 
-            self.to_propergate.push_back(wave_index);
-        }
-    }
-
-    pub fn tick(&mut self, actions_per_tick: usize) -> Result<bool> {
-        if self.to_propergate.is_empty() {
-            return Ok(false);
-        }
-
-        let mut full_tick = true;
-        for _ in 0..actions_per_tick {
-            if !self.to_propergate.is_empty() {
-                let index = self.to_propergate.pop_front().unwrap();
-                self.propergate(index);
-            } else {
-                full_tick = false;
-                break;
-            }
-        }
-
-        self.mesh.update(self.wave_size, &self.wave)?;
-
-        Ok(full_tick)
-    }
-
-    fn propergate(&mut self, wave_index: WaveIndex) {
-        let pos = to_3d(wave_index as u32, self.wave_size);
-
-        let wave = self.wave[wave_index].to_owned();
-
-        let old_pattern = wave.possible_pattern.to_owned();
-        let mut patterns = wave.all_possible_pattern.to_owned();
-        for i in (0..patterns.len()).rev() {
-            let pattern = patterns[i].to_owned();
-            if pattern.block_req.is_empty() {
-                continue;
-            }
-
-            for (offset, block_indecies) in pattern.block_req.iter() {
-                let mut found = false;
-
-                let req_pos = pos.as_ivec3() + *offset;
-                let block_pos = req_pos / 2;
-                if (req_pos % 2).cmpeq(IVec3::ONE).all()
-                    && Self::pos_in_bounds(block_pos, self.block_size)
+                let mut changed = false;
+                for (i, (&pattern_index, state)) in pattern_indecies
+                    .iter()
+                    .zip(self.wave[index].req_state[&offset].to_owned().into_iter())
+                    .enumerate()
                 {
-                    let req_index = to_1d(block_pos.as_uvec3(), self.block_size);
+                    let pattern = &node_controller.patterns[pattern_index];
+                    let req_block_indecies = &pattern.block_req[&offset];
 
-                    for index in block_indecies.iter() {
-                        if self.blocks[req_index] == *index {
-                            found = true;
-                            break;
-                        }
-                    }
-                } else if block_indecies.contains(&BLOCK_INDEX_EMPTY) {
-                    found = true;
-                }
+                    let found = req_block_indecies.contains(&block_index);
+                    self.wave[index].req_state.get_mut(&offset).unwrap()[i] = found;
+                    self.wave[index].pattern_state[pattern_index].insert(offset, found);
 
-                if !found {
-                    patterns.remove(i);
-                    break;
-                }
-            }
-        }
-
-        if old_pattern != patterns {
-            //let to_collapse = self.to_collapse.to_owned();
-            let neigbors: Vec<_> = self
-                .get_all_wave_indecies()
-                //.filter(|index| !to_collapse.contains(*index))
-                .collect();
-            for neigbor in neigbors {
-                self.to_propergate.push_back(neigbor);
-            }
-
-            self.wave[wave_index].possible_pattern = patterns;
-        }
-
-        //self.to_collapse.push_back(wave_index);
-    }
-
-    fn collapse(&mut self, wave_index: WaveIndex) {
-        let pos = to_3d(wave_index as u32, self.wave_size);
-        let wave = self.wave[wave_index].to_owned();
-
-        let old_pattern = wave.possible_pattern.to_owned();
-        let mut patterns = wave.possible_pattern.to_owned();
-        for i in (0..patterns.len()).rev() {
-            let pattern = patterns[i].to_owned();
-            if pattern.node_req.is_empty() {
-                continue;
-            }
-
-            for (offset, node_indecies) in pattern.node_req.iter() {
-                let req_pos = pos.as_ivec3() + *offset;
-
-                let mut found = false;
-                if Self::pos_in_bounds(req_pos, self.wave_size) {
-                    let req_index = to_1d(req_pos.as_uvec3(), self.wave_size);
-                    for index in node_indecies.iter() {
-                        if self.wave[req_index].possible_pattern.len() > 0
-                            && self.wave[req_index].possible_pattern[0].node.index == *index
-                        {
-                            found = true;
-                            break;
-                        }
+                    if !changed
+                        && self.wave[index].pattern_state[pattern_index]
+                            .iter()
+                            .all(|(_, &s)| s)
+                    {
+                        self.wave[index].current_pattern = pattern_index;
+                        self.wave[index].some = true;
+                        changed = true;
                     }
                 }
 
-                if !found {
-                    patterns.remove(i);
-                    break;
+                if !changed {
+                    self.wave[index].some = false;
                 }
             }
-        }
-
-        if old_pattern != patterns {
-            let neigbors: Vec<_> = self.get_all_wave_indecies().collect();
-            for neigbor in neigbors {
-                self.to_collapse.push_back(neigbor);
-            }
-
-            self.wave[wave_index].possible_pattern = patterns;
         }
     }
 
@@ -383,10 +293,6 @@ impl Ship {
                         t.push_str("p");
                     }
 
-                    if self.to_collapse.contains(index) {
-                        t.push_str("c");
-                    }
-
                     text.push_str(&t);
 
                     for _ in (t.len())..12 {
@@ -403,16 +309,14 @@ impl Ship {
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
         let max_wave_index = (self.wave_size.x * self.wave_size.y * self.wave_size.z) as usize;
-        for i in 0..max_wave_index {
-            self.wave[i].possible_pattern = node_controller.patterns.to_owned();
-            self.wave[i].all_possible_pattern = node_controller.patterns.to_owned();
-        }
+        self.wave = vec![Wave::new(node_controller); max_wave_index];
 
         for x in 0..self.block_size.x {
             for y in 0..self.block_size.y {
                 for z in 0..self.block_size.z {
                     let pos = uvec3(x, y, z);
-                    self.update_wave(pos, node_controller);
+                    let block_index = self.blocks[to_1d(pos, self.block_size)];
+                    self.update_wave(pos, block_index, node_controller);
                 }
             }
         }
@@ -420,15 +324,15 @@ impl Ship {
         Ok(())
     }
 
-    pub fn clone_from(&mut self, other: &Ship) -> Result<()> {
+    pub fn clone_from(&mut self, other: &Ship, node_controller: &NodeController) -> Result<()> {
         debug_assert!(self.block_size == other.block_size);
 
         self.blocks.clone_from(&other.blocks);
         self.wave.clone_from(&other.wave);
         self.to_propergate.clone_from(&other.to_propergate);
-        self.to_collapse.clone_from(&other.to_collapse);
 
-        self.mesh.update(self.wave_size, &self.wave)?;
+        self.mesh
+            .update(self.wave_size, &self.wave, node_controller)?;
 
         Ok(())
     }
@@ -436,9 +340,28 @@ impl Ship {
 
 impl Wave {
     pub fn new(node_controller: &NodeController) -> Self {
+        let req_state = node_controller
+            .req_poses
+            .iter()
+            .map(|(pos, patterns)| (pos.to_owned(), patterns.iter().map(|_| false).collect()))
+            .collect();
+
+        let pattern_state = node_controller
+            .patterns
+            .iter()
+            .map(|p| {
+                p.block_req
+                    .iter()
+                    .map(|(pos, _)| (pos.to_owned(), false))
+                    .collect()
+            })
+            .collect();
+
         Self {
-            possible_pattern: Vec::new(),
-            all_possible_pattern: node_controller.patterns.to_owned(),
+            some: false,
+            current_pattern: 0,
+            req_state,
+            pattern_state,
         }
     }
 }
