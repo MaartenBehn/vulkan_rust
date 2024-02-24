@@ -165,13 +165,15 @@ impl Ship {
                         .enumerate()
                     {
                         let pattern = &node_controller.patterns[pattern_index];
-                        let empty = vec![BLOCK_INDEX_EMPTY];
-                        let req_block_indecies = pattern.block_req.get(&offset).unwrap_or(&empty);
 
-                        let found = req_block_indecies.contains(&block_index);
-                        self.wave[index].req_state.get_mut(&offset).unwrap()[i] = found;
-                        self.wave[index].pattern_state[pattern_index]
-                            .insert(offset.to_owned(), found);
+                        if !pattern.block_req.is_empty() {
+                            let req_block_indecies = pattern.block_req.get(&offset).unwrap();
+
+                            let found = req_block_indecies.contains(&block_index);
+                            self.wave[index].req_state.get_mut(&offset).unwrap()[i] = found;
+                            self.wave[index].pattern_state[pattern_index]
+                                .insert(offset.to_owned(), found);
+                        }
 
                         if !changed
                             && self.wave[index].pattern_state[pattern_index]

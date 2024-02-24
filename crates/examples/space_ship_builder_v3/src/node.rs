@@ -198,48 +198,6 @@ impl NodeController {
                         HashMap::new()
                     };
 
-                    /*
-                    let r = v["node_req"].as_array();
-                    let node_req: HashMap<_, _> = if r.is_some() {
-                        r.unwrap()
-                            .iter()
-                            .map(|p| {
-                                let pos_array = p["pos"].as_array().unwrap();
-                                let pos = ivec3(
-                                    pos_array[0].as_i64().unwrap() as i32,
-                                    pos_array[1].as_i64().unwrap() as i32,
-                                    pos_array[2].as_i64().unwrap() as i32,
-                                );
-
-                                let nodes: Vec<_> = p["name"]
-                                    .as_array()
-                                    .unwrap()
-                                    .iter()
-                                    .map(|n| {
-                                        let name = n.as_str().unwrap();
-
-                                        let parts: Vec<_> = name.split("_").collect();
-                                        let node_type = parts[1].parse::<usize>().unwrap();
-
-                                        let block = voxel_loader
-                                            .blocks
-                                            .iter()
-                                            .find(|b| b.name == parts[0])
-                                            .unwrap();
-                                        let node_index = block.nodes[node_type];
-
-                                        node_index
-                                    })
-                                    .collect();
-
-                                (pos, nodes)
-                            })
-                            .collect()
-                    } else {
-                        HashMap::new()
-                    };
-                     */
-
                     let pattern = Pattern::new(NodeID::from(node_index), block_req, prio);
                     let mut permuations = Self::permutate_pattern(&pattern, flip, rotate);
                     patterns.push(pattern);
