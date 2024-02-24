@@ -24,9 +24,6 @@ pub type PatternIndex = usize;
 pub type Voxel = u8;
 
 pub const BLOCK_INDEX_EMPTY: BlockIndex = 0;
-pub const BLOCK_INDEX_BASE: BlockIndex = 1;
-pub const BLOCK_INDECIES_GENERAL: [BlockIndex; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
-pub const BLOCK_INDECIES_OTHER: [BlockIndex; 7] = [2, 3, 4, 5, 6, 7, 8];
 
 pub const NODE_INDEX_NONE: NodeIndex = NodeIndex::MAX;
 pub const VOXEL_EMPTY: Voxel = 0;
@@ -42,7 +39,7 @@ pub struct NodeController {
     pub blocks: Vec<Block>,
 
     pub patterns: Vec<Pattern>,
-    pub req_poses: HashMap<IVec3, Vec<PatternIndex>>,
+    pub req_poses: Vec<(IVec3, Vec<PatternIndex>)>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -93,7 +90,7 @@ impl NodeController {
             mats: voxel_loader.mats,
             blocks: voxel_loader.blocks,
             patterns,
-            req_poses,
+            req_poses: req_poses.into_iter().collect(),
         })
     }
 
@@ -251,7 +248,8 @@ impl NodeController {
             }
         }
 
-        patterns.sort_by(|p1, p2| p2.prio.cmp(&p1.prio));
+        patterns.push(Pattern::new(NodeID::none(), HashMap::new(), 0));
+        patterns.sort_by(|p1, p2| p1.prio.cmp(&p2.prio));
 
         let mut req_poses: HashMap<IVec3, Vec<PatternIndex>> = HashMap::new();
         for (i, pattern) in patterns.iter().enumerate().rev() {
@@ -262,6 +260,10 @@ impl NodeController {
 
                 req_poses.get_mut(&pos).unwrap().push(i);
             }
+        }
+
+        for (_, indecies) in req_poses.iter_mut() {
+            indecies.push(0);
         }
 
         Ok((patterns, req_poses))

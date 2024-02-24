@@ -2,6 +2,7 @@ use crate::{
     node::{BlockIndex, NodeController},
     ship::{Ship, SHIP_TYPE_BASE, SHIP_TYPE_BUILDER},
 };
+use app::glam::IVec3;
 use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context};
 use std::{mem, ops::Index, time::Duration};
 
@@ -30,7 +31,7 @@ pub struct Builder {
     pub full_tick: bool,
 
     last_block_to_build: BlockIndex,
-    last_pos: Option<UVec3>,
+    last_pos: UVec3,
     last_action_time: Duration,
 }
 
@@ -41,14 +42,14 @@ impl Builder {
             node_controller
                 .blocks
                 .iter()
-                .position(|b| b.name == "Hull")
+                .position(|b| b.name == "Empty")
                 .unwrap(),
         );
         possible_blocks.push(
             node_controller
                 .blocks
                 .iter()
-                .position(|b| b.name == "Empty")
+                .position(|b| b.name == "Hull")
                 .unwrap(),
         );
 
@@ -57,7 +58,7 @@ impl Builder {
             base_ship: ship,
 
             state: BuilderState::ON,
-            block_to_build: 0,
+            block_to_build: 1,
             possible_blocks,
             distance: 3.0,
 
@@ -65,7 +66,7 @@ impl Builder {
             full_tick: false,
 
             last_block_to_build: 0,
-            last_pos: None,
+            last_pos: UVec3::ZERO,
             last_action_time: Duration::ZERO,
         })
     }
@@ -107,39 +108,49 @@ impl Builder {
                 // Get the index of the block that could be placed
                 let selected_block_index = self.base_ship.get_block_i(pos);
                 let selected_pos = if selected_block_index.is_ok() {
-                    Some(pos.as_uvec3())
+                    Some(pos.as_uvec3() / 2)
                 } else {
                     None
                 };
 
-                if self.last_pos != selected_pos || self.last_block_to_build != self.block_to_build
+                if Some(self.last_pos) != selected_pos
+                    || self.last_block_to_build != self.block_to_build
                 {
-                    self.last_pos = selected_pos;
-
-                    // Reset the build ship to the state of the current ship.
-                    self.build_ship
-                        .clone_from(&self.base_ship, node_controller)?;
+                    // Undo the last placement.
+                    self.build_ship.place_block(
+                        self.last_pos,
+                        self.base_ship.get_block(self.last_pos).unwrap(),
+                        node_controller,
+                    )?;
 
                     // If block index is valid.
                     if selected_pos.is_some() {
+                        self.last_block_to_build = self.block_to_build;
+                        self.last_pos = selected_pos.unwrap();
+
                         // Simulate placement of the block to create preview in build_ship.
                         self.build_ship.place_block(
-                            selected_pos.unwrap() / 2,
+                            selected_pos.unwrap(),
                             self.possible_blocks[self.block_to_build],
                             node_controller,
                         )?;
                     }
                 }
-                self.last_block_to_build = self.block_to_build;
 
                 if controls.left && (self.last_action_time + PLACE_SPEED) < total_time {
-                    mem::swap(&mut self.base_ship, &mut self.build_ship);
-                    self.base_ship.ship_type = SHIP_TYPE_BASE;
-                    self.build_ship.ship_type = SHIP_TYPE_BUILDER;
-                    self.last_block_to_build = usize::MAX;
+                    self.base_ship
+                        .clone_from(&self.build_ship, node_controller)?;
+
+                    // mem::swap(&mut self.base_ship, &mut self.build_ship);
+                    // self.base_ship.ship_type = SHIP_TYPE_BASE;
+                    // self.build_ship.ship_type = SHIP_TYPE_BUILDER;
 
                     self.last_action_time = total_time;
                 }
+
+                self.full_tick = self
+                    .build_ship
+                    .tick(self.actions_per_tick, node_controller)?;
             }
             BuilderState::OFF => {}
         }

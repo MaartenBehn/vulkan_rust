@@ -110,15 +110,13 @@ impl ShipMesh {
 
         // Nodes
         for (i, wave) in wave.iter().enumerate() {
-            if !wave.some {
+            let pattern = &node_controller.patterns[wave.current_pattern];
+            if pattern.node.is_none() {
                 continue;
             }
 
             let pos = to_3d(i as u32, wave_size);
-            let (mut v, _) = Self::get_node_mesh(
-                node_controller.patterns[wave.current_pattern].node,
-                pos.as_ivec3(),
-            );
+            let (mut v, _) = Self::get_node_mesh(pattern.node, pos.as_ivec3());
 
             vertecies.append(&mut v);
             self.index_counter += 36;
