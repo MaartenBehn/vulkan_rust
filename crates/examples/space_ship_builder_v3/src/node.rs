@@ -154,10 +154,8 @@ impl NodeController {
                         r.unwrap()
                             .iter()
                             .map(|v| {
-                                let x = v.as_array().unwrap()[0].as_u64().unwrap() as u32;
-                                let y = v.as_array().unwrap()[1].as_u64().unwrap() as u32;
-                                let z = v.as_array().unwrap()[2].as_u64().unwrap() as u32;
-                                uvec3(x, y, z)
+                                let id = v.as_u64().unwrap() as usize;
+                                id
                             })
                             .collect()
                     } else {
@@ -230,7 +228,7 @@ impl NodeController {
     fn permutate_pattern(
         pattern: &Pattern,
         flips: Vec<BVec3>,
-        rotates: Vec<UVec3>,
+        rotates: Vec<usize>,
     ) -> Vec<Pattern> {
         let mut patterns: Vec<Pattern> = Vec::new();
 
@@ -249,16 +247,24 @@ impl NodeController {
         patterns
     }
 
-    fn rotate_pattern(pattern: &Pattern, rotates: &Vec<UVec3>) -> Vec<Pattern> {
+    fn rotate_pattern(pattern: &Pattern, rotates: &Vec<usize>) -> Vec<Pattern> {
         let mut patterns: Vec<Pattern> = Vec::new();
 
-        let rots = [0.0, PI * 0.5, PI * 1.5];
-        for rotate in rotates {
+        let rot_mats = vec![
+            Mat4::from_mat3(Mat3::from_cols_array(&[
+                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+            ])), // x
+            Mat4::from_mat3(Mat3::from_cols_array(&[
+                0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
+            ])), // y
+            Mat4::from_mat3(Mat3::from_cols_array(&[
+                0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+            ])), // z
+        ];
+
+        for &rotate in rotates {
             let mat = Mat4::from_mat3(pattern.node.rot.into());
-            let mat_x = Mat4::from_rotation_x(rots[rotate.x as usize]);
-            let mat_y = Mat4::from_rotation_y(rots[rotate.y as usize]);
-            let mat_z = Mat4::from_rotation_z(rots[rotate.z as usize]);
-            let rot_mat = mat_x * mat_y * mat_z;
+            let rot_mat = rot_mats[rotate];
             let rotated_rot: Rot = Mat3::from_mat4(rot_mat * mat).into();
 
             let rotated_block_req: HashMap<_, _> = pattern

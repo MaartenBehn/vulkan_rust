@@ -272,7 +272,7 @@ impl Wave {
             .map(|p| {
                 p.block_req
                     .iter()
-                    .map(|(pos, _)| (pos.to_owned(), false))
+                    .map(|(pos, indecies)| (pos.to_owned(), indecies.contains(&BLOCK_INDEX_EMPTY)))
                     .collect()
             })
             .collect();
