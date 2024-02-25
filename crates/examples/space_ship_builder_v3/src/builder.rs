@@ -155,6 +155,10 @@ impl Builder {
             BuilderState::OFF => {}
         }
 
+        self.full_tick = self
+            .base_ship
+            .tick(self.actions_per_tick, node_controller)?;
+
         Ok(())
     }
 

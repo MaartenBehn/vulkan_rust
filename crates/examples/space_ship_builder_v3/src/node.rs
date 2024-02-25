@@ -107,6 +107,7 @@ impl NodeController {
         self.mats = voxel_loader.mats;
         self.blocks = voxel_loader.blocks;
         self.patterns = patterns;
+        self.req_poses = req_poses.into_iter().collect();
 
         Ok(())
     }
