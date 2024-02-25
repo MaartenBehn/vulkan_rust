@@ -129,7 +129,7 @@ impl Ship {
             return Ok(());
         }
 
-        log::info!("Place: {pos:?}");
+        //log::info!("Place: {pos:?}");
         self.blocks[cell_index] = block_index;
 
         self.tasks.push_back(pos);
@@ -175,13 +175,37 @@ impl Ship {
                                 .insert(offset.to_owned(), found);
                         }
 
-                        if !changed
+                        if self.wave[index].current_pattern < pattern_index
                             && self.wave[index].pattern_state[pattern_index]
                                 .iter()
                                 .all(|(_, &s)| s)
                         {
                             self.wave[index].current_pattern = pattern_index;
-                            changed = true;
+                        } else if self.wave[index].current_pattern == pattern_index
+                            && !self.wave[index].pattern_state[pattern_index]
+                                .iter()
+                                .all(|(_, &s)| s)
+                        {
+                            // Search all the patterns from this to next pattern in pattern_indecies for a vaild one
+                            let mut found = false;
+                            if i < pattern_indecies.len() - 1 {
+                                for test_index in
+                                    ((pattern_indecies[i + 1] + 1)..pattern_index).rev()
+                                {
+                                    if self.wave[index].pattern_state[test_index]
+                                        .iter()
+                                        .all(|(_, &s)| s)
+                                    {
+                                        self.wave[index].current_pattern = test_index;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+
+                                if !found {
+                                    self.wave[index].current_pattern = pattern_indecies[i + 1]
+                                }
+                            }
                         }
                     }
                 }
