@@ -1,4 +1,5 @@
 use crate::node::NodeController;
+use crate::ship::Ship;
 use crate::{
     math::to_3d,
     node::NodeID,
@@ -23,7 +24,8 @@ pub struct ShipMesh {
 }
 
 impl ShipMesh {
-    pub fn new(context: &Context, max_index: usize) -> Result<ShipMesh> {
+    pub fn new(context: &Context, ship: &Ship) -> Result<ShipMesh> {
+        let max_index = (ship.wave_size.x * ship.wave_size.y * ship.wave_size.z) as usize;
         let vertex_size = size_of::<Vertex>() * 8 * max_index;
         log::info!(
             "Ship Vertex Buffer: {:?} MB",
@@ -99,23 +101,18 @@ impl ShipMesh {
         Ok(mesh)
     }
 
-    pub fn update(
-        &mut self,
-        wave_size: UVec3,
-        wave: &Vec<Wave>,
-        node_controller: &NodeController,
-    ) -> Result<()> {
+    pub fn update(&mut self, ship: &Ship, node_controller: &NodeController) -> Result<()> {
         let mut vertecies = Vec::new();
         self.index_counter = 0;
 
         // Nodes
-        for (i, wave) in wave.iter().enumerate() {
+        for (i, wave) in ship.wave.iter().enumerate() {
             let pattern = &node_controller.patterns[wave.current_pattern];
             if pattern.node.is_none() {
                 continue;
             }
 
-            let pos = to_3d(i as u32, wave_size);
+            let pos = to_3d(i as u32, ship.wave_size);
             let (mut v, _) = Self::get_node_mesh(pattern.node, pos.as_ivec3());
 
             vertecies.append(&mut v);

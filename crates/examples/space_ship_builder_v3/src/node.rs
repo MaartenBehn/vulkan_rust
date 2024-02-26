@@ -1,10 +1,11 @@
-use crate::{
-    pattern_config::{BlockConfig, Config},
-    rotation::Rot,
-    voxel_loader::VoxelLoader,
-};
+use crate::{rotation::Rot, voxel_loader::VoxelLoader};
 use app::anyhow::bail;
-use app::glam::{ivec3, vec3, BVec3, Mat3, Mat4, Vec3};
+use app::glam::ivec3;
+
+use app::glam::BVec3;
+use app::glam::Mat3;
+use app::glam::Mat4;
+
 use app::{
     anyhow::Result,
     glam::{uvec3, IVec3, UVec3},
@@ -12,10 +13,9 @@ use app::{
 };
 use dot_vox::Color;
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
-use std::f32::consts::PI;
+use std::collections::HashMap;
 use std::fs::File;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::io::BufReader;
 
 pub type NodeIndex = usize;
@@ -155,8 +155,10 @@ impl NodeController {
                         r.unwrap()
                             .iter()
                             .map(|v| {
-                                let id = v.as_u64().unwrap() as usize;
-                                id
+                                let x = v.as_array().unwrap()[0].as_u64().unwrap() == 1;
+                                let y = v.as_array().unwrap()[1].as_u64().unwrap() == 1;
+                                let z = v.as_array().unwrap()[2].as_u64().unwrap() == 1;
+                                BVec3::new(x, y, z)
                             })
                             .collect()
                     } else {
@@ -229,7 +231,7 @@ impl NodeController {
     fn permutate_pattern(
         pattern: &Pattern,
         flips: Vec<BVec3>,
-        rotates: Vec<usize>,
+        rotates: Vec<BVec3>,
     ) -> Vec<Pattern> {
         let mut patterns: Vec<Pattern> = Vec::new();
 
@@ -248,24 +250,34 @@ impl NodeController {
         patterns
     }
 
-    fn rotate_pattern(pattern: &Pattern, rotates: &Vec<usize>) -> Vec<Pattern> {
+    fn rotate_pattern(pattern: &Pattern, rotates: &Vec<BVec3>) -> Vec<Pattern> {
         let mut patterns: Vec<Pattern> = Vec::new();
-
-        let rot_mats = vec![
-            Mat4::from_mat3(Mat3::from_cols_array(&[
-                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-            ])), // x
-            Mat4::from_mat3(Mat3::from_cols_array(&[
-                0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
-            ])), // y
-            Mat4::from_mat3(Mat3::from_cols_array(&[
-                0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-            ])), // z
-        ];
 
         for &rotate in rotates {
             let mat = Mat4::from_mat3(pattern.node.rot.into());
-            let rot_mat = rot_mats[rotate];
+
+            let rot_mat_x = if rotate.x {
+                Mat4::from_mat3(Mat3::from_cols_array(&[
+                    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+                ]))
+            } else {
+                Mat4::IDENTITY
+            };
+            let rot_mat_y = if rotate.y {
+                Mat4::from_mat3(Mat3::from_cols_array(&[
+                    0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
+                ]))
+            } else {
+                Mat4::IDENTITY
+            };
+            let rot_mat_z = if rotate.z {
+                Mat4::from_mat3(Mat3::from_cols_array(&[
+                    0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+                ]))
+            } else {
+                Mat4::IDENTITY
+            };
+            let rot_mat = rot_mat_x * rot_mat_y * rot_mat_z;
             let rotated_rot: Rot = Mat3::from_mat4(rot_mat * mat).into();
 
             let rotated_block_req: HashMap<_, _> = pattern

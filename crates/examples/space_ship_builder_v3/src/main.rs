@@ -13,10 +13,7 @@ use app::{
 use app::{log, App, BaseApp};
 
 use crate::{
-    builder::Builder,
-    node::NodeController,
-    renderer::Renderer,
-    ship::{Ship, SHIP_TYPE_BASE},
+    builder::Builder, node::NodeController, renderer::Renderer, ship::Ship,
     voxel_loader::VoxelLoader,
 };
 
@@ -62,7 +59,7 @@ impl App for SpaceShipBuilder {
             NodeController::new(voxel_loader, "./assets/models/space_ship_config_v3.json")?;
 
         let ship_size = uvec3(10, 10, 10);
-        let ship = Ship::new(ship_size, context, &node_controller, SHIP_TYPE_BASE)?;
+        let ship = Ship::new(ship_size, context, &node_controller)?;
 
         let builder = Builder::new(ship, context, &node_controller)?;
 
@@ -93,13 +90,6 @@ impl App for SpaceShipBuilder {
             renderer,
             camera,
         })
-    }
-
-    fn on_recreate_swapchain(&mut self, base: &BaseApp<Self>) -> Result<()> {
-        self.renderer
-            .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
-
-        Ok(())
     }
 
     fn update(
@@ -176,6 +166,13 @@ impl App for SpaceShipBuilder {
         self.renderer.render_builder(buffer, &self.builder);
 
         buffer.end_rendering();
+
+        Ok(())
+    }
+
+    fn on_recreate_swapchain(&mut self, base: &BaseApp<Self>) -> Result<()> {
+        self.renderer
+            .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
 
         Ok(())
     }

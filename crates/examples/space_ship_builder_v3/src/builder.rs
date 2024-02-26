@@ -1,10 +1,12 @@
+use crate::math::{to_1d, to_1d_i};
+use crate::ship_mesh::ShipMesh;
 use crate::{
     node::{BlockIndex, NodeController},
-    ship::{Ship, SHIP_TYPE_BASE, SHIP_TYPE_BUILDER},
+    ship::Ship,
 };
-use app::glam::IVec3;
-use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context};
-use std::{mem, ops::Index, time::Duration};
+
+use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, vulkan::Context};
+use std::time::Duration;
 
 const SCROLL_SPEED: f32 = 0.01;
 const PLACE_SPEED: Duration = Duration::from_millis(100);
@@ -18,8 +20,11 @@ enum BuilderState {
 }
 
 pub struct Builder {
-    pub base_ship: Ship,
-    pub build_ship: Ship,
+    pub ship: Ship,
+    pub build_blocks: Vec<BlockIndex>,
+
+    pub base_ship_mesh: ShipMesh,
+    pub build_ship_mesh: ShipMesh,
 
     state: BuilderState,
 
@@ -54,8 +59,10 @@ impl Builder {
         );
 
         Ok(Builder {
-            build_ship: Ship::new(ship.block_size, context, node_controller, SHIP_TYPE_BUILDER)?,
-            base_ship: ship,
+            build_blocks: ship.blocks.to_owned(),
+            base_ship_mesh: ShipMesh::new(context, &ship).unwrap(),
+            build_ship_mesh: ShipMesh::new(context, &ship).unwrap(),
+            ship,
 
             state: BuilderState::ON,
             block_to_build: 1,
@@ -102,13 +109,11 @@ impl Builder {
                 self.distance -= controls.scroll_delta * SCROLL_SPEED;
                 let pos = ((camera.position + camera.direction * self.distance) / 2.0)
                     .round()
-                    .as_ivec3()
-                    * 2;
+                    .as_ivec3();
 
                 // Get the index of the block that could be placed
-                let selected_block_index = self.base_ship.get_block_i(pos);
-                let selected_pos = if selected_block_index.is_ok() {
-                    Some(pos.as_uvec3() / 2)
+                let selected_pos = if Ship::pos_in_bounds(pos, self.ship.block_size) {
+                    Some(pos.as_uvec3())
                 } else {
                     None
                 };
@@ -117,9 +122,10 @@ impl Builder {
                     || self.last_block_to_build != self.block_to_build
                 {
                     // Undo the last placement.
-                    self.build_ship.place_block(
+                    let last_block_index = to_1d(self.last_pos, self.ship.block_size);
+                    self.ship.place_block(
                         self.last_pos,
-                        self.base_ship.get_block(self.last_pos).unwrap(),
+                        self.build_blocks[last_block_index],
                         node_controller,
                     )?;
 
@@ -129,7 +135,7 @@ impl Builder {
                         self.last_pos = selected_pos.unwrap();
 
                         // Simulate placement of the block to create preview in build_ship.
-                        self.build_ship.place_block(
+                        self.ship.place_block(
                             selected_pos.unwrap(),
                             self.possible_blocks[self.block_to_build],
                             node_controller,
@@ -138,33 +144,26 @@ impl Builder {
                 }
 
                 if controls.left && (self.last_action_time + PLACE_SPEED) < total_time {
-                    self.base_ship
-                        .clone_from(&self.build_ship, node_controller)?;
-
-                    // mem::swap(&mut self.base_ship, &mut self.build_ship);
-                    // self.base_ship.ship_type = SHIP_TYPE_BASE;
-                    // self.build_ship.ship_type = SHIP_TYPE_BUILDER;
-
+                    self.build_blocks = self.ship.blocks.to_owned();
                     self.last_action_time = total_time;
+
+                    self.base_ship_mesh.update(&self.ship, node_controller)?;
                 }
 
-                self.full_tick = self
-                    .build_ship
-                    .tick(self.actions_per_tick, node_controller)?;
+                self.full_tick = self.ship.tick(self.actions_per_tick, node_controller)?;
+
+                self.build_ship_mesh.update(&self.ship, node_controller)?;
             }
             BuilderState::OFF => {}
         }
-
-        self.full_tick = self
-            .base_ship
-            .tick(self.actions_per_tick, node_controller)?;
 
         Ok(())
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
-        self.base_ship.on_node_controller_change(node_controller)?;
-        self.build_ship.on_node_controller_change(node_controller)?;
+        self.ship.blocks = self.build_blocks.to_owned();
+        self.ship.on_node_controller_change(node_controller)?;
+        self.last_block_to_build = BlockIndex::MAX;
 
         Ok(())
     }

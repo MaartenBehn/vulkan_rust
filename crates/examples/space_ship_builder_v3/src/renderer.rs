@@ -1,3 +1,4 @@
+use crate::ship::{SHIP_TYPE_BASE, SHIP_TYPE_BUILD};
 use crate::{
     builder::{self, Builder},
     node::{Node, NodeController},
@@ -259,21 +260,24 @@ impl Renderer {
     }
 
     pub fn render_builder(&self, buffer: &CommandBuffer, builder: &Builder) {
-        self.render_ship(buffer, &builder.base_ship);
-        self.render_ship(buffer, &builder.build_ship);
+        self.render_ship_mesh(buffer, &builder.base_ship_mesh, SHIP_TYPE_BASE);
+        self.render_ship_mesh(buffer, &builder.build_ship_mesh, SHIP_TYPE_BUILD);
     }
 
-    pub fn render_ship(&self, buffer: &CommandBuffer, ship: &Ship) {
-        buffer.bind_vertex_buffer(&ship.mesh.vertex_buffer);
-        buffer.bind_index_buffer(&ship.mesh.index_buffer);
+    pub fn render_ship_mesh(
+        &self,
+        buffer: &CommandBuffer,
+        ship_mesh: &ShipMesh,
+        ship_type: ShipType,
+    ) {
+        buffer.bind_vertex_buffer(&ship_mesh.vertex_buffer);
+        buffer.bind_index_buffer(&ship_mesh.index_buffer);
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT,
-            &PushConstant {
-                ship_type: ship.ship_type,
-            },
+            &PushConstant { ship_type },
         );
-        buffer.draw_indexed(ship.mesh.index_counter);
+        buffer.draw_indexed(ship_mesh.index_counter);
     }
 }
 

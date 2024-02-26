@@ -17,13 +17,10 @@ use std::time::Duration;
 
 pub type WaveIndex = usize;
 pub type ShipType = u32;
-
 pub const SHIP_TYPE_BASE: ShipType = 0;
-pub const SHIP_TYPE_BUILDER: ShipType = 1;
+pub const SHIP_TYPE_BUILD: ShipType = 1;
 
 pub struct Ship {
-    pub ship_type: ShipType,
-
     pub block_size: UVec3,
     pub wave_size: UVec3,
 
@@ -31,8 +28,6 @@ pub struct Ship {
     pub wave: Vec<Wave>,
     pub tasks: VecDeque<UVec3>,
     pub task_counter: usize,
-
-    pub mesh: ShipMesh,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
@@ -47,23 +42,18 @@ impl Ship {
         block_size: UVec3,
         context: &Context,
         node_controller: &NodeController,
-        ship_type: ShipType,
     ) -> Result<Ship> {
         let wave_size = block_size * 2;
         let max_block_index = (block_size.x * block_size.y * block_size.z) as usize;
         let max_wave_index = (wave_size.x * wave_size.y * wave_size.z) as usize;
-        let mesh = ShipMesh::new(context, max_wave_index * 8)?;
 
         let mut ship = Ship {
-            ship_type,
             block_size,
             wave_size,
             blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
             wave: vec![Wave::new(node_controller); max_wave_index],
             tasks: VecDeque::new(),
             task_counter: 0,
-
-            mesh,
         };
 
         //ship.place_block(uvec3(0, 0, 0), 1, node_controller)?;
@@ -72,7 +62,7 @@ impl Ship {
         Ok(ship)
     }
 
-    fn pos_in_bounds(pos: IVec3, size: UVec3) -> bool {
+    pub(crate) fn pos_in_bounds(pos: IVec3, size: UVec3) -> bool {
         pos.cmpge(IVec3::ZERO).all() && pos.cmplt(size.as_ivec3()).all()
     }
 
@@ -158,7 +148,6 @@ impl Ship {
                 if Self::pos_in_bounds(req_pos, self.wave_size) {
                     let index = to_1d(req_pos.as_uvec3(), self.wave_size);
 
-                    let mut changed = false;
                     for (i, (&pattern_index, state)) in pattern_indecies
                         .iter()
                         .zip(self.wave[index].req_state[&offset].to_owned().into_iter())
@@ -221,9 +210,6 @@ impl Ship {
             }
         }
 
-        self.mesh
-            .update(self.wave_size, &self.wave, node_controller)?;
-
         Ok(full)
     }
 
@@ -239,20 +225,6 @@ impl Ship {
                 }
             }
         }
-
-        Ok(())
-    }
-
-    pub fn clone_from(&mut self, other: &Ship, node_controller: &NodeController) -> Result<()> {
-        debug_assert!(self.block_size == other.block_size);
-
-        self.blocks.clone_from(&other.blocks);
-        self.wave.clone_from(&other.wave);
-        self.tasks = VecDeque::new();
-        self.task_counter = 0;
-
-        self.mesh
-            .update(self.wave_size, &self.wave, node_controller)?;
 
         Ok(())
     }
