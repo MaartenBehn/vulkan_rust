@@ -120,13 +120,16 @@ impl NodeController {
         let reader = BufReader::new(file);
         let v: Value = serde_json::from_reader(reader)?;
 
-        let mut patterns = Vec::new();
+        let mut named_patterns = HashMap::new();
+        let mut patterns: Vec<Pattern> = Vec::new();
+        let mut permutations_patterns = Vec::new();
         let v = v["blocks"].as_object().unwrap();
         for block in voxel_loader.blocks.iter() {
             if v.contains_key(&block.name) {
                 let v = v[&block.name].as_object().unwrap();
 
                 for v in v["nodes"].as_array().unwrap().iter() {
+                    // Required fields
                     let node_type = v["type"].as_u64().unwrap() as usize;
                     if node_type >= block.nodes.len() {
                         bail!("Config Nodetype {node_type} not in voxel file!");
@@ -135,8 +138,16 @@ impl NodeController {
 
                     let prio = v["prio"].as_u64().unwrap() as usize;
 
+                    // Optional fields
+                    let r = v["name"].as_str();
+                    let name = if r.is_some() {
+                        r.unwrap().to_owned()
+                    } else {
+                        "".to_owned()
+                    };
+
                     let r = v["flip"].as_array();
-                    let flip: Vec<_> = if r.is_some() {
+                    let mut flip: Vec<_> = if r.is_some() {
                         r.unwrap()
                             .iter()
                             .map(|v| {
@@ -151,7 +162,7 @@ impl NodeController {
                     };
 
                     let r = v["rotate"].as_array();
-                    let rotate: Vec<_> = if r.is_some() {
+                    let mut rotate: Vec<_> = if r.is_some() {
                         r.unwrap()
                             .iter()
                             .map(|v| {
@@ -199,15 +210,72 @@ impl NodeController {
                         HashMap::new()
                     };
 
-                    let pattern = Pattern::new(NodeID::from(node_index), block_req, prio);
+                    let r = v["copy"].as_object();
+                    let copy = if r.is_some() {
+                        let name = r.unwrap()["name"].as_str().unwrap().to_owned();
+                        let offset_array = r.unwrap()["offset"].as_array().unwrap();
+                        let offset = ivec3(
+                            offset_array[0].as_i64().unwrap() as i32,
+                            offset_array[1].as_i64().unwrap() as i32,
+                            offset_array[2].as_i64().unwrap() as i32,
+                        );
+
+                        Some((name, offset))
+                    } else {
+                        None
+                    };
+
+                    if name != "" {
+                        let index = patterns.len();
+                        named_patterns.insert(name, (index, flip.to_owned(), rotate.to_owned()));
+                    }
+
+                    let mut pattern = Pattern::new(NodeID::from(node_index), block_req, prio);
+                    if copy.is_some() {
+                        let (copy_name, offset) = copy.unwrap();
+
+                        if copy_name != "" {
+                            let r = named_patterns.get(&copy_name);
+
+                            if r.is_some() {
+                                let (copy_index, copy_flip, copy_rotate) = r.unwrap();
+                                let copy_pattern = &patterns[*copy_index];
+
+                                for &f in copy_flip.iter() {
+                                    flip.push(f);
+                                }
+
+                                for &r in copy_rotate.iter() {
+                                    rotate.push(r);
+                                }
+
+                                for (&copy_pos, copy_indecies) in copy_pattern.block_req.iter() {
+                                    let new_pos = copy_pos - offset;
+
+                                    if !pattern.block_req.contains_key(&new_pos) {
+                                        pattern.block_req.insert(new_pos, Vec::new());
+                                    }
+
+                                    pattern
+                                        .block_req
+                                        .get_mut(&new_pos)
+                                        .unwrap()
+                                        .append(&mut copy_indecies.to_owned());
+                                }
+                            }
+                        }
+                    }
+
                     let mut permuations = Self::permutate_pattern(&pattern, flip, rotate);
+                    permutations_patterns.append(&mut permuations);
                     patterns.push(pattern);
-                    patterns.append(&mut permuations);
                 }
             }
         }
 
         patterns.push(Pattern::new(NodeID::none(), HashMap::new(), 0));
+        patterns.append(&mut permutations_patterns);
+
         patterns.sort_by(|p1, p2| p1.prio.cmp(&p2.prio));
 
         let mut req_poses: HashMap<IVec3, Vec<PatternIndex>> = HashMap::new();
@@ -224,6 +292,9 @@ impl NodeController {
         for (_, indecies) in req_poses.iter_mut() {
             indecies.push(0);
         }
+
+        log::info!("{:?} Patterns created.", patterns.len());
+        log::info!("{:?} Required poses created.", req_poses.keys().len());
 
         Ok((patterns, req_poses))
     }
@@ -277,14 +348,19 @@ impl NodeController {
             } else {
                 Mat4::IDENTITY
             };
-            let rot_mat = rot_mat_x * rot_mat_y * rot_mat_z;
-            let rotated_rot: Rot = Mat3::from_mat4(rot_mat * mat).into();
+
+            // Yeah, glsl rotation order is different to glam, so I just create two different matrices.
+            // I know ... but it's the simplest fix.
+            let pos_mat = rot_mat_x * rot_mat_y * rot_mat_z;
+            let rot_mat = rot_mat_z * rot_mat_y * rot_mat_x;
+
+            let rotated_rot: Rot = Mat3::from_mat4(mat * rot_mat).into();
 
             let rotated_block_req: HashMap<_, _> = pattern
                 .block_req
                 .iter()
                 .map(|(pos, indecies)| {
-                    let rotated_pos = rot_mat.transform_point3(pos.as_vec3()).round().as_ivec3();
+                    let rotated_pos = pos_mat.transform_point3(pos.as_vec3()).round().as_ivec3();
                     (rotated_pos, indecies.to_owned())
                 })
                 .collect();
