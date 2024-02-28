@@ -1,3 +1,4 @@
+use crate::math::get_config;
 use crate::node::NodeController;
 use crate::ship::Ship;
 use crate::{
@@ -106,14 +107,16 @@ impl ShipMesh {
         self.index_counter = 0;
 
         // Nodes
-        for (i, wave) in ship.wave.iter().enumerate() {
-            let pattern = &node_controller.patterns[wave.current_pattern];
+        for (wave_index, wave) in ship.wave.iter().enumerate() {
+            let wave_pos = to_3d(wave_index as u32, ship.wave_size).as_ivec3();
+            let config = get_config(wave_pos);
+
+            let pattern = &node_controller.patterns[config][wave.current_pattern];
             if pattern.node.is_none() {
                 continue;
             }
 
-            let pos = to_3d(i as u32, ship.wave_size);
-            let (mut v, _) = Self::get_node_mesh(pattern.node, pos.as_ivec3());
+            let (mut v, _) = Self::get_node_mesh(pattern.node, wave_pos);
 
             vertecies.append(&mut v);
             self.index_counter += 36;

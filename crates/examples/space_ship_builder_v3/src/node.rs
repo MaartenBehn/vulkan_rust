@@ -6,6 +6,7 @@ use app::glam::BVec3;
 use app::glam::Mat3;
 use app::glam::Mat4;
 
+use crate::math::get_config;
 use app::{
     anyhow::Result,
     glam::{uvec3, IVec3, UVec3},
@@ -13,7 +14,7 @@ use app::{
 };
 use dot_vox::Color;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::hash::Hash;
 use std::io::BufReader;
@@ -38,11 +39,8 @@ pub struct NodeController {
     pub mats: [Material; 256],
     pub blocks: Vec<Block>,
 
-    pub patterns: Vec<Pattern>,
-    pub req_poses: Vec<(IVec3, Vec<PatternIndex>)>,
-
-    pub req_state_lookup: HashMap<IVec3, Vec<usize>>,
-    pub pattern_state_lookup: Vec<HashMap<IVec3, usize>>,
+    pub patterns: [Vec<Pattern>; 8],
+    pub affected_poses: Vec<IVec3>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -80,49 +78,24 @@ pub struct Pattern {
 impl NodeController {
     pub fn new(voxel_loader: VoxelLoader, path: &str) -> Result<NodeController> {
         let r = Self::make_patterns(&voxel_loader, path);
-        let (patterns, req_poses) = if r.is_err() {
+        let (patterns, affected_poses) = if r.is_err() {
             log::error!("{}", r.err().unwrap());
-            (Vec::new(), HashMap::new())
+            (
+                [
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                ],
+                Vec::new(),
+            )
         } else {
             r.unwrap()
         };
-
-        let mut counter: usize = 0;
-        let req_state_lookup: HashMap<IVec3, Vec<usize>> = req_poses
-            .iter()
-            .map(|(pos, patterns)| {
-                (
-                    pos.to_owned(),
-                    patterns
-                        .iter()
-                        .map(|_| {
-                            let i = counter;
-                            counter += 1;
-                            i
-                        })
-                        .collect(),
-                )
-            })
-            .collect();
-
-        log::info!("Min REQ State length: {:?}", counter);
-
-        let mut counter: usize = 0;
-        let pattern_state_lookup: Vec<HashMap<IVec3, usize>> = patterns
-            .iter()
-            .map(|p| {
-                p.block_req
-                    .iter()
-                    .map(|(pos, indecies)| {
-                        let i = counter;
-                        counter += 1;
-                        (pos.to_owned(), i)
-                    })
-                    .collect()
-            })
-            .collect();
-
-        log::info!("Min Pattern State length: {:?}", counter);
 
         Ok(NodeController {
             config_path: path.to_owned(),
@@ -130,15 +103,13 @@ impl NodeController {
             mats: voxel_loader.mats,
             blocks: voxel_loader.blocks,
             patterns,
-            req_poses: req_poses.into_iter().collect(),
-            req_state_lookup,
-            pattern_state_lookup,
+            affected_poses,
         })
     }
 
     pub fn load(&mut self, voxel_loader: VoxelLoader) -> Result<()> {
         let r = Self::make_patterns(&voxel_loader, &self.config_path);
-        let (patterns, req_poses) = if r.is_err() {
+        let (patterns, affected_poses) = if r.is_err() {
             log::error!("{}", r.err().unwrap());
             return Ok(());
         } else {
@@ -149,7 +120,7 @@ impl NodeController {
         self.mats = voxel_loader.mats;
         self.blocks = voxel_loader.blocks;
         self.patterns = patterns;
-        self.req_poses = req_poses.into_iter().collect();
+        self.affected_poses = affected_poses;
 
         Ok(())
     }
@@ -157,13 +128,13 @@ impl NodeController {
     fn make_patterns(
         voxel_loader: &VoxelLoader,
         path: &str,
-    ) -> Result<(Vec<Pattern>, HashMap<IVec3, Vec<PatternIndex>>)> {
+    ) -> Result<([Vec<Pattern>; 8], Vec<IVec3>)> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let v: Value = serde_json::from_reader(reader)?;
 
         let mut named_patterns = HashMap::new();
-        let mut patterns: Vec<Pattern> = Vec::new();
+        let mut pattern_list: Vec<Pattern> = Vec::new();
         let mut permutations_patterns = Vec::new();
         let v = v["blocks"].as_object().unwrap();
         for block in voxel_loader.blocks.iter() {
@@ -268,7 +239,7 @@ impl NodeController {
                     };
 
                     if name != "" {
-                        let index = patterns.len();
+                        let index = pattern_list.len();
                         named_patterns.insert(name, (index, flip.to_owned(), rotate.to_owned()));
                     }
 
@@ -281,7 +252,7 @@ impl NodeController {
 
                             if r.is_some() {
                                 let (copy_index, copy_flip, copy_rotate) = r.unwrap();
-                                let copy_pattern = &patterns[*copy_index];
+                                let copy_pattern = &pattern_list[*copy_index];
 
                                 for &f in copy_flip.iter() {
                                     flip.push(f);
@@ -310,35 +281,53 @@ impl NodeController {
 
                     let mut permuations = Self::permutate_pattern(&pattern, flip, rotate);
                     permutations_patterns.append(&mut permuations);
-                    patterns.push(pattern);
+                    pattern_list.push(pattern);
                 }
             }
         }
 
-        patterns.push(Pattern::new(NodeID::none(), HashMap::new(), 0));
-        patterns.append(&mut permutations_patterns);
+        pattern_list.push(Pattern::new(NodeID::none(), HashMap::new(), 0));
+        pattern_list.append(&mut permutations_patterns);
+        log::info!("{:?} Patterns created.", pattern_list.len());
 
-        patterns.sort_by(|p1, p2| p1.prio.cmp(&p2.prio));
-
-        let mut req_poses: HashMap<IVec3, Vec<PatternIndex>> = HashMap::new();
-        for (i, pattern) in patterns.iter().enumerate().rev() {
+        let mut patterns = [
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        ];
+        let mut affected_poses = HashSet::new();
+        for pattern in pattern_list.into_iter() {
+            let mut config = None;
             for (&pos, _) in pattern.block_req.iter() {
-                if !req_poses.contains_key(&pos) {
-                    req_poses.insert(pos, Vec::new());
-                }
+                affected_poses.insert(pos);
 
-                req_poses.get_mut(&pos).unwrap().push(i);
+                let new_config = get_config(pos);
+                if config.is_none() {
+                    config = Some(new_config);
+                } else {
+                    if config.unwrap() != new_config {
+                        log::info!("Pattern has two different configs.");
+                    }
+                }
+            }
+
+            if config.is_none() {
+                patterns.iter_mut().for_each(|l| l.push(pattern.to_owned()));
+            } else {
+                patterns[7 - config.unwrap()].push(pattern);
             }
         }
 
-        for (_, indecies) in req_poses.iter_mut() {
-            indecies.push(0);
-        }
+        patterns.iter_mut().for_each(|l| {
+            l.sort_by(|p1, p2| p1.prio.cmp(&p2.prio));
+        });
 
-        log::info!("{:?} Patterns created.", patterns.len());
-        log::info!("{:?} Required poses created.", req_poses.keys().len());
-
-        Ok((patterns, req_poses))
+        Ok((patterns, affected_poses.into_iter().collect()))
     }
 
     fn permutate_pattern(

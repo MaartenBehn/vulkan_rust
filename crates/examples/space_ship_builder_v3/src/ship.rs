@@ -1,4 +1,4 @@
-use crate::math::get_packed_index;
+use crate::math::{get_config, get_packed_index};
 use crate::node::{Node, NodeID, PatternIndex};
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
@@ -31,15 +31,12 @@ pub struct Ship {
 
     pub blocks: Vec<BlockIndex>,
     pub wave: Vec<Wave>,
-    pub tasks: VecDeque<UVec3>,
-    pub task_counter: usize,
+    pub to_collapse: IndexQueue,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Wave {
     pub current_pattern: PatternIndex,
-    pub req_state: [u8; REQ_STATE_SIZE],
-    pub pattern_state: [u8; PATTERN_STATE_SIZE],
 }
 
 impl Ship {
@@ -57,8 +54,7 @@ impl Ship {
             wave_size,
             blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
             wave: vec![Wave::new(node_controller); max_wave_index],
-            tasks: VecDeque::new(),
-            task_counter: 0,
+            to_collapse: IndexQueue::default(),
         };
 
         let size = size_of::<Ship>()
@@ -102,6 +98,10 @@ impl Ship {
         Ok(&self.wave[index as usize])
     }
 
+    pub fn get_wave_pos_of_block_pos(pos: IVec3) -> IVec3 {
+        pos * 2 - IVec3::ONE
+    }
+
     pub fn fill_all(
         &mut self,
         block_index: BlockIndex,
@@ -129,16 +129,31 @@ impl Ship {
             return Ok(());
         }
 
-        //log::info!("Place: {pos:?}");
+        log::info!("Place: {pos:?}");
         self.blocks[cell_index] = block_index;
-
-        self.tasks.push_back(pos);
+        self.propergate(pos, node_controller)?;
 
         Ok(())
     }
 
-    pub fn get_wave_pos_of_block_pos(pos: IVec3) -> IVec3 {
-        pos * 2 + IVec3::ONE
+    fn propergate(&mut self, block_pos: UVec3, node_controller: &NodeController) -> Result<()> {
+        for &pos in node_controller.affected_poses.iter() {
+            let req_pos = Self::get_wave_pos_of_block_pos(block_pos.as_ivec3()) + pos;
+            if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                continue;
+            }
+
+            let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
+            let config = get_config(req_pos);
+
+            self.wave[index].current_pattern = node_controller.patterns[config].len() - 1;
+
+            if !self.to_collapse.contains(index) {
+                self.to_collapse.push_back(index);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn tick(
@@ -148,71 +163,35 @@ impl Ship {
     ) -> Result<bool> {
         let mut full = true;
         for _ in 0..actions_per_tick {
-            if !self.tasks.is_empty() {
-                let block_pos = self.tasks.front().unwrap().as_ivec3();
-                let block_index = self.get_block_i(block_pos).unwrap();
-                let (offset, pattern_indecies) = &node_controller.req_poses[self.task_counter];
-
-                let req_pos = Self::get_wave_pos_of_block_pos(block_pos) - offset.to_owned();
-
-                if Self::pos_in_bounds(req_pos, self.wave_size) {
-                    let index = to_1d(req_pos.as_uvec3(), self.wave_size);
-
-                    for (i, &pattern_index) in pattern_indecies.iter().enumerate() {
-                        let pattern = &node_controller.patterns[pattern_index];
-
-                        if !pattern.block_req.is_empty() {
-                            let req_block_indecies = pattern.block_req.get(&offset).unwrap();
-
-                            let found = req_block_indecies.contains(&block_index);
-
-                            self.wave[index].set_req_state(offset, i, found, node_controller);
-                            self.wave[index].set_pattern_state(
-                                offset,
-                                pattern_index,
-                                found,
-                                node_controller,
-                            );
-                        }
-
-                        if self.wave[index].current_pattern < pattern_index
-                            && self.wave[index].all_pattern_state(pattern_index, node_controller)
-                        {
-                            self.wave[index].current_pattern = pattern_index;
-                        } else if self.wave[index].current_pattern == pattern_index
-                            && !self.wave[index].all_pattern_state(pattern_index, node_controller)
-                        {
-                            // Search all the patterns from this to next pattern in pattern_indecies for a vaild one
-                            let mut found = false;
-                            if i < pattern_indecies.len() - 1 {
-                                for test_index in
-                                    ((pattern_indecies[i + 1] + 1)..pattern_index).rev()
-                                {
-                                    if self.wave[index]
-                                        .all_pattern_state(test_index, node_controller)
-                                    {
-                                        self.wave[index].current_pattern = test_index;
-                                        found = true;
-                                        break;
-                                    }
-                                }
-
-                                if !found {
-                                    self.wave[index].current_pattern = pattern_indecies[i + 1]
-                                }
-                            }
-                        }
-                    }
-                }
-
-                self.task_counter += 1;
-                if self.task_counter >= node_controller.req_poses.len() {
-                    self.tasks.pop_front();
-                    self.task_counter = 0;
-                }
-            } else {
+            if self.to_collapse.is_empty() {
                 full = false;
                 break;
+            }
+
+            let wave_index = self.to_collapse.pop_front().unwrap();
+            let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
+            let config = get_config(wave_pos);
+
+            self.wave[wave_index].current_pattern = 0;
+            for (pattern_index, pattern) in node_controller.patterns[config].iter().enumerate() {
+                let accepted = pattern.block_req.iter().all(|(&offset, indecies)| {
+                    let req_pos = wave_pos + offset;
+
+                    if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                        return indecies.contains(&BLOCK_INDEX_EMPTY);
+                    }
+
+                    debug_assert!((req_pos % 2) == IVec3::ONE);
+
+                    let block_pos = req_pos / 2;
+                    let index = to_1d_i(block_pos, self.block_size.as_ivec3()) as usize;
+                    let block_index = self.blocks[index];
+                    indecies.contains(&block_index)
+                });
+
+                if accepted {
+                    self.wave[wave_index].current_pattern = pattern_index;
+                }
             }
         }
 
@@ -227,7 +206,7 @@ impl Ship {
             for y in 0..self.block_size.y {
                 for z in 0..self.block_size.z {
                     let pos = uvec3(x, y, z);
-                    self.tasks.push_back(pos);
+                    self.propergate(pos, node_controller)?;
                 }
             }
         }
@@ -238,80 +217,6 @@ impl Ship {
 
 impl Wave {
     pub fn new(node_controller: &NodeController) -> Self {
-        let mut wave = Wave {
-            current_pattern: 0,
-            req_state: [0; REQ_STATE_SIZE],
-            pattern_state: [0; PATTERN_STATE_SIZE],
-        };
-
-        for (i, p) in node_controller.patterns.iter().enumerate() {
-            for (pos, indecies) in p.block_req.iter() {
-                if indecies.contains(&BLOCK_INDEX_EMPTY) {
-                    wave.set_pattern_state(pos, i, true, node_controller);
-                }
-            }
-        }
-
-        wave
-    }
-
-    pub fn get_req_state(
-        &self,
-        pos: &IVec3,
-        index: usize,
-        node_controller: &NodeController,
-    ) -> bool {
-        let index = node_controller.req_state_lookup[pos][index];
-        let (i, j) = get_packed_index(index);
-        (self.req_state[i] & j) == 1
-    }
-
-    pub fn set_req_state(
-        &mut self,
-        pos: &IVec3,
-        index: usize,
-        value: bool,
-        node_controller: &NodeController,
-    ) {
-        let index = node_controller.req_state_lookup[pos][index];
-        let (i, j) = get_packed_index(index);
-
-        let mask = self.req_state[i] & !j;
-        self.req_state[i] = mask + j * (value as u8);
-    }
-
-    pub fn get_pattern_state(
-        &self,
-        pos: &IVec3,
-        index: PatternIndex,
-        node_controller: &NodeController,
-    ) -> bool {
-        let index = node_controller.pattern_state_lookup[index][pos];
-        let (i, j) = get_packed_index(index);
-        (self.pattern_state[i] & j) == 1
-    }
-
-    pub fn set_pattern_state(
-        &mut self,
-        pos: &IVec3,
-        index: PatternIndex,
-        value: bool,
-        node_controller: &NodeController,
-    ) {
-        let index = node_controller.pattern_state_lookup[index][pos];
-        let (i, j) = get_packed_index(index);
-
-        let mask = self.pattern_state[i] & !j;
-        self.pattern_state[i] = mask + j * (value as u8);
-    }
-
-    pub fn all_pattern_state(&self, index: PatternIndex, node_controller: &NodeController) -> bool {
-        for (_, &index) in node_controller.pattern_state_lookup[index].iter() {
-            let (i, j) = get_packed_index(index);
-            if (self.pattern_state[i] & j) != 1 {
-                return false;
-            }
-        }
-        return true;
+        Wave { current_pattern: 0 }
     }
 }

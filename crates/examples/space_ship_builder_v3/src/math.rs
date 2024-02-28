@@ -51,3 +51,8 @@ pub const PACKED_WORD_SIZE: usize = 8;
 pub fn get_packed_index(index: usize) -> (usize, u8) {
     (index / PACKED_WORD_SIZE, 1 << (index % PACKED_WORD_SIZE))
 }
+
+pub fn get_config(pos: IVec3) -> usize {
+    let c = (pos % 2).abs();
+    (c.x + (c.y << 1) + (c.z << 2)) as usize
+}
