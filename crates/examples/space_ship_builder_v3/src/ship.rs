@@ -36,6 +36,7 @@ pub struct Ship {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Wave {
+    pub render_pattern: PatternIndex,
     pub current_pattern: PatternIndex,
 }
 
@@ -53,7 +54,7 @@ impl Ship {
             block_size,
             wave_size,
             blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
-            wave: vec![Wave::new(node_controller); max_wave_index],
+            wave: vec![Wave::new(); max_wave_index],
             to_collapse: IndexQueue::default(),
         };
 
@@ -172,7 +173,7 @@ impl Ship {
             let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
             let config = get_config(wave_pos);
 
-            self.wave[wave_index].current_pattern = 0;
+            let mut current_pattern = 0;
             for (pattern_index, pattern) in node_controller.patterns[config].iter().enumerate() {
                 let accepted = pattern.block_req.iter().all(|(&offset, indecies)| {
                     let req_pos = wave_pos + offset;
@@ -190,9 +191,12 @@ impl Ship {
                 });
 
                 if accepted {
-                    self.wave[wave_index].current_pattern = pattern_index;
+                    current_pattern = pattern_index;
                 }
             }
+
+            self.wave[wave_index].current_pattern = current_pattern;
+            self.wave[wave_index].render_pattern = current_pattern;
         }
 
         Ok(full)
@@ -200,7 +204,7 @@ impl Ship {
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
         let max_wave_index = (self.wave_size.x * self.wave_size.y * self.wave_size.z) as usize;
-        self.wave = vec![Wave::new(node_controller); max_wave_index];
+        self.wave = vec![Wave::new(); max_wave_index];
 
         for x in 0..self.block_size.x {
             for y in 0..self.block_size.y {
@@ -216,7 +220,10 @@ impl Ship {
 }
 
 impl Wave {
-    pub fn new(node_controller: &NodeController) -> Self {
-        Wave { current_pattern: 0 }
+    pub fn new() -> Self {
+        Wave {
+            render_pattern: 0,
+            current_pattern: 0,
+        }
     }
 }

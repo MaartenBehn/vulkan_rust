@@ -111,7 +111,7 @@ impl ShipMesh {
             let wave_pos = to_3d(wave_index as u32, ship.wave_size).as_ivec3();
             let config = get_config(wave_pos);
 
-            let pattern = &node_controller.patterns[config][wave.current_pattern];
+            let pattern = &node_controller.patterns[config][wave.render_pattern];
             if pattern.node.is_none() {
                 continue;
             }
