@@ -5,7 +5,7 @@ use crate::{
     ship::Ship,
 };
 
-use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, vulkan::Context};
+use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context};
 use std::time::Duration;
 
 const SCROLL_SPEED: f32 = 0.01;
@@ -13,6 +13,9 @@ const PLACE_SPEED: Duration = Duration::from_millis(100);
 
 pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
 pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
+
+pub const DEBUG_COLLAPSE: bool = true;
+const DEBUG_COLLAPSE_SPEED: Duration = Duration::from_millis(100);
 
 enum BuilderState {
     ON,
@@ -107,39 +110,42 @@ impl Builder {
                 }
 
                 self.distance -= controls.scroll_delta * SCROLL_SPEED;
-                let pos = ((camera.position + camera.direction * self.distance) / 2.0)
-                    .round()
-                    .as_ivec3();
 
-                // Get the index of the block that could be placed
-                let selected_pos = if Ship::pos_in_bounds(pos, self.ship.block_size) {
-                    Some(pos.as_uvec3())
-                } else {
-                    None
-                };
+                if !DEBUG_COLLAPSE || controls.lshift {
+                    let pos = ((camera.position + camera.direction * self.distance) / 2.0)
+                        .round()
+                        .as_ivec3();
 
-                if Some(self.last_pos) != selected_pos
-                    || self.last_block_to_build != self.block_to_build
-                {
-                    // Undo the last placement.
-                    let last_block_index = to_1d(self.last_pos, self.ship.block_size);
-                    self.ship.place_block(
-                        self.last_pos,
-                        self.build_blocks[last_block_index],
-                        node_controller,
-                    )?;
+                    // Get the index of the block that could be placed
+                    let selected_pos = if Ship::pos_in_bounds(pos, self.ship.block_size) {
+                        Some(pos.as_uvec3())
+                    } else {
+                        None
+                    };
 
-                    // If block index is valid.
-                    if selected_pos.is_some() {
-                        self.last_block_to_build = self.block_to_build;
-                        self.last_pos = selected_pos.unwrap();
-
-                        // Simulate placement of the block to create preview in build_ship.
+                    if Some(self.last_pos) != selected_pos
+                        || self.last_block_to_build != self.block_to_build
+                    {
+                        // Undo the last placement.
+                        let last_block_index = to_1d(self.last_pos, self.ship.block_size);
                         self.ship.place_block(
-                            selected_pos.unwrap(),
-                            self.possible_blocks[self.block_to_build],
+                            self.last_pos,
+                            self.build_blocks[last_block_index],
                             node_controller,
                         )?;
+
+                        // If block index is valid.
+                        if selected_pos.is_some() {
+                            self.last_block_to_build = self.block_to_build;
+                            self.last_pos = selected_pos.unwrap();
+
+                            // Simulate placement of the block to create preview in build_ship.
+                            self.ship.place_block(
+                                selected_pos.unwrap(),
+                                self.possible_blocks[self.block_to_build],
+                                node_controller,
+                            )?;
+                        }
                     }
                 }
 
@@ -150,7 +156,18 @@ impl Builder {
                     self.base_ship_mesh.update(&self.ship, node_controller)?;
                 }
 
-                self.full_tick = self.ship.tick(self.actions_per_tick, node_controller)?;
+                if DEBUG_COLLAPSE
+                    && controls.t
+                    && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time
+                {
+                    self.last_action_time = total_time;
+                    let full = self.ship.tick(1, node_controller)?;
+
+                    log::info!("BUILDER: TICK FULL {:?}", full);
+                }
+                if !DEBUG_COLLAPSE {
+                    self.full_tick = self.ship.tick(self.actions_per_tick, node_controller)?;
+                }
 
                 self.build_ship_mesh.update(&self.ship, node_controller)?;
             }

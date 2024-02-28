@@ -1,3 +1,4 @@
+use crate::builder::DEBUG_COLLAPSE;
 use crate::math::get_config;
 use crate::node::NodeController;
 use crate::ship::Ship;

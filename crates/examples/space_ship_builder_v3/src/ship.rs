@@ -146,9 +146,9 @@ impl Ship {
             }
 
             let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
-            let config = get_config(req_pos);
+            //let config = get_config(req_pos);
 
-            self.wave[index].current_pattern = node_controller.patterns[config].len() - 1;
+            //self.wave[index].current_pattern = node_controller.patterns[config].len() - 1;
 
             self.to_collapse.push_back(index);
         }
@@ -187,29 +187,25 @@ impl Ship {
                     let index = to_1d_i(block_pos, self.block_size.as_ivec3()) as usize;
                     let block_index = self.blocks[index];
                     indecies.contains(&block_index)
-                }) && pattern.node_req.iter().fold(
-                    true,
-                    |last_found, (&offset, indecies)| {
-                        let req_pos = wave_pos + offset;
+                }) && pattern.node_req.iter().all(|(&offset, indecies)| {
+                    let req_pos = wave_pos + offset;
 
-                        if !Self::pos_in_bounds(req_pos, self.wave_size) {
-                            return false;
-                        }
+                    if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                        return false;
+                    }
 
-                        let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
-                        let pattern_index = self.wave[index].current_pattern;
-                        let config = get_config(req_pos);
-                        let other_pattern = &node_controller.patterns[config][pattern_index];
-                        let found = other_pattern.prio > pattern.prio
-                            || indecies.contains(&other_pattern.node.index);
+                    let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
+                    let pattern_index = self.wave[index].current_pattern;
+                    let config = get_config(req_pos);
+                    let other_pattern = &node_controller.patterns[config][pattern_index];
+                    let found = indecies.contains(&other_pattern.node.index);
 
-                        if !found {
-                            self.wave[index].dependent_waves.push_back(wave_index);
-                        }
+                    if !found {
+                        self.wave[index].dependent_waves.push_back(wave_index);
+                    }
 
-                        last_found && found
-                    },
-                );
+                    found
+                });
 
                 if accepted {
                     current_pattern = pattern_index;

@@ -15,6 +15,7 @@ pub struct Controls {
     pub e: bool,
     pub r: bool, 
     pub t: bool,
+    pub lshift: bool,
 
     pub cursor_delta: [f32; 2],
     pub scroll_delta: f32,
@@ -36,6 +37,7 @@ impl Default for Controls {
             e: false,
             r: false,
             t: false,
+            lshift: false,
             
             cursor_delta: [0.0; 2],
             scroll_delta: 0.0
@@ -81,6 +83,8 @@ impl Controls {
                                 VirtualKeyCode::E => { new_state.e = *state == ElementState::Pressed; },
                                 VirtualKeyCode::R => { new_state.r = *state == ElementState::Pressed; },
                                 VirtualKeyCode::T => { new_state.t = *state == ElementState::Pressed; },
+
+                                VirtualKeyCode::LShift => { new_state.lshift = *state == ElementState::Pressed; },
                                 _ => {}
                             }
                             

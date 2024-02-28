@@ -345,7 +345,7 @@ impl NodeController {
             HashMap::new(),
             HashMap::new(),
         ));
-        //pattern_list.append(&mut permutations_patterns);
+        pattern_list.append(&mut permutations_patterns);
         log::info!("{:?} Patterns created.", pattern_list.len());
 
         let mut patterns = [

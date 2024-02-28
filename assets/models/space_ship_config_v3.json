@@ -35,11 +35,43 @@
           ]
         },
 
+        {
+          "name": "Hull Ramp 1 middle full",
+          "type": 4,
+          "prio": 4,
+          "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
+          "rotate": [[1, 0, 0], [0, 0, 1]],
+          "block_req": [
+            { "pos": [1, 0, -1], "name": ["Hull"] },
+            { "pos": [-1, 0, 1], "name": ["Hull"] },
+            { "pos": [1, 0, 1], "name": ["Empty"] }
+          ]
+        },
+        {
+          "name": "Hull Ramp 1 sides full",
+          "type": 4,
+          "prio": 4,
+          "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
+          "rotate": [[1,0, 0], [0, 0, 1]],
+          "block_req": [
+            { "pos": [0, 0, 0], "name": ["Hull"] },
+            { "pos": [2, 0, -2], "name": ["Hull"] },
+            { "pos": [2, 0, 0], "name": ["Empty"] },
+            { "pos": [0, 0, 2], "name": ["Empty"] },
+            { "pos": [4, 0, -2], "name": ["Empty"] }
+          ]
+        },
+        {
+          "type": 4,
+          "prio": 5,
+          "copy": {"name": "Hull Ramp 1 sides full", "offset": [2, 0, -2]}
+        },
+
 
         {
-          "name": "Hull Ramp 1 middle",
+          "name": "Hull Ramp 1 side middle",
           "type": 3,
-          "prio": 4,
+          "prio": 5,
           "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
           "rotate": [[1, 0, 0], [0, 0, 1]],
           "block_req": [
@@ -53,9 +85,9 @@
           ]
         },
         {
-          "name": "Hull Ramp 1 sides",
+          "name": "Hull Ramp 1 side sides",
           "type": 3,
-          "prio": 4,
+          "prio": 5,
           "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
           "rotate": [[1,0, 0], [0, 0, 1]],
           "block_req": [
@@ -74,48 +106,11 @@
         },
         {
           "type": 3,
-          "prio": 4,
-          "copy": {"name": "Hull Ramp 1 sides", "offset": [2, 0, -2]}
-        },
-        {
-          "name": "Hull Ramp 1 middle full",
-          "type": 4,
           "prio": 5,
-          "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
-          "rotate": [[1, 0, 0], [0, 0, 1]],
-          "block_req": [
-            { "pos": [1, 0, -1], "name": ["Hull"] },
-            { "pos": [-1, 0, 1], "name": ["Hull"] },
-            { "pos": [1, 0, 1], "name": ["Empty"] }
-          ],
-          "node_req": [
-            { "pos": [0, -1, 0], "name": ["Hull_2","Hull_3", "Hull_4"] },
-            { "pos": [0, 1, 0],  "name": ["Hull_2","Hull_3", "Hull_4"] }
-          ]
+          "copy": {"name": "Hull Ramp 1 side sides", "offset": [2, 0, -2]}
         },
-        {
-          "name": "Hull Ramp 1 sides full",
-          "type": 4,
-          "prio": 5,
-          "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
-          "rotate": [[1,0, 0], [0, 0, 1]],
-          "block_req": [
-            { "pos": [0, 0, 0], "name": ["Hull"] },
-            { "pos": [2, 0, -2], "name": ["Hull"] },
-            { "pos": [2, 0, 0], "name": ["Empty"] },
-            { "pos": [0, 0, 2], "name": ["Empty"] },
-            { "pos": [4, 0, -2], "name": ["Empty"] }
-          ],
-          "node_req": [
-            { "pos": [0, -1, 0], "name": ["Hull_2","Hull_3", "Hull_4"] },
-            { "pos": [0, 1, 0],  "name": ["Hull_2","Hull_3", "Hull_4"] }
-          ]
-        },
-        {
-          "type": 4,
-          "prio": 5,
-          "copy": {"name": "Hull Ramp 1 sides full", "offset": [2, 0, -2]}
-        },
+
+
         {
           "name": "Hull fill under Ramp 1",
           "type": 2,
