@@ -46,3 +46,8 @@ pub fn get_neigbor_offsets() -> [IVec3; 26] {
         ivec3(0, 0, -1),
     ]
 }
+
+pub const PACKED_WORD_SIZE: usize = 8;
+pub fn get_packed_index(index: usize) -> (usize, u8) {
+    (index / PACKED_WORD_SIZE, 1 << (index % PACKED_WORD_SIZE))
+}

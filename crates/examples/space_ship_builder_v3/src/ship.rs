@@ -1,4 +1,5 @@
-use crate::node::{NodeID, PatternIndex};
+use crate::math::get_packed_index;
+use crate::node::{Node, NodeID, PatternIndex};
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
     node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
@@ -13,12 +14,16 @@ use app::{
 };
 use index_queue::IndexQueue;
 use std::collections::{HashMap, VecDeque};
+use std::mem::size_of;
 use std::time::Duration;
 
 pub type WaveIndex = usize;
 pub type ShipType = u32;
 pub const SHIP_TYPE_BASE: ShipType = 0;
 pub const SHIP_TYPE_BUILD: ShipType = 1;
+
+pub const REQ_STATE_SIZE: usize = 10000;
+pub const PATTERN_STATE_SIZE: usize = 10000;
 
 pub struct Ship {
     pub block_size: UVec3,
@@ -30,11 +35,11 @@ pub struct Ship {
     pub task_counter: usize,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Default)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Wave {
     pub current_pattern: PatternIndex,
-    pub req_state: HashMap<IVec3, Vec<bool>>,
-    pub pattern_state: Vec<HashMap<IVec3, bool>>,
+    pub req_state: [u8; REQ_STATE_SIZE],
+    pub pattern_state: [u8; PATTERN_STATE_SIZE],
 }
 
 impl Ship {
@@ -55,6 +60,11 @@ impl Ship {
             tasks: VecDeque::new(),
             task_counter: 0,
         };
+
+        let size = size_of::<Ship>()
+            + size_of::<PatternIndex>() * max_block_index
+            + size_of::<Wave>() * max_wave_index;
+        log::info!("Ship size {:?} MB", size as f32 / 1000000.0);
 
         //ship.place_block(uvec3(0, 0, 0), 1, node_controller)?;
         //ship.fill_all(0, node_controller)?;
@@ -148,32 +158,29 @@ impl Ship {
                 if Self::pos_in_bounds(req_pos, self.wave_size) {
                     let index = to_1d(req_pos.as_uvec3(), self.wave_size);
 
-                    for (i, (&pattern_index, state)) in pattern_indecies
-                        .iter()
-                        .zip(self.wave[index].req_state[&offset].to_owned().into_iter())
-                        .enumerate()
-                    {
+                    for (i, &pattern_index) in pattern_indecies.iter().enumerate() {
                         let pattern = &node_controller.patterns[pattern_index];
 
                         if !pattern.block_req.is_empty() {
                             let req_block_indecies = pattern.block_req.get(&offset).unwrap();
 
                             let found = req_block_indecies.contains(&block_index);
-                            self.wave[index].req_state.get_mut(&offset).unwrap()[i] = found;
-                            self.wave[index].pattern_state[pattern_index]
-                                .insert(offset.to_owned(), found);
+
+                            self.wave[index].set_req_state(offset, i, found, node_controller);
+                            self.wave[index].set_pattern_state(
+                                offset,
+                                pattern_index,
+                                found,
+                                node_controller,
+                            );
                         }
 
                         if self.wave[index].current_pattern < pattern_index
-                            && self.wave[index].pattern_state[pattern_index]
-                                .iter()
-                                .all(|(_, &s)| s)
+                            && self.wave[index].all_pattern_state(pattern_index, node_controller)
                         {
                             self.wave[index].current_pattern = pattern_index;
                         } else if self.wave[index].current_pattern == pattern_index
-                            && !self.wave[index].pattern_state[pattern_index]
-                                .iter()
-                                .all(|(_, &s)| s)
+                            && !self.wave[index].all_pattern_state(pattern_index, node_controller)
                         {
                             // Search all the patterns from this to next pattern in pattern_indecies for a vaild one
                             let mut found = false;
@@ -181,9 +188,8 @@ impl Ship {
                                 for test_index in
                                     ((pattern_indecies[i + 1] + 1)..pattern_index).rev()
                                 {
-                                    if self.wave[index].pattern_state[test_index]
-                                        .iter()
-                                        .all(|(_, &s)| s)
+                                    if self.wave[index]
+                                        .all_pattern_state(test_index, node_controller)
                                     {
                                         self.wave[index].current_pattern = test_index;
                                         found = true;
@@ -232,27 +238,80 @@ impl Ship {
 
 impl Wave {
     pub fn new(node_controller: &NodeController) -> Self {
-        let req_state = node_controller
-            .req_poses
-            .iter()
-            .map(|(pos, patterns)| (pos.to_owned(), patterns.iter().map(|_| false).collect()))
-            .collect();
-
-        let pattern_state = node_controller
-            .patterns
-            .iter()
-            .map(|p| {
-                p.block_req
-                    .iter()
-                    .map(|(pos, indecies)| (pos.to_owned(), indecies.contains(&BLOCK_INDEX_EMPTY)))
-                    .collect()
-            })
-            .collect();
-
-        Self {
+        let mut wave = Wave {
             current_pattern: 0,
-            req_state,
-            pattern_state,
+            req_state: [0; REQ_STATE_SIZE],
+            pattern_state: [0; PATTERN_STATE_SIZE],
+        };
+
+        for (i, p) in node_controller.patterns.iter().enumerate() {
+            for (pos, indecies) in p.block_req.iter() {
+                if indecies.contains(&BLOCK_INDEX_EMPTY) {
+                    wave.set_pattern_state(pos, i, true, node_controller);
+                }
+            }
         }
+
+        wave
+    }
+
+    pub fn get_req_state(
+        &self,
+        pos: &IVec3,
+        index: usize,
+        node_controller: &NodeController,
+    ) -> bool {
+        let index = node_controller.req_state_lookup[pos][index];
+        let (i, j) = get_packed_index(index);
+        (self.req_state[i] & j) == 1
+    }
+
+    pub fn set_req_state(
+        &mut self,
+        pos: &IVec3,
+        index: usize,
+        value: bool,
+        node_controller: &NodeController,
+    ) {
+        let index = node_controller.req_state_lookup[pos][index];
+        let (i, j) = get_packed_index(index);
+
+        let mask = self.req_state[i] & !j;
+        self.req_state[i] = mask + j * (value as u8);
+    }
+
+    pub fn get_pattern_state(
+        &self,
+        pos: &IVec3,
+        index: PatternIndex,
+        node_controller: &NodeController,
+    ) -> bool {
+        let index = node_controller.pattern_state_lookup[index][pos];
+        let (i, j) = get_packed_index(index);
+        (self.pattern_state[i] & j) == 1
+    }
+
+    pub fn set_pattern_state(
+        &mut self,
+        pos: &IVec3,
+        index: PatternIndex,
+        value: bool,
+        node_controller: &NodeController,
+    ) {
+        let index = node_controller.pattern_state_lookup[index][pos];
+        let (i, j) = get_packed_index(index);
+
+        let mask = self.pattern_state[i] & !j;
+        self.pattern_state[i] = mask + j * (value as u8);
+    }
+
+    pub fn all_pattern_state(&self, index: PatternIndex, node_controller: &NodeController) -> bool {
+        for (_, &index) in node_controller.pattern_state_lookup[index].iter() {
+            let (i, j) = get_packed_index(index);
+            if (self.pattern_state[i] & j) != 1 {
+                return false;
+            }
+        }
+        return true;
     }
 }

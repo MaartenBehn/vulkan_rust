@@ -40,6 +40,9 @@ pub struct NodeController {
 
     pub patterns: Vec<Pattern>,
     pub req_poses: Vec<(IVec3, Vec<PatternIndex>)>,
+
+    pub req_state_lookup: HashMap<IVec3, Vec<usize>>,
+    pub pattern_state_lookup: Vec<HashMap<IVec3, usize>>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -84,6 +87,43 @@ impl NodeController {
             r.unwrap()
         };
 
+        let mut counter: usize = 0;
+        let req_state_lookup: HashMap<IVec3, Vec<usize>> = req_poses
+            .iter()
+            .map(|(pos, patterns)| {
+                (
+                    pos.to_owned(),
+                    patterns
+                        .iter()
+                        .map(|_| {
+                            let i = counter;
+                            counter += 1;
+                            i
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+
+        log::info!("Min REQ State length: {:?}", counter);
+
+        let mut counter: usize = 0;
+        let pattern_state_lookup: Vec<HashMap<IVec3, usize>> = patterns
+            .iter()
+            .map(|p| {
+                p.block_req
+                    .iter()
+                    .map(|(pos, indecies)| {
+                        let i = counter;
+                        counter += 1;
+                        (pos.to_owned(), i)
+                    })
+                    .collect()
+            })
+            .collect();
+
+        log::info!("Min Pattern State length: {:?}", counter);
+
         Ok(NodeController {
             config_path: path.to_owned(),
             nodes: voxel_loader.nodes,
@@ -91,6 +131,8 @@ impl NodeController {
             blocks: voxel_loader.blocks,
             patterns,
             req_poses: req_poses.into_iter().collect(),
+            req_state_lookup,
+            pattern_state_lookup,
         })
     }
 
