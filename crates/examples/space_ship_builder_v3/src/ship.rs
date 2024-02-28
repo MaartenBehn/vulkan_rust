@@ -34,10 +34,11 @@ pub struct Ship {
     pub to_collapse: IndexQueue,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Debug)]
 pub struct Wave {
     pub render_pattern: PatternIndex,
     pub current_pattern: PatternIndex,
+    pub dependent_waves: IndexQueue,
 }
 
 impl Ship {
@@ -149,9 +150,7 @@ impl Ship {
 
             self.wave[index].current_pattern = node_controller.patterns[config].len() - 1;
 
-            if !self.to_collapse.contains(index) {
-                self.to_collapse.push_back(index);
-            }
+            self.to_collapse.push_back(index);
         }
 
         Ok(())
@@ -188,6 +187,24 @@ impl Ship {
                     let index = to_1d_i(block_pos, self.block_size.as_ivec3()) as usize;
                     let block_index = self.blocks[index];
                     indecies.contains(&block_index)
+                }) && pattern.node_req.iter().all(|(&offset, indecies)| {
+                    let req_pos = wave_pos + offset;
+
+                    if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                        return false;
+                    }
+
+                    let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
+                    let pattern_index = self.wave[index].current_pattern;
+                    let config = get_config(req_pos);
+                    let node_index = node_controller.patterns[config][pattern_index].node.index;
+                    let found = indecies.contains(&node_index);
+
+                    if !found {
+                        self.wave[index].dependent_waves.push_back(wave_index);
+                    }
+
+                    found
                 });
 
                 if accepted {
@@ -195,8 +212,25 @@ impl Ship {
                 }
             }
 
-            self.wave[wave_index].current_pattern = current_pattern;
-            self.wave[wave_index].render_pattern = current_pattern;
+            if current_pattern != self.wave[wave_index].current_pattern {
+                self.wave[wave_index].current_pattern = current_pattern;
+                self.wave[wave_index].render_pattern = current_pattern;
+
+                let pattern = &node_controller.patterns[config][current_pattern];
+                for (&offset, _) in pattern.node_req.iter() {
+                    let req_pos = wave_pos + offset;
+
+                    debug_assert!(Self::pos_in_bounds(req_pos, self.wave_size));
+
+                    let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
+                    self.wave[index].dependent_waves.push_back(wave_index);
+                }
+
+                while !self.wave[wave_index].dependent_waves.is_empty() {
+                    let index = self.wave[wave_index].dependent_waves.pop_front();
+                    self.to_collapse.push_back(index.unwrap());
+                }
+            }
         }
 
         Ok(full)
@@ -224,6 +258,7 @@ impl Wave {
         Wave {
             render_pattern: 0,
             current_pattern: 0,
+            dependent_waves: IndexQueue::default(),
         }
     }
 }
