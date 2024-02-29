@@ -248,7 +248,7 @@ impl Renderer {
     pub fn on_recreate_swapchain(&mut self, context: &Context, extent: vk::Extent2D) -> Result<()> {
         self.depth_image = context.create_image(
             ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            gpu_allocator::MemoryLocation::GpuOnly,
+            MemoryLocation::GpuOnly,
             self.depth_attachment_format,
             extent.width,
             extent.height,

@@ -1,6 +1,6 @@
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Controls {
     pub w: bool,
     pub s: bool,
@@ -16,33 +16,22 @@ pub struct Controls {
     pub r: bool, 
     pub t: bool,
     pub lshift: bool,
+    
+    pub f1: bool, 
+    pub f2: bool,
+    pub f3: bool,
+    pub f4: bool,
+    pub f5: bool,
+    pub f6: bool,
+    pub f7: bool,
+    pub f8: bool,
+    pub f9: bool,
+    pub f10: bool,
+    pub f11: bool,
+    pub f12: bool,
 
     pub cursor_delta: [f32; 2],
     pub scroll_delta: f32,
-}
-
-impl Default for Controls {
-    fn default() -> Self {
-        Self {
-            w: false,
-            s: false,
-            d: false,
-            a: false,
-            up: false,
-            down: false,
-            rigth: false,
-            left: false,
-
-            q: false,
-            e: false,
-            r: false,
-            t: false,
-            lshift: false,
-            
-            cursor_delta: [0.0; 2],
-            scroll_delta: 0.0
-        }
-    }
 }
 
 impl Controls {
@@ -85,6 +74,20 @@ impl Controls {
                                 VirtualKeyCode::T => { new_state.t = *state == ElementState::Pressed; },
 
                                 VirtualKeyCode::LShift => { new_state.lshift = *state == ElementState::Pressed; },
+
+                                VirtualKeyCode::F1 => { new_state.f1 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F2 => { new_state.f2 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F3 => { new_state.f3 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F4 => { new_state.f4 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F5 => { new_state.f5 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F6 => { new_state.f6 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F7 => { new_state.f7 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F8 => { new_state.f8 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F9 => { new_state.f9 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F10 => { new_state.f10 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F11 => { new_state.f11 = *state == ElementState::Pressed; },
+                                VirtualKeyCode::F12 => { new_state.f12 = *state == ElementState::Pressed; },
+                                
                                 _ => {}
                             }
                             

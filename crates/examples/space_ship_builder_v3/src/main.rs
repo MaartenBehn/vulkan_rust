@@ -12,7 +12,7 @@ use app::{
 };
 use app::{log, App, BaseApp};
 
-use crate::debug::DebugRenderer;
+use crate::debug::{DebugController, DebugRenderer};
 use crate::{
     builder::Builder, node::NodeController, renderer::Renderer, ship::Ship,
     voxel_loader::VoxelLoader,
@@ -43,7 +43,7 @@ struct SpaceShipBuilder {
     node_controller: NodeController,
     builder: Builder,
     renderer: Renderer,
-    debug_renderer: DebugRenderer,
+    debug_controller: DebugController,
     camera: Camera,
 }
 
@@ -74,7 +74,7 @@ impl App for SpaceShipBuilder {
             base.swapchain.extent,
         )?;
 
-        let mut debug_renderer = DebugRenderer::new(
+        let debug_renderer = DebugRenderer::new(
             100,
             context,
             base.swapchain.images.len() as u32,
@@ -82,8 +82,7 @@ impl App for SpaceShipBuilder {
             Format::D32_SFLOAT,
             &renderer,
         )?;
-
-        debug_renderer.set_lines();
+        let debug_controller = DebugController::new(debug_renderer)?;
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
@@ -101,7 +100,7 @@ impl App for SpaceShipBuilder {
             node_controller,
             builder,
             renderer,
-            debug_renderer,
+            debug_controller,
             camera,
         })
     }
@@ -145,10 +144,12 @@ impl App for SpaceShipBuilder {
             &self.node_controller,
             delta_time,
             self.total_time,
+            &mut self.debug_controller,
         )?;
 
         self.renderer.update(&self.camera, base.swapchain.extent)?;
 
+        self.debug_controller.update(controls, self.total_time)?;
         Ok(())
     }
 
@@ -169,7 +170,7 @@ impl App for SpaceShipBuilder {
         buffer.set_scissor(base.swapchain.extent);
 
         self.renderer.render(buffer, image_index, &self.builder);
-        self.debug_renderer.render(buffer, image_index);
+        self.debug_controller.render(buffer, image_index);
 
         buffer.end_rendering();
 

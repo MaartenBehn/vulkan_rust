@@ -1,30 +1,36 @@
-use crate::builder::Builder;
-use crate::math::{get_config, to_3d};
-use crate::node::{Node, NodeController};
-use crate::renderer::{PushConstant, RenderBuffer, Renderer, Vertex};
-use crate::ship::{Ship, SHIP_TYPE_BASE, SHIP_TYPE_BUILD};
+use crate::renderer::Renderer;
 use app::anyhow::Result;
-use app::glam::{vec3, vec4, BVec3, Vec3, Vec4};
-use app::log;
+use app::controls::Controls;
+use app::glam::{vec3, vec4, IVec3, Vec3, Vec4};
 use app::vulkan::ash::vk;
-use app::vulkan::ash::vk::{ImageUsageFlags, ShaderStageFlags};
 use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::push_constant::create_push_constant_range;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
 use app::vulkan::{
-    gpu_allocator, Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet,
-    DescriptorSetLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo,
-    PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
+    GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout,
+    WriteDescriptorSet, WriteDescriptorSetKind,
 };
 use std::mem::{align_of, size_of};
+use std::time::Duration;
 
+#[derive(PartialEq)]
 pub enum DebugMode {
     OFF,
     WFC,
 }
 
+const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
+
+pub struct DebugController {
+    pub mode: DebugMode,
+    pub renderer: DebugRenderer,
+
+    last_mode_change: Duration,
+}
+
 pub struct DebugRenderer {
-    pub vertex_count: u32,
+    pub vertecies: Vec<LineVertex>,
+    pub vertecies_count: u32,
+
     pub max_lines: u32,
     pub vertex_buffer: Buffer,
 
@@ -37,11 +43,138 @@ pub struct DebugRenderer {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct DebugLine {
+    pub a: Vec3,
+    pub b: Vec3,
+    pub color: Vec4,
+}
+
+#[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 #[repr(C)]
 pub struct LineVertex {
     pub pos: Vec3,
     pub color: [u8; 4],
+}
+
+impl DebugController {
+    pub fn new(debug_renderer: DebugRenderer) -> Result<Self> {
+        Ok(DebugController {
+            mode: DebugMode::OFF,
+            renderer: debug_renderer,
+            last_mode_change: Duration::ZERO,
+        })
+    }
+
+    pub fn update(&mut self, controls: &Controls, total_time: Duration) -> Result<()> {
+        if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
+            self.mode = if self.mode != DebugMode::WFC {
+                DebugMode::WFC
+            } else {
+                DebugMode::OFF
+            }
+        }
+
+        if self.mode != DebugMode::OFF {
+            self.renderer.push_lines()?;
+        } else {
+            self.renderer.vertecies_count = 0;
+        }
+
+        Ok(())
+    }
+
+    pub fn add_lines(&mut self, lines: Vec<DebugLine>) -> Result<()> {
+        for line in lines.into_iter() {
+            self.renderer
+                .vertecies
+                .push(LineVertex::new(line.a - vec3(0.5, 0.5, 0.5), line.color));
+            self.renderer
+                .vertecies
+                .push(LineVertex::new(line.b - vec3(0.5, 0.5, 0.5), line.color));
+        }
+
+        Ok(())
+    }
+
+    pub fn add_cube(&mut self, min: Vec3, max: Vec3, color: Vec4) -> Result<()> {
+        let mut lines = Vec::new();
+        lines.push(DebugLine::new(
+            vec3(min.x, min.y, min.z),
+            vec3(max.x, min.y, min.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(min.x, max.y, min.z),
+            vec3(max.x, max.y, min.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(min.x, min.y, max.z),
+            vec3(max.x, min.y, max.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(min.x, max.y, max.z),
+            vec3(max.x, max.y, max.z),
+            color,
+        ));
+
+        lines.push(DebugLine::new(
+            vec3(min.x, min.y, min.z),
+            vec3(min.x, max.y, min.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(max.x, min.y, min.z),
+            vec3(max.x, max.y, min.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(min.x, min.y, max.z),
+            vec3(min.x, max.y, max.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(max.x, min.y, max.z),
+            vec3(max.x, max.y, max.z),
+            color,
+        ));
+
+        lines.push(DebugLine::new(
+            vec3(min.x, min.y, min.z),
+            vec3(min.x, min.y, max.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(max.x, min.y, min.z),
+            vec3(max.x, min.y, max.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(min.x, max.y, min.z),
+            vec3(min.x, max.y, max.z),
+            color,
+        ));
+        lines.push(DebugLine::new(
+            vec3(max.x, max.y, min.z),
+            vec3(max.x, max.y, max.z),
+            color,
+        ));
+
+        self.add_lines(lines)?;
+        Ok(())
+    }
+
+    pub fn render(&self, buffer: &CommandBuffer, image_index: usize) {
+        if self.mode == DebugMode::OFF {
+            return;
+        }
+
+        self.renderer.render(buffer, image_index);
+    }
 }
 
 impl DebugRenderer {
@@ -125,7 +258,8 @@ impl DebugRenderer {
         )?;
 
         Ok(DebugRenderer {
-            vertex_count: 0,
+            vertecies: Vec::new(),
+            vertecies_count: 0,
             max_lines,
             vertex_buffer,
             descriptor_pool,
@@ -136,21 +270,23 @@ impl DebugRenderer {
         })
     }
 
-    pub fn set_lines(&mut self) -> Result<()> {
-        let mut vetecies = Vec::new();
+    fn push_lines(&mut self) -> Result<()> {
+        if self.vertecies.is_empty() {
+            return Ok(());
+        }
 
-        let color = vec4(1.0, 0.0, 0.0, 1.0);
-        vetecies.push(LineVertex::new(vec3(0.0, 0.0, 0.0), color));
-        vetecies.push(LineVertex::new(vec3(5.0, 5.0, 5.0), color));
-
-        self.vertex_buffer
-            .copy_data_to_buffer_complex(&vetecies, 0, align_of::<LineVertex>())?;
-        self.vertex_count = vetecies.len() as u32;
+        self.vertex_buffer.copy_data_to_buffer_complex(
+            &self.vertecies,
+            0,
+            align_of::<LineVertex>(),
+        )?;
+        self.vertecies_count = self.vertecies.len() as u32;
+        self.vertecies.clear();
 
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer, image_index: usize) {
+    fn render(&self, buffer: &CommandBuffer, image_index: usize) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,
@@ -160,7 +296,13 @@ impl DebugRenderer {
         );
 
         buffer.bind_vertex_buffer(&self.vertex_buffer);
-        buffer.draw(self.vertex_count);
+        buffer.draw(self.vertecies_count);
+    }
+}
+
+impl DebugLine {
+    pub fn new(a: Vec3, b: Vec3, color: Vec4) -> Self {
+        DebugLine { a, b, color }
     }
 }
 

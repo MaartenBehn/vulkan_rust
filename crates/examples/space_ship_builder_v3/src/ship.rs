@@ -1,3 +1,4 @@
+use crate::debug::{DebugController, DebugMode};
 use crate::math::{get_config, get_packed_index};
 use crate::node::{Node, NodeID, PatternIndex};
 use crate::{
@@ -159,6 +160,7 @@ impl Ship {
         &mut self,
         actions_per_tick: usize,
         node_controller: &NodeController,
+        debug_controller: &mut DebugController,
     ) -> Result<bool> {
         let mut full = true;
         for _ in 0..actions_per_tick {
@@ -170,6 +172,14 @@ impl Ship {
             let wave_index = self.to_collapse.pop_front().unwrap();
             let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
             let config = get_config(wave_pos);
+
+            if debug_controller.mode == DebugMode::WFC {
+                debug_controller.add_cube(
+                    wave_pos.as_vec3(),
+                    (wave_pos + IVec3::ONE).as_vec3(),
+                    vec4(1.0, 0.0, 0.0, 1.0),
+                )?;
+            }
 
             let mut current_pattern = 0;
             for (pattern_index, pattern) in node_controller.patterns[config].iter().enumerate() {

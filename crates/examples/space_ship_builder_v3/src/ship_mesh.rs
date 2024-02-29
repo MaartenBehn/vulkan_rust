@@ -1,4 +1,3 @@
-use crate::builder::DEBUG_COLLAPSE;
 use crate::math::get_config;
 use crate::node::NodeController;
 use crate::ship::Ship;
@@ -130,7 +129,7 @@ impl ShipMesh {
     }
 
     pub fn get_node_mesh(node_id: NodeID, offset: IVec3) -> (Vec<Vertex>, Vec<u32>) {
-        let mut v_pos = offset.as_vec3();
+        let v_pos = offset.as_vec3();
 
         let node_id_bits: u32 = node_id.into();
         let vertices = vec![
