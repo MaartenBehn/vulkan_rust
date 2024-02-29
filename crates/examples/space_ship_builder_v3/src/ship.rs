@@ -3,7 +3,6 @@ use crate::node::{Node, NodeID, PatternIndex};
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
     node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
-    pattern_config::{BlockConfig, Config},
     ship_mesh::ShipMesh,
 };
 use app::{

@@ -259,7 +259,15 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn render_builder(&self, buffer: &CommandBuffer, builder: &Builder) {
+    pub fn render(&self, buffer: &CommandBuffer, image_index: usize, builder: &Builder) {
+        buffer.bind_graphics_pipeline(&self.pipeline);
+        buffer.bind_descriptor_sets(
+            vk::PipelineBindPoint::GRAPHICS,
+            &self.pipeline_layout,
+            0,
+            &[&self.descriptor_sets[image_index]],
+        );
+
         self.render_ship_mesh(buffer, &builder.base_ship_mesh, SHIP_TYPE_BASE);
         self.render_ship_mesh(buffer, &builder.build_ship_mesh, SHIP_TYPE_BUILD);
     }

@@ -12,15 +12,16 @@ use app::{
 };
 use app::{log, App, BaseApp};
 
+use crate::debug::DebugRenderer;
 use crate::{
     builder::Builder, node::NodeController, renderer::Renderer, ship::Ship,
     voxel_loader::VoxelLoader,
 };
 
 pub mod builder;
+pub mod debug;
 pub mod math;
 pub mod node;
-pub mod pattern_config;
 pub mod renderer;
 pub mod rotation;
 pub mod ship;
@@ -42,6 +43,7 @@ struct SpaceShipBuilder {
     node_controller: NodeController,
     builder: Builder,
     renderer: Renderer,
+    debug_renderer: DebugRenderer,
     camera: Camera,
 }
 
@@ -72,6 +74,17 @@ impl App for SpaceShipBuilder {
             base.swapchain.extent,
         )?;
 
+        let mut debug_renderer = DebugRenderer::new(
+            100,
+            context,
+            base.swapchain.images.len() as u32,
+            base.swapchain.format,
+            Format::D32_SFLOAT,
+            &renderer,
+        )?;
+
+        debug_renderer.set_lines();
+
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
@@ -88,6 +101,7 @@ impl App for SpaceShipBuilder {
             node_controller,
             builder,
             renderer,
+            debug_renderer,
             camera,
         })
     }
@@ -151,19 +165,11 @@ impl App for SpaceShipBuilder {
             vk::AttachmentLoadOp::CLEAR,
             None,
         );
-        buffer.bind_graphics_pipeline(&self.renderer.pipeline);
-
         buffer.set_viewport(base.swapchain.extent);
         buffer.set_scissor(base.swapchain.extent);
 
-        buffer.bind_descriptor_sets(
-            vk::PipelineBindPoint::GRAPHICS,
-            &self.renderer.pipeline_layout,
-            0,
-            &[&self.renderer.descriptor_sets[image_index]],
-        );
-
-        self.renderer.render_builder(buffer, &self.builder);
+        self.renderer.render(buffer, image_index, &self.builder);
+        self.debug_renderer.render(buffer, image_index);
 
         buffer.end_rendering();
 
