@@ -13,6 +13,8 @@ anyhow.workspace = true
 winit.workspace = true
 glam.workspace = true
 fps_clock.workspace = true
+imgui.workspace = true
+imgui-winit-support.workspace = true
+imgui-rs-vulkan-renderer.workspace = true
 
 vulkan = { path = "../vulkan" }
-gui = { path = "../gui" }

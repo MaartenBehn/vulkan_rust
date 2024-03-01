@@ -58,7 +58,9 @@ dependencies = [
  "anyhow",
  "fps_clock",
  "glam",
- "gui",
+ "imgui",
+ "imgui-rs-vulkan-renderer",
+ "imgui-winit-support",
  "log",
  "simplelog",
  "vulkan",
@@ -282,7 +284,6 @@ name = "comp_mandelbrot"
 version = "0.1.0"
 dependencies = [
  "app",
- "gui",
 ]
 
 [[package]]
@@ -290,7 +291,6 @@ name = "comp_mandelbulb"
 version = "0.1.0"
 dependencies = [
  "app",
- "gui",
 ]
 
 [[package]]
@@ -718,22 +718,8 @@ name = "gpu_particles"
 version = "0.1.0"
 dependencies = [
  "app",
- "gui",
  "num_cpus",
  "rand 0.8.5",
-]
-
-[[package]]
-name = "gui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "imgui",
- "imgui-rs-vulkan-renderer",
- "imgui-winit-support",
- "log",
- "vulkan",
- "winit",
 ]
 
 [[package]]
@@ -808,8 +794,6 @@ dependencies = [
 [[package]]
 name = "imgui-rs-vulkan-renderer"
 version = "1.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a9fc3d0eaba19515277f08708b814bde904d24485798409aa42f09aea737fff"
 dependencies = [
  "ash",
  "gpu-allocator",
@@ -1576,7 +1560,6 @@ version = "0.1.0"
 dependencies = [
  "app",
  "gltf 0.1.0",
- "gui",
 ]
 
 [[package]]
@@ -1585,7 +1568,6 @@ version = "0.1.0"
 dependencies = [
  "app",
  "gltf 0.1.0",
- "gui",
 ]
 
 [[package]]
@@ -1594,7 +1576,6 @@ version = "0.1.0"
 dependencies = [
  "app",
  "gltf 0.1.0",
- "gui",
 ]
 
 [[package]]
@@ -1603,7 +1584,6 @@ version = "0.1.0"
 dependencies = [
  "app",
  "gltf 0.1.0",
- "gui",
 ]
 
 [[package]]
@@ -1995,7 +1975,6 @@ name = "voxel_renderer"
 version = "0.1.0"
 dependencies = [
  "app",
- "gui",
  "octtree",
 ]
 
@@ -2004,7 +1983,6 @@ name = "voxel_renderer_v2"
 version = "0.1.0"
 dependencies = [
  "app",
- "gui",
  "octtree_v2",
  "rand 0.8.5",
 ]

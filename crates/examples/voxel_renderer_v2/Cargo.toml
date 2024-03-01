@@ -8,7 +8,6 @@ authors.workspace = true
 
 [dependencies]
 app = { path = "../../libs/app" }
-gui = { path = "../../libs/gui" }
 octtree_v2 = { path = "../../libs/octtree_v2" }
 
 rand.workspace = true

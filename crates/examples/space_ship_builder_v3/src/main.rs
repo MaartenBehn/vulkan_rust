@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use app::glam::{ivec2, uvec2, IVec2};
+use app::imgui::{Condition, Ui};
 use app::vulkan::{
     ash::vk::{self, Format},
     CommandBuffer,
@@ -12,13 +14,18 @@ use app::{
 };
 use app::{log, App, BaseApp};
 
-use crate::debug::{DebugController, DebugRenderer};
+#[cfg(debug_assertions)]
+use crate::debug::{DebugController, DebugLineRenderer};
+
+use crate::debug::DebugTextRenderer;
 use crate::{
     builder::Builder, node::NodeController, renderer::Renderer, ship::Ship,
     voxel_loader::VoxelLoader,
 };
 
 pub mod builder;
+
+#[cfg(debug_assertions)]
 pub mod debug;
 pub mod math;
 pub mod node;
@@ -43,6 +50,8 @@ struct SpaceShipBuilder {
     node_controller: NodeController,
     builder: Builder,
     renderer: Renderer,
+
+    #[cfg(debug_assertions)]
     debug_controller: DebugController,
     camera: Camera,
 }
@@ -74,15 +83,27 @@ impl App for SpaceShipBuilder {
             base.swapchain.extent,
         )?;
 
-        let debug_renderer = DebugRenderer::new(
-            100,
+        #[cfg(debug_assertions)]
+        let debug_line_renderer = DebugLineRenderer::new(
+            1000000,
             context,
             base.swapchain.images.len() as u32,
             base.swapchain.format,
             Format::D32_SFLOAT,
             &renderer,
         )?;
-        let debug_controller = DebugController::new(debug_renderer)?;
+
+        #[cfg(debug_assertions)]
+        let debug_text_renderer = DebugTextRenderer::new(
+            context,
+            &base.command_pool,
+            base.swapchain.format,
+            base.swapchain.images.len(),
+            uvec2(base.swapchain.extent.width, base.swapchain.extent.height),
+        )?;
+
+        #[cfg(debug_assertions)]
+        let debug_controller = DebugController::new(debug_line_renderer, debug_text_renderer)?;
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
@@ -100,7 +121,10 @@ impl App for SpaceShipBuilder {
             node_controller,
             builder,
             renderer,
+
+            #[cfg(debug_assertions)]
             debug_controller,
+
             camera,
         })
     }
@@ -144,17 +168,21 @@ impl App for SpaceShipBuilder {
             &self.node_controller,
             delta_time,
             self.total_time,
+            #[cfg(debug_assertions)]
             &mut self.debug_controller,
         )?;
 
         self.renderer.update(&self.camera, base.swapchain.extent)?;
 
-        self.debug_controller.update(controls, self.total_time)?;
+        #[cfg(debug_assertions)]
+        self.debug_controller
+            .update(controls, self.total_time, delta_time)?;
+
         Ok(())
     }
 
     fn record_raster_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -170,7 +198,9 @@ impl App for SpaceShipBuilder {
         buffer.set_scissor(base.swapchain.extent);
 
         self.renderer.render(buffer, image_index, &self.builder);
-        self.debug_controller.render(buffer, image_index);
+        #[cfg(debug_assertions)]
+        self.debug_controller
+            .render(buffer, image_index, &self.camera)?;
 
         buffer.end_rendering();
 
@@ -182,5 +212,25 @@ impl App for SpaceShipBuilder {
             .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Gui {}
+
+impl app::gui::Gui for Gui {
+    fn new() -> Result<Self> {
+        app::anyhow::Ok(Gui {})
+    }
+
+    fn build(&mut self, ui: &Ui) {
+        ui.window("Test")
+            .position([5.0, 150.0], Condition::FirstUseEver)
+            .size([300.0, 300.0], Condition::FirstUseEver)
+            .resizable(false)
+            .movable(false)
+            .build(|| {
+                ui.text("Hello World");
+            });
     }
 }

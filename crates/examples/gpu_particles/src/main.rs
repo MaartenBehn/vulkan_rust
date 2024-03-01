@@ -15,7 +15,7 @@ use app::vulkan::{
     WriteDescriptorSet, WriteDescriptorSetKind,
 };
 use app::{log, App, BaseApp};
-use gui::imgui::{Condition, Ui};
+use app::imgui::{Condition, Ui};
 use rand::Rng;
 
 const WIDTH: u32 = 1024;

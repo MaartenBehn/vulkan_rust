@@ -1,11 +1,14 @@
-use crate::math::{to_1d, to_1d_i};
+use crate::math::to_1d;
 use crate::ship_mesh::ShipMesh;
 use crate::{
     node::{BlockIndex, NodeController},
     ship::Ship,
 };
 
+#[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode};
+
+use app::glam::{vec4, Vec3};
 use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context};
 use std::time::Duration;
 
@@ -28,8 +31,8 @@ pub struct Builder {
     block_to_build: usize,
     distance: f32,
 
-    pub actions_per_tick: usize,
-    pub full_tick: bool,
+    actions_per_tick: usize,
+    full_tick: bool,
 
     last_block_to_build: BlockIndex,
     last_pos: UVec3,
@@ -80,9 +83,13 @@ impl Builder {
         node_controller: &NodeController,
         delta_time: Duration,
         total_time: Duration,
-        debug_controller: &mut DebugController,
+        #[cfg(debug_assertions)] debug_controller: &mut DebugController,
     ) -> Result<()> {
-        if debug_controller.mode != DebugMode::WFC {
+        #[cfg(debug_assertions)]
+        let d = debug_controller.mode != DebugMode::WFC;
+        #[cfg(not(debug_assertions))]
+        let d = true;
+        if d {
             if self.full_tick
                 && delta_time < MIN_TICK_LENGTH
                 && self.actions_per_tick < (usize::MAX / 2)
@@ -104,7 +111,11 @@ impl Builder {
 
         self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
-        if debug_controller.mode != DebugMode::WFC || controls.lshift {
+        #[cfg(debug_assertions)]
+        let d = debug_controller.mode != DebugMode::WFC || controls.lshift;
+        #[cfg(not(debug_assertions))]
+        let d = true;
+        if d {
             let pos = ((camera.position + camera.direction * self.distance) / 2.0)
                 .round()
                 .as_ivec3();
@@ -149,19 +160,49 @@ impl Builder {
             self.base_ship_mesh.update(&self.ship, node_controller)?;
         }
 
+        #[cfg(debug_assertions)]
         if debug_controller.mode == DebugMode::WFC
             && controls.t
             && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time
         {
             self.last_action_time = total_time;
-            let full = self.ship.tick(1, node_controller, debug_controller)?;
+
+            let mut full = true;
+            loop {
+                debug_controller.line_renderer.vertecies.clear();
+                let (f, last_some) = self.ship.tick(1, node_controller, debug_controller)?;
+                full &= f;
+
+                if !f || last_some {
+                    break;
+                }
+            }
+
+            if !full {
+                debug_controller.add_cube(
+                    Vec3::ZERO,
+                    Vec3::ONE * self.ship.wave_size.as_vec3(),
+                    vec4(1.0, 0.0, 0.0, 1.0),
+                )?;
+            }
 
             log::info!("BUILDER: TICK FULL {:?}", full);
-        }
-        if debug_controller.mode != DebugMode::WFC {
-            self.full_tick =
+        } else if debug_controller.mode != DebugMode::WFC {
+            let (full, _) =
                 self.ship
                     .tick(self.actions_per_tick, node_controller, debug_controller)?;
+            self.full_tick = full;
+
+            debug_controller.add_cube(
+                Vec3::ZERO,
+                Vec3::ONE * self.ship.wave_size.as_vec3(),
+                vec4(1.0, 0.0, 0.0, 1.0),
+            )?;
+        }
+
+        #[cfg(not(debug_assertions))]
+        {
+            self.full_tick = self.ship.tick(self.actions_per_tick, node_controller)?;
         }
 
         self.build_ship_mesh.update(&self.ship, node_controller)?;

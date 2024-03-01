@@ -8,7 +8,7 @@ use app::vulkan::utils::*;
 use app::{vulkan::*, BaseApp};
 use app::{App, ImageAndView};
 use gltf::Vertex;
-use gui::imgui::{Condition, Ui};
+use app::imgui::{Condition, Ui};
 use std::mem::{size_of, size_of_val};
 use std::time::Duration;
 

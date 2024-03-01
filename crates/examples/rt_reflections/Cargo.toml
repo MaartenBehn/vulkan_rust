@@ -9,4 +9,3 @@ authors.workspace = true
 [dependencies]
 app = { path = "../../libs/app" }
 gltf = { path = "../../libs/gltf" }
-gui = { path = "../../libs/gui" }

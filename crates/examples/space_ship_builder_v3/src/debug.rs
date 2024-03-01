@@ -1,14 +1,18 @@
 use crate::renderer::Renderer;
 use app::anyhow::Result;
+use app::camera::Camera;
 use app::controls::Controls;
-use app::glam::{vec3, vec4, IVec3, Vec3, Vec4};
+use app::glam::{vec3, vec4, IVec2, IVec3, Mat4, UVec2, Vec3, Vec4};
+use app::imgui::{Condition, DrawData, DrawVert, FontConfig, FontSource};
+use app::imgui_rs_vulkan_renderer::{DynamicRendering, Options};
 use app::vulkan::ash::vk;
 use app::vulkan::gpu_allocator::MemoryLocation;
 use app::vulkan::{
-    Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
-    GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout,
-    WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, CommandBuffer, CommandPool, Context, DescriptorPool, DescriptorSet,
+    DescriptorSetLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo,
+    PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
+use app::{imgui, imgui_rs_vulkan_renderer};
 use std::mem::{align_of, size_of};
 use std::time::Duration;
 
@@ -22,12 +26,13 @@ const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
 
 pub struct DebugController {
     pub mode: DebugMode,
-    pub renderer: DebugRenderer,
+    pub line_renderer: DebugLineRenderer,
+    pub text_renderer: Vec<DebugTextRenderer>,
 
     last_mode_change: Duration,
 }
 
-pub struct DebugRenderer {
+pub struct DebugLineRenderer {
     pub vertecies: Vec<LineVertex>,
     pub vertecies_count: u32,
 
@@ -57,16 +62,30 @@ pub struct LineVertex {
     pub color: [u8; 4],
 }
 
+pub struct DebugTextRenderer {
+    renderer: imgui_rs_vulkan_renderer::Renderer,
+    imgui: Option<imgui::SuspendedContext>,
+    transform_mat: Mat4,
+}
+
 impl DebugController {
-    pub fn new(debug_renderer: DebugRenderer) -> Result<Self> {
+    pub fn new(line_renderer: DebugLineRenderer, text_renderer: DebugTextRenderer) -> Result<Self> {
         Ok(DebugController {
             mode: DebugMode::OFF,
-            renderer: debug_renderer,
+            line_renderer,
+            text_renderer: vec![text_renderer],
             last_mode_change: Duration::ZERO,
         })
     }
 
-    pub fn update(&mut self, controls: &Controls, total_time: Duration) -> Result<()> {
+    pub fn update(
+        &mut self,
+        controls: &Controls,
+        delta_time: Duration,
+        total_time: Duration,
+    ) -> Result<()> {
+        self.text_renderer[0].update(delta_time);
+
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
@@ -78,9 +97,9 @@ impl DebugController {
         }
 
         if self.mode != DebugMode::OFF {
-            self.renderer.push_lines()?;
+            self.line_renderer.push_lines()?;
         } else {
-            self.renderer.vertecies_count = 0;
+            self.line_renderer.vertecies_count = 0;
         }
 
         Ok(())
@@ -88,10 +107,10 @@ impl DebugController {
 
     pub fn add_lines(&mut self, lines: Vec<DebugLine>) -> Result<()> {
         for line in lines.into_iter() {
-            self.renderer
+            self.line_renderer
                 .vertecies
                 .push(LineVertex::new(line.a - vec3(0.5, 0.5, 0.5), line.color));
-            self.renderer
+            self.line_renderer
                 .vertecies
                 .push(LineVertex::new(line.b - vec3(0.5, 0.5, 0.5), line.color));
         }
@@ -168,16 +187,25 @@ impl DebugController {
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer, image_index: usize) {
+    pub fn render(
+        &mut self,
+        buffer: &CommandBuffer,
+        image_index: usize,
+        camera: &Camera,
+    ) -> Result<()> {
+        self.text_renderer[0].render(buffer, camera)?;
+
         if self.mode == DebugMode::OFF {
-            return;
+            return Ok(());
         }
 
-        self.renderer.render(buffer, image_index);
+        self.line_renderer.render(buffer, image_index);
+
+        Ok(())
     }
 }
 
-impl DebugRenderer {
+impl DebugLineRenderer {
     pub fn new(
         max_lines: u32,
         context: &Context,
@@ -257,7 +285,7 @@ impl DebugRenderer {
             },
         )?;
 
-        Ok(DebugRenderer {
+        Ok(DebugLineRenderer {
             vertecies: Vec::new(),
             vertecies_count: 0,
             max_lines,
@@ -334,5 +362,92 @@ impl app::vulkan::Vertex for LineVertex {
             format: vk::Format::R32G32B32A32_SFLOAT,
             offset: 0,
         }]
+    }
+}
+
+impl DebugTextRenderer {
+    pub fn new(
+        context: &Context,
+        command_pool: &CommandPool,
+        format: vk::Format,
+        in_flight_frames: usize,
+        display_size: UVec2,
+    ) -> Result<Self> {
+        let mut imgui = imgui::Context::create();
+        imgui.set_ini_filename(None);
+
+        let font_size = 13.0;
+        imgui.fonts().add_font(&[
+            FontSource::DefaultFontData {
+                config: Some(FontConfig {
+                    size_pixels: font_size,
+                    ..FontConfig::default()
+                }),
+            },
+            FontSource::TtfData {
+                data: include_bytes!("../../../../assets/fonts/mplus-1p-regular.ttf"),
+                size_pixels: font_size,
+                config: Some(FontConfig {
+                    rasterizer_multiply: 1.75,
+                    ..FontConfig::default()
+                }),
+            },
+        ]);
+        imgui.io_mut().font_global_scale = 1.0;
+        imgui.io_mut().display_size = [display_size.x as f32, display_size.y as f32];
+
+        let renderer = imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
+            context.allocator.clone(),
+            context.device.inner.clone(),
+            context.graphics_queue.inner,
+            command_pool.inner,
+            DynamicRendering {
+                color_attachment_format: format,
+                depth_attachment_format: Some(vk::Format::D32_SFLOAT),
+            },
+            &mut imgui,
+            Some(Options {
+                in_flight_frames,
+                ..Default::default()
+            }),
+        )?;
+
+        let ui = imgui.frame();
+        ui.window("Test")
+            .position([0.0, 0.0], Condition::FirstUseEver)
+            .size([300.0, 300.0], Condition::FirstUseEver)
+            .resizable(false)
+            .movable(false)
+            .build(|| {
+                ui.text("Hello World");
+            });
+
+        let transform = Mat4::from_scale(vec3(1.0, -1.0, 1.0) * 0.01)
+            * Mat4::from_rotation_x(f32::to_radians(0.0))
+            * Mat4::from_translation(vec3(0.0, 0.0, 0.0));
+
+        Ok(Self {
+            imgui: Some(imgui.suspend()),
+            renderer,
+            transform_mat: transform,
+        })
+    }
+
+    pub fn update(&mut self, delta: Duration) {
+        let mut imgui = self.imgui.take().unwrap().activate().unwrap();
+        imgui.io_mut().update_delta_time(delta);
+        self.imgui = Some(imgui.suspend());
+    }
+
+    pub fn render(&mut self, buffer: &CommandBuffer, camera: &Camera) -> Result<()> {
+        let mat = camera.projection_matrix() * camera.view_matrix() * self.transform_mat;
+
+        let mut imgui = self.imgui.take().unwrap().activate().unwrap();
+        let draw_data = imgui.render();
+        self.renderer
+            .cmd_draw(buffer.inner, draw_data, Some(&mat.to_cols_array()))?;
+
+        self.imgui = Some(imgui.suspend());
+        Ok(())
     }
 }

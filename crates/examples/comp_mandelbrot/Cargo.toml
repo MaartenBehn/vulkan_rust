@@ -8,4 +8,3 @@ authors.workspace = true
 
 [dependencies]
 app = { path = "../../libs/app" }
-gui = { path = "../../libs/gui" }

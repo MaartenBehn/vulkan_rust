@@ -2,26 +2,29 @@ pub extern crate anyhow;
 pub extern crate glam;
 pub extern crate log;
 pub extern crate vulkan;
+pub extern crate imgui;
+pub extern crate imgui_rs_vulkan_renderer;
+pub extern crate imgui_winit_support;
 
 pub mod camera;
 pub mod logger;
 pub mod controls;
+pub mod gui;
 
 use anyhow::Result;
 use ash::vk::{self};
 use controls::Controls;
 use gpu_allocator::MemoryLocation;
-use gui::{
-    imgui::{DrawData, Ui},
-    imgui_rs_vulkan_renderer::Renderer,
-    GuiContext,
-};
 use logger::log_init;
 use std::{
     marker::PhantomData,
     thread,
     time::{Duration, Instant},
 };
+use glam::{Mat4, Vec3, vec3};
+use imgui::{FontConfig, FontSource, SuspendedContext};
+use imgui_rs_vulkan_renderer::{DynamicRendering, Options, Renderer};
+use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use vulkan::*;
 use winit::{
     dpi::PhysicalSize,
@@ -29,6 +32,9 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+use vulkan::ash::vk::Format;
+use crate::camera::{Camera, perspective};
+use crate::gui::{Gui, MainGui, StatsDisplayMode};
 
 const IN_FLIGHT_FRAMES: u32 = 2;
 
@@ -42,7 +48,6 @@ pub struct BaseApp<B: App> {
     command_buffers: Vec<CommandBuffer>,
     in_flight_frames: InFlightFrames,
     pub context: Context,
-    stats_display_mode: StatsDisplayMode,
 }
 
 pub trait App: Sized {
@@ -60,7 +65,7 @@ pub trait App: Sized {
     ) -> Result<()>;
 
     fn record_raytracing_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -74,7 +79,7 @@ pub trait App: Sized {
     }
 
     fn record_raster_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -88,7 +93,7 @@ pub trait App: Sized {
     }
 
     fn record_compute_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -104,37 +109,6 @@ pub trait App: Sized {
     fn on_recreate_swapchain(&mut self, base: &BaseApp<Self>) -> Result<()>;
 }
 
-pub trait Gui: Sized {
-    fn new() -> Result<Self>;
-
-    fn build(&mut self, ui: &Ui);
-}
-
-impl Gui for () {
-    fn new() -> Result<Self> {
-        Ok(())
-    }
-
-    fn build(&mut self, _ui: &Ui) {}
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum StatsDisplayMode {
-    None,
-    Basic,
-    Full,
-}
-
-impl StatsDisplayMode {
-    fn next(self) -> Self {
-        match self {
-            Self::None => Self::Basic,
-            Self::Basic => Self::Full,
-            Self::Full => Self::None,
-        }
-    }
-}
-
 pub fn run<A: App + 'static>(
     app_name: &str,
     width: u32,
@@ -145,25 +119,25 @@ pub fn run<A: App + 'static>(
     log_init("app_log.log");
 
     let (window, event_loop) = create_window(app_name, width, height);
-
+    
     let mut base_app = BaseApp::new(
         &window,
         app_name,
         enable_raytracing,
         enabled_compute_rendering,
     )?;
-
-    let mut ui = A::Gui::new()?;
-
-    let mut app = A::new(&mut base_app)?;
-    let mut gui_context = GuiContext::new(
-        &base_app.context,
-        &base_app.context.command_pool,
-        base_app.swapchain.format,
+    
+    let mut main_gui= MainGui::new(
+        &base_app.context, 
+        &base_app.command_pool,
         &window,
-        IN_FLIGHT_FRAMES as _,
+        base_app.swapchain.format,
+        base_app.swapchain.images.len(),
     )?;
-
+    
+    let mut app = A::new(&mut base_app)?;
+    let mut ui = Gui::new()?;
+    
     let mut controls = Controls::default();
     let mut is_swapchain_dirty = false;
 
@@ -178,8 +152,8 @@ pub fn run<A: App + 'static>(
         *control_flow = ControlFlow::Poll;
 
         let app = &mut app; // Make sure it is dropped before base_app
-
-        gui_context.handle_event(&window, &event);
+        
+        main_gui.handle_event(&window, &event);
         controls = controls.handle_event(&event);
 
         match event {
@@ -194,7 +168,7 @@ pub fn run<A: App + 'static>(
                 };
                 last_frame_start = Instant::now();
 
-                gui_context.update_delta_time(frame_time);
+                main_gui.update_delta_time(frame_time);
                 frame_stats.set_frame_time(frame_time, compute_time);
 
                 controls = controls.reset();
@@ -223,7 +197,7 @@ pub fn run<A: App + 'static>(
                 }
 
                 is_swapchain_dirty = base_app
-                    .draw(&window, app, &mut gui_context, &mut ui, &mut frame_stats, &controls)
+                    .draw(&window, app, &mut main_gui, &mut ui, &mut frame_stats, &controls)
                     .expect("Failed to tick");
             }
             // Keyboard
@@ -241,7 +215,7 @@ pub fn run<A: App + 'static>(
                 ..
             } => {
                 if key_code == VirtualKeyCode::R && state == ElementState::Pressed {
-                    base_app.toggle_stats();
+                    main_gui.toggle_stats();
                 }
             }
             // Mouse
@@ -344,7 +318,7 @@ impl<B: App> BaseApp<B> {
         let command_buffers = create_command_buffers(&command_pool, &swapchain)?;
 
         let in_flight_frames = InFlightFrames::new(&context, IN_FLIGHT_FRAMES)?;
-
+        
         Ok(Self {
             phantom: PhantomData,
             raytracing_enabled: enable_raytracing,
@@ -355,7 +329,6 @@ impl<B: App> BaseApp<B> {
             storage_images,
             command_buffers,
             in_flight_frames,
-            stats_display_mode: StatsDisplayMode::Basic,
         })
     }
 
@@ -390,7 +363,7 @@ impl<B: App> BaseApp<B> {
         &mut self,
         window: &Window,
         base_app: &mut B,
-        gui_context: &mut GuiContext,
+        main_gui: &mut MainGui,
         gui: &mut B::Gui,
         frame_stats: &mut FrameStats,
         controls: &Controls,
@@ -421,32 +394,19 @@ impl<B: App> BaseApp<B> {
         };
         self.in_flight_frames.fence().reset()?;
 
-        // Generate UI
-        gui_context
-            .platform
-            .prepare_frame(gui_context.imgui.io_mut(), window)?;
-        let ui = gui_context.imgui.frame();
-
-        gui.build(&ui);
-        self.build_perf_ui(&ui, frame_stats);
-
-        gui_context.platform.prepare_render(&ui, window);
-        let draw_data = gui_context.imgui.render();
-
         base_app.update(self, gui, image_index, frame_stats.frame_time, controls)?;
-
-        let command_buffer = &self.command_buffers[image_index];
-
+        
         self.record_command_buffer(
-            command_buffer,
             image_index,
             base_app,
-            &mut gui_context.renderer,
-            draw_data,
+            main_gui,
+            gui,
+            frame_stats,
+            window,
         )?;
 
         self.context.graphics_queue.submit(
-            command_buffer,
+            &self.command_buffers[image_index],
             Some(SemaphoreSubmitInfo {
                 semaphore: self.in_flight_frames.image_available_semaphore(),
                 stage_mask: vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
@@ -475,72 +435,19 @@ impl<B: App> BaseApp<B> {
 
         Ok(false)
     }
-
-    fn build_perf_ui(&self, ui: &Ui, frame_stats: &mut FrameStats) {
-        let width = self.swapchain.extent.width as f32;
-        let height = self.swapchain.extent.height as f32;
-
-        if matches!(
-            self.stats_display_mode,
-            StatsDisplayMode::Basic | StatsDisplayMode::Full
-        ) {
-            ui.window("Frame stats")
-                .focus_on_appearing(false)
-                .no_decoration()
-                .bg_alpha(0.5)
-                .position([5.0, 5.0], gui::imgui::Condition::Always)
-                .size([160.0, 140.0], gui::imgui::Condition::FirstUseEver)
-                .build(|| {
-                    ui.text("Framerate");
-                    ui.label_text("fps", frame_stats.fps_counter.to_string());
-                    ui.text("Frametimes");
-                    ui.label_text("Frame", format!("{:?}", frame_stats.frame_time));
-                    ui.label_text("CPU", format!("{:?}", frame_stats.compute_time));
-                    ui.label_text("GPU", format!("{:?}", frame_stats.gpu_time));
-                });
-        }
-
-        if matches!(self.stats_display_mode, StatsDisplayMode::Full) {
-            let graph_size = [width - 80.0, 40.0];
-            const SCALE_MIN: f32 = 0.0;
-            const SCALE_MAX: f32 = 17.0;
-
-            ui.window("Frametime graphs")
-                .focus_on_appearing(false)
-                .no_decoration()
-                .bg_alpha(0.5)
-                .position([5.0, height - 145.0], gui::imgui::Condition::Always)
-                .size([width - 10.0, 140.0], gui::imgui::Condition::Always)
-                .build(|| {
-                    ui.plot_lines("Frame", &frame_stats.frame_time_ms_log.0)
-                        .scale_min(SCALE_MIN)
-                        .scale_max(SCALE_MAX)
-                        .graph_size(graph_size)
-                        .build();
-                    ui.plot_lines("CPU", &frame_stats.compute_time_ms_log.0)
-                        .scale_min(SCALE_MIN)
-                        .scale_max(SCALE_MAX)
-                        .graph_size(graph_size)
-                        .build();
-                    ui.plot_lines("GPU", &frame_stats.gpu_time_ms_log.0)
-                        .scale_min(SCALE_MIN)
-                        .scale_max(SCALE_MAX)
-                        .graph_size(graph_size)
-                        .build();
-                });
-        }
-    }
-
+    
     fn record_command_buffer(
-        &self,
-        buffer: &CommandBuffer,
+        &mut self,
         image_index: usize,
-        base_app: &B,
-        gui_renderer: &mut Renderer,
-        draw_data: &DrawData,
+        base_app: &mut B,
+        main_gui: &mut MainGui,
+        gui: &mut B::Gui,
+        frame_stats: &mut FrameStats,
+        window: &Window,
     ) -> Result<()> {
         let swapchain_image = &self.swapchain.images[image_index];
         let swapchain_image_view = &self.swapchain.views[image_index];
+        let buffer = &self.command_buffers[image_index];
 
         buffer.reset()?;
 
@@ -629,19 +536,21 @@ impl<B: App> BaseApp<B> {
         // Rasterization
         base_app.record_raster_commands(self, buffer, image_index)?;
 
-        // UI
-        buffer.begin_rendering(
-            swapchain_image_view,
-            None,
-            self.swapchain.extent,
-            vk::AttachmentLoadOp::DONT_CARE,
-            None,
-        );
-
-        gui_renderer.cmd_draw(buffer.inner, draw_data)?;
-
-        buffer.end_rendering();
-
+        // Main UI
+        {
+            buffer.begin_rendering(
+                swapchain_image_view,
+                None,
+                self.swapchain.extent,
+                vk::AttachmentLoadOp::DONT_CARE,
+                None,
+            );
+            
+            
+            
+            buffer.end_rendering();
+        }
+        
         buffer.pipeline_image_barriers(&[ImageBarrier {
             image: swapchain_image,
             old_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
@@ -661,10 +570,6 @@ impl<B: App> BaseApp<B> {
         buffer.end()?;
 
         Ok(())
-    }
-
-    fn toggle_stats(&mut self) {
-        self.stats_display_mode = self.stats_display_mode.next();
     }
 }
 

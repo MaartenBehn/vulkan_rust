@@ -7,7 +7,7 @@ use app::glam::Vec3;
 use app::vulkan::ash::vk::{self};
 use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
 use app::{log, App, BaseApp};
-use gui::imgui::{Condition, Ui};
+use app::imgui::{Condition, Ui};
 use octtree_v2::reader::Reader;
 use renderer::Renderer;
 

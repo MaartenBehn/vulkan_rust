@@ -45,6 +45,10 @@
             { "pos": [1, 0, -1], "name": ["Hull"] },
             { "pos": [-1, 0, 1], "name": ["Hull"] },
             { "pos": [1, 0, 1], "name": ["Empty"] }
+          ],
+          "node_req": [
+            { "pos": [0, -1, 0], "name": ["Hull_2","Hull_3", "Hull_4"] },
+            { "pos": [0, 1, 0], "name": ["Hull_2","Hull_3", "Hull_4"] }
           ]
         },
         {
@@ -59,6 +63,10 @@
             { "pos": [2, 0, 0], "name": ["Empty"] },
             { "pos": [0, 0, 2], "name": ["Empty"] },
             { "pos": [4, 0, -2], "name": ["Empty"] }
+          ],
+          "node_req": [
+            { "pos": [0, -1, 0], "name": ["Hull_2","Hull_3", "Hull_4"] },
+            { "pos": [0, 1, 0], "name": ["Hull_2","Hull_3", "Hull_4"] }
           ]
         },
         {

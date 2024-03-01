@@ -12,7 +12,7 @@ use app::vulkan::{
     DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
 use app::{App, BaseApp};
-use gui::imgui::{Condition, Ui};
+use app::imgui::{Condition, Ui};
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;

@@ -1,6 +1,8 @@
+#[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode};
+
 use crate::math::{get_config, get_packed_index};
-use crate::node::{Node, NodeID, PatternIndex};
+use crate::node::{Node, NodeID, PatternIndex, EMPYT_PATTERN_INDEX};
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
     node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
@@ -31,13 +33,14 @@ pub struct Ship {
 
     pub blocks: Vec<BlockIndex>,
     pub wave: Vec<Wave>,
+    pub to_propergate: IndexQueue,
     pub to_collapse: IndexQueue,
 }
 
 #[derive(Clone, Debug)]
 pub struct Wave {
     pub render_pattern: PatternIndex,
-    pub current_pattern: PatternIndex,
+    pub possible_patterns: Vec<PatternIndex>,
     pub dependent_waves: IndexQueue,
 }
 
@@ -56,6 +59,7 @@ impl Ship {
             wave_size,
             blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
             wave: vec![Wave::new(); max_wave_index],
+            to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
         };
 
@@ -133,12 +137,16 @@ impl Ship {
 
         log::info!("Place: {pos:?}");
         self.blocks[cell_index] = block_index;
-        self.propergate(pos, node_controller)?;
+        self.update_wave(pos, node_controller)?;
+
+        while !self.to_collapse.is_empty() {
+            self.to_collapse.pop_front();
+        }
 
         Ok(())
     }
 
-    fn propergate(&mut self, block_pos: UVec3, node_controller: &NodeController) -> Result<()> {
+    fn update_wave(&mut self, block_pos: UVec3, node_controller: &NodeController) -> Result<()> {
         for &pos in node_controller.affected_poses.iter() {
             let req_pos = Self::get_wave_pos_of_block_pos(block_pos.as_ivec3()) + pos;
             if !Self::pos_in_bounds(req_pos, self.wave_size) {
@@ -150,99 +158,267 @@ impl Ship {
 
             //self.wave[index].current_pattern = node_controller.patterns[config].len() - 1;
 
-            self.to_collapse.push_back(index);
+            self.to_propergate.push_back(index);
         }
 
         Ok(())
     }
 
+    #[cfg(debug_assertions)]
     pub fn tick(
         &mut self,
         actions_per_tick: usize,
         node_controller: &NodeController,
         debug_controller: &mut DebugController,
-    ) -> Result<bool> {
+    ) -> Result<(bool, bool)> {
+        let mut full = true;
+        let mut last_wave_something = false;
+        for _ in 0..actions_per_tick {
+            if !self.to_propergate.is_empty() {
+                let wave_index = self.to_propergate.pop_front().unwrap();
+                self.propergate(wave_index, node_controller, debug_controller)?;
+
+                if debug_controller.mode == DebugMode::WFC {
+                    last_wave_something =
+                        self.wave[wave_index].render_pattern != EMPYT_PATTERN_INDEX;
+                }
+
+                continue;
+            }
+
+            if !self.to_collapse.is_empty() {
+                let wave_index = self.to_collapse.pop_front().unwrap();
+                self.collapse(wave_index, node_controller, debug_controller)?;
+
+                if debug_controller.mode == DebugMode::WFC {
+                    last_wave_something =
+                        self.wave[wave_index].render_pattern != EMPYT_PATTERN_INDEX;
+                }
+
+                continue;
+            }
+
+            full = false;
+            break;
+        }
+
+        if debug_controller.mode == DebugMode::WFC {
+            self.debug_show_wave(debug_controller)?;
+        }
+
+        Ok((full, last_wave_something))
+    }
+
+    #[cfg(not(debug_assertions))]
+    pub fn tick(
+        &mut self,
+        actions_per_tick: usize,
+        node_controller: &NodeController,
+    ) -> Result<(bool, bool)> {
         let mut full = true;
         for _ in 0..actions_per_tick {
-            if self.to_collapse.is_empty() {
-                full = false;
-                break;
+            if !self.to_propergate.is_empty() {
+                let wave_index = self.to_propergate.pop_front().unwrap();
+                self.propergate(wave_index, node_controller)?;
+
+                continue;
             }
 
-            let wave_index = self.to_collapse.pop_front().unwrap();
-            let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
-            let config = get_config(wave_pos);
+            if !self.to_collapse.is_empty() {
+                let wave_index = self.to_collapse.pop_front().unwrap();
+                self.collapse(wave_index, node_controller)?;
 
-            if debug_controller.mode == DebugMode::WFC {
-                debug_controller.add_cube(
-                    wave_pos.as_vec3(),
-                    (wave_pos + IVec3::ONE).as_vec3(),
-                    vec4(1.0, 0.0, 0.0, 1.0),
-                )?;
+                continue;
             }
 
-            let mut current_pattern = 0;
-            for (pattern_index, pattern) in node_controller.patterns[config].iter().enumerate() {
-                let accepted = pattern.block_req.iter().all(|(&offset, indecies)| {
+            full = false;
+            break;
+        }
+
+        Ok((full, last_wave_something))
+    }
+
+    fn propergate(
+        &mut self,
+        wave_index: WaveIndex,
+        node_controller: &NodeController,
+        #[cfg(debug_assertions)] debug_controller: &mut DebugController,
+    ) -> Result<()> {
+        let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
+        let config = get_config(wave_pos);
+
+        #[cfg(debug_assertions)]
+        if debug_controller.mode == DebugMode::WFC {
+            debug_controller.add_cube(
+                wave_pos.as_vec3(),
+                (wave_pos + IVec3::ONE).as_vec3(),
+                vec4(0.0, 0.0, 1.0, 1.0),
+            )?;
+        }
+
+        self.wave[wave_index].possible_patterns.clear();
+        for (pattern_index, pattern) in node_controller.patterns[config].iter().enumerate() {
+            let accepted = pattern.block_req.iter().all(|(&offset, indecies)| {
+                let req_pos = wave_pos + offset;
+
+                if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                    return indecies.contains(&BLOCK_INDEX_EMPTY);
+                }
+
+                debug_assert!((req_pos % 2) == IVec3::ONE);
+
+                let block_pos = req_pos / 2;
+                let index = to_1d_i(block_pos, self.block_size.as_ivec3()) as usize;
+                let block_index = self.blocks[index];
+                indecies.contains(&block_index)
+            });
+
+            if accepted {
+                for (&offset, _) in pattern.node_req.iter() {
                     let req_pos = wave_pos + offset;
+                    let req_index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
 
-                    if !Self::pos_in_bounds(req_pos, self.wave_size) {
-                        return indecies.contains(&BLOCK_INDEX_EMPTY);
+                    if !self.to_collapse.contains(wave_index) {
+                        self.to_propergate.push_back(req_index);
                     }
+                }
 
-                    debug_assert!((req_pos % 2) == IVec3::ONE);
+                self.wave[wave_index].possible_patterns.push(pattern_index);
+            }
+        }
 
-                    let block_pos = req_pos / 2;
-                    let index = to_1d_i(block_pos, self.block_size.as_ivec3()) as usize;
-                    let block_index = self.blocks[index];
-                    indecies.contains(&block_index)
-                }) && pattern.node_req.iter().all(|(&offset, indecies)| {
+        self.to_collapse.push_back(wave_index);
+
+        Ok(())
+    }
+
+    fn collapse(
+        &mut self,
+        wave_index: WaveIndex,
+        node_controller: &NodeController,
+        #[cfg(debug_assertions)] debug_controller: &mut DebugController,
+    ) -> Result<()> {
+        let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
+        let config = get_config(wave_pos);
+
+        #[cfg(debug_assertions)]
+        if debug_controller.mode == DebugMode::WFC {
+            debug_controller.add_cube(
+                wave_pos.as_vec3(),
+                (wave_pos + IVec3::ONE).as_vec3(),
+                vec4(0.0, 1.0, 0.0, 1.0),
+            )?;
+        }
+
+        let old_possible_pattern_size = self.wave[wave_index].possible_patterns.len();
+        for (i, pattern_index) in self.wave[wave_index]
+            .possible_patterns
+            .to_owned()
+            .into_iter()
+            .enumerate()
+            .rev()
+        {
+            let pattern = &node_controller.patterns[config][pattern_index];
+
+            let accepted =
+                pattern.node_req.iter().all(|(&offset, indecies)| {
                     let req_pos = wave_pos + offset;
+                    let req_config = get_config(req_pos);
 
                     if !Self::pos_in_bounds(req_pos, self.wave_size) {
                         return false;
                     }
 
-                    let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
-                    let pattern_index = self.wave[index].current_pattern;
-                    let config = get_config(req_pos);
-                    let other_pattern = &node_controller.patterns[config][pattern_index];
-                    let found = indecies.contains(&other_pattern.node.index);
-
-                    if !found {
-                        self.wave[index].dependent_waves.push_back(wave_index);
-                    }
+                    let req_index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
+                    let found = self.wave[req_index].possible_patterns.iter().all(
+                        |&possible_pattern_index| {
+                            let possible_pattern =
+                                &node_controller.patterns[req_config][possible_pattern_index];
+                            indecies.contains(&possible_pattern.node.index)
+                        },
+                    );
 
                     found
                 });
 
-                if accepted {
-                    current_pattern = pattern_index;
-                }
-            }
-
-            if current_pattern != self.wave[wave_index].current_pattern {
-                self.wave[wave_index].current_pattern = current_pattern;
-                self.wave[wave_index].render_pattern = current_pattern;
-
-                let pattern = &node_controller.patterns[config][current_pattern];
-                for (&offset, _) in pattern.node_req.iter() {
-                    let req_pos = wave_pos + offset;
-
-                    debug_assert!(Self::pos_in_bounds(req_pos, self.wave_size));
-
-                    let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
-                    self.wave[index].dependent_waves.push_back(wave_index);
-                }
-
-                while !self.wave[wave_index].dependent_waves.is_empty() {
-                    let index = self.wave[wave_index].dependent_waves.pop_front();
-                    self.to_collapse.push_back(index.unwrap());
-                }
+            if !accepted {
+                self.wave[wave_index].possible_patterns.remove(i);
             }
         }
 
-        Ok(full)
+        let possible_patterns = &self.wave[wave_index].possible_patterns;
+        let possible_patterns_changed = possible_patterns.len() != old_possible_pattern_size;
+        let new_render_pattern = possible_patterns[possible_patterns.len() - 1];
+
+        self.wave[wave_index].render_pattern = new_render_pattern;
+
+        let pattern = &node_controller.patterns[config][new_render_pattern];
+        for (&offset, _) in pattern.node_req.iter() {
+            let req_pos = wave_pos + offset;
+
+            debug_assert!(Self::pos_in_bounds(req_pos, self.wave_size));
+
+            let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
+            self.wave[index].dependent_waves.push_back(wave_index);
+
+            if possible_patterns_changed {
+                self.to_collapse.push_back(index);
+            }
+        }
+
+        if possible_patterns_changed {
+            while !self.wave[wave_index].dependent_waves.is_empty() {
+                let index = self.wave[wave_index].dependent_waves.pop_front().unwrap();
+                self.to_collapse.push_back(index);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_show_wave(&mut self, debug_controller: &mut DebugController) -> Result<()> {
+        let mut to_propergate = self.to_propergate.to_owned();
+        while !to_propergate.is_empty() {
+            let index = to_propergate.pop_front().unwrap();
+            let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
+
+            debug_controller.add_cube(
+                vec3(
+                    wave_pos.x as f32,
+                    wave_pos.y as f32,
+                    wave_pos.z as f32 + 0.9,
+                ),
+                vec3(
+                    wave_pos.x as f32 + 0.1,
+                    wave_pos.y as f32 + 0.1,
+                    wave_pos.z as f32 + 1.0,
+                ),
+                vec4(0.0, 0.0, 1.0, 1.0),
+            )?;
+        }
+
+        let mut to_collpase = self.to_collapse.to_owned();
+        while !to_collpase.is_empty() {
+            let index = to_collpase.pop_front().unwrap();
+            let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
+
+            debug_controller.add_cube(
+                vec3(
+                    wave_pos.x as f32 + 0.1,
+                    wave_pos.y as f32,
+                    wave_pos.z as f32 + 0.9,
+                ),
+                vec3(
+                    wave_pos.x as f32 + 0.2,
+                    wave_pos.y as f32 + 0.1,
+                    wave_pos.z as f32 + 1.0,
+                ),
+                vec4(0.0, 1.0, 0.0, 1.0),
+            )?;
+        }
+
+        Ok(())
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
@@ -253,7 +429,7 @@ impl Ship {
             for y in 0..self.block_size.y {
                 for z in 0..self.block_size.z {
                     let pos = uvec3(x, y, z);
-                    self.propergate(pos, node_controller)?;
+                    self.update_wave(pos, node_controller)?;
                 }
             }
         }
@@ -266,7 +442,7 @@ impl Wave {
     pub fn new() -> Self {
         Wave {
             render_pattern: 0,
-            current_pattern: 0,
+            possible_patterns: Vec::new(),
             dependent_waves: IndexQueue::default(),
         }
     }

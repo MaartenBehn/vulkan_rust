@@ -31,6 +31,7 @@ pub const VOXEL_EMPTY: Voxel = 0;
 
 pub const NODE_SIZE: UVec3 = uvec3(4, 4, 4);
 pub const NODE_VOXEL_LENGTH: usize = (NODE_SIZE.x * NODE_SIZE.y * NODE_SIZE.z) as usize;
+pub const EMPYT_PATTERN_INDEX: PatternIndex = 0;
 
 #[derive(Clone, Debug)]
 pub struct NodeController {
