@@ -1,6 +1,6 @@
 use std::{collections::HashMap, f32::consts::PI};
 
-use app::{
+use octa_force::{
     glam::{vec3, BVec3, Mat3, Mat4, Quat, Vec3},
     log,
 };
@@ -153,7 +153,7 @@ impl Rot {
             if flip.y { -1.0 } else { 1.0 },
             if flip.z { -1.0 } else { 1.0 },
         );
-        let quat = Quat::from_euler(app::glam::EulerRot::XYZ, r.x, r.y, r.z);
+        let quat = Quat::from_euler(octa_force::glam::EulerRot::XYZ, r.x, r.y, r.z);
         let trans_rot: Rot = Mat3::from_mat4(Mat4::from_scale_rotation_translation(
             scale,
             quat,

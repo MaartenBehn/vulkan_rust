@@ -1,4 +1,4 @@
-use app::{anyhow::Result, glam::{IVec3, ivec3}};
+use octa_force::{anyhow::Result, glam::{IVec3, ivec3}};
 use indicatif::ProgressBar;
 
 use crate::{template::{TemplateNode, TemplateTree}, tree::CompressedTree, node::{bools_to_bits, CompressedNode, MAX_PTR, CHILD_CONFIG}, reader::Reader, builder::Builder, aabb::AABB};

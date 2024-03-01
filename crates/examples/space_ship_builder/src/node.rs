@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use app::anyhow::Result;
-use app::glam::{ivec3, uvec3, IVec3, UVec3};
-use app::log;
+use octa_force::anyhow::Result;
+use octa_force::glam::{ivec3, uvec3, IVec3, UVec3};
+use octa_force::log;
 use dot_vox::Color;
 
 use crate::math::get_neigbor_offsets;

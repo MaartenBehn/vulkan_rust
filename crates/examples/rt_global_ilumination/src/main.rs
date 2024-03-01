@@ -1,14 +1,14 @@
-use app::anyhow::Result;
-use app::camera::Camera;
-use app::controls::Controls;
-use app::glam::{vec3, Mat4};
-use app::vulkan::ash::vk::{self, Packed24_8};
-use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::utils::*;
-use app::{vulkan::*, BaseApp};
-use app::{App, ImageAndView};
+use octa_force::anyhow::Result;
+use octa_force::camera::Camera;
+use octa_force::controls::Controls;
+use octa_force::glam::{vec3, Mat4};
+use octa_force::vulkan::ash::vk::{self, Packed24_8};
+use octa_force::vulkan::gpu_allocator::MemoryLocation;
+use octa_force::vulkan::utils::*;
+use octa_force::{vulkan::*, BaseApp};
+use octa_force::{App, ImageAndView};
 use gltf::Vertex;
-use app::imgui::{Condition, Ui};
+use octa_force::imgui::{Condition, Ui};
 use std::mem::{size_of, size_of_val};
 use std::time::Duration;
 
@@ -22,7 +22,7 @@ const RAYS_PER_PIXEL: u32 = 2;
 const RENDER_MODE: u32 = 2;
 
 fn main() -> Result<()> {
-    app::run::<Reflections>(APP_NAME, WIDTH, HEIGHT, true, false)
+    octa_force::run::<Reflections>(APP_NAME, WIDTH, HEIGHT, true, false)
 }
 
 struct Reflections {
@@ -180,7 +180,7 @@ struct Gui {
     render_mode: u32,
 }
 
-impl app::Gui for Gui {
+impl octa_force::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
             light: Light {

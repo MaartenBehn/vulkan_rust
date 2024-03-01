@@ -9,5 +9,5 @@ fastrand.workspace = true
 indicatif.workspace = true
 
 
-app = { path = "../../libs/app" }
+octa-force.workspace = true
 octtree_v2 = { path = "../../libs/octtree_v2" }

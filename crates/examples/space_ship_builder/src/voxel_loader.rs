@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use app::anyhow::{bail, Result};
-use app::glam::{ivec3, uvec3, IVec3, UVec3};
-use app::log::{self, debug};
+use octa_force::anyhow::{bail, Result};
+use octa_force::glam::{ivec3, uvec3, IVec3, UVec3};
+use octa_force::log::{self, debug};
 use dot_vox::{DotVoxData, Position, SceneNode};
 
 use crate::math::to_1d;

@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use app::anyhow::Result;
-use app::camera::Camera;
-use app::controls::Controls;
-use app::glam::{vec2, vec3, Vec3};
-use app::vulkan::ash::vk::{self, Format, ImageUsageFlags};
-use app::vulkan::{gpu_allocator, CommandBuffer};
-use app::{log, App, BaseApp};
+use octa_force::anyhow::Result;
+use octa_force::camera::Camera;
+use octa_force::controls::Controls;
+use octa_force::glam::{vec2, vec3, Vec3};
+use octa_force::vulkan::ash::vk::{self, Format, ImageUsageFlags};
+use octa_force::vulkan::{gpu_allocator, CommandBuffer};
+use octa_force::{log, App, BaseApp};
 use renderer::RenderBuffer;
 
 use crate::builder::Builder;
@@ -31,7 +31,7 @@ const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Space ship builder";
 
 fn main() -> Result<()> {
-    app::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct SpaceShipBuilder {
     total_time: Duration,

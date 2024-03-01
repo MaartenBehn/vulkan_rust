@@ -5,7 +5,7 @@ use crate::{
     ship::{Ship, ShipType},
     ship_mesh::{self, ShipMesh},
 };
-use app::{
+use octa_force::{
     anyhow::Result,
     camera::Camera,
     glam::{vec2, BVec3, Mat4, Vec2, Vec3},
@@ -297,7 +297,7 @@ impl Vertex {
     }
 }
 
-impl app::vulkan::Vertex for Vertex {
+impl octa_force::vulkan::Vertex for Vertex {
     fn bindings() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,

@@ -1,15 +1,15 @@
 use std::mem::size_of;
 
-use app::anyhow::{Ok, Result};
-use app::glam::Vec3;
-use app::vulkan::{
+use octa_force::anyhow::{Ok, Result};
+use octa_force::glam::Vec3;
+use octa_force::vulkan::{
     ash::vk, gpu_allocator::MemoryLocation, Buffer, ComputePipeline, Context, DescriptorPool,
     DescriptorSet, DescriptorSetLayout, PipelineLayout,
 };
-use app::vulkan::{
+use octa_force::vulkan::{
     CommandBuffer, ComputePipelineCreateInfo, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::{BaseApp, ImageAndView};
+use octa_force::{BaseApp, ImageAndView};
 
 use crate::RayCaster;
 

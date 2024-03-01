@@ -4,7 +4,7 @@ use octtree_v2::{
     template::{TemplateNode, TemplateTree},
 };
 
-use app::anyhow::Result;
+use octa_force::anyhow::Result;
 
 pub fn build_template_tree(path: &str, depth: usize, page_size: usize) -> Result<()> {
     let mut builder = Builder::new(path.to_owned(), page_size, depth)?;

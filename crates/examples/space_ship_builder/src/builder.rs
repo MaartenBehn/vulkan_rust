@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use app::{
+use octa_force::{
     anyhow::Result,
     camera::Camera,
     controls::Controls,

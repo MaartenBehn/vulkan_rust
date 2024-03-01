@@ -1,18 +1,18 @@
 use crate::renderer::Renderer;
-use app::anyhow::Result;
-use app::camera::Camera;
-use app::controls::Controls;
-use app::glam::{vec3, vec4, IVec2, IVec3, Mat4, UVec2, Vec3, Vec4};
-use app::imgui::{Condition, DrawData, DrawVert, FontConfig, FontSource};
-use app::imgui_rs_vulkan_renderer::{DynamicRendering, Options};
-use app::vulkan::ash::vk;
-use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::{
+use octa_force::anyhow::Result;
+use octa_force::camera::Camera;
+use octa_force::controls::Controls;
+use octa_force::glam::{vec3, vec4, IVec2, IVec3, Mat4, UVec2, Vec3, Vec4};
+use octa_force::imgui::{Condition, DrawData, DrawVert, FontConfig, FontSource};
+use octa_force::imgui_rs_vulkan_renderer::{DynamicRendering, Options};
+use octa_force::vulkan::ash::vk;
+use octa_force::vulkan::gpu_allocator::MemoryLocation;
+use octa_force::vulkan::{
     Buffer, CommandBuffer, CommandPool, Context, DescriptorPool, DescriptorSet,
     DescriptorSetLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo,
     PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::{imgui, imgui_rs_vulkan_renderer};
+use octa_force::{imgui, imgui_rs_vulkan_renderer};
 use std::mem::{align_of, size_of};
 use std::time::Duration;
 
@@ -346,7 +346,7 @@ impl LineVertex {
     }
 }
 
-impl app::vulkan::Vertex for LineVertex {
+impl octa_force::vulkan::Vertex for LineVertex {
     fn bindings() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,

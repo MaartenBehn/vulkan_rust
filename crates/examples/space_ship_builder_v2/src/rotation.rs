@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use app::{
+use octa_force::{
     glam::{vec3, BVec3, Mat3, Mat4, Vec3},
     log,
 };

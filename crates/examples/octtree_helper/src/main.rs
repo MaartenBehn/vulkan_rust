@@ -1,4 +1,4 @@
-use app::{anyhow::ensure, anyhow::Result, log, logger::log_init};
+use octa_force::{anyhow::ensure, anyhow::Result, log, logger::log_init};
 use octtree::{get_max_tree_size, get_node_size};
 
 const MAX_DEPTH: u16 = 20;

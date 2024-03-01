@@ -12,7 +12,7 @@ use std::{
     io::Write,
 };
 
-use app::{anyhow::Result, log};
+use octa_force::{anyhow::Result, log};
 use indicatif::ProgressBar;
 
 pub fn save_tree(tree: &mut impl Tree, folder_path: &str, batch_size: usize) -> Result<()> {

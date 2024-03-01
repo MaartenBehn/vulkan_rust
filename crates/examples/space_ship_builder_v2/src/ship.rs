@@ -3,10 +3,10 @@ use std::collections::VecDeque;
 use std::thread::panicking;
 use std::time::Duration;
 
-use app::anyhow::*;
-use app::glam::*;
-use app::log;
-use app::vulkan::Context;
+use octa_force::anyhow::*;
+use octa_force::glam::*;
+use octa_force::log;
+use octa_force::vulkan::Context;
 use index_queue::IndexQueue;
 
 use crate::math::to_1d;

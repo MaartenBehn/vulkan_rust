@@ -1,13 +1,13 @@
 use std::time::Duration;
 
-use app::anyhow::{ensure, Ok, Result};
-use app::camera::Camera;
-use app::controls::Controls;
-use app::glam::Vec3;
-use app::vulkan::ash::vk::{self};
-use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
-use app::{log, App, BaseApp};
-use app::imgui::{Condition, Ui};
+use octa_force::anyhow::{ensure, Ok, Result};
+use octa_force::camera::Camera;
+use octa_force::controls::Controls;
+use octa_force::glam::Vec3;
+use octa_force::vulkan::ash::vk::{self};
+use octa_force::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
+use octa_force::{log, App, BaseApp};
+use octa_force::imgui::{Condition, Ui};
 use octtree_v2::reader::Reader;
 use renderer::Renderer;
 
@@ -27,7 +27,7 @@ const SAVE_FOLDER: &str = "./assets/tree";
 fn start() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
-    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
+    octa_force::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
     Ok(())
 }
 fn main() {
@@ -176,7 +176,7 @@ pub struct Gui {
     debug_scale: u32,
 }
 
-impl app::Gui for Gui {
+impl octa_force::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
             frame: 0,

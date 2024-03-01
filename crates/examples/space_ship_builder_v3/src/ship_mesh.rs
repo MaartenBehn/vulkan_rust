@@ -7,7 +7,7 @@ use crate::{
     renderer::{self, Vertex},
     ship::Wave,
 };
-use app::{
+use octa_force::{
     anyhow::Result,
     glam::{uvec3, vec3, BVec3, IVec3, UVec3},
     log,

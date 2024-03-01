@@ -12,4 +12,4 @@ serde_json.workspace = true
 speedy.workspace = true
 indicatif.workspace = true
 
-app = { path = "../../libs/app" }
+octa-force.workspace = true

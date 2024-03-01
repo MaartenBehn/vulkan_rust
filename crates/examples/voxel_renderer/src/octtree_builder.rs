@@ -1,10 +1,10 @@
-use app::anyhow::Result;
-use app::vulkan::ash::vk;
-use app::vulkan::{
+use octa_force::anyhow::Result;
+use octa_force::vulkan::ash::vk;
+use octa_force::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context, DescriptorPool,
     DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::BaseApp;
+use octa_force::BaseApp;
 
 use crate::RayCaster;
 

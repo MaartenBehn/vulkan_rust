@@ -1,21 +1,21 @@
 use std::time::Duration;
 
-use app::anyhow::Result;
-use app::controls::Controls;
-use app::vulkan::ash::vk;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
-use app::vulkan::{
+use octa_force::anyhow::Result;
+use octa_force::controls::Controls;
+use octa_force::vulkan::ash::vk;
+use octa_force::vulkan::utils::create_gpu_only_buffer_from_data;
+use octa_force::vulkan::{
     Buffer, CommandBuffer, Context, GraphicsPipeline, GraphicsPipelineCreateInfo,
     GraphicsShaderCreateInfo, PipelineLayout,
 };
-use app::{App, BaseApp};
+use octa_force::{App, BaseApp};
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Mandelbrot";
 
 fn main() -> Result<()> {
-    app::run::<Mandelbrot>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<Mandelbrot>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct Mandelbrot {
     vertex_buffer: Buffer,
@@ -88,7 +88,7 @@ struct Vertex {
     uv: [f32; 2],
 }
 
-impl app::vulkan::Vertex for Vertex {
+impl octa_force::vulkan::Vertex for Vertex {
     fn bindings() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,

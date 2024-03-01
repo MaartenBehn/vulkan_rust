@@ -8,8 +8,10 @@ use crate::{
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode};
 
-use app::glam::{vec4, Vec3};
-use app::{anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context};
+use octa_force::glam::{vec4, Vec3};
+use octa_force::{
+    anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context,
+};
 use std::time::Duration;
 
 const SCROLL_SPEED: f32 = 0.01;

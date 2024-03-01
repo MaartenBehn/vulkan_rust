@@ -1,4 +1,4 @@
-use app::log;
+use octa_force::log;
 
 pub const PTR_MASK: u32 = 8388607;
 pub const FAR_MASK: u32 = 8388608;

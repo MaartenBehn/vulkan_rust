@@ -1,7 +1,7 @@
 use std::{fs::{OpenOptions, self}, io::Write};
 use serde::{Serialize, Deserialize};
 
-use app::anyhow::Result;
+use octa_force::anyhow::Result;
 
 use crate::aabb::AABB;
 

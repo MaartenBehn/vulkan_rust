@@ -1,4 +1,4 @@
-use app::glam::Mat3;
+use octa_force::glam::Mat3;
 
 /// Origanl from https://docs.rs/dot_vox/latest/dot_vox/struct.Rotation.html
 ///

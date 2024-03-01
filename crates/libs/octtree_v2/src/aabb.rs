@@ -1,4 +1,4 @@
-use app::glam::IVec3;
+use octa_force::glam::IVec3;
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]

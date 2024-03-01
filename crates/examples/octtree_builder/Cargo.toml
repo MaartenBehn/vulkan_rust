@@ -8,5 +8,5 @@ authors.workspace = true
 
 [dependencies]
 
-app = { path = "../../libs/app" }
+octa-force.workspace = true
 octtree = { path = "../../libs/octtree" }

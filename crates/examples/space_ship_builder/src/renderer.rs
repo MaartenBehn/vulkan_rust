@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use app::{
+use octa_force::{
     anyhow::Result,
     glam::{uvec4, BVec3, Mat4, UVec3, Vec3, Vec4},
     log,
@@ -224,7 +224,7 @@ impl Vertex {
     }
 }
 
-impl app::vulkan::Vertex for Vertex {
+impl octa_force::vulkan::Vertex for Vertex {
     fn bindings() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,

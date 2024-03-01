@@ -1,21 +1,21 @@
 use std::mem::size_of;
 use std::time::{Duration, Instant};
 
-use app::anyhow::Result;
-use app::camera::Camera;
-use app::controls::Controls;
-use app::glam::{vec3, Mat4};
-use app::vulkan::ash::vk;
-use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::utils::create_gpu_only_buffer_from_data;
-use app::vulkan::{
+use octa_force::anyhow::Result;
+use octa_force::camera::Camera;
+use octa_force::controls::Controls;
+use octa_force::glam::{vec3, Mat4};
+use octa_force::vulkan::ash::vk;
+use octa_force::vulkan::gpu_allocator::MemoryLocation;
+use octa_force::vulkan::utils::create_gpu_only_buffer_from_data;
+use octa_force::vulkan::{
     Buffer, BufferBarrier, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context,
     DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
     GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout, Vertex,
     WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::{log, App, BaseApp};
-use app::imgui::{Condition, Ui};
+use octa_force::{log, App, BaseApp};
+use octa_force::imgui::{Condition, Ui};
 use rand::Rng;
 
 const WIDTH: u32 = 1024;
@@ -30,7 +30,7 @@ const MIN_ATTRACTOR_STRENGTH: u32 = 0;
 const MAX_ATTRACTOR_STRENGTH: u32 = 100;
 
 fn main() -> Result<()> {
-    app::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct Particles {
     particle_count: u32,
@@ -291,7 +291,7 @@ struct Gui {
     color3: [f32; 4],
 }
 
-impl app::Gui for Gui {
+impl octa_force::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
             particle_count: MAX_PARTICLE_COUNT / 20,

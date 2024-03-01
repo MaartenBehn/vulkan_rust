@@ -1,18 +1,18 @@
 use std::mem::size_of;
 use std::time::Duration;
 
-use app::anyhow::Result;
-use app::camera::Camera;
-use app::controls::Controls;
-use app::glam::Vec3;
-use app::vulkan::ash::vk;
-use app::vulkan::gpu_allocator::MemoryLocation;
-use app::vulkan::{
+use octa_force::anyhow::Result;
+use octa_force::camera::Camera;
+use octa_force::controls::Controls;
+use octa_force::glam::Vec3;
+use octa_force::vulkan::ash::vk;
+use octa_force::vulkan::gpu_allocator::MemoryLocation;
+use octa_force::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, DescriptorPool,
     DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use app::{App, BaseApp};
-use app::imgui::{Condition, Ui};
+use octa_force::{App, BaseApp};
+use octa_force::imgui::{Condition, Ui};
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -22,7 +22,7 @@ const DISPATCH_GROUP_SIZE_X: u32 = 32;
 const DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
 fn main() -> Result<()> {
-    app::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, true)
+    octa_force::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, true)
 }
 struct Particles {
     compute_ubo_buffer: Buffer,
@@ -190,7 +190,7 @@ impl App for Particles {
 #[derive(Debug, Clone, Copy)]
 struct Gui {}
 
-impl app::Gui for Gui {
+impl octa_force::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {})
     }

@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use app::glam::{vec3, BVec3, Mat3, Mat4, Vec3};
+use octa_force::glam::{vec3, BVec3, Mat3, Mat4, Vec3};
 
 use crate::rotation::Rot;
 

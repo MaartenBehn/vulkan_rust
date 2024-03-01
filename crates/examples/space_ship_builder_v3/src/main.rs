@@ -1,18 +1,18 @@
 use std::time::Duration;
 
-use app::glam::{ivec2, uvec2, IVec2};
-use app::imgui::{Condition, Ui};
-use app::vulkan::{
+use octa_force::glam::{ivec2, uvec2, IVec2};
+use octa_force::imgui::{Condition, Ui};
+use octa_force::vulkan::{
     ash::vk::{self, Format},
     CommandBuffer,
 };
-use app::{
+use octa_force::{
     anyhow::Result,
     camera::Camera,
     controls::Controls,
     glam::{uvec3, vec3, Vec3},
 };
-use app::{log, App, BaseApp};
+use octa_force::{log, App, BaseApp};
 
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugLineRenderer};
@@ -41,7 +41,7 @@ const APP_NAME: &str = "Space ship builder";
 const VOX_FILE_RELODE_INTERVALL: Duration = Duration::from_secs(1);
 
 fn main() -> Result<()> {
-    app::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
 }
 struct SpaceShipBuilder {
     total_time: Duration,
@@ -218,9 +218,9 @@ impl App for SpaceShipBuilder {
 #[derive(Debug, Clone, Copy)]
 pub struct Gui {}
 
-impl app::gui::Gui for Gui {
+impl octa_force::gui::Gui for Gui {
     fn new() -> Result<Self> {
-        app::anyhow::Ok(Gui {})
+        octa_force::anyhow::Ok(Gui {})
     }
 
     fn build(&mut self, ui: &Ui) {
