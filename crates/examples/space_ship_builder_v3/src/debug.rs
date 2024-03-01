@@ -408,6 +408,7 @@ impl DebugTextRenderer {
             &mut imgui,
             Some(Options {
                 in_flight_frames,
+                render_3d: true,
                 ..Default::default()
             }),
         )?;
