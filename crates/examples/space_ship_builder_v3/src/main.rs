@@ -200,7 +200,7 @@ impl App for SpaceShipBuilder {
         self.renderer.render(buffer, image_index, &self.builder);
         #[cfg(debug_assertions)]
         self.debug_controller
-            .render(buffer, image_index, &self.camera)?;
+            .render(buffer, image_index, &self.camera, base.swapchain.extent)?;
 
         buffer.end_rendering();
 

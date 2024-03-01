@@ -18,8 +18,8 @@ opt-level = 3
 [workspace.dependencies]
 octa-force = { path = "../octa-force-rs", version = "0.1.0" }
 
-# Logging
-indicatif = "0.17.3" # Log Progress bars etc
+# Print Progress bars etc
+indicatif = "0.17.3"
 
 # Error
 thiserror = "1.0"
