@@ -181,7 +181,7 @@ impl App for SpaceShipBuilder {
         Ok(())
     }
 
-    fn record_raster_commands(
+    fn record_render_commands(
         &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
