@@ -15,7 +15,8 @@ impl<T: Tree> Reader<T> {
     pub fn new(path: String, max_loaded_pages: usize) -> Result<Reader<T>> {
         let tree = T::form_disk(path)?;
 
-        let possible_size = (size_of::<T::Node>() * tree.get_page_size() + size_of::<T::Page>()) * max_loaded_pages;
+        let possible_size =
+            (size_of::<T::Node>() * tree.get_page_size() + size_of::<T::Page>()) * max_loaded_pages;
         log::info!(
             "Reader Max Size: {} byte {} MB {} GB",
             possible_size,
@@ -23,10 +24,10 @@ impl<T: Tree> Reader<T> {
             possible_size as f32 / 1000000000.0
         );
 
-        Ok(Reader { 
+        Ok(Reader {
             max_loaded_pages,
             page_list: VecDeque::new(),
-            tree 
+            tree,
         })
     }
 
@@ -41,11 +42,11 @@ impl<T: Tree> Reader<T> {
         let in_page_index = index % page_size;
 
         self.check_page(page_nr)?;
-        
+
         Ok(self.tree.get_node(page_nr, in_page_index))
     }
 
-    fn check_page(&mut self, page_nr: usize) -> Result<()>{
+    fn check_page(&mut self, page_nr: usize) -> Result<()> {
         if !self.tree.has_page(page_nr) {
             self.tree.load_page(page_nr)?;
         } else {
@@ -54,7 +55,7 @@ impl<T: Tree> Reader<T> {
                 if page_nr == *nr {
                     index = i;
                 }
-            };
+            }
             self.page_list.remove(index);
         }
 
@@ -65,7 +66,7 @@ impl<T: Tree> Reader<T> {
         Ok(())
     }
 
-    pub fn check_clean(&mut self){
+    pub fn check_clean(&mut self) {
         while self.page_list.len() >= self.max_loaded_pages {
             let page_nr = self.page_list.pop_back().unwrap();
             self.tree.remove_page(page_nr);

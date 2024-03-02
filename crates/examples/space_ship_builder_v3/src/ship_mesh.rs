@@ -11,10 +11,7 @@ use octa_force::{
     anyhow::Result,
     glam::{uvec3, vec3, BVec3, IVec3, UVec3},
     log,
-    vulkan::{
-        ash::vk, gpu_allocator::MemoryLocation, utils::create_gpu_only_buffer_from_data, Buffer,
-        CommandBuffer, Context,
-    },
+    vulkan::{ash::vk, gpu_allocator::MemoryLocation, Buffer, CommandBuffer, Context},
 };
 use std::mem::{align_of, size_of};
 
@@ -87,11 +84,8 @@ impl ShipMesh {
         let index_size = size_of::<u32>() * indecies.len();
         log::info!("Ship Index Buffer: {:?} MB", index_size as f32 / 1000000.0);
 
-        let index_buffer = create_gpu_only_buffer_from_data(
-            context,
-            vk::BufferUsageFlags::INDEX_BUFFER,
-            &indecies,
-        )?;
+        let index_buffer = context
+            .create_gpu_only_buffer_from_data(vk::BufferUsageFlags::INDEX_BUFFER, &indecies)?;
 
         let mesh = ShipMesh {
             vertex_buffer,

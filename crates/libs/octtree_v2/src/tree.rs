@@ -1,8 +1,12 @@
-use std::{collections::HashMap, io::{Write, Read}, fs::File};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{Read, Write},
+};
 
 use octa_force::{anyhow::Result, glam::IVec3};
 
-use crate::{node::CompressedNode, util, metadata::Metadata, Tree, Page, aabb::AABB};
+use crate::{aabb::AABB, metadata::Metadata, node::CompressedNode, util, Page, Tree};
 
 #[derive(Clone, Debug, Default)]
 pub struct CompressedTree {
@@ -14,15 +18,15 @@ pub struct CompressedTree {
 #[derive(Clone, Debug, Default)]
 pub struct CompressedPage {
     pub nodes: Vec<CompressedNode>,
-} 
+}
 
 impl Tree for CompressedTree {
     type Page = CompressedPage;
     type Node = CompressedNode;
 
     fn new(path: String, page_size: usize, depth: usize) -> Self {
-        CompressedTree { 
-            path, 
+        CompressedTree {
+            path,
             metadata: Metadata::new(page_size, 0, depth),
             pages: HashMap::new(),
         }
@@ -30,8 +34,8 @@ impl Tree for CompressedTree {
 
     fn form_disk(path: String) -> Result<Self> {
         let metadata = Metadata::from_file(&path)?;
-        Ok(CompressedTree { 
-            path, 
+        Ok(CompressedTree {
+            path,
             metadata,
             pages: HashMap::new(),
         })
@@ -50,7 +54,7 @@ impl Tree for CompressedTree {
     }
 
     fn set_node(&mut self, page_nr: usize, in_page_index: usize, node: Self::Node) -> Result<()> {
-        self.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node.try_into()?;  
+        self.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node.try_into()?;
 
         Ok(())
     }
@@ -65,7 +69,7 @@ impl Tree for CompressedTree {
 
     fn save_page(&self, page_nr: usize) -> Result<()> {
         let page = self.pages.get(&page_nr).unwrap();
-        
+
         let mut file = File::create(format!("{}/page_{}.bin", self.path, page_nr))?;
         let buffer = unsafe { util::slice_as_u8_slice(&page.nodes) };
         file.write_all(buffer)?;
@@ -88,7 +92,7 @@ impl Tree for CompressedTree {
     fn add_page(&mut self, page_nr: usize, page: Self::Page) {
         self.pages.insert(page_nr, page);
         self.metadata.page_ammount += 1;
-        
+
         for _ in self.metadata.aabbs.len()..(page_nr + 1) {
             self.metadata.aabbs.push(AABB::default());
         }
@@ -110,7 +114,7 @@ impl Tree for CompressedTree {
         self.metadata.page_size
     }
 
-    fn get_page_ammount(&self) ->usize {
+    fn get_page_ammount(&self) -> usize {
         self.metadata.page_ammount
     }
 }
@@ -141,6 +145,8 @@ impl CompressedTree {
 
 impl Page for CompressedPage {
     fn new(page_size: usize) -> CompressedPage {
-        CompressedPage { nodes: vec![CompressedNode::default(); page_size] }
+        CompressedPage {
+            nodes: vec![CompressedNode::default(); page_size],
+        }
     }
 }

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use octa_force::anyhow::{Result, bail};
+use octa_force::anyhow::{bail, Result};
 
-use crate::{Tree, util::create_dir};
+use crate::{util::create_dir, Tree};
 
 pub struct Builder<T: Tree> {
     pub tree: T,
@@ -14,7 +14,7 @@ impl<T: Tree> Builder<T> {
         create_dir(&path)?;
         let tree = T::new(path, page_size, depth);
 
-        Ok(Builder { 
+        Ok(Builder {
             tree,
             set_counters: HashMap::new(),
         })
@@ -42,7 +42,7 @@ impl<T: Tree> Builder<T> {
         Ok(())
     }
 
-    pub fn check_page_save(&mut self, page_nr: usize) -> Result<()>{
+    pub fn check_page_save(&mut self, page_nr: usize) -> Result<()> {
         if self.set_counters[&page_nr] >= self.tree.get_page_size() {
             self.tree.save_page(page_nr)?;
             self.tree.remove_page(page_nr);

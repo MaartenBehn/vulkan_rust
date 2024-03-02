@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use dot_vox::Color;
 use octa_force::anyhow::Result;
 use octa_force::glam::{ivec3, uvec3, IVec3, UVec3};
 use octa_force::log;
-use dot_vox::Color;
 
 use crate::math::get_neigbor_offsets;
 use crate::ship::{Cell, PID};

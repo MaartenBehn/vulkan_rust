@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use dot_vox::{DotVoxData, Position, SceneNode};
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::{ivec3, uvec3, IVec3, UVec3};
 use octa_force::log::{self, debug};
-use dot_vox::{DotVoxData, Position, SceneNode};
 
 use crate::math::to_1d;
 use crate::node::{Block, Material, Node, NodeID, NodeIndex, NODE_SIZE, NODE_VOXEL_LENGTH};

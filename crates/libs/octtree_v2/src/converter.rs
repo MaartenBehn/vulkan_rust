@@ -1,20 +1,30 @@
-use octa_force::{anyhow::Result, glam::{IVec3, ivec3}};
 use indicatif::ProgressBar;
+use octa_force::{
+    anyhow::Result,
+    glam::{ivec3, IVec3},
+};
 
-use crate::{template::{TemplateNode, TemplateTree}, tree::CompressedTree, node::{bools_to_bits, CompressedNode, MAX_PTR, CHILD_CONFIG}, reader::Reader, builder::Builder, aabb::AABB};
+use crate::{
+    aabb::AABB,
+    builder::Builder,
+    node::{bools_to_bits, CompressedNode, CHILD_CONFIG, MAX_PTR},
+    reader::Reader,
+    template::{TemplateNode, TemplateTree},
+    tree::CompressedTree,
+};
 
 const FAR_PADDING: usize = 255;
 
 struct Converter {
-    reader: Reader<TemplateTree>, 
+    reader: Reader<TemplateTree>,
     builder: Builder<CompressedTree>,
 }
 
-pub fn convert_template_to_tree(reader: Reader<TemplateTree>, builder: Builder<CompressedTree>) -> Result<()> {
-    let mut converter = Converter{
-        reader,
-        builder,
-    };
+pub fn convert_template_to_tree(
+    reader: Reader<TemplateTree>,
+    builder: Builder<CompressedTree>,
+) -> Result<()> {
+    let mut converter = Converter { reader, builder };
 
     let root_node = converter.reader.get_node(0).unwrap().try_into()?;
     let bar = ProgressBar::new(u32::MAX as u64);
@@ -27,32 +37,40 @@ pub fn convert_template_to_tree(reader: Reader<TemplateTree>, builder: Builder<C
 
 impl Converter {
     fn convert_node(
-        &mut self, 
-        template_node: TemplateNode, 
-        depth: usize, 
-        index: usize, 
-        mut ptr: usize, 
-        far_offset: usize, 
+        &mut self,
+        template_node: TemplateNode,
+        depth: usize,
+        index: usize,
+        mut ptr: usize,
+        far_offset: usize,
         pos: IVec3,
-        bar: &ProgressBar
+        bar: &ProgressBar,
     ) -> Result<(usize, AABB)> {
         bar.set_position(ptr as u64);
 
         let branches = template_node.get_branches();
         let mats = template_node.get_materials();
-    
+
         let pos_aabb = AABB::new(pos, pos + IVec3::ONE);
-        
+
         let branch_bits = bools_to_bits(branches);
         let use_ptr = if far_offset == 0 && branch_bits != 0 {
             ptr - index
         } else if far_offset != 0 {
-            self.builder.set_node(index + far_offset, CompressedNode::new_far_pointer(ptr - index - far_offset))?;
+            self.builder.set_node(
+                index + far_offset,
+                CompressedNode::new_far_pointer(ptr - index - far_offset),
+            )?;
             self.builder.tree.add_aabb(index + far_offset, pos_aabb);
             far_offset
-        }else { 0 };
+        } else {
+            0
+        };
 
-        self.builder.set_node(index, CompressedNode::new(use_ptr, bools_to_bits(branches), mats, far_offset != 0))?;
+        self.builder.set_node(
+            index,
+            CompressedNode::new(use_ptr, bools_to_bits(branches), mats, far_offset != 0),
+        )?;
         self.builder.tree.add_aabb(index, pos_aabb);
 
         let template_ptr = template_node.get_ptr() as usize;
@@ -68,9 +86,14 @@ impl Converter {
         for (j, b) in branches.iter().enumerate() {
             if *b {
                 let child_index = template_ptr + num_childen;
-                let child_node: TemplateNode = self.reader.get_node(child_index).unwrap().try_into()?;
+                let child_node: TemplateNode =
+                    self.reader.get_node(child_index).unwrap().try_into()?;
                 let child_ptr = child_node.get_ptr() as usize;
-                let child_far = if child_ptr != 0 {(child_ptr - child_index + FAR_PADDING) > MAX_PTR} else {false};
+                let child_far = if child_ptr != 0 {
+                    (child_ptr - child_index + FAR_PADDING) > MAX_PTR
+                } else {
+                    false
+                };
 
                 if child_far {
                     num_far += 1;
@@ -78,7 +101,6 @@ impl Converter {
 
                 child_nodes.push(child_node);
                 child_fars.push(child_far);
-                
 
                 num_childen += 1;
 
@@ -88,7 +110,6 @@ impl Converter {
                     pos[2] + CHILD_CONFIG[j][2] * child_size,
                 );
                 new_poses.push(new_pos)
-
             }
         }
 
@@ -96,19 +117,29 @@ impl Converter {
         ptr += num_childen + num_far;
         let mut far_counter = 0;
         for (i, child_node) in child_nodes.iter().enumerate() {
-            let child_index = parent_ptr + i;   
+            let child_index = parent_ptr + i;
             let child_far_offset = if child_fars[i] {
                 let offset = num_childen - i + far_counter;
                 far_counter += 1;
                 offset
-            } else { 0 };
+            } else {
+                0
+            };
             let new_pos = new_poses[i];
 
-            let (child_ptr, child_aabb) = self.convert_node(*child_node, depth + 1, child_index, ptr, child_far_offset, new_pos, bar)?;
+            let (child_ptr, child_aabb) = self.convert_node(
+                *child_node,
+                depth + 1,
+                child_index,
+                ptr,
+                child_far_offset,
+                new_pos,
+                bar,
+            )?;
             ptr = child_ptr;
             self.builder.tree.add_aabb(index, child_aabb);
         }
 
         Ok((ptr, self.builder.tree.get_aabb(index)))
-    } 
+    }
 }

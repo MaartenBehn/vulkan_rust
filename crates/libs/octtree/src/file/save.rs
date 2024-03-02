@@ -12,8 +12,8 @@ use std::{
     io::Write,
 };
 
-use octa_force::{anyhow::Result, log};
 use indicatif::ProgressBar;
+use octa_force::{anyhow::Result, log};
 
 pub fn save_tree(tree: &mut impl Tree, folder_path: &str, batch_size: usize) -> Result<()> {
     log::info!("Saving Tree:");

@@ -14,7 +14,6 @@ use octa_force::{
         ash::vk::{self, ImageUsageFlags, PushConstantRange, ShaderStageFlags},
         gpu_allocator::{self, MemoryLocation},
         push_constant::create_push_constant_range,
-        utils::create_gpu_only_buffer_from_data,
         Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
         GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, Image, ImageView,
         PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
@@ -87,14 +86,12 @@ impl Renderer {
             node_buffer_size as f32 / 1000000.0
         );
 
-        let node_buffer = create_gpu_only_buffer_from_data(
-            context,
+        let node_buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::STORAGE_BUFFER,
             &node_controller.nodes,
         )?;
 
-        let mat_buffer = create_gpu_only_buffer_from_data(
-            context,
+        let mat_buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::STORAGE_BUFFER,
             &node_controller.mats,
         )?;

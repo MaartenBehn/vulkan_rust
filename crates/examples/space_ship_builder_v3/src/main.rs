@@ -1,3 +1,4 @@
+use octa_force::gui::GuiInWorld;
 use std::time::Duration;
 
 use octa_force::glam::{ivec2, uvec2, IVec2};
@@ -17,7 +18,6 @@ use octa_force::{log, App, BaseApp};
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugLineRenderer};
 
-use crate::debug::DebugTextRenderer;
 use crate::{
     builder::Builder, node::NodeController, renderer::Renderer, ship::Ship,
     voxel_loader::VoxelLoader,
@@ -41,7 +41,7 @@ const APP_NAME: &str = "Space ship builder";
 const VOX_FILE_RELODE_INTERVALL: Duration = Duration::from_secs(1);
 
 fn main() -> Result<()> {
-    octa_force::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<SpaceShipBuilder>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
 }
 struct SpaceShipBuilder {
     total_time: Duration,
@@ -57,8 +57,6 @@ struct SpaceShipBuilder {
 }
 
 impl App for SpaceShipBuilder {
-    type Gui = ();
-
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
@@ -94,12 +92,11 @@ impl App for SpaceShipBuilder {
         )?;
 
         #[cfg(debug_assertions)]
-        let debug_text_renderer = DebugTextRenderer::new(
+        let debug_text_renderer = GuiInWorld::new(
             context,
             &base.command_pool,
             base.swapchain.format,
             base.swapchain.images.len(),
-            uvec2(base.swapchain.extent.width, base.swapchain.extent.height),
         )?;
 
         #[cfg(debug_assertions)]
@@ -129,19 +126,12 @@ impl App for SpaceShipBuilder {
         })
     }
 
-    fn update(
-        &mut self,
-        base: &mut BaseApp<Self>,
-        _: &mut <Self as App>::Gui,
-        _: usize,
-        delta_time: Duration,
-        controls: &Controls,
-    ) -> Result<()> {
+    fn update(&mut self, base: &mut BaseApp<Self>, _: usize, delta_time: Duration) -> Result<()> {
         self.total_time += delta_time;
 
-        self.camera.update(controls, delta_time);
+        self.camera.update(&base.controls, delta_time);
 
-        if controls.q && self.last_vox_reloade + VOX_FILE_RELODE_INTERVALL < self.total_time {
+        if base.controls.q && self.last_vox_reloade + VOX_FILE_RELODE_INTERVALL < self.total_time {
             self.last_vox_reloade = self.total_time;
 
             log::info!("reloading .vox File");
@@ -163,7 +153,7 @@ impl App for SpaceShipBuilder {
         }
 
         self.builder.update(
-            controls,
+            &base.controls,
             &self.camera,
             &self.node_controller,
             delta_time,
@@ -176,7 +166,7 @@ impl App for SpaceShipBuilder {
 
         #[cfg(debug_assertions)]
         self.debug_controller
-            .update(controls, self.total_time, delta_time)?;
+            .update(&base.controls, self.total_time)?;
 
         Ok(())
     }
@@ -187,6 +177,7 @@ impl App for SpaceShipBuilder {
         buffer: &CommandBuffer,
         image_index: usize,
     ) -> Result<()> {
+        buffer.ready_swapchain_image(&base.swapchain.images[image_index])?;
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
             Some(&self.renderer.depth_image_view),
@@ -212,25 +203,5 @@ impl App for SpaceShipBuilder {
             .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Gui {}
-
-impl octa_force::gui::Gui for Gui {
-    fn new() -> Result<Self> {
-        octa_force::anyhow::Ok(Gui {})
-    }
-
-    fn build(&mut self, ui: &Ui) {
-        ui.window("Test")
-            .position([5.0, 150.0], Condition::FirstUseEver)
-            .size([300.0, 300.0], Condition::FirstUseEver)
-            .resizable(false)
-            .movable(false)
-            .build(|| {
-                ui.text("Hello World");
-            });
     }
 }

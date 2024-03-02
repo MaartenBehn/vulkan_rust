@@ -5,6 +5,7 @@ use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::glam::{vec3, Mat4};
+use octa_force::imgui::{Condition, Ui};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
 use octa_force::vulkan::utils::create_gpu_only_buffer_from_data;
@@ -15,7 +16,6 @@ use octa_force::vulkan::{
     WriteDescriptorSet, WriteDescriptorSetKind,
 };
 use octa_force::{log, App, BaseApp};
-use octa_force::imgui::{Condition, Ui};
 use rand::Rng;
 
 const WIDTH: u32 = 1024;

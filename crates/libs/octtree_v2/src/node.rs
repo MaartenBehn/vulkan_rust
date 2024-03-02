@@ -15,35 +15,34 @@ pub struct CompressedNode {
 impl CompressedNode {
     pub fn new(ptr: usize, branches: u8, mats: [u8; 8], far: bool) -> Self {
         debug_assert!(ptr < MAX_PTR);
-    
+
         let header = (ptr as u32) + ((far as u32) << 23) + ((branches as u32) << 24);
         CompressedNode { header, mats }
     }
 
     pub fn new_far_pointer(ptr: usize) -> CompressedNode {
-        CompressedNode { 
-            header: ptr as u32, 
-            mats: [0; 8]
+        CompressedNode {
+            header: ptr as u32,
+            mats: [0; 8],
         }
     }
-    
+
     pub fn get_ptr(&self) -> usize {
         (self.header & PTR_MASK) as usize
     }
-    
+
     pub fn get_far(&self) -> bool {
         (self.header & FAR_MASK) != 0
     }
-    
+
     pub fn get_branches(&self) -> u8 {
         ((self.header & BRANCH_MASK) >> 24) as u8
     }
-    
+
     pub fn get_branch(&self, index: usize) -> bool {
         (self.header & (1 << (24 + index))) != 0
     }
 }
-
 
 pub fn bools_to_bits(bools: [bool; 8]) -> u8 {
     (bools[0] as u8)
@@ -69,7 +68,6 @@ pub fn bits_to_bools(bits: u8) -> [bool; 8] {
     ]
 }
 
-
 pub const CHILD_CONFIG: [[i32; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
@@ -81,7 +79,7 @@ pub const CHILD_CONFIG: [[i32; 3]; 8] = [
     [1, 1, 1],
 ];
 
-pub fn print_page(nodes: &[CompressedNode]){
+pub fn print_page(nodes: &[CompressedNode]) {
     for (i, node) in nodes.iter().enumerate() {
         let ptr = node.get_ptr();
         log::info!("{} {}", i, ptr)

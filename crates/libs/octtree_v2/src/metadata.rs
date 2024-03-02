@@ -1,5 +1,8 @@
-use std::{fs::{OpenOptions, self}, io::Write};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+};
 
 use octa_force::anyhow::Result;
 
@@ -11,17 +14,17 @@ pub struct Metadata {
     pub page_ammount: usize,
     pub depth: usize,
 
-    pub aabbs: Vec<AABB>
+    pub aabbs: Vec<AABB>,
 }
 
 impl Metadata {
     pub fn new(page_size: usize, page_ammount: usize, depth: usize) -> Metadata {
-        Metadata { 
-            page_size, 
-            page_ammount, 
+        Metadata {
+            page_size,
+            page_ammount,
             depth,
             aabbs: Vec::new(),
-         }
+        }
     }
 
     pub fn from_file(path: &str) -> Result<Metadata> {

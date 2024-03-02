@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use octa_force::anyhow::Result;
 use speedy::{Readable, Writable};
 
-use crate::{metadata::Metadata, Tree, Page};
+use crate::{metadata::Metadata, Page, Tree};
 
 #[derive(Clone, Debug, Default)]
 pub struct TemplateTree {
@@ -29,8 +29,8 @@ impl Tree for TemplateTree {
     type Node = TemplateNode;
 
     fn new(path: String, page_size: usize, depth: usize) -> Self {
-        TemplateTree { 
-            path, 
+        TemplateTree {
+            path,
             metadata: Metadata::new(page_size, 0, depth),
             pages: HashMap::new(),
         }
@@ -38,8 +38,8 @@ impl Tree for TemplateTree {
 
     fn form_disk(path: String) -> Result<Self> {
         let metadata = Metadata::from_file(&path)?;
-        Ok(TemplateTree { 
-            path, 
+        Ok(TemplateTree {
+            path,
             metadata,
             pages: HashMap::new(),
         })
@@ -58,7 +58,7 @@ impl Tree for TemplateTree {
     }
 
     fn set_node(&mut self, page_nr: usize, in_page_index: usize, node: Self::Node) -> Result<()> {
-        self.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node.try_into()?;  
+        self.pages.get_mut(&page_nr).unwrap().nodes[in_page_index] = node.try_into()?;
 
         Ok(())
     }
@@ -108,30 +108,34 @@ impl Tree for TemplateTree {
         self.metadata.page_size
     }
 
-    fn get_page_ammount(&self) ->usize {
+    fn get_page_ammount(&self) -> usize {
         self.metadata.page_ammount
     }
 }
 
 impl Page for TemplatePage {
     fn new(size: usize) -> TemplatePage {
-        TemplatePage { 
-            nodes: vec![TemplateNode::default(); size] 
+        TemplatePage {
+            nodes: vec![TemplateNode::default(); size],
         }
     }
 }
 
 impl TemplateNode {
     pub fn new(ptr: u64, branches: [bool; 8], materials: [u8; 8]) -> TemplateNode {
-        TemplateNode { ptr, branches, materials }
+        TemplateNode {
+            ptr,
+            branches,
+            materials,
+        }
     }
 
     pub fn get_ptr(&self) -> u64 {
-        self.ptr 
+        self.ptr
     }
 
     pub fn get_branches(&self) -> [bool; 8] {
-        self.branches 
+        self.branches
     }
 
     pub fn get_num_branches(&self) -> usize {
@@ -146,7 +150,6 @@ impl TemplateNode {
     }
 
     pub fn get_materials(&self) -> [u8; 8] {
-        self.materials 
+        self.materials
     }
 }
-

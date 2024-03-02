@@ -2,25 +2,17 @@ use crate::renderer::Renderer;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::{vec3, vec4, IVec2, IVec3, Mat4, UVec2, Vec3, Vec4};
-use octa_force::imgui::internal::ImVector;
-use octa_force::imgui::sys::ImGuiConfigFlags;
-use octa_force::imgui::{
-    BackendFlags, Condition, ConfigFlags, DrawData, DrawVert, FontConfig, FontSource,
-    PlatformMonitor, PlatformViewportBackend, RendererViewportBackend, Viewport,
-};
-use octa_force::imgui_rs_vulkan_renderer::{DynamicRendering, Options};
+use octa_force::glam::{vec3, Vec3, Vec4};
+use octa_force::gui::GuiInWorld;
+use octa_force::imgui::Ui;
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::ash::vk::Extent2D;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
 use octa_force::vulkan::{
-    Buffer, CommandBuffer, CommandPool, Context, DescriptorPool, DescriptorSet,
-    DescriptorSetLayout, GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo,
-    PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
+    GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout,
+    WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use octa_force::{imgui, imgui_rs_vulkan_renderer, log};
-use std::collections::HashMap;
-use std::ffi::c_void;
 use std::mem::{align_of, size_of};
 use std::time::Duration;
 
@@ -35,7 +27,7 @@ const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
 pub struct DebugController {
     pub mode: DebugMode,
     pub line_renderer: DebugLineRenderer,
-    pub text_renderer: Vec<DebugTextRenderer>,
+    pub text_renderer: GuiInWorld,
 
     last_mode_change: Duration,
 }
@@ -71,23 +63,16 @@ pub struct LineVertex {
 }
 
 impl DebugController {
-    pub fn new(line_renderer: DebugLineRenderer, text_renderer: DebugTextRenderer) -> Result<Self> {
+    pub fn new(line_renderer: DebugLineRenderer, text_renderer: GuiInWorld) -> Result<Self> {
         Ok(DebugController {
             mode: DebugMode::OFF,
             line_renderer,
-            text_renderer: vec![text_renderer],
+            text_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
 
-    pub fn update(
-        &mut self,
-        controls: &Controls,
-        delta_time: Duration,
-        total_time: Duration,
-    ) -> Result<()> {
-        self.text_renderer[0].update(delta_time);
-
+    pub fn update(&mut self, controls: &Controls, total_time: Duration) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
@@ -196,7 +181,8 @@ impl DebugController {
         camera: &Camera,
         extent: Extent2D,
     ) -> Result<()> {
-        self.text_renderer[0].render(buffer, camera, extent)?;
+        self.text_renderer
+            .render(buffer, extent, camera, |ui: &Ui| Ok(()))?;
 
         if self.mode == DebugMode::OFF {
             return Ok(());
@@ -366,182 +352,4 @@ impl octa_force::vulkan::Vertex for LineVertex {
             offset: 0,
         }]
     }
-}
-
-pub struct DebugTextRenderer {
-    renderer: imgui_rs_vulkan_renderer::Renderer,
-    imgui: Option<imgui::SuspendedContext>,
-    
-}
-
-pub struct DebugTextPlatformBackend {}
-pub struct DebugTextRenderBackend {}
-
-impl DebugTextRenderer {
-    pub fn new(
-        context: &Context,
-        command_pool: &CommandPool,
-        format: vk::Format,
-        in_flight_frames: usize,
-        display_size: UVec2,
-    ) -> Result<Self> {
-        let mut imgui = imgui::Context::create();
-        imgui.set_ini_filename(None);
-
-        let font_size = 13.0;
-        imgui.fonts().add_font(&[
-            FontSource::DefaultFontData {
-                config: Some(FontConfig {
-                    size_pixels: font_size,
-                    ..FontConfig::default()
-                }),
-            },
-            FontSource::TtfData {
-                data: include_bytes!("../../../../assets/fonts/mplus-1p-regular.ttf"),
-                size_pixels: font_size,
-                config: Some(FontConfig {
-                    rasterizer_multiply: 1.75,
-                    ..FontConfig::default()
-                }),
-            },
-        ]);
-        imgui.io_mut().font_global_scale = 1.0;
-        //imgui.io_mut().display_size = [display_size.x as f32, display_size.y as f32];
-        imgui.io_mut().display_size = [1.0, 1.0];
-        imgui.io_mut().config_flags |= ConfigFlags::DOCKING_ENABLE;
-        imgui.io_mut().config_flags |= ConfigFlags::VIEWPORTS_ENABLE;
-        imgui.io_mut().backend_flags |= BackendFlags::PLATFORM_HAS_VIEWPORTS;
-        imgui.io_mut().backend_flags |= BackendFlags::RENDERER_HAS_VIEWPORTS;
-        imgui
-            .platform_io_mut()
-            .monitors
-            .replace_from_slice(&[PlatformMonitor {
-                main_pos: [0.0, 0.0],
-                main_size: [f32::MAX, f32::MAX],
-                work_pos: [0.0, 0.0],
-                work_size: [f32::MAX, f32::MAX],
-                dpi_scale: 1.0,
-            }]);
-        imgui.main_viewport_mut().size = [1.0, 1.0];
-
-        let mut platform_backend = DebugTextPlatformBackend {};
-        let ptr: *mut DebugTextPlatformBackend = &mut platform_backend;
-        let voidptr = ptr as *mut c_void;
-        imgui.main_viewport_mut().platform_handle = voidptr;
-        imgui.set_platform_backend(platform_backend);
-        imgui.set_renderer_backend(DebugTextRenderBackend {});
-
-        let renderer = imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
-            context.allocator.clone(),
-            context.device.inner.clone(),
-            context.graphics_queue.inner,
-            command_pool.inner,
-            DynamicRendering {
-                color_attachment_format: format,
-                depth_attachment_format: Some(vk::Format::D32_SFLOAT),
-            },
-            &mut imgui,
-            Some(Options {
-                in_flight_frames,
-                render_3d: true,
-                ..Default::default()
-            }),
-        )?;
-
-        Ok(Self {
-            renderer,
-            imgui: Some(imgui.suspend()),
-        })
-    }
-
-    pub fn update(&mut self, delta: Duration) {
-        let mut imgui = self.imgui.take().unwrap().activate().unwrap();
-        imgui.io_mut().update_delta_time(delta);
-        self.imgui = Some(imgui.suspend());
-    }
-
-    pub fn render(
-        &mut self,
-        buffer: &CommandBuffer,
-        camera: &Camera,
-        extent: Extent2D,
-    ) -> Result<()> {
-        let mut imgui = self.imgui.take().unwrap().activate().unwrap();
-
-        let ui = imgui.new_frame();
-        ui.window("Test")
-            .position([1.0, 0.0], Condition::FirstUseEver)
-            .size([300.0, 300.0], Condition::FirstUseEver)
-            .resizable(false)
-            .movable(false)
-            .build(|| {
-                ui.text("Hello World");
-            });
-
-        ui.window("Test 2")
-            .position([2.0, 0.0], Condition::FirstUseEver)
-            .size([300.0, 300.0], Condition::FirstUseEver)
-            .resizable(false)
-            .movable(false)
-            .build(|| {
-                ui.text("Hello World2");
-            });
-
-        imgui.render();
-        imgui.update_platform_windows();
-        imgui.render_platform_windows_default();
-
-        for (i, viewport) in imgui.viewports().enumerate() {
-            log::info!("Viewport {i}");
-
-            let transform = Mat4::from_scale(vec3(1.0, -1.0, 1.0) * 0.01)
-                * Mat4::from_rotation_x(f32::to_radians(0.0))
-                * Mat4::from_translation(vec3(-(i as f32), 0.0, 0.0));
-
-            let mat = camera.projection_matrix() * camera.view_matrix() * transform;
-
-            let draw_data = viewport.draw_data();
-            self.renderer
-                .cmd_draw(buffer.inner, draw_data, extent, Some(&mat.to_cols_array()))?;
-        }
-        self.imgui = Some(imgui.suspend());
-        Ok(())
-    }
-}
-
-impl PlatformViewportBackend for DebugTextPlatformBackend {
-    fn create_window(&mut self, _: &mut Viewport) {}
-    fn destroy_window(&mut self, _: &mut Viewport) {}
-    fn show_window(&mut self, _: &mut Viewport) {}
-    fn set_window_pos(&mut self, _: &mut Viewport, _: [f32; 2]) {}
-    fn get_window_pos(&mut self, _: &mut Viewport) -> [f32; 2] {
-        [0.0, 0.0]
-    }
-    fn set_window_size(&mut self, _: &mut Viewport, _: [f32; 2]) {}
-    fn get_window_size(&mut self, _: &mut Viewport) -> [f32; 2] {
-        [0.0, 0.0]
-    }
-    fn set_window_focus(&mut self, _: &mut Viewport) {}
-    fn get_window_focus(&mut self, _: &mut Viewport) -> bool {
-        false
-    }
-    fn get_window_minimized(&mut self, _: &mut Viewport) -> bool {
-        false
-    }
-    fn set_window_title(&mut self, _: &mut Viewport, _: &str) {}
-    fn set_window_alpha(&mut self, _: &mut Viewport, _: f32) {}
-    fn update_window(&mut self, _: &mut Viewport) {}
-    fn render_window(&mut self, _: &mut Viewport) {}
-    fn swap_buffers(&mut self, _: &mut Viewport) {}
-    fn create_vk_surface(&mut self, _: &mut Viewport, _: u64, _: &mut u64) -> i32 {
-        0
-    }
-}
-
-impl RendererViewportBackend for DebugTextRenderBackend {
-    fn create_window(&mut self, viewport: &mut Viewport) {}
-    fn destroy_window(&mut self, viewport: &mut Viewport) {}
-    fn set_window_size(&mut self, viewport: &mut Viewport, size: [f32; 2]) {}
-    fn render_window(&mut self, viewport: &mut Viewport) {}
-    fn swap_buffers(&mut self, viewport: &mut Viewport) {}
 }
