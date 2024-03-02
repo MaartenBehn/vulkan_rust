@@ -2,9 +2,9 @@ use crate::renderer::Renderer;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::{vec3, Vec3, Vec4};
-use octa_force::gui::GuiInWorld;
-use octa_force::imgui::Ui;
+use octa_force::glam::{vec3, Mat4, Vec3, Vec4};
+use octa_force::gui::{GuiId, InWorldGui, InWorldGuiTransform};
+use octa_force::imgui::{Condition, Ui};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::ash::vk::Extent2D;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
@@ -27,7 +27,7 @@ const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
 pub struct DebugController {
     pub mode: DebugMode,
     pub line_renderer: DebugLineRenderer,
-    pub text_renderer: GuiInWorld,
+    pub text_renderer_id: GuiId,
 
     last_mode_change: Duration,
 }
@@ -63,11 +63,11 @@ pub struct LineVertex {
 }
 
 impl DebugController {
-    pub fn new(line_renderer: DebugLineRenderer, text_renderer: GuiInWorld) -> Result<Self> {
+    pub fn new(line_renderer: DebugLineRenderer, text_renderer_id: GuiId) -> Result<Self> {
         Ok(DebugController {
             mode: DebugMode::OFF,
             line_renderer,
-            text_renderer,
+            text_renderer_id,
             last_mode_change: Duration::ZERO,
         })
     }
@@ -180,9 +180,30 @@ impl DebugController {
         image_index: usize,
         camera: &Camera,
         extent: Extent2D,
+        debug_gui: &mut InWorldGui,
     ) -> Result<()> {
-        self.text_renderer
-            .render(buffer, extent, camera, |ui: &Ui| Ok(()))?;
+        debug_gui.set_transfrom(&vec![InWorldGuiTransform::default(); 2]);
+
+        debug_gui.draw(buffer, extent, camera, |ui: &Ui| {
+            ui.window("Test")
+                .position([1.0, 0.0], Condition::FirstUseEver)
+                .size([300.0, 300.0], Condition::FirstUseEver)
+                .resizable(false)
+                .movable(false)
+                .build(|| {
+                    ui.text("Hello World");
+                });
+
+            ui.window("Test 2")
+                .position([2.0, 0.0], Condition::FirstUseEver)
+                .size([300.0, 300.0], Condition::FirstUseEver)
+                .resizable(false)
+                .movable(false)
+                .build(|| {
+                    ui.text("Hello World2");
+                });
+            Ok(())
+        })?;
 
         if self.mode == DebugMode::OFF {
             return Ok(());

@@ -1,4 +1,4 @@
-use octa_force::gui::GuiInWorld;
+use octa_force::gui::InWorldGui;
 use std::time::Duration;
 
 use octa_force::glam::{ivec2, uvec2, IVec2};
@@ -92,15 +92,10 @@ impl App for SpaceShipBuilder {
         )?;
 
         #[cfg(debug_assertions)]
-        let debug_text_renderer = GuiInWorld::new(
-            context,
-            &base.command_pool,
-            base.swapchain.format,
-            base.swapchain.images.len(),
-        )?;
+        let debug_gui_id = base.add_in_world_gui()?;
 
         #[cfg(debug_assertions)]
-        let debug_controller = DebugController::new(debug_line_renderer, debug_text_renderer)?;
+        let debug_controller = DebugController::new(debug_line_renderer, debug_gui_id)?;
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
@@ -173,11 +168,12 @@ impl App for SpaceShipBuilder {
 
     fn record_render_commands(
         &mut self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
+        base: &mut BaseApp<Self>,
         image_index: usize,
     ) -> Result<()> {
-        buffer.ready_swapchain_image(&base.swapchain.images[image_index])?;
+        let buffer = &base.command_buffers[image_index];
+
+        buffer.swapchain_image_render_barrier(&base.swapchain.images[image_index])?;
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
             Some(&self.renderer.depth_image_view),
@@ -190,8 +186,13 @@ impl App for SpaceShipBuilder {
 
         self.renderer.render(buffer, image_index, &self.builder);
         #[cfg(debug_assertions)]
-        self.debug_controller
-            .render(buffer, image_index, &self.camera, base.swapchain.extent)?;
+        self.debug_controller.render(
+            buffer,
+            image_index,
+            &self.camera,
+            base.swapchain.extent,
+            &mut base.in_world_guis[self.debug_controller.text_renderer_id],
+        )?;
 
         buffer.end_rendering();
 
