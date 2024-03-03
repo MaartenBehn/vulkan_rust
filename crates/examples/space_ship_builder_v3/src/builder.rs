@@ -187,7 +187,7 @@ impl Builder {
                     Vec3::ONE * self.ship.wave_size.as_vec3(),
                     vec4(1.0, 0.0, 0.0, 1.0),
                 );
-                debug_controller.add_text("Done".to_owned(), Vec::new(), Vec3::ZERO)
+                debug_controller.add_text(vec!["Done".to_owned()], Vec3::ZERO)
             }
 
             log::info!("BUILDER: TICK FULL {:?}", full);

@@ -163,11 +163,15 @@ impl App for SpaceShipBuilder {
         self.renderer.update(&self.camera, base.swapchain.extent)?;
 
         #[cfg(debug_assertions)]
-        self.debug_controller.update(
-            &base.controls,
-            self.total_time,
-            &mut base.in_world_guis[self.debug_controller.text_renderer.gui_id],
-        )?;
+        {
+            log::info!("Render Debug");
+            self.debug_controller.update(
+                &base.controls,
+                self.total_time,
+                &mut base.in_world_guis[self.debug_controller.text_renderer.gui_id],
+            )?;
+            log::info!("Render Debug Done");
+        }
 
         Ok(())
     }

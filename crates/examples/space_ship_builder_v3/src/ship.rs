@@ -16,6 +16,7 @@ use octa_force::{
     vulkan::{ash::extensions::khr::RayTracingMaintenance1, Context},
 };
 use std::collections::{HashMap, VecDeque};
+use std::iter;
 use std::mem::size_of;
 use std::time::Duration;
 
@@ -384,12 +385,10 @@ impl Ship {
             let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
 
             let wave = &self.wave[index];
-            let lines = wave
-                .possible_patterns
-                .iter()
-                .map(|p| p.to_string())
+            let lines = iter::once("p".to_owned())
+                .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
                 .collect();
-            debug_controller.add_text("p".to_owned(), lines, wave_pos.as_vec3());
+            debug_controller.add_text(lines, wave_pos.as_vec3());
         }
 
         let mut to_collpase = self.to_collapse.to_owned();
@@ -398,12 +397,10 @@ impl Ship {
             let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
 
             let wave = &self.wave[index];
-            let lines = wave
-                .possible_patterns
-                .iter()
-                .map(|p| p.to_string())
+            let lines = iter::once("c".to_owned())
+                .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
                 .collect();
-            debug_controller.add_text("c".to_owned(), lines, wave_pos.as_vec3());
+            debug_controller.add_text(lines, wave_pos.as_vec3());
         }
     }
 

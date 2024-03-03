@@ -75,7 +75,6 @@ pub struct DebugTextRenderer {
 
 #[derive(Debug, Clone)]
 pub struct DebugText {
-    pub title: String,
     pub lines: Vec<String>,
     pub pos: Vec3,
 }
@@ -195,9 +194,8 @@ impl DebugController {
         self.add_lines(lines);
     }
 
-    pub fn add_text(&mut self, title: String, lines: Vec<String>, pos: Vec3) {
+    pub fn add_text(&mut self, lines: Vec<String>, pos: Vec3) {
         self.text_renderer.texts.push(DebugText {
-            title,
             lines,
             pos: pos + vec3(-0.5, 0.5, 0.5),
         });
@@ -429,15 +427,16 @@ impl DebugTextRenderer {
 
         debug_gui.draw(buffer, extent, camera, |ui: &Ui| {
             for (i, text) in self.render_texts.iter().enumerate() {
-                let title = &text.title;
-                let y = 50.0 + text.lines.len() as f32 * 20.0;
+                let y = 10.0 + text.lines.len() as f32 * 20.0;
 
-                ui.window(format!("{title} {i}"))
-                    .position([i as f32, 0.0], Condition::FirstUseEver)
-                    .size([120.0, y], Condition::FirstUseEver)
+                ui.window(format!("{i}"))
+                    .position([i as f32, 0.0], Condition::Always)
+                    .size([120.0, y], Condition::Always)
                     .resizable(false)
                     .movable(false)
-                    .bg_alpha(0.0)
+                    .no_decoration()
+                    .no_nav()
+                    .no_inputs()
                     .build(|| {
                         for s in text.lines.iter() {
                             ui.text(s);
