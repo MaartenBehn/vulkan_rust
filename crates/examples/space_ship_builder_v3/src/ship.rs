@@ -203,7 +203,7 @@ impl Ship {
         }
 
         if debug_controller.mode == DebugMode::WFC {
-            self.debug_show_wave(debug_controller)?;
+            self.debug_show_wave(debug_controller);
         }
 
         Ok((full, last_wave_something))
@@ -214,7 +214,7 @@ impl Ship {
         &mut self,
         actions_per_tick: usize,
         node_controller: &NodeController,
-    ) -> Result<(bool, bool)> {
+    ) -> Result<bool> {
         let mut full = true;
         for _ in 0..actions_per_tick {
             if !self.to_propergate.is_empty() {
@@ -235,7 +235,7 @@ impl Ship {
             break;
         }
 
-        Ok((full, last_wave_something))
+        Ok(full)
     }
 
     fn propergate(
@@ -253,7 +253,7 @@ impl Ship {
                 wave_pos.as_vec3(),
                 (wave_pos + IVec3::ONE).as_vec3(),
                 vec4(0.0, 0.0, 1.0, 1.0),
-            )?;
+            );
         }
 
         self.wave[wave_index].possible_patterns.clear();
@@ -307,7 +307,7 @@ impl Ship {
                 wave_pos.as_vec3(),
                 (wave_pos + IVec3::ONE).as_vec3(),
                 vec4(0.0, 1.0, 0.0, 1.0),
-            )?;
+            );
         }
 
         let old_possible_pattern_size = self.wave[wave_index].possible_patterns.len();
@@ -377,25 +377,19 @@ impl Ship {
     }
 
     #[cfg(debug_assertions)]
-    fn debug_show_wave(&mut self, debug_controller: &mut DebugController) -> Result<()> {
+    fn debug_show_wave(&mut self, debug_controller: &mut DebugController) {
         let mut to_propergate = self.to_propergate.to_owned();
         while !to_propergate.is_empty() {
             let index = to_propergate.pop_front().unwrap();
             let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
 
-            debug_controller.add_cube(
-                vec3(
-                    wave_pos.x as f32,
-                    wave_pos.y as f32,
-                    wave_pos.z as f32 + 0.9,
-                ),
-                vec3(
-                    wave_pos.x as f32 + 0.1,
-                    wave_pos.y as f32 + 0.1,
-                    wave_pos.z as f32 + 1.0,
-                ),
-                vec4(0.0, 0.0, 1.0, 1.0),
-            )?;
+            let wave = &self.wave[index];
+            let lines = wave
+                .possible_patterns
+                .iter()
+                .map(|p| p.to_string())
+                .collect();
+            debug_controller.add_text("p".to_owned(), lines, wave_pos.as_vec3());
         }
 
         let mut to_collpase = self.to_collapse.to_owned();
@@ -403,22 +397,14 @@ impl Ship {
             let index = to_collpase.pop_front().unwrap();
             let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
 
-            debug_controller.add_cube(
-                vec3(
-                    wave_pos.x as f32 + 0.1,
-                    wave_pos.y as f32,
-                    wave_pos.z as f32 + 0.9,
-                ),
-                vec3(
-                    wave_pos.x as f32 + 0.2,
-                    wave_pos.y as f32 + 0.1,
-                    wave_pos.z as f32 + 1.0,
-                ),
-                vec4(0.0, 1.0, 0.0, 1.0),
-            )?;
+            let wave = &self.wave[index];
+            let lines = wave
+                .possible_patterns
+                .iter()
+                .map(|p| p.to_string())
+                .collect();
+            debug_controller.add_text("c".to_owned(), lines, wave_pos.as_vec3());
         }
-
-        Ok(())
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {

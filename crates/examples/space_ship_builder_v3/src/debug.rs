@@ -1,10 +1,14 @@
+use crate::math::to_3d;
 use crate::renderer::Renderer;
+use crate::ship::Ship;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::glam::{vec3, Mat4, Vec3, Vec4};
 use octa_force::gui::{GuiId, InWorldGui, InWorldGuiTransform};
+use octa_force::imgui::Key::V;
 use octa_force::imgui::{Condition, Ui};
+use octa_force::log;
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::ash::vk::Extent2D;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
@@ -13,6 +17,7 @@ use octa_force::vulkan::{
     GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout,
     WriteDescriptorSet, WriteDescriptorSetKind,
 };
+use std::mem;
 use std::mem::{align_of, size_of};
 use std::time::Duration;
 
@@ -27,7 +32,7 @@ const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
 pub struct DebugController {
     pub mode: DebugMode,
     pub line_renderer: DebugLineRenderer,
-    pub text_renderer_id: GuiId,
+    pub text_renderer: DebugTextRenderer,
 
     last_mode_change: Duration,
 }
@@ -62,17 +67,35 @@ pub struct LineVertex {
     pub color: [u8; 4],
 }
 
+pub struct DebugTextRenderer {
+    pub gui_id: GuiId,
+    pub texts: Vec<DebugText>,
+    pub render_texts: Vec<DebugText>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DebugText {
+    pub title: String,
+    pub lines: Vec<String>,
+    pub pos: Vec3,
+}
+
 impl DebugController {
-    pub fn new(line_renderer: DebugLineRenderer, text_renderer_id: GuiId) -> Result<Self> {
+    pub fn new(line_renderer: DebugLineRenderer, text_renderer: DebugTextRenderer) -> Result<Self> {
         Ok(DebugController {
             mode: DebugMode::OFF,
             line_renderer,
-            text_renderer_id,
+            text_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
 
-    pub fn update(&mut self, controls: &Controls, total_time: Duration) -> Result<()> {
+    pub fn update(
+        &mut self,
+        controls: &Controls,
+        total_time: Duration,
+        debug_gui: &mut InWorldGui,
+    ) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
@@ -84,6 +107,7 @@ impl DebugController {
         }
 
         if self.mode != DebugMode::OFF {
+            self.text_renderer.push_texts(debug_gui)?;
             self.line_renderer.push_lines()?;
         } else {
             self.line_renderer.vertecies_count = 0;
@@ -92,7 +116,7 @@ impl DebugController {
         Ok(())
     }
 
-    pub fn add_lines(&mut self, lines: Vec<DebugLine>) -> Result<()> {
+    pub fn add_lines(&mut self, lines: Vec<DebugLine>) {
         for line in lines.into_iter() {
             self.line_renderer
                 .vertecies
@@ -101,11 +125,9 @@ impl DebugController {
                 .vertecies
                 .push(LineVertex::new(line.b - vec3(0.5, 0.5, 0.5), line.color));
         }
-
-        Ok(())
     }
 
-    pub fn add_cube(&mut self, min: Vec3, max: Vec3, color: Vec4) -> Result<()> {
+    pub fn add_cube(&mut self, min: Vec3, max: Vec3, color: Vec4) {
         let mut lines = Vec::new();
         lines.push(DebugLine::new(
             vec3(min.x, min.y, min.z),
@@ -170,8 +192,15 @@ impl DebugController {
             color,
         ));
 
-        self.add_lines(lines)?;
-        Ok(())
+        self.add_lines(lines);
+    }
+
+    pub fn add_text(&mut self, title: String, lines: Vec<String>, pos: Vec3) {
+        self.text_renderer.texts.push(DebugText {
+            title,
+            lines,
+            pos: pos + vec3(-0.5, 0.5, 0.5),
+        });
     }
 
     pub fn render(
@@ -182,31 +211,13 @@ impl DebugController {
         extent: Extent2D,
         debug_gui: &mut InWorldGui,
     ) -> Result<()> {
-        debug_gui.set_transfrom(&vec![InWorldGuiTransform::default(); 2]);
-
-        debug_gui.draw(buffer, extent, camera, |ui: &Ui| {
-            ui.window("Test")
-                .position([1.0, 0.0], Condition::FirstUseEver)
-                .size([300.0, 300.0], Condition::FirstUseEver)
-                .resizable(false)
-                .movable(false)
-                .build(|| {
-                    ui.text("Hello World");
-                });
-
-            ui.window("Test 2")
-                .position([2.0, 0.0], Condition::FirstUseEver)
-                .size([300.0, 300.0], Condition::FirstUseEver)
-                .resizable(false)
-                .movable(false)
-                .build(|| {
-                    ui.text("Hello World2");
-                });
-            Ok(())
-        })?;
-
         if self.mode == DebugMode::OFF {
             return Ok(());
+        }
+
+        if self.mode == DebugMode::WFC {
+            self.text_renderer
+                .render(buffer, camera, extent, debug_gui)?;
         }
 
         self.line_renderer.render(buffer, image_index);
@@ -372,5 +383,70 @@ impl octa_force::vulkan::Vertex for LineVertex {
             format: vk::Format::R32G32B32A32_SFLOAT,
             offset: 0,
         }]
+    }
+}
+
+impl DebugTextRenderer {
+    pub fn new(gui_id: GuiId) -> Self {
+        Self {
+            gui_id,
+            texts: Vec::new(),
+            render_texts: Vec::new(),
+        }
+    }
+
+    fn push_texts(&mut self, debug_gui: &mut InWorldGui) -> Result<()> {
+        if self.texts.is_empty() {
+            return Ok(());
+        }
+
+        self.render_texts.clear();
+        self.render_texts.append(&mut self.texts);
+        self.texts.clear();
+
+        let mut transforms = Vec::new();
+        for text in self.render_texts.iter() {
+            let mut t = InWorldGuiTransform::default();
+            t.pos = text.pos;
+
+            transforms.push(t);
+        }
+        debug_gui.set_transfrom(&transforms);
+
+        Ok(())
+    }
+
+    fn render(
+        &mut self,
+        buffer: &CommandBuffer,
+        camera: &Camera,
+        extent: Extent2D,
+        debug_gui: &mut InWorldGui,
+    ) -> Result<()> {
+        if self.render_texts.is_empty() {
+            return Ok(());
+        }
+
+        debug_gui.draw(buffer, extent, camera, |ui: &Ui| {
+            for (i, text) in self.render_texts.iter().enumerate() {
+                let title = &text.title;
+                let y = 50.0 + text.lines.len() as f32 * 20.0;
+
+                ui.window(format!("{title} {i}"))
+                    .position([i as f32, 0.0], Condition::FirstUseEver)
+                    .size([120.0, y], Condition::FirstUseEver)
+                    .resizable(false)
+                    .movable(false)
+                    .bg_alpha(0.0)
+                    .build(|| {
+                        for s in text.lines.iter() {
+                            ui.text(s);
+                        }
+                    });
+            }
+            Ok(())
+        })?;
+
+        Ok(())
     }
 }

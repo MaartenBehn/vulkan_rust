@@ -172,6 +172,7 @@ impl Builder {
             let mut full = true;
             loop {
                 debug_controller.line_renderer.vertecies.clear();
+                debug_controller.text_renderer.texts.clear();
                 let (f, last_some) = self.ship.tick(1, node_controller, debug_controller)?;
                 full &= f;
 
@@ -185,7 +186,8 @@ impl Builder {
                     Vec3::ZERO,
                     Vec3::ONE * self.ship.wave_size.as_vec3(),
                     vec4(1.0, 0.0, 0.0, 1.0),
-                )?;
+                );
+                debug_controller.add_text("Done".to_owned(), Vec::new(), Vec3::ZERO)
             }
 
             log::info!("BUILDER: TICK FULL {:?}", full);
@@ -199,7 +201,7 @@ impl Builder {
                 Vec3::ZERO,
                 Vec3::ONE * self.ship.wave_size.as_vec3(),
                 vec4(1.0, 0.0, 0.0, 1.0),
-            )?;
+            );
         }
 
         #[cfg(not(debug_assertions))]
