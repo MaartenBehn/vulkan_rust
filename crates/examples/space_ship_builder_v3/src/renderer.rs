@@ -5,6 +5,8 @@ use crate::{
     ship::{Ship, ShipType},
     ship_mesh::{self, ShipMesh},
 };
+use octa_force::glam::{IVec3, UVec3};
+use octa_force::vulkan::ash::vk::IndexType;
 use octa_force::{
     anyhow::Result,
     camera::Camera,
@@ -25,8 +27,7 @@ use std::mem::size_of;
 #[allow(dead_code)]
 #[repr(C)]
 pub struct Vertex {
-    pub pos: Vec3,
-    pub data: u32, // node_index : 22, rot : 7, uv: 3
+    pub data: u32,
 }
 
 pub struct Renderer {
@@ -206,7 +207,7 @@ impl Renderer {
 
         let depth_image = context.create_image(
             ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            gpu_allocator::MemoryLocation::GpuOnly,
+            MemoryLocation::GpuOnly,
             depth_attachment_format,
             extent.width,
             extent.height,
@@ -275,22 +276,33 @@ impl Renderer {
         ship_mesh: &ShipMesh,
         ship_type: ShipType,
     ) {
-        buffer.bind_vertex_buffer(&ship_mesh.vertex_buffer);
-        buffer.bind_index_buffer(&ship_mesh.index_buffer);
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT,
             &PushConstant { ship_type },
         );
-        buffer.draw_indexed(ship_mesh.index_counter);
+        for chunk in ship_mesh.chunks.iter() {
+            if chunk.index_buffer_size == 0 {
+                continue;
+            }
+
+            buffer.bind_vertex_buffer(&chunk.vertex_buffer);
+            buffer.bind_index_buffer_complex(&chunk.index_buffer, 0, IndexType::UINT16);
+
+            buffer.draw_indexed(chunk.index_count as u32);
+        }
     }
 }
 
 impl Vertex {
-    pub fn new(pos: Vec3, uv: BVec3, node_id_bits: u32) -> Vertex {
-        let data: u32 =
-            (node_id_bits << 3) + ((uv.x as u32) << 2) + ((uv.y as u32) << 1) + (uv.z as u32);
-        Vertex { pos, data }
+    pub fn new(pos: UVec3, normal: IVec3) -> Vertex {
+        let data = ((pos.x & 0b1111)
+            + ((pos.y & 0b1111) << 4)
+            + ((pos.z & 0b1111) << 8)
+            + (((normal.x == 1) as u32) << 12)
+            + (((normal.y == 1) as u32) << 13)
+            + (((normal.z == 1) as u32) << 14));
+        Vertex { data }
     }
 }
 
@@ -307,7 +319,7 @@ impl octa_force::vulkan::Vertex for Vertex {
         vec![vk::VertexInputAttributeDescription {
             binding: 0,
             location: 0,
-            format: vk::Format::R32G32B32A32_SFLOAT,
+            format: vk::Format::R32_UINT,
             offset: 0,
         }]
     }

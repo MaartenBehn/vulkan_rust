@@ -1,8 +1,9 @@
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode};
 
-use crate::math::{get_config, get_packed_index};
+use crate::math::{get_packed_index, to_3d_i};
 use crate::node::{Node, NodeID, PatternIndex, EMPYT_PATTERN_INDEX};
+use crate::ship_mesh::RenderNode;
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
     node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
@@ -18,56 +19,63 @@ use octa_force::{
 use std::collections::{HashMap, VecDeque};
 use std::iter;
 use std::mem::size_of;
+use std::ops::Mul;
 use std::time::Duration;
 
+pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
 pub type ShipType = u32;
 pub const SHIP_TYPE_BASE: ShipType = 0;
 pub const SHIP_TYPE_BUILD: ShipType = 1;
 
-pub const REQ_STATE_SIZE: usize = 10000;
-pub const PATTERN_STATE_SIZE: usize = 10000;
+pub const CHUNK_BLOCK_SIZE: IVec3 = ivec3(8, 8, 8);
+pub const CHUNK_WAVE_SIZE: IVec3 = ivec3(16, 16, 16);
+pub const CHUNK_WAVE_SIZE_WITH_PADDING: IVec3 = ivec3(18, 18, 18);
+pub const CHUNK_BLOCK_LEN: usize =
+    (CHUNK_BLOCK_SIZE.x * CHUNK_BLOCK_SIZE.y * CHUNK_BLOCK_SIZE.z) as usize;
+pub const CHUNK_WAVE_LEN: usize =
+    (CHUNK_WAVE_SIZE.x * CHUNK_WAVE_SIZE.y * CHUNK_WAVE_SIZE.z) as usize;
+pub const CHUNK_WAVE_WITH_PADDING_LEN: usize = (CHUNK_WAVE_SIZE_WITH_PADDING.x
+    * CHUNK_WAVE_SIZE_WITH_PADDING.y
+    * CHUNK_WAVE_SIZE_WITH_PADDING.z) as usize;
 
 pub struct Ship {
-    pub block_size: UVec3,
-    pub wave_size: UVec3,
+    pub chunks: Vec<ShipChunk>,
 
-    pub blocks: Vec<BlockIndex>,
-    pub wave: Vec<Wave>,
     pub to_propergate: IndexQueue,
     pub to_collapse: IndexQueue,
 }
 
-#[derive(Clone, Debug)]
+pub struct ShipChunk {
+    pub pos: IVec3,
+    pub blocks: [BlockIndex; CHUNK_BLOCK_LEN],
+    pub wave: [Wave; CHUNK_WAVE_LEN],
+    pub render_nodes: [u32; CHUNK_WAVE_LEN],
+    pub render_nodes_with_padding: [RenderNode; CHUNK_WAVE_WITH_PADDING_LEN],
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Wave {
-    pub render_pattern: PatternIndex,
     pub possible_patterns: Vec<PatternIndex>,
     pub dependent_waves: IndexQueue,
 }
 
 impl Ship {
-    pub fn new(
-        block_size: UVec3,
-        context: &Context,
-        node_controller: &NodeController,
-    ) -> Result<Ship> {
-        let wave_size = block_size * 2;
-        let max_block_index = (block_size.x * block_size.y * block_size.z) as usize;
-        let max_wave_index = (wave_size.x * wave_size.y * wave_size.z) as usize;
+    pub fn new() -> Result<Ship> {
+        let chunk = ShipChunk::new(IVec3::ZERO);
 
         let mut ship = Ship {
-            block_size,
-            wave_size,
-            blocks: vec![BLOCK_INDEX_EMPTY; max_block_index],
-            wave: vec![Wave::new(); max_wave_index],
+            chunks: vec![chunk],
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
         };
 
+        /*
         let size = size_of::<Ship>()
             + size_of::<PatternIndex>() * max_block_index
             + size_of::<Wave>() * max_wave_index;
         log::info!("Ship size {:?} MB", size as f32 / 1000000.0);
+         */
 
         //ship.place_block(uvec3(0, 0, 0), 1, node_controller)?;
         //ship.fill_all(0, node_controller)?;
@@ -75,70 +83,50 @@ impl Ship {
         Ok(ship)
     }
 
-    pub(crate) fn pos_in_bounds(pos: IVec3, size: UVec3) -> bool {
-        pos.cmpge(IVec3::ZERO).all() && pos.cmplt(size.as_ivec3()).all()
+    pub fn has_chunk(&self, chunk_pos: IVec3) -> bool {
+        chunk_pos == IVec3::ZERO
     }
 
-    pub fn get_block(&self, pos: UVec3) -> Result<usize> {
-        self.get_block_i(pos.as_ivec3())
-    }
-
-    pub fn get_block_i(&self, pos: IVec3) -> Result<usize> {
-        if !Self::pos_in_bounds(pos, self.block_size) {
-            bail!("Pos not in ship")
+    pub fn get_chunk_index(&self, chunk_pos: IVec3) -> Result<usize> {
+        if !self.has_chunk(chunk_pos) {
+            bail!("Chunk not found!");
         }
 
-        let index = to_1d_i(pos, self.block_size.as_ivec3());
-        Ok(self.blocks[index as usize])
+        Ok(0)
     }
 
-    pub fn get_wave(&self, pos: UVec3) -> Result<&Wave> {
-        self.get_wave_i(pos.as_ivec3())
+    pub fn get_wave_index(&self, chunk_pos: IVec3, in_chunk_pos: IVec3) -> Result<usize> {
+        let chunk_index = self.get_chunk_index(chunk_pos)?;
+        let in_chunk_index = to_1d_i(in_chunk_pos, CHUNK_WAVE_SIZE) as usize;
+        Ok(in_chunk_index + CHUNK_WAVE_LEN * chunk_index)
     }
 
-    pub fn get_wave_i(&self, pos: IVec3) -> Result<&Wave> {
-        if !Self::pos_in_bounds(pos, self.wave_size) {
-            bail!("Wave Pos not in ship")
-        }
-
-        let index = to_1d_i(pos, self.wave_size.as_ivec3());
-        Ok(&self.wave[index as usize])
-    }
-
-    pub fn get_wave_pos_of_block_pos(pos: IVec3) -> IVec3 {
-        pos * 2 - IVec3::ONE
-    }
-
-    pub fn fill_all(
-        &mut self,
-        block_index: BlockIndex,
-        node_controller: &NodeController,
-    ) -> Result<()> {
-        for x in 0..self.block_size.x {
-            for y in 0..self.block_size.y {
-                for z in 0..self.block_size.z {
-                    self.place_block(uvec3(x, y, z), block_index, node_controller)?;
-                }
-            }
-        }
-
-        Ok(())
+    pub fn get_wave_index_from_wave_pos(&self, wave_pos: IVec3) -> Result<usize> {
+        let chunk_pos = get_chunk_pos_of_wave_pos(wave_pos);
+        let in_chunk_pos = get_in_chunk_pos_of_wave_pos(wave_pos);
+        self.get_wave_index(chunk_pos, in_chunk_pos)
     }
 
     pub fn place_block(
         &mut self,
-        pos: UVec3,
+        block_pos: IVec3,
         block_index: BlockIndex,
         node_controller: &NodeController,
     ) -> Result<()> {
-        let cell_index = to_1d(pos, self.block_size);
-        if self.blocks[cell_index] == block_index {
+        let chunk_pos = get_chunk_pos_of_block_pos(block_pos);
+        let in_chunk_pos = get_in_chunk_pos_of_wave_pos(block_pos);
+        let chunk_index = self.get_chunk_index(chunk_pos)?;
+        let in_chunk_index = to_1d_i(in_chunk_pos, CHUNK_BLOCK_SIZE) as usize;
+
+        let chunk = &mut self.chunks[chunk_index];
+
+        if chunk.blocks[in_chunk_index] == block_index {
             return Ok(());
         }
 
-        log::info!("Place: {pos:?}");
-        self.blocks[cell_index] = block_index;
-        self.update_wave(pos, node_controller)?;
+        log::info!("Place: {block_pos:?}");
+        chunk.blocks[in_chunk_index] = block_index;
+        self.update_wave(block_pos, node_controller)?;
 
         while !self.to_collapse.is_empty() {
             self.to_collapse.pop_front();
@@ -147,19 +135,16 @@ impl Ship {
         Ok(())
     }
 
-    fn update_wave(&mut self, block_pos: UVec3, node_controller: &NodeController) -> Result<()> {
+    fn update_wave(&mut self, block_pos: IVec3, node_controller: &NodeController) -> Result<()> {
         for &pos in node_controller.affected_poses.iter() {
-            let req_pos = Self::get_wave_pos_of_block_pos(block_pos.as_ivec3()) + pos;
-            if !Self::pos_in_bounds(req_pos, self.wave_size) {
+            let req_pos = get_wave_pos_of_block_pos(block_pos) + pos;
+            let wave_index = self.get_wave_index_from_wave_pos(req_pos);
+
+            if wave_index.is_err() {
                 continue;
             }
 
-            let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
-            //let config = get_config(req_pos);
-
-            //self.wave[index].current_pattern = node_controller.patterns[config].len() - 1;
-
-            self.to_propergate.push_back(index);
+            self.to_propergate.push_back(wave_index.unwrap());
         }
 
         Ok(())
@@ -171,31 +156,36 @@ impl Ship {
         actions_per_tick: usize,
         node_controller: &NodeController,
         debug_controller: &mut DebugController,
-    ) -> Result<(bool, bool)> {
+    ) -> Result<(bool, Vec<ChunkIndex>, bool)> {
         let mut full = true;
         let mut last_wave_something = false;
+        let mut changed = false;
+
         for _ in 0..actions_per_tick {
             if !self.to_propergate.is_empty() {
                 let wave_index = self.to_propergate.pop_front().unwrap();
                 self.propergate(wave_index, node_controller, debug_controller)?;
 
                 if debug_controller.mode == DebugMode::WFC {
+                    let chunk_index = wave_index / CHUNK_WAVE_LEN;
+                    let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
                     last_wave_something =
-                        self.wave[wave_index].render_pattern != EMPYT_PATTERN_INDEX;
+                        self.chunks[chunk_index].render_nodes[in_chunk_wave_index] != 0;
                 }
-
                 continue;
             }
 
             if !self.to_collapse.is_empty() {
                 let wave_index = self.to_collapse.pop_front().unwrap();
                 self.collapse(wave_index, node_controller, debug_controller)?;
+                changed = true;
 
                 if debug_controller.mode == DebugMode::WFC {
+                    let chunk_index = wave_index / CHUNK_WAVE_LEN;
+                    let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
                     last_wave_something =
-                        self.wave[wave_index].render_pattern != EMPYT_PATTERN_INDEX;
+                        self.chunks[chunk_index].render_nodes[in_chunk_wave_index] != 0;
                 }
-
                 continue;
             }
 
@@ -207,7 +197,8 @@ impl Ship {
             self.debug_show_wave(debug_controller);
         }
 
-        Ok((full, last_wave_something))
+        let changed_chunks = if changed { vec![0] } else { Vec::new() };
+        Ok((full, changed_chunks, last_wave_something))
     }
 
     #[cfg(not(debug_assertions))]
@@ -215,8 +206,9 @@ impl Ship {
         &mut self,
         actions_per_tick: usize,
         node_controller: &NodeController,
-    ) -> Result<bool> {
+    ) -> Result<(bool, Vec<WaveIndex>)> {
         let mut full = true;
+        let mut changed_waves = Vec::new();
         for _ in 0..actions_per_tick {
             if !self.to_propergate.is_empty() {
                 let wave_index = self.to_propergate.pop_front().unwrap();
@@ -228,6 +220,7 @@ impl Ship {
             if !self.to_collapse.is_empty() {
                 let wave_index = self.to_collapse.pop_front().unwrap();
                 self.collapse(wave_index, node_controller)?;
+                changed_waves.push(wave_index);
 
                 continue;
             }
@@ -236,7 +229,7 @@ impl Ship {
             break;
         }
 
-        Ok(full)
+        Ok((full, changed_waves))
     }
 
     fn propergate(
@@ -245,7 +238,13 @@ impl Ship {
         node_controller: &NodeController,
         #[cfg(debug_assertions)] debug_controller: &mut DebugController,
     ) -> Result<()> {
-        let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
+        let chunk_index = wave_index / CHUNK_WAVE_LEN;
+        let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+
+        let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+        let chunk_pos = self.chunks[chunk_index].pos;
+        let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+
         let config = get_config(wave_pos);
 
         #[cfg(debug_assertions)]
@@ -257,34 +256,40 @@ impl Ship {
             );
         }
 
-        self.wave[wave_index].possible_patterns.clear();
+        self.chunks[chunk_index].wave[in_chunk_wave_index]
+            .possible_patterns
+            .clear();
         for (pattern_index, pattern) in node_controller.patterns[config].iter().enumerate() {
             let accepted = pattern.block_req.iter().all(|(&offset, indecies)| {
-                let req_pos = wave_pos + offset;
+                let req_wave_pos = wave_pos + offset;
+                let req_chunk_pos = get_chunk_pos_of_wave_pos(req_wave_pos);
+                let req_chunk_index = self.get_chunk_index(req_chunk_pos);
 
-                if !Self::pos_in_bounds(req_pos, self.wave_size) {
+                if req_chunk_index.is_err() {
                     return indecies.contains(&BLOCK_INDEX_EMPTY);
                 }
+                debug_assert!((req_wave_pos % 2) == IVec3::ONE);
 
-                debug_assert!((req_pos % 2) == IVec3::ONE);
-
-                let block_pos = req_pos / 2;
-                let index = to_1d_i(block_pos, self.block_size.as_ivec3()) as usize;
-                let block_index = self.blocks[index];
+                let req_block_pos = get_block_pos_of_wave_pos(req_wave_pos);
+                let req_in_chunk_pos = get_in_chunk_pos_of_block_pos(req_block_pos);
+                let index = to_1d_i(req_in_chunk_pos, CHUNK_BLOCK_SIZE) as usize;
+                let block_index = self.chunks[req_chunk_index.unwrap()].blocks[index];
                 indecies.contains(&block_index)
             });
 
             if accepted {
                 for (&offset, _) in pattern.node_req.iter() {
-                    let req_pos = wave_pos + offset;
-                    let req_index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
+                    let req_wave_pos = wave_pos + offset;
+                    let req_wave_index = self.get_wave_index_from_wave_pos(req_wave_pos).unwrap();
 
-                    if !self.to_collapse.contains(wave_index) {
-                        self.to_propergate.push_back(req_index);
+                    if !self.to_collapse.contains(req_wave_index) {
+                        self.to_propergate.push_back(req_wave_index);
                     }
                 }
 
-                self.wave[wave_index].possible_patterns.push(pattern_index);
+                self.chunks[chunk_index].wave[in_chunk_wave_index]
+                    .possible_patterns
+                    .push(pattern_index);
             }
         }
 
@@ -299,7 +304,13 @@ impl Ship {
         node_controller: &NodeController,
         #[cfg(debug_assertions)] debug_controller: &mut DebugController,
     ) -> Result<()> {
-        let wave_pos = to_3d(wave_index as u32, self.wave_size).as_ivec3();
+        let chunk_index = wave_index / CHUNK_WAVE_LEN;
+        let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+
+        let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+        let chunk_pos = self.chunks[chunk_index].pos;
+        let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+
         let config = get_config(wave_pos);
 
         #[cfg(debug_assertions)]
@@ -311,8 +322,10 @@ impl Ship {
             );
         }
 
-        let old_possible_pattern_size = self.wave[wave_index].possible_patterns.len();
-        for (i, pattern_index) in self.wave[wave_index]
+        let old_possible_pattern_size = self.chunks[chunk_index].wave[in_chunk_wave_index]
+            .possible_patterns
+            .len();
+        for (i, pattern_index) in self.chunks[chunk_index].wave[in_chunk_wave_index]
             .possible_patterns
             .to_owned()
             .into_iter()
@@ -321,56 +334,81 @@ impl Ship {
         {
             let pattern = &node_controller.patterns[config][pattern_index];
 
-            let accepted =
-                pattern.node_req.iter().all(|(&offset, indecies)| {
-                    let req_pos = wave_pos + offset;
-                    let req_config = get_config(req_pos);
+            let accepted = pattern.node_req.iter().all(|(&offset, indecies)| {
+                let req_wave_pos = wave_pos + offset;
+                let req_chunk_pos = get_chunk_pos_of_wave_pos(req_wave_pos);
+                let req_in_chunk_pos = get_in_chunk_pos_of_block_pos(req_wave_pos);
+                let req_chunk_index = self.get_chunk_index(req_chunk_pos);
 
-                    if !Self::pos_in_bounds(req_pos, self.wave_size) {
-                        return false;
-                    }
+                if req_chunk_index.is_err() {
+                    return false;
+                }
 
-                    let req_index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
-                    let found = self.wave[req_index].possible_patterns.iter().all(
-                        |&possible_pattern_index| {
-                            let possible_pattern =
-                                &node_controller.patterns[req_config][possible_pattern_index];
-                            indecies.contains(&possible_pattern.node.index)
-                        },
-                    );
+                let req_config = get_config(req_wave_pos);
+                let req_wave_index = to_1d_i(req_in_chunk_pos, CHUNK_WAVE_SIZE) as usize;
 
-                    found
-                });
+                let found = self.chunks[req_chunk_index.unwrap()].wave[req_wave_index]
+                    .possible_patterns
+                    .iter()
+                    .all(|&possible_pattern_index| {
+                        let possible_pattern =
+                            &node_controller.patterns[req_config][possible_pattern_index];
+                        indecies.contains(&possible_pattern.node.index)
+                    });
+
+                found
+            });
 
             if !accepted {
-                self.wave[wave_index].possible_patterns.remove(i);
+                self.chunks[chunk_index].wave[in_chunk_wave_index]
+                    .possible_patterns
+                    .remove(i);
             }
         }
 
-        let possible_patterns = &self.wave[wave_index].possible_patterns;
+        let chunk = &mut self.chunks[chunk_index];
+
+        let possible_patterns = &chunk.wave[in_chunk_wave_index].possible_patterns;
         let possible_patterns_changed = possible_patterns.len() != old_possible_pattern_size;
         let new_render_pattern = possible_patterns[possible_patterns.len() - 1];
 
-        self.wave[wave_index].render_pattern = new_render_pattern;
-
         let pattern = &node_controller.patterns[config][new_render_pattern];
-        for (&offset, _) in pattern.node_req.iter() {
-            let req_pos = wave_pos + offset;
 
-            debug_assert!(Self::pos_in_bounds(req_pos, self.wave_size));
+        let node_index = to_1d_i(in_chunk_wave_pos, CHUNK_WAVE_SIZE) as usize;
+        chunk.render_nodes[node_index] = pattern.node.into();
 
-            let index = to_1d_i(req_pos, self.wave_size.as_ivec3()) as usize;
-            self.wave[index].dependent_waves.push_back(wave_index);
+        let node_index_with_padding =
+            to_1d_i(in_chunk_wave_pos + IVec3::ONE, CHUNK_WAVE_SIZE_WITH_PADDING) as usize;
+        chunk.render_nodes_with_padding[node_index_with_padding] =
+            RenderNode(pattern.node.is_some());
 
-            if possible_patterns_changed {
+        if possible_patterns_changed {
+            while !chunk.wave[in_chunk_wave_index].dependent_waves.is_empty() {
+                let index = chunk.wave[in_chunk_wave_index]
+                    .dependent_waves
+                    .pop_front()
+                    .unwrap();
                 self.to_collapse.push_back(index);
             }
         }
 
-        if possible_patterns_changed {
-            while !self.wave[wave_index].dependent_waves.is_empty() {
-                let index = self.wave[wave_index].dependent_waves.pop_front().unwrap();
-                self.to_collapse.push_back(index);
+        for (&offset, _) in pattern.node_req.iter() {
+            let req_pos = wave_pos + offset;
+            let req_chunk_pos = get_chunk_pos_of_wave_pos(req_pos);
+            let req_in_chunk_pos = get_in_chunk_pos_of_wave_pos(req_pos);
+
+            let req_chunk_index = self.get_chunk_index(req_chunk_pos).unwrap();
+            let req_index = to_1d_i(req_in_chunk_pos, CHUNK_WAVE_SIZE) as usize;
+            let req_wave_index = self
+                .get_wave_index(req_chunk_pos, req_in_chunk_pos)
+                .unwrap();
+
+            self.chunks[req_chunk_index].wave[req_index]
+                .dependent_waves
+                .push_back(req_wave_index);
+
+            if possible_patterns_changed {
+                self.to_collapse.push_back(req_wave_index);
             }
         }
 
@@ -381,10 +419,16 @@ impl Ship {
     fn debug_show_wave(&mut self, debug_controller: &mut DebugController) {
         let mut to_propergate = self.to_propergate.to_owned();
         while !to_propergate.is_empty() {
-            let index = to_propergate.pop_front().unwrap();
-            let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
+            let wave_index = to_propergate.pop_front().unwrap();
 
-            let wave = &self.wave[index];
+            let chunk_index = wave_index / CHUNK_WAVE_LEN;
+            let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+
+            let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+            let chunk_pos = self.chunks[chunk_index].pos;
+            let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+
+            let wave = &self.chunks[chunk_index].wave[in_chunk_wave_index];
             let lines = iter::once("p".to_owned())
                 .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
                 .collect();
@@ -393,10 +437,15 @@ impl Ship {
 
         let mut to_collpase = self.to_collapse.to_owned();
         while !to_collpase.is_empty() {
-            let index = to_collpase.pop_front().unwrap();
-            let wave_pos = to_3d(index as u32, self.wave_size).as_ivec3();
+            let wave_index = to_collpase.pop_front().unwrap();
+            let chunk_index = wave_index / CHUNK_WAVE_LEN;
+            let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
 
-            let wave = &self.wave[index];
+            let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+            let chunk_pos = self.chunks[chunk_index].pos;
+            let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+
+            let wave = &self.chunks[chunk_index].wave[in_chunk_wave_index];
             let lines = iter::once("c".to_owned())
                 .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
                 .collect();
@@ -405,14 +454,16 @@ impl Ship {
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
-        let max_wave_index = (self.wave_size.x * self.wave_size.y * self.wave_size.z) as usize;
-        self.wave = vec![Wave::new(); max_wave_index];
+        for chunk_index in 0..self.chunks.len() {
+            self.chunks[chunk_index].wave = std::array::from_fn(|_| Wave::default());
 
-        for x in 0..self.block_size.x {
-            for y in 0..self.block_size.y {
-                for z in 0..self.block_size.z {
-                    let pos = uvec3(x, y, z);
-                    self.update_wave(pos, node_controller)?;
+            let chunk_pos = self.chunks[chunk_index].pos * CHUNK_BLOCK_SIZE;
+            for x in 0..CHUNK_BLOCK_SIZE.x {
+                for y in 0..CHUNK_BLOCK_SIZE.y {
+                    for z in 0..CHUNK_BLOCK_SIZE.z {
+                        let pos = ivec3(x, y, z) + chunk_pos;
+                        self.update_wave(pos, node_controller)?;
+                    }
                 }
             }
         }
@@ -421,12 +472,47 @@ impl Ship {
     }
 }
 
-impl Wave {
-    pub fn new() -> Self {
-        Wave {
-            render_pattern: 0,
-            possible_patterns: Vec::new(),
-            dependent_waves: IndexQueue::default(),
+fn pos_in_bounds(pos: IVec3, size: IVec3) -> bool {
+    pos.cmpge(IVec3::ZERO).all() && pos.cmplt(size).all()
+}
+
+pub fn get_chunk_pos_of_block_pos(pos: IVec3) -> IVec3 {
+    (pos / CHUNK_BLOCK_SIZE.x) - ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
+}
+
+pub fn get_in_chunk_pos_of_block_pos(pos: IVec3) -> IVec3 {
+    pos % CHUNK_BLOCK_SIZE.x
+}
+
+pub fn get_chunk_pos_of_wave_pos(pos: IVec3) -> IVec3 {
+    (pos / CHUNK_WAVE_SIZE.x) - ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
+}
+
+pub fn get_in_chunk_pos_of_wave_pos(pos: IVec3) -> IVec3 {
+    pos % CHUNK_WAVE_SIZE.x
+}
+
+pub fn get_wave_pos_of_block_pos(pos: IVec3) -> IVec3 {
+    pos * 2 - IVec3::ONE
+}
+
+pub fn get_block_pos_of_wave_pos(pos: IVec3) -> IVec3 {
+    pos / 2
+}
+
+pub fn get_config(pos: IVec3) -> usize {
+    let c = (pos % 2).abs();
+    (c.x + (c.y << 1) + (c.z << 2)) as usize
+}
+
+impl ShipChunk {
+    pub fn new(pos: IVec3) -> ShipChunk {
+        ShipChunk {
+            pos,
+            blocks: [BLOCK_INDEX_EMPTY; CHUNK_BLOCK_LEN],
+            wave: std::array::from_fn(|_| Wave::default()),
+            render_nodes: [0; CHUNK_WAVE_LEN],
+            render_nodes_with_padding: [RenderNode(false); CHUNK_WAVE_WITH_PADDING_LEN],
         }
     }
 }

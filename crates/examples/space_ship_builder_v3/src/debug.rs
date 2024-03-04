@@ -25,6 +25,7 @@ use std::time::Duration;
 pub enum DebugMode {
     OFF,
     WFC,
+    WFCSkip,
 }
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
@@ -100,6 +101,15 @@ impl DebugController {
 
             self.mode = if self.mode != DebugMode::WFC {
                 DebugMode::WFC
+            } else {
+                DebugMode::OFF
+            }
+        }
+        if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
+            self.mode = if self.mode != DebugMode::WFCSkip {
+                DebugMode::WFCSkip
             } else {
                 DebugMode::OFF
             }

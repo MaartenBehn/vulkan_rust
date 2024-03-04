@@ -6,7 +6,7 @@ use octa_force::glam::BVec3;
 use octa_force::glam::Mat3;
 use octa_force::glam::Mat4;
 
-use crate::math::get_config;
+use crate::ship::get_config;
 use dot_vox::Color;
 use octa_force::{
     anyhow::Result,
@@ -559,7 +559,6 @@ impl Default for NodeID {
 impl Into<u32> for NodeID {
     fn into(self) -> u32 {
         if self.is_none() {
-            log::warn!("None Node Id was converted!");
             0
         } else {
             ((self.index as u32) << 7) + <Rot as Into<u8>>::into(self.rot) as u32

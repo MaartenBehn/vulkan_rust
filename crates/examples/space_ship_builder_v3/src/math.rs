@@ -16,6 +16,14 @@ pub fn to_3d(mut i: u32, max: UVec3) -> UVec3 {
     uvec3(x, y, z)
 }
 
+pub fn to_3d_i(mut i: i32, max: IVec3) -> IVec3 {
+    let z = i / (max.x * max.y);
+    i -= z * max.x * max.y;
+    let y = i / max.x;
+    let x = i % max.x;
+    ivec3(x, y, z)
+}
+
 pub fn get_neigbor_offsets() -> [IVec3; 26] {
     [
         ivec3(1, 1, 0),
@@ -50,9 +58,4 @@ pub fn get_neigbor_offsets() -> [IVec3; 26] {
 pub const PACKED_WORD_SIZE: usize = 8;
 pub fn get_packed_index(index: usize) -> (usize, u8) {
     (index / PACKED_WORD_SIZE, 1 << (index % PACKED_WORD_SIZE))
-}
-
-pub fn get_config(pos: IVec3) -> usize {
-    let c = (pos % 2).abs();
-    (c.x + (c.y << 1) + (c.z << 2)) as usize
 }

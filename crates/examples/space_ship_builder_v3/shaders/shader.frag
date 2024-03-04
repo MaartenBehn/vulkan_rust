@@ -13,14 +13,17 @@
 layout(location = 0) out vec4 finalColor;
 
 
-// UV input
-layout(location = 0) in vec3 oUV;
+// Normal input
+layout(location = 0) in vec3 oNormal;
+
+
+
 #define POSITION oUV * NODE_SIZE
 
 
 // ID input
-layout(location = 1) flat in uint oNodeId;
-#define NODE_INDEX oNodeId >> 7
+#define NODE_ROT 4
+#define NODE_INDEX 0
 
 
 // Render buffer
@@ -86,13 +89,13 @@ struct Rot {
 };
 
 Rot getRot() {
-    uint index_nz1 = oNodeId & 3;
-    uint index_nz2 = (oNodeId >> 2) & 3;
+    uint index_nz1 = NODE_ROT & 3;
+    uint index_nz2 = (NODE_ROT >> 2) & 3;
     uint index_nz3 = 3 - index_nz1 - index_nz2;
 
-    int row_1_sign = (oNodeId & (1 << 4)) == 0 ? 1 : -1;
-    int row_2_sign = (oNodeId & (1 << 5)) == 0 ? 1 : -1;
-    int row_3_sign = (oNodeId & (1 << 6)) == 0 ? 1 : -1;
+    int row_1_sign = (NODE_ROT & (1 << 4)) == 0 ? 1 : -1;
+    int row_2_sign = (NODE_ROT & (1 << 5)) == 0 ? 1 : -1;
+    int row_3_sign = (NODE_ROT & (1 << 6)) == 0 ? 1 : -1;
 
     mat4 mat = mat4(0);
     mat[index_nz1][0] = row_1_sign;
@@ -208,6 +211,7 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
 }
 
 void main() {
+    /*
     vec2 uv = -((2 * gl_FragCoord.xy - renderbuffer.size.xy) / renderbuffer.size.x);
 
     vec3 ro = POSITION;
@@ -228,12 +232,15 @@ void main() {
     if (SHIP_TYPE == 1) {
         color.w *= 0.5;
     }
+    */
 
-    finalColor = color;
+    finalColor = vec4(oNormal, 1.0);
 
+    /*
     if (color.w == 0) {
         gl_FragDepth = 1.0;
     } else {
         gl_FragDepth = gl_FragCoord.z;
     }
+    */
 }

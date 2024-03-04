@@ -1,7 +1,7 @@
 use octa_force::gui::InWorldGui;
 use std::time::Duration;
 
-use octa_force::glam::{ivec2, uvec2, IVec2};
+use octa_force::glam::{ivec2, uvec2, IVec2, UVec3};
 use octa_force::imgui::{Condition, Ui};
 use octa_force::vulkan::{
     ash::vk::{self, Format},
@@ -40,7 +40,6 @@ const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Space ship builder";
 const VOX_FILE_RELODE_INTERVALL: Duration = Duration::from_secs(1);
-
 fn main() -> Result<()> {
     octa_force::run::<SpaceShipBuilder>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
 }
@@ -68,8 +67,7 @@ impl App for SpaceShipBuilder {
         let node_controller =
             NodeController::new(voxel_loader, "./assets/models/space_ship_config_v3.json")?;
 
-        let ship_size = uvec3(10, 10, 10);
-        let ship = Ship::new(ship_size, context, &node_controller)?;
+        let ship = Ship::new()?;
 
         let builder = Builder::new(ship, context, &node_controller)?;
 
@@ -103,8 +101,8 @@ impl App for SpaceShipBuilder {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
 
-        camera.position = Vec3::new(0.5, -2.0, 3.0);
-        camera.direction = Vec3::new(0.0, 1.0, -1.0).normalize();
+        camera.position = Vec3::new(1.0, -2.0, 1.0);
+        camera.direction = Vec3::new(0.0, 1.0, 0.0).normalize();
         camera.speed = 2.0;
         camera.z_far = 100.0;
         camera.up = vec3(0.0, 0.0, 1.0);
@@ -151,6 +149,7 @@ impl App for SpaceShipBuilder {
         }
 
         self.builder.update(
+            &base.context,
             &base.controls,
             &self.camera,
             &self.node_controller,
@@ -164,13 +163,11 @@ impl App for SpaceShipBuilder {
 
         #[cfg(debug_assertions)]
         {
-            log::info!("Render Debug");
             self.debug_controller.update(
                 &base.controls,
                 self.total_time,
                 &mut base.in_world_guis[self.debug_controller.text_renderer.gui_id],
             )?;
-            log::info!("Render Debug Done");
         }
 
         Ok(())

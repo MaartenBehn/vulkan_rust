@@ -49,3 +49,5 @@ dot_vox = "5.1.1"
 
 # Math
 index_queue = "0.1.0"
+
+block-mesh = "0.2.0"

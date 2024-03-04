@@ -1,14 +1,21 @@
-use crate::math::to_1d;
+use crate::math::{to_1d, to_1d_i};
 use crate::ship_mesh::ShipMesh;
 use crate::{
     node::{BlockIndex, NodeController},
     ship::Ship,
 };
+use std::collections::HashMap;
 
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode};
 
-use octa_force::glam::{vec4, Vec3};
+use crate::node::BLOCK_INDEX_EMPTY;
+use crate::ship::{
+    get_chunk_pos_of_block_pos, get_in_chunk_pos_of_block_pos, get_in_chunk_pos_of_wave_pos,
+    WaveIndex, CHUNK_BLOCK_LEN,
+};
+use index_queue::IndexQueue;
+use octa_force::glam::{vec3, vec4, IVec3, Vec3};
 use octa_force::{
     anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context,
 };
@@ -24,7 +31,7 @@ const DEBUG_COLLAPSE_SPEED: Duration = Duration::from_millis(100);
 
 pub struct Builder {
     pub ship: Ship,
-    pub build_blocks: Vec<BlockIndex>,
+    pub build_blocks: HashMap<IVec3, BlockIndex>,
 
     pub base_ship_mesh: ShipMesh,
     pub build_ship_mesh: ShipMesh,
@@ -37,8 +44,10 @@ pub struct Builder {
     full_tick: bool,
 
     last_block_to_build: BlockIndex,
-    last_pos: UVec3,
+    last_pos: IVec3,
     last_action_time: Duration,
+
+    changed_chunks: IndexQueue,
 }
 
 impl Builder {
@@ -60,7 +69,7 @@ impl Builder {
         );
 
         Ok(Builder {
-            build_blocks: ship.blocks.to_owned(),
+            build_blocks: HashMap::new(),
             base_ship_mesh: ShipMesh::new(context, &ship).unwrap(),
             build_ship_mesh: ShipMesh::new(context, &ship).unwrap(),
             ship,
@@ -73,13 +82,16 @@ impl Builder {
             full_tick: false,
 
             last_block_to_build: 0,
-            last_pos: UVec3::ZERO,
+            last_pos: IVec3::ZERO,
             last_action_time: Duration::ZERO,
+
+            changed_chunks: IndexQueue::default(),
         })
     }
 
     pub fn update(
         &mut self,
+        context: &Context,
         controls: &Controls,
         camera: &Camera,
         node_controller: &NodeController,
@@ -118,54 +130,48 @@ impl Builder {
         #[cfg(not(debug_assertions))]
         let d = true;
         if d {
-            let pos = ((camera.position + camera.direction * self.distance) / 2.0)
+            let pos = (((camera.position + camera.direction * self.distance)
+                - vec3(1.0, 1.0, 1.0))
+                / 2.0)
                 .round()
                 .as_ivec3();
 
-            // Get the index of the block that could be placed
-            let selected_pos = if Ship::pos_in_bounds(pos, self.ship.block_size) {
-                Some(pos.as_uvec3())
-            } else {
-                None
-            };
-
-            if Some(self.last_pos) != selected_pos
-                || self.last_block_to_build != self.block_to_build
-            {
-                // Undo the last placement.
-                let last_block_index = to_1d(self.last_pos, self.ship.block_size);
-                self.ship.place_block(
-                    self.last_pos,
-                    self.build_blocks[last_block_index],
-                    node_controller,
-                )?;
-
-                // If block index is valid.
-                if selected_pos.is_some() {
-                    self.last_block_to_build = self.block_to_build;
-                    self.last_pos = selected_pos.unwrap();
+            if self.last_pos != pos || self.last_block_to_build != self.block_to_build {
+                let chunk_pos = get_chunk_pos_of_block_pos(pos);
+                if self.ship.has_chunk(chunk_pos) {
+                    // Undo the last placement.
+                    let last_block_index = *self
+                        .build_blocks
+                        .get(&self.last_pos)
+                        .unwrap_or(&BLOCK_INDEX_EMPTY);
+                    self.ship
+                        .place_block(self.last_pos, last_block_index, node_controller)?;
 
                     // Simulate placement of the block to create preview in build_ship.
-                    self.ship.place_block(
-                        selected_pos.unwrap(),
-                        self.possible_blocks[self.block_to_build],
-                        node_controller,
-                    )?;
+                    let block_index = self.possible_blocks[self.block_to_build];
+                    let _ = self.ship.place_block(pos, block_index, node_controller)?;
+
+                    // If block index is valid.
+                    self.last_block_to_build = self.block_to_build;
+                    self.last_pos = pos;
                 }
             }
         }
 
         if controls.left && (self.last_action_time + PLACE_SPEED) < total_time {
-            self.build_blocks = self.ship.blocks.to_owned();
             self.last_action_time = total_time;
+            self.build_blocks
+                .insert(self.last_pos, self.possible_blocks[self.block_to_build]);
 
-            self.base_ship_mesh.update(&self.ship, node_controller)?;
+            //self.base_ship_mesh.update(&self.ship, context)?;
         }
 
+        let mut changed_chunks = Vec::new();
         #[cfg(debug_assertions)]
         if debug_controller.mode == DebugMode::WFC
-            && controls.t
-            && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time
+            || debug_controller.mode == DebugMode::WFCSkip
+                && controls.t
+                && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time
         {
             self.last_action_time = total_time;
 
@@ -173,49 +179,43 @@ impl Builder {
             loop {
                 debug_controller.line_renderer.vertecies.clear();
                 debug_controller.text_renderer.texts.clear();
-                let (f, last_some) = self.ship.tick(1, node_controller, debug_controller)?;
+                let (f, c, last_some) = self.ship.tick(1, node_controller, debug_controller)?;
                 full &= f;
+                changed_chunks = c;
 
-                if !f || last_some {
+                if debug_controller.mode == DebugMode::WFC || !f || last_some {
                     break;
                 }
             }
 
             if !full {
-                debug_controller.add_cube(
-                    Vec3::ZERO,
-                    Vec3::ONE * self.ship.wave_size.as_vec3(),
-                    vec4(1.0, 0.0, 0.0, 1.0),
-                );
-                debug_controller.add_text(vec!["Done".to_owned()], Vec3::ZERO)
+                if debug_controller.mode == DebugMode::WFC {
+                    debug_controller.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0))
+                } else {
+                    debug_controller.add_text(vec!["WFC Skip".to_owned()], vec3(-1.0, 0.0, 0.0))
+                }
             }
 
             log::info!("BUILDER: TICK FULL {:?}", full);
         } else if debug_controller.mode != DebugMode::WFC {
-            let (full, _) =
+            (self.full_tick, changed_chunks, _) =
                 self.ship
                     .tick(self.actions_per_tick, node_controller, debug_controller)?;
-            self.full_tick = full;
-
-            debug_controller.add_cube(
-                Vec3::ZERO,
-                Vec3::ONE * self.ship.wave_size.as_vec3(),
-                vec4(1.0, 0.0, 0.0, 1.0),
-            );
         }
 
         #[cfg(not(debug_assertions))]
         {
-            self.full_tick = self.ship.tick(self.actions_per_tick, node_controller)?;
+            (self.full_tick, changed_chunks) =
+                self.ship.tick(self.actions_per_tick, node_controller)?;
         }
 
-        self.build_ship_mesh.update(&self.ship, node_controller)?;
+        self.build_ship_mesh
+            .update(&self.ship, changed_chunks, context)?;
 
         Ok(())
     }
 
     pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
-        self.ship.blocks = self.build_blocks.to_owned();
         self.ship.on_node_controller_change(node_controller)?;
         self.last_block_to_build = BlockIndex::MAX;
 
