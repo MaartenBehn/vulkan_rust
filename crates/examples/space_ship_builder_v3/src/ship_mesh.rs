@@ -97,7 +97,7 @@ impl MeshChunk {
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
 
-        if vertex_size < self.vertex_buffer_size {
+        if vertex_size > self.vertex_buffer_size {
             self.vertex_buffer = Self::create_vertex_buffer(context, vertecies)?;
             self.vertex_buffer_size = vertex_size;
             log::trace!("Chunk Vertex Buffer increased.");
@@ -105,7 +105,7 @@ impl MeshChunk {
             self.vertex_buffer.copy_data_to_buffer(&vertecies)?;
         }
 
-        if index_size < self.index_buffer_size {
+        if index_size > self.index_buffer_size {
             self.index_buffer = Self::create_index_buffer(context, indecies)?;
             self.index_buffer_size = index_size;
             log::trace!("Chunk Index Buffer increased.");
@@ -191,7 +191,7 @@ impl MeshChunk {
         let vertex_buffer = context.create_buffer(
             BufferUsageFlags::VERTEX_BUFFER,
             MemoryLocation::CpuToGpu,
-            (vertecies.len() * 4) as _,
+            (vertecies.len() * size_of::<Vertex>()) as _,
         )?;
         vertex_buffer.copy_data_to_buffer(&vertecies)?;
 
@@ -202,7 +202,7 @@ impl MeshChunk {
         let index_buffer = context.create_buffer(
             BufferUsageFlags::INDEX_BUFFER,
             MemoryLocation::CpuToGpu,
-            (indecies.len() * 2) as _,
+            (indecies.len() * size_of::<u16>()) as _,
         )?;
         index_buffer.copy_data_to_buffer(&indecies)?;
 
