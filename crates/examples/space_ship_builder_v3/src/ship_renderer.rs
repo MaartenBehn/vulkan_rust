@@ -30,7 +30,7 @@ pub struct Vertex {
     pub data: u32,
 }
 
-pub struct Renderer {
+pub struct ShipRenderer {
     pub render_buffer: Buffer,
     pub node_buffer: Buffer,
     pub mat_buffer: Buffer,
@@ -66,7 +66,7 @@ pub struct PushConstant {
     pub ship_type: ShipType,
 }
 
-impl Renderer {
+impl ShipRenderer {
     pub fn new(
         context: &Context,
         node_controller: &NodeController,
@@ -98,7 +98,7 @@ impl Renderer {
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 3,
+            images_len,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
@@ -115,7 +115,7 @@ impl Renderer {
             ],
         )?;
 
-        let descriptor_layout = context.create_descriptor_set_layout(&[
+        let static_descriptor_layout = context.create_descriptor_set_layout(&[
             vk::DescriptorSetLayoutBinding {
                 binding: 0,
                 descriptor_count: 1,
@@ -139,9 +139,18 @@ impl Renderer {
             },
         ])?;
 
+        let chunk_descriptor_layout =
+            context.create_descriptor_set_layout(&[vk::DescriptorSetLayoutBinding {
+                binding: 0,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                stage_flags: vk::ShaderStageFlags::FRAGMENT,
+                ..Default::default()
+            }])?;
+
         let mut descriptor_sets = Vec::new();
         for _ in 0..images_len {
-            let render_descriptor_set = descriptor_pool.allocate_set(&descriptor_layout)?;
+            let render_descriptor_set = descriptor_pool.allocate_set(&static_descriptor_layout)?;
 
             render_descriptor_set.update(&[
                 WriteDescriptorSet {
@@ -169,8 +178,10 @@ impl Renderer {
         let push_constant_range =
             create_push_constant_range(ShaderStageFlags::FRAGMENT, size_of::<PushConstant>());
 
-        let pipeline_layout =
-            context.create_pipeline_layout(&[&descriptor_layout], &[push_constant_range])?;
+        let pipeline_layout = context.create_pipeline_layout(
+            &[&static_descriptor_layout, &chunk_descriptor_layout],
+            &[push_constant_range],
+        )?;
 
         let pipeline = context.create_graphics_pipeline::<Vertex>(
             &pipeline_layout,
@@ -215,13 +226,13 @@ impl Renderer {
 
         let depth_image_view = depth_image.create_image_view(true)?;
 
-        Ok(Renderer {
+        Ok(ShipRenderer {
             render_buffer,
             node_buffer,
             mat_buffer,
 
             descriptor_pool,
-            descriptor_layout,
+            descriptor_layout: static_descriptor_layout,
             descriptor_sets,
             pipeline_layout,
             pipeline,
@@ -266,13 +277,19 @@ impl Renderer {
             &[&self.descriptor_sets[image_index]],
         );
 
-        self.render_ship_mesh(buffer, &builder.base_ship_mesh, SHIP_TYPE_BASE);
-        self.render_ship_mesh(buffer, &builder.build_ship_mesh, SHIP_TYPE_BUILD);
+        self.render_ship_mesh(buffer, image_index, &builder.base_ship_mesh, SHIP_TYPE_BASE);
+        self.render_ship_mesh(
+            buffer,
+            image_index,
+            &builder.build_ship_mesh,
+            SHIP_TYPE_BUILD,
+        );
     }
 
     pub fn render_ship_mesh(
         &self,
         buffer: &CommandBuffer,
+        image_index: usize,
         ship_mesh: &ShipMesh,
         ship_type: ShipType,
     ) {
@@ -285,6 +302,13 @@ impl Renderer {
             if chunk.index_buffer_size == 0 {
                 continue;
             }
+
+            buffer.bind_descriptor_sets(
+                vk::PipelineBindPoint::GRAPHICS,
+                &self.pipeline_layout,
+                0,
+                &[&chunk.descriptor_sets[image_index]],
+            );
 
             buffer.bind_vertex_buffer(&chunk.vertex_buffer);
             buffer.bind_index_buffer_complex(&chunk.index_buffer, 0, IndexType::UINT16);

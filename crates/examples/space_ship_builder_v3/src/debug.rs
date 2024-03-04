@@ -1,6 +1,6 @@
 use crate::math::to_3d;
-use crate::renderer::Renderer;
 use crate::ship::Ship;
+use crate::ship_renderer::ShipRenderer;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
@@ -235,7 +235,7 @@ impl DebugLineRenderer {
         images_len: u32,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
-        renderer: &Renderer,
+        renderer: &ShipRenderer,
     ) -> Result<Self> {
         let vertex_buffer = context.create_buffer(
             vk::BufferUsageFlags::VERTEX_BUFFER,

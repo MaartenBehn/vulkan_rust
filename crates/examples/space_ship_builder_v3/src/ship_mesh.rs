@@ -1,4 +1,4 @@
-use crate::ship::{Ship, ShipChunk, Wave};
+use crate::ship::{Ship, ShipChunk, Wave, CHUNK_WAVE_LEN};
 use octa_force::{
     anyhow::Result,
     log,
@@ -9,7 +9,7 @@ use std::mem::size_of;
 
 use crate::math::{to_1d, to_3d};
 use crate::node::{NodeID, EMPYT_PATTERN_INDEX};
-use crate::renderer::Vertex;
+use crate::ship_renderer::Vertex;
 use block_mesh::ilattice::vector::Vector3;
 use block_mesh::ndshape::{ConstShape, ConstShape3u32, Shape};
 use block_mesh::{
@@ -21,6 +21,9 @@ use octa_force::glam::{ivec3, uvec3, IVec3};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::ash::vk::BufferUsageFlags;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
+use octa_force::vulkan::{
+    DescriptorPool, DescriptorSet, DescriptorSetLayout, WriteDescriptorSet, WriteDescriptorSetKind,
+};
 
 const CHUNK_SIZE: u32 = 16;
 type ChunkShape = ConstShape3u32<{ CHUNK_SIZE + 2 }, { CHUNK_SIZE + 2 }, { CHUNK_SIZE + 2 }>;
@@ -31,18 +34,22 @@ pub struct ShipMesh {
 
 pub struct MeshChunk {
     pub pos: IVec3,
+    pub chunk_buffer: Buffer,
+
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
     pub vertex_buffer_size: usize,
     pub index_buffer_size: usize,
     pub index_count: usize,
+
+    pub descriptor_sets: Vec<DescriptorSet>,
 }
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct RenderNode(pub bool);
 
 impl ShipMesh {
-    pub fn new(context: &Context, ship: &Ship) -> Result<ShipMesh> {
+    pub fn new() -> Result<ShipMesh> {
         Ok(ShipMesh { chunks: Vec::new() })
     }
 
@@ -50,7 +57,11 @@ impl ShipMesh {
         &mut self,
         ship: &Ship,
         changed_chunks: Vec<usize>,
+
+        images_len: usize,
         context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
         for chunk_index in changed_chunks.iter() {
             let chunk = &ship.chunks[*chunk_index];
@@ -58,7 +69,14 @@ impl ShipMesh {
             if mesh_chunk_index.is_some() {
                 self.chunks[mesh_chunk_index.unwrap()].update(chunk, context)?;
             } else {
-                let new_chunk = MeshChunk::new(chunk.pos, chunk, context);
+                let new_chunk = MeshChunk::new(
+                    chunk.pos,
+                    chunk,
+                    images_len,
+                    context,
+                    descriptor_layout,
+                    descriptor_pool,
+                );
                 if new_chunk.is_ok() {
                     self.chunks.push(new_chunk.unwrap())
                 }
@@ -70,7 +88,14 @@ impl ShipMesh {
 }
 
 impl MeshChunk {
-    pub fn new(pos: IVec3, ship_chunk: &ShipChunk, context: &Context) -> Result<MeshChunk> {
+    pub fn new(
+        pos: IVec3,
+        ship_chunk: &ShipChunk,
+        images_len: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<MeshChunk> {
         let (vertecies, indecies) = Self::create_mesh(ship_chunk);
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
@@ -79,20 +104,41 @@ impl MeshChunk {
             bail!("Mesh is empty");
         }
 
+        let chunk_buffer = Self::create_chunk_buffer(context, &ship_chunk.node_id_bits)?;
         let vertx_buffer = Self::create_vertex_buffer(context, vertecies)?;
         let index_buffer = Self::create_index_buffer(context, indecies)?;
 
+        let mut descriptor_sets = Vec::new();
+        for _ in 0..images_len {
+            let render_descriptor_set = descriptor_pool.allocate_set(descriptor_layout)?;
+
+            render_descriptor_set.update(&[WriteDescriptorSet {
+                binding: 0,
+                kind: WriteDescriptorSetKind::UniformBuffer {
+                    buffer: &chunk_buffer,
+                },
+            }]);
+            descriptor_sets.push(render_descriptor_set);
+        }
+
         Ok(MeshChunk {
             pos,
+            chunk_buffer,
+
             vertex_buffer: vertx_buffer,
             index_buffer,
             vertex_buffer_size: vertex_size,
             index_buffer_size: index_size,
             index_count: index_size,
+
+            descriptor_sets,
         })
     }
 
     pub fn update(&mut self, ship_chunk: &ShipChunk, context: &Context) -> Result<()> {
+        self.chunk_buffer
+            .copy_data_to_buffer(&ship_chunk.node_id_bits)?;
+
         let (vertecies, indecies) = Self::create_mesh(ship_chunk);
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
@@ -118,6 +164,17 @@ impl MeshChunk {
         Ok(())
     }
 
+    fn create_chunk_buffer(context: &Context, node_bits: &[u32; CHUNK_WAVE_LEN]) -> Result<Buffer> {
+        let chunk_buffer = context.create_buffer(
+            BufferUsageFlags::STORAGE_BUFFER,
+            MemoryLocation::CpuToGpu,
+            (node_bits.len() * size_of::<u32>()) as _,
+        )?;
+        chunk_buffer.copy_data_to_buffer(node_bits)?;
+
+        Ok(chunk_buffer)
+    }
+
     pub const RIGHT_HANDED_Z_UP_CONFIG: QuadCoordinateConfig = QuadCoordinateConfig {
         // Y is always in the V direction when it's not the normal. When Y is the
         // normal, right-handedness determines that we must use Yzx permutations.
@@ -133,9 +190,9 @@ impl MeshChunk {
     };
 
     fn create_mesh(chunk: &ShipChunk) -> (Vec<Vertex>, Vec<u16>) {
-        let mut buffer = GreedyQuadsBuffer::new(chunk.render_nodes_with_padding.len());
+        let mut buffer = GreedyQuadsBuffer::new(chunk.node_voxels.len());
         greedy_quads(
-            &chunk.render_nodes_with_padding,
+            &chunk.node_voxels,
             &ChunkShape {},
             [0; 3],
             [CHUNK_SIZE + 1; 3],

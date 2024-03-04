@@ -16,6 +16,7 @@ use crate::ship::{
 };
 use index_queue::IndexQueue;
 use octa_force::glam::{vec3, vec4, IVec3, Vec3};
+use octa_force::vulkan::{DescriptorPool, DescriptorSetLayout};
 use octa_force::{
     anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context,
 };
@@ -51,7 +52,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(ship: Ship, context: &Context, node_controller: &NodeController) -> Result<Builder> {
+    pub fn new(ship: Ship, node_controller: &NodeController) -> Result<Builder> {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(
             node_controller
@@ -70,8 +71,8 @@ impl Builder {
 
         Ok(Builder {
             build_blocks: HashMap::new(),
-            base_ship_mesh: ShipMesh::new(context, &ship).unwrap(),
-            build_ship_mesh: ShipMesh::new(context, &ship).unwrap(),
+            base_ship_mesh: ShipMesh::new().unwrap(),
+            build_ship_mesh: ShipMesh::new().unwrap(),
             ship,
 
             block_to_build: 1,
@@ -91,7 +92,11 @@ impl Builder {
 
     pub fn update(
         &mut self,
+        images_len: usize,
         context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+
         controls: &Controls,
         camera: &Camera,
         node_controller: &NodeController,
@@ -207,8 +212,14 @@ impl Builder {
                 self.ship.tick(self.actions_per_tick, node_controller)?;
         }
 
-        self.build_ship_mesh
-            .update(&self.ship, changed_chunks, context)?;
+        self.build_ship_mesh.update(
+            &self.ship,
+            changed_chunks,
+            images_len,
+            context,
+            descriptor_layout,
+            descriptor_pool,
+        )?;
 
         Ok(())
     }

@@ -50,8 +50,8 @@ pub struct ShipChunk {
     pub pos: IVec3,
     pub blocks: [BlockIndex; CHUNK_BLOCK_LEN],
     pub wave: [Wave; CHUNK_WAVE_LEN],
-    pub render_nodes: [u32; CHUNK_WAVE_LEN],
-    pub render_nodes_with_padding: [RenderNode; CHUNK_WAVE_WITH_PADDING_LEN],
+    pub node_id_bits: [u32; CHUNK_WAVE_LEN],
+    pub node_voxels: [RenderNode; CHUNK_WAVE_WITH_PADDING_LEN],
 }
 
 #[derive(Clone, Debug, Default)]
@@ -170,7 +170,7 @@ impl Ship {
                     let chunk_index = wave_index / CHUNK_WAVE_LEN;
                     let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
                     last_wave_something =
-                        self.chunks[chunk_index].render_nodes[in_chunk_wave_index] != 0;
+                        self.chunks[chunk_index].node_id_bits[in_chunk_wave_index] != 0;
                 }
                 continue;
             }
@@ -184,7 +184,7 @@ impl Ship {
                     let chunk_index = wave_index / CHUNK_WAVE_LEN;
                     let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
                     last_wave_something =
-                        self.chunks[chunk_index].render_nodes[in_chunk_wave_index] != 0;
+                        self.chunks[chunk_index].node_id_bits[in_chunk_wave_index] != 0;
                 }
                 continue;
             }
@@ -371,12 +371,11 @@ impl Ship {
         let pattern = &node_controller.patterns[config][new_render_pattern];
 
         let node_index = to_1d_i(in_chunk_wave_pos, CHUNK_WAVE_SIZE) as usize;
-        chunk.render_nodes[node_index] = pattern.node.into();
+        chunk.node_id_bits[node_index] = pattern.node.into();
 
         let node_index_with_padding =
             to_1d_i(in_chunk_wave_pos + IVec3::ONE, CHUNK_WAVE_SIZE_WITH_PADDING) as usize;
-        chunk.render_nodes_with_padding[node_index_with_padding] =
-            RenderNode(pattern.node.is_some());
+        chunk.node_voxels[node_index_with_padding] = RenderNode(pattern.node.is_some());
 
         if possible_patterns_changed {
             while !chunk.wave[in_chunk_wave_index].dependent_waves.is_empty() {
@@ -539,8 +538,8 @@ impl ShipChunk {
             pos,
             blocks: [BLOCK_INDEX_EMPTY; CHUNK_BLOCK_LEN],
             wave: std::array::from_fn(|_| Wave::default()),
-            render_nodes: [0; CHUNK_WAVE_LEN],
-            render_nodes_with_padding: [RenderNode(false); CHUNK_WAVE_WITH_PADDING_LEN],
+            node_id_bits: [0; CHUNK_WAVE_LEN],
+            node_voxels: [RenderNode(false); CHUNK_WAVE_WITH_PADDING_LEN],
         }
     }
 }

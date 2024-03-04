@@ -20,7 +20,7 @@ use crate::debug::{DebugController, DebugLineRenderer};
 
 use crate::debug::DebugTextRenderer;
 use crate::{
-    builder::Builder, node::NodeController, renderer::Renderer, ship::Ship,
+    builder::Builder, node::NodeController, ship::Ship, ship_renderer::ShipRenderer,
     voxel_loader::VoxelLoader,
 };
 
@@ -30,10 +30,10 @@ pub mod builder;
 pub mod debug;
 pub mod math;
 pub mod node;
-pub mod renderer;
 pub mod rotation;
 pub mod ship;
 pub mod ship_mesh;
+pub mod ship_renderer;
 pub mod voxel_loader;
 
 const WIDTH: u32 = 1024;
@@ -49,7 +49,7 @@ struct SpaceShipBuilder {
 
     node_controller: NodeController,
     builder: Builder,
-    renderer: Renderer,
+    renderer: ShipRenderer,
 
     #[cfg(debug_assertions)]
     debug_controller: DebugController,
@@ -69,9 +69,9 @@ impl App for SpaceShipBuilder {
 
         let ship = Ship::new()?;
 
-        let builder = Builder::new(ship, context, &node_controller)?;
+        let builder = Builder::new(ship, &node_controller)?;
 
-        let renderer = Renderer::new(
+        let renderer = ShipRenderer::new(
             context,
             &node_controller,
             base.swapchain.images.len() as u32,
@@ -137,7 +137,7 @@ impl App for SpaceShipBuilder {
             self.builder
                 .on_node_controller_change(&self.node_controller)?;
 
-            self.renderer = Renderer::new(
+            self.renderer = ShipRenderer::new(
                 &base.context,
                 &self.node_controller,
                 base.swapchain.images.len() as u32,
@@ -149,7 +149,10 @@ impl App for SpaceShipBuilder {
         }
 
         self.builder.update(
+            base.swapchain.images.len(),
             &base.context,
+            &self.renderer.descriptor_layout,
+            &self.renderer.descriptor_pool,
             &base.controls,
             &self.camera,
             &self.node_controller,
