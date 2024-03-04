@@ -126,7 +126,7 @@ impl Builder {
         self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
         #[cfg(debug_assertions)]
-        let d = debug_controller.mode != DebugMode::WFC || controls.lshift;
+        let d = debug_controller.mode == DebugMode::OFF || controls.lshift;
         #[cfg(not(debug_assertions))]
         let d = true;
         if d {
@@ -168,36 +168,34 @@ impl Builder {
 
         let mut changed_chunks = Vec::new();
         #[cfg(debug_assertions)]
-        if debug_controller.mode == DebugMode::WFC
-            || debug_controller.mode == DebugMode::WFCSkip
-                && controls.t
-                && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time
-        {
-            self.last_action_time = total_time;
+        if debug_controller.mode == DebugMode::WFC || debug_controller.mode == DebugMode::WFCSkip {
+            if controls.t && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time {
+                self.last_action_time = total_time;
 
-            let mut full = true;
-            loop {
-                debug_controller.line_renderer.vertecies.clear();
-                debug_controller.text_renderer.texts.clear();
-                let (f, c, last_some) = self.ship.tick(1, node_controller, debug_controller)?;
-                full &= f;
-                changed_chunks = c;
+                let mut full = true;
+                loop {
+                    debug_controller.line_renderer.vertecies.clear();
+                    debug_controller.text_renderer.texts.clear();
+                    let (f, c, last_some) = self.ship.tick(1, node_controller, debug_controller)?;
+                    full &= f;
+                    changed_chunks = c;
 
-                if debug_controller.mode == DebugMode::WFC || !f || last_some {
-                    break;
+                    if debug_controller.mode == DebugMode::WFC || !f || last_some {
+                        break;
+                    }
                 }
+
+                log::info!("BUILDER: TICK FULL {:?}", full);
             }
 
-            if !full {
-                if debug_controller.mode == DebugMode::WFC {
-                    debug_controller.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0))
-                } else {
-                    debug_controller.add_text(vec!["WFC Skip".to_owned()], vec3(-1.0, 0.0, 0.0))
-                }
+            if debug_controller.mode == DebugMode::WFC {
+                debug_controller.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0))
+            } else {
+                debug_controller.add_text(vec!["WFC Skip".to_owned()], vec3(-1.0, 0.0, 0.0))
             }
 
-            log::info!("BUILDER: TICK FULL {:?}", full);
-        } else if debug_controller.mode != DebugMode::WFC {
+            self.ship.debug_show_wave(debug_controller);
+        } else {
             (self.full_tick, changed_chunks, _) =
                 self.ship
                     .tick(self.actions_per_tick, node_controller, debug_controller)?;

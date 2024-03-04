@@ -114,7 +114,6 @@ impl MeshChunk {
         }
 
         self.index_count = index_size;
-        log::info!("Chunk Index {index_size}");
 
         Ok(())
     }

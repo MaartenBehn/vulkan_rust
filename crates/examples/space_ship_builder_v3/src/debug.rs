@@ -129,10 +129,10 @@ impl DebugController {
         for line in lines.into_iter() {
             self.line_renderer
                 .vertecies
-                .push(LineVertex::new(line.a - vec3(0.5, 0.5, 0.5), line.color));
+                .push(LineVertex::new(line.a, line.color));
             self.line_renderer
                 .vertecies
-                .push(LineVertex::new(line.b - vec3(0.5, 0.5, 0.5), line.color));
+                .push(LineVertex::new(line.b, line.color));
         }
     }
 
@@ -205,10 +205,7 @@ impl DebugController {
     }
 
     pub fn add_text(&mut self, lines: Vec<String>, pos: Vec3) {
-        self.text_renderer.texts.push(DebugText {
-            lines,
-            pos: pos + vec3(-0.5, 0.5, 0.5),
-        });
+        self.text_renderer.texts.push(DebugText { lines, pos });
     }
 
     pub fn render(
@@ -223,11 +220,8 @@ impl DebugController {
             return Ok(());
         }
 
-        if self.mode == DebugMode::WFC {
-            self.text_renderer
-                .render(buffer, camera, extent, debug_gui)?;
-        }
-
+        self.text_renderer
+            .render(buffer, camera, extent, debug_gui)?;
         self.line_renderer.render(buffer, image_index);
 
         Ok(())

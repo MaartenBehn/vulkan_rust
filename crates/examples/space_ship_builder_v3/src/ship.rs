@@ -166,7 +166,7 @@ impl Ship {
                 let wave_index = self.to_propergate.pop_front().unwrap();
                 self.propergate(wave_index, node_controller, debug_controller)?;
 
-                if debug_controller.mode == DebugMode::WFC {
+                if debug_controller.mode == DebugMode::WFCSkip {
                     let chunk_index = wave_index / CHUNK_WAVE_LEN;
                     let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
                     last_wave_something =
@@ -180,7 +180,7 @@ impl Ship {
                 self.collapse(wave_index, node_controller, debug_controller)?;
                 changed = true;
 
-                if debug_controller.mode == DebugMode::WFC {
+                if debug_controller.mode == DebugMode::WFCSkip {
                     let chunk_index = wave_index / CHUNK_WAVE_LEN;
                     let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
                     last_wave_something =
@@ -191,10 +191,6 @@ impl Ship {
 
             full = false;
             break;
-        }
-
-        if debug_controller.mode == DebugMode::WFC {
-            self.debug_show_wave(debug_controller);
         }
 
         let changed_chunks = if changed { vec![0] } else { Vec::new() };
@@ -416,8 +412,18 @@ impl Ship {
     }
 
     #[cfg(debug_assertions)]
-    fn debug_show_wave(&mut self, debug_controller: &mut DebugController) {
+    pub fn debug_show_wave(&mut self, debug_controller: &mut DebugController) {
+        for chunk in self.chunks.iter() {
+            debug_controller.add_cube(
+                (chunk.pos * CHUNK_WAVE_SIZE).as_vec3(),
+                ((chunk.pos + IVec3::ONE) * CHUNK_WAVE_SIZE).as_vec3(),
+                vec4(1.0, 0.0, 0.0, 1.0),
+            );
+        }
+
         let mut to_propergate = self.to_propergate.to_owned();
+
+        let mut i = 0;
         while !to_propergate.is_empty() {
             let wave_index = to_propergate.pop_front().unwrap();
 
@@ -432,10 +438,22 @@ impl Ship {
             let lines = iter::once("p".to_owned())
                 .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
                 .collect();
-            debug_controller.add_text(lines, wave_pos.as_vec3());
+            debug_controller.add_text(lines, wave_pos.as_vec3() + vec3(0.0, 1.0, 0.0));
+
+            if i == 0 {
+                debug_controller.add_cube(
+                    wave_pos.as_vec3(),
+                    wave_pos.as_vec3() + Vec3::ONE,
+                    vec4(0.0, 0.0, 1.0, 1.0),
+                );
+            }
+
+            i += 1;
         }
 
         let mut to_collpase = self.to_collapse.to_owned();
+
+        let mut i = 0;
         while !to_collpase.is_empty() {
             let wave_index = to_collpase.pop_front().unwrap();
             let chunk_index = wave_index / CHUNK_WAVE_LEN;
@@ -449,7 +467,17 @@ impl Ship {
             let lines = iter::once("c".to_owned())
                 .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
                 .collect();
-            debug_controller.add_text(lines, wave_pos.as_vec3());
+            debug_controller.add_text(lines, wave_pos.as_vec3() + vec3(0.0, 1.0, 0.0));
+
+            if i == 0 {
+                debug_controller.add_cube(
+                    wave_pos.as_vec3(),
+                    wave_pos.as_vec3() + Vec3::ONE,
+                    vec4(0.0, 1.0, 0.0, 1.0),
+                );
+            }
+
+            i += 1;
         }
     }
 
