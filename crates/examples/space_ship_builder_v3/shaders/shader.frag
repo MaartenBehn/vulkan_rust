@@ -185,17 +185,19 @@ vec4 raycaster(in Ray ray){
     if (!checkHit(ray, vec3(0), chunk_voxel_size, tMin, tMax)) {
         return vec4(0);
     }
-    ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);  
-    rayLen += tMin;   
+    //ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);
+    //ddddddddddrayLen += tMin;
     
     int counter = 1;
     while (counter < MAX_STEPS) {
-        cellPos = ivec3(ray.pos) - (ivec3(ray.pos.x < 0, ray.pos.y < 0, ray.pos.z < 0));
+        cellPos = ivec3(ray.pos);
 
         nodePos = cellPos / NODE_SIZE;
         nodeID = GET_NODE_ID(TO_NODE_ID_INDEX(nodePos));
         rot = GET_ROT_FROM_NODE_ID(nodeID);
         nodeIndex = GET_NODE_INDEX_FROM_NODE_ID(nodeID);
+        return vec4(getColorGradient(float(nodeIndex) / 4096), 1.0);
+
         node = GET_NODE(nodeIndex);
 
         voxelPos = applyRot(rot, (cellPos % NODE_SIZE) - node_size_half) + node_size_half - rot.offset;
