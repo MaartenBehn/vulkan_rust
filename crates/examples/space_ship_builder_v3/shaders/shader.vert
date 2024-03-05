@@ -1,34 +1,36 @@
 #version 450
 
 layout(location = 0) in uint vData;
-layout(location = 0) out vec3 oNormal;
+layout(location = 0) out vec3 oPos;
+layout(location = 1) out vec3 oNormal;
 
-layout(binding = 0) uniform RenderBuffer {
+layout(set = 0, binding = 0) uniform RenderBuffer {
     mat4 proj_mat;
     mat4 view_mat;
     vec3 dir;
     vec2 size;
-} ubo;
+} renderbuffer;
 
 /*
-let data = ((pos.x & 0b1111)
-            + ((pos.y & 0b1111) << 4)
-            + ((pos.z & 0b1111) << 8)
-            + (((normal.x == 1) as u32) << 12)
-            + (((normal.y == 1) as u32) << 13)
-            + (((normal.z == 1) as u32) << 14)) as u16;
+ let data = (pos.x & 0b111111111)
+            + ((pos.y & 0b111111111) << 9)
+            + ((pos.z & 0b111111111) << 18)
+            + (((normal.x == 1) as u32) << 27)
+            + (((normal.y == 1) as u32) << 28)
+            + (((normal.z == 1) as u32) << 29);
 */
 
 void main() {
-    vec4 p = vec4(
-        float(vData & 15),
-        float((vData >> 4) & 15),
-        float((vData >> 8) & 15), 1.0);
+    vec3 p = vec3(
+        float(vData & 511),
+        float((vData >> 9) & 511),
+        float((vData >> 18) & 511));
 
-    gl_Position = ubo.proj_mat * ubo.view_mat * p;
-
+    oPos = p;
     oNormal = vec3(
-        float((vData >> 12) & 1),
-        float((vData >> 13) & 1),
-        float((vData >> 14) & 1));
+        float((vData >> 27) & 1),
+        float((vData >> 28) & 1),
+        float((vData >> 29) & 1));
+
+    gl_Position = renderbuffer.proj_mat * renderbuffer.view_mat * vec4(p, 1.0);
 }

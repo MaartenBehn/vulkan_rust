@@ -76,8 +76,8 @@ impl ShipMesh {
                     context,
                     descriptor_layout,
                     descriptor_pool,
-                );
-                if new_chunk.is_ok() {
+                )?;
+                if new_chunk.is_some() {
                     self.chunks.push(new_chunk.unwrap())
                 }
             }
@@ -95,13 +95,13 @@ impl MeshChunk {
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
-    ) -> Result<MeshChunk> {
+    ) -> Result<Option<MeshChunk>> {
         let (vertecies, indecies) = Self::create_mesh(ship_chunk);
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
 
         if vertex_size == 0 || index_size == 0 {
-            bail!("Mesh is empty");
+            return Ok(None);
         }
 
         let chunk_buffer = Self::create_chunk_buffer(context, &ship_chunk.node_id_bits)?;
@@ -114,14 +114,14 @@ impl MeshChunk {
 
             render_descriptor_set.update(&[WriteDescriptorSet {
                 binding: 0,
-                kind: WriteDescriptorSetKind::UniformBuffer {
+                kind: WriteDescriptorSetKind::StorageBuffer {
                     buffer: &chunk_buffer,
                 },
             }]);
             descriptor_sets.push(render_descriptor_set);
         }
 
-        Ok(MeshChunk {
+        Ok(Some(MeshChunk {
             pos,
             chunk_buffer,
 
@@ -132,7 +132,7 @@ impl MeshChunk {
             index_count: index_size,
 
             descriptor_sets,
-        })
+        }))
     }
 
     pub fn update(&mut self, ship_chunk: &ShipChunk, context: &Context) -> Result<()> {

@@ -36,8 +36,9 @@ pub struct ShipRenderer {
     pub mat_buffer: Buffer,
 
     pub descriptor_pool: DescriptorPool,
-    pub descriptor_layout: DescriptorSetLayout,
-    pub descriptor_sets: Vec<DescriptorSet>,
+    pub static_descriptor_layout: DescriptorSetLayout,
+    pub chunk_descriptor_layout: DescriptorSetLayout,
+    pub static_descriptor_sets: Vec<DescriptorSet>,
 
     pub pipeline_layout: PipelineLayout,
     pub pipeline: GraphicsPipeline,
@@ -98,7 +99,7 @@ impl ShipRenderer {
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len,
+            images_len * 2,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
@@ -106,11 +107,7 @@ impl ShipRenderer {
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,
-                    descriptor_count: images_len,
-                },
-                vk::DescriptorPoolSize {
-                    ty: vk::DescriptorType::STORAGE_BUFFER,
-                    descriptor_count: images_len,
+                    descriptor_count: images_len * 3,
                 },
             ],
         )?;
@@ -232,8 +229,10 @@ impl ShipRenderer {
             mat_buffer,
 
             descriptor_pool,
-            descriptor_layout: static_descriptor_layout,
-            descriptor_sets,
+            static_descriptor_layout,
+            chunk_descriptor_layout,
+            static_descriptor_sets: descriptor_sets,
+
             pipeline_layout,
             pipeline,
             depth_attachment_format,
@@ -274,7 +273,7 @@ impl ShipRenderer {
             vk::PipelineBindPoint::GRAPHICS,
             &self.pipeline_layout,
             0,
-            &[&self.descriptor_sets[image_index]],
+            &[&self.static_descriptor_sets[image_index]],
         );
 
         self.render_ship_mesh(buffer, image_index, &builder.base_ship_mesh, SHIP_TYPE_BASE);
@@ -306,7 +305,7 @@ impl ShipRenderer {
             buffer.bind_descriptor_sets(
                 vk::PipelineBindPoint::GRAPHICS,
                 &self.pipeline_layout,
-                0,
+                1,
                 &[&chunk.descriptor_sets[image_index]],
             );
 
@@ -320,12 +319,12 @@ impl ShipRenderer {
 
 impl Vertex {
     pub fn new(pos: UVec3, normal: IVec3) -> Vertex {
-        let data = ((pos.x & 0b1111)
-            + ((pos.y & 0b1111) << 4)
-            + ((pos.z & 0b1111) << 8)
-            + (((normal.x == 1) as u32) << 12)
-            + (((normal.y == 1) as u32) << 13)
-            + (((normal.z == 1) as u32) << 14));
+        let data = (pos.x & 0b111111111)
+            + ((pos.y & 0b111111111) << 9)
+            + ((pos.z & 0b111111111) << 18)
+            + (((normal.x == 1) as u32) << 27)
+            + (((normal.y == 1) as u32) << 28)
+            + (((normal.z == 1) as u32) << 29);
         Vertex { data }
     }
 }

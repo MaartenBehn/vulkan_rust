@@ -151,7 +151,7 @@ impl App for SpaceShipBuilder {
         self.builder.update(
             base.swapchain.images.len(),
             &base.context,
-            &self.renderer.descriptor_layout,
+            &self.renderer.chunk_descriptor_layout,
             &self.renderer.descriptor_pool,
             &base.controls,
             &self.camera,

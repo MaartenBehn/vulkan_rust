@@ -1,37 +1,30 @@
 #version 450
 
-
 // General
-#define DEBUG_STEPS false
+#define DEBUG_STEPS true
 #define NODE_SIZE 4
-#define MAX_STEPS 25
+#define CHUNK_SIZE 16
+#define MAX_STEPS 100
 #define RAY_POS_OFFSET 0.0001
 #define BORDER_SIZE 0.01
-
 
 // Out
 layout(location = 0) out vec4 finalColor;
 
 
-// Normal input
-layout(location = 0) in vec3 oNormal;
+// In
+layout(location = 0) in vec3 oPos;
+#define POSITION oPos * NODE_SIZE
 
-
-
-#define POSITION oUV * NODE_SIZE
-
-
-// ID input
-#define NODE_ROT 4
-#define NODE_INDEX 0
-
+layout(location = 1) in vec3 oNormal;
+#define NORMAL oNormal
 
 // Render buffer
-layout(binding = 0) uniform RenderBuffer {
-  mat4 proj_mat;
-  mat4 view_mat;
-  vec3 dir;
-  vec2 size;
+layout(set = 0, binding = 0) uniform RenderBuffer {
+    mat4 proj_mat;
+    mat4 view_mat;
+    vec3 dir;
+    vec2 size;
 } renderbuffer;
 #define DIRECTION renderbuffer.dir
 
@@ -40,15 +33,16 @@ struct Node {
     uint voxels[(NODE_SIZE * NODE_SIZE * NODE_SIZE) / 4];
 };
 
-layout(binding = 1) buffer Nodes {
+layout(set = 0, binding = 1) buffer Nodes {
     Node nodes[];
 } nodes;
-#define TO_INDEX(pos) ((pos.z * NODE_SIZE * NODE_SIZE) + (pos.y * NODE_SIZE) + pos.x)
+#define TO_VOXEL_INDEX(pos) ((pos.z * NODE_SIZE * NODE_SIZE) + (pos.y * NODE_SIZE) + pos.x)
 #define GET_VOXEL(node, index) (node.voxels[index / 4] >> ((index % 4) * 8)) & 255
+#define GET_NODE(index) nodes.nodes[index]
 
 
 // Materials 
-layout(binding = 2) buffer Mats {
+layout(set = 0, binding = 2) buffer Mats {
     uint mats[];
 } mats;
 #define GET_MAT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
@@ -59,6 +53,39 @@ layout(push_constant, std430) uniform PushConstant {
     uint ship_type;
 } push_constant;
 #define SHIP_TYPE push_constant.ship_type
+
+
+// Chunk
+layout(set = 1, binding = 0) buffer Chunk {
+    uint node_ids[];
+} chunk;
+#define TO_NODE_ID_INDEX(pos) ((pos.z * CHUNK_SIZE * CHUNK_SIZE) + (pos.y * CHUNK_SIZE) + pos.x)
+#define GET_NODE_ID(index) chunk.node_ids[index]
+
+
+struct Rot {
+    mat4 mat;
+    ivec3 offset;
+};
+Rot GET_ROT_FROM_NODE_ID(uint nodeID) {
+    uint index_nz1 = nodeID & 3;
+    uint index_nz2 = (nodeID >> 2) & 3;
+    uint index_nz3 = 3 - index_nz1 - index_nz2;
+
+    int row_1_sign = (nodeID & (1 << 4)) == 0 ? 1 : -1;
+    int row_2_sign = (nodeID & (1 << 5)) == 0 ? 1 : -1;
+    int row_3_sign = (nodeID & (1 << 6)) == 0 ? 1 : -1;
+
+    mat4 mat = mat4(0);
+    mat[index_nz1][0] = row_1_sign;
+    mat[index_nz2][1] = row_2_sign;
+    mat[index_nz3][2] = row_3_sign;
+
+    Rot rot = Rot(mat, ivec3(row_1_sign == -1, row_2_sign == -1, row_3_sign == -1));
+    return rot;
+}
+#define GET_NODE_INDEX_FROM_NODE_ID(nodeID) nodeID >> 7
+
 
 // Debugging
 vec3 getColorGradient(float x){
@@ -82,29 +109,6 @@ struct Ray{
     vec3 dir;
     vec3 odir; 
 };
-
-struct Rot {
-    mat4 mat;
-    ivec3 offset;
-};
-
-Rot getRot() {
-    uint index_nz1 = NODE_ROT & 3;
-    uint index_nz2 = (NODE_ROT >> 2) & 3;
-    uint index_nz3 = 3 - index_nz1 - index_nz2;
-
-    int row_1_sign = (NODE_ROT & (1 << 4)) == 0 ? 1 : -1;
-    int row_2_sign = (NODE_ROT & (1 << 5)) == 0 ? 1 : -1;
-    int row_3_sign = (NODE_ROT & (1 << 6)) == 0 ? 1 : -1;
-
-    mat4 mat = mat4(0);
-    mat[index_nz1][0] = row_1_sign;
-    mat[index_nz2][1] = row_2_sign;
-    mat[index_nz3][2] = row_3_sign;
-
-    Rot rot = Rot(mat, ivec3(row_1_sign == -1, row_2_sign == -1, row_3_sign == -1));
-    return rot;
-}
 
 ivec3 applyRot(Rot rot, ivec3 v) {
     return ivec3(rot.mat * vec4(v, 1.0));    
@@ -162,16 +166,23 @@ vec4 voxelColor(in Ray ray, in uint voxel) {
     return GET_MAT(mat);
 }
 
-vec4 raycaster(in Ray ray, in Node node, in Rot rot){
+vec4 raycaster(in Ray ray){
     float tMin, tMax = 0;
     float rayLen = 0;
-    ivec3 voxelPos = ivec3(0);
-    ivec3 cellPos = ivec3(0);
-    uint voxelIndex = 0;
-    uint voxel = 0;
     ivec3 node_size_half = ivec3(NODE_SIZE / 2);
+    uint chunk_voxel_size = CHUNK_SIZE * NODE_SIZE;
 
-    if (!checkHit(ray, vec3(0), NODE_SIZE, tMin, tMax)) {
+    ivec3 cellPos;
+    ivec3 nodePos;
+    uint nodeID;
+    Rot rot;
+    uint nodeIndex;
+    Node node;
+    ivec3 voxelPos;
+    uint voxelIndex;
+    uint voxel;
+
+    if (!checkHit(ray, vec3(0), chunk_voxel_size, tMin, tMax)) {
         return vec4(0);
     }
     ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);  
@@ -179,13 +190,17 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
     
     int counter = 1;
     while (counter < MAX_STEPS) {
-        voxelPos = ivec3(ray.pos) - ivec3(ray.pos.x < 0, ray.pos.y < 0, ray.pos.z < 0);
+        cellPos = ivec3(ray.pos) - (ivec3(ray.pos.x < 0, ray.pos.y < 0, ray.pos.z < 0));
 
-        cellPos = voxelPos - node_size_half;
-        cellPos = applyRot(rot, cellPos);
-        cellPos += node_size_half - rot.offset;
+        nodePos = cellPos / NODE_SIZE;
+        nodeID = GET_NODE_ID(TO_NODE_ID_INDEX(nodePos));
+        rot = GET_ROT_FROM_NODE_ID(nodeID);
+        nodeIndex = GET_NODE_INDEX_FROM_NODE_ID(nodeID);
+        node = GET_NODE(nodeIndex);
 
-        voxelIndex = TO_INDEX(cellPos);
+        voxelPos = applyRot(rot, (cellPos % NODE_SIZE) - node_size_half) + node_size_half - rot.offset;
+
+        voxelIndex = TO_VOXEL_INDEX(voxelPos);
         voxel = GET_VOXEL(node, voxelIndex);
 
         if (voxel != 0) {
@@ -196,11 +211,15 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
             return voxelColor(ray, voxel);
         }
 
-        checkHit(ray, vec3(voxelPos), 1, tMin, tMax);                     
+        checkHit(ray, vec3(cellPos), 1, tMin, tMax);
         ray.pos = ray.pos + ray.dir * (tMax + RAY_POS_OFFSET);              
-        rayLen += tMax; 
+        rayLen += tMax;
 
-        if (ray.pos.x < 0 || ray.pos.x >= NODE_SIZE || ray.pos.y < 0 || ray.pos.y >= NODE_SIZE || ray.pos.z < 0 || ray.pos.z >= NODE_SIZE){
+        if (ray.pos.x < 0 || ray.pos.x >= chunk_voxel_size || ray.pos.y < 0 || ray.pos.y >= chunk_voxel_size || ray.pos.z < 0 || ray.pos.z >= chunk_voxel_size){
+            if (DEBUG_STEPS) {
+                return vec4(getColorGradient(float(counter) / MAX_STEPS), 1.0);
+            }
+
             return vec4(0);
         }
 
@@ -211,7 +230,6 @@ vec4 raycaster(in Ray ray, in Node node, in Rot rot){
 }
 
 void main() {
-    /*
     vec2 uv = -((2 * gl_FragCoord.xy - renderbuffer.size.xy) / renderbuffer.size.x);
 
     vec3 ro = POSITION;
@@ -223,24 +241,19 @@ void main() {
     rd = normalize(rd);
 
     Ray ray = Ray(ro, rd, vec3(1) / rd);
-    Node node = nodes.nodes[NODE_INDEX];
-    Rot rot = getRot();
-
     float tMin, tMax;
-    vec4 color = raycaster(ray, node, rot);
+    vec4 color = raycaster(ray);
 
     if (SHIP_TYPE == 1) {
         color.w *= 0.5;
     }
-    */
 
-    finalColor = vec4(oNormal, 1.0);
+    finalColor = color;
 
-    /*
     if (color.w == 0) {
         gl_FragDepth = 1.0;
     } else {
         gl_FragDepth = gl_FragCoord.z;
     }
-    */
+
 }
