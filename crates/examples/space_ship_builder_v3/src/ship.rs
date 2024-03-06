@@ -24,34 +24,34 @@ use std::time::Duration;
 
 pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
-pub type ShipType = u32;
-pub const SHIP_TYPE_BASE: ShipType = 0;
-pub const SHIP_TYPE_BUILD: ShipType = 1;
 
-pub const CHUNK_BLOCK_SIZE: IVec3 = ivec3(8, 8, 8);
-pub const CHUNK_WAVE_SIZE: IVec3 = ivec3(16, 16, 16);
-pub const CHUNK_WAVE_SIZE_WITH_PADDING: IVec3 = ivec3(18, 18, 18);
-pub const CHUNK_BLOCK_LEN: usize =
-    (CHUNK_BLOCK_SIZE.x * CHUNK_BLOCK_SIZE.y * CHUNK_BLOCK_SIZE.z) as usize;
-pub const CHUNK_WAVE_LEN: usize =
-    (CHUNK_WAVE_SIZE.x * CHUNK_WAVE_SIZE.y * CHUNK_WAVE_SIZE.z) as usize;
-pub const CHUNK_WAVE_WITH_PADDING_LEN: usize = (CHUNK_WAVE_SIZE_WITH_PADDING.x
-    * CHUNK_WAVE_SIZE_WITH_PADDING.y
-    * CHUNK_WAVE_SIZE_WITH_PADDING.z) as usize;
-
-pub struct Ship {
-    pub chunks: Vec<ShipChunk>,
+pub struct Ship<
+    const BS: i32,
+    const WS: i32,
+    const PS: u32,
+    const BL: usize, // Bock array len
+    const WL: usize, // Wave array len
+    const PL: usize, // Wave with Padding array len
+> {
+    pub chunks: Vec<ShipChunk<BS, WS, PS, BL, WL, PL>>,
 
     pub to_propergate: IndexQueue,
     pub to_collapse: IndexQueue,
 }
 
-pub struct ShipChunk {
+pub struct ShipChunk<
+    const BS: i32,
+    const WS: i32,
+    const PS: u32,
+    const BL: usize, // Bock array len
+    const WL: usize, // Wave array len
+    const PL: usize, // Wave with Padding array len
+> {
     pub pos: IVec3,
-    pub blocks: [BlockIndex; CHUNK_BLOCK_LEN],
-    pub wave: [Wave; CHUNK_WAVE_LEN],
-    pub node_id_bits: [u32; CHUNK_WAVE_LEN],
-    pub node_voxels: [RenderNode; CHUNK_WAVE_WITH_PADDING_LEN],
+    pub blocks: [BlockIndex; BL],
+    pub wave: [Wave; WL],
+    pub node_id_bits: [u32; WL],
+    pub node_voxels: [RenderNode; PL],
 }
 
 #[derive(Clone, Debug, Default)]
@@ -60,8 +60,16 @@ pub struct Wave {
     pub dependent_waves: IndexQueue,
 }
 
-impl Ship {
-    pub fn new() -> Result<Ship> {
+impl<
+        const BS: i32,
+        const WS: i32,
+        const PS: u32,
+        const BL: usize,
+        const WL: usize,
+        const PL: usize,
+    > Ship<BS, WS, PS, BL, WL, PL>
+{
+    pub fn new() -> Result<Ship<BS, WS, PS, BL, WL, PL>> {
         let chunk = ShipChunk::new(IVec3::ZERO);
 
         let mut ship = Ship {
@@ -97,13 +105,13 @@ impl Ship {
 
     pub fn get_wave_index(&self, chunk_pos: IVec3, in_chunk_pos: IVec3) -> Result<usize> {
         let chunk_index = self.get_chunk_index(chunk_pos)?;
-        let in_chunk_index = to_1d_i(in_chunk_pos, CHUNK_WAVE_SIZE) as usize;
-        Ok(in_chunk_index + CHUNK_WAVE_LEN * chunk_index)
+        let in_chunk_index = to_1d_i(in_chunk_pos, IVec3::ONE * WS) as usize;
+        Ok(in_chunk_index + WL * chunk_index)
     }
 
     pub fn get_wave_index_from_wave_pos(&self, wave_pos: IVec3) -> Result<usize> {
-        let chunk_pos = get_chunk_pos_of_wave_pos(wave_pos);
-        let in_chunk_pos = get_in_chunk_pos_of_wave_pos(wave_pos);
+        let chunk_pos = self.get_chunk_pos_of_wave_pos(wave_pos);
+        let in_chunk_pos = self.get_in_chunk_pos_of_wave_pos(wave_pos);
         self.get_wave_index(chunk_pos, in_chunk_pos)
     }
 
@@ -113,10 +121,10 @@ impl Ship {
         block_index: BlockIndex,
         node_controller: &NodeController,
     ) -> Result<()> {
-        let chunk_pos = get_chunk_pos_of_block_pos(block_pos);
-        let in_chunk_pos = get_in_chunk_pos_of_wave_pos(block_pos);
+        let chunk_pos = self.get_chunk_pos_of_block_pos(block_pos);
+        let in_chunk_pos = self.get_in_chunk_pos_of_wave_pos(block_pos);
         let chunk_index = self.get_chunk_index(chunk_pos)?;
-        let in_chunk_index = to_1d_i(in_chunk_pos, CHUNK_BLOCK_SIZE) as usize;
+        let in_chunk_index = to_1d_i(in_chunk_pos, IVec3::ONE * BS) as usize;
 
         let chunk = &mut self.chunks[chunk_index];
 
@@ -167,8 +175,8 @@ impl Ship {
                 self.propergate(wave_index, node_controller, debug_controller)?;
 
                 if debug_controller.mode == DebugMode::WFCSkip {
-                    let chunk_index = wave_index / CHUNK_WAVE_LEN;
-                    let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+                    let chunk_index = wave_index / WL;
+                    let in_chunk_wave_index = wave_index % WL;
                     last_wave_something =
                         self.chunks[chunk_index].node_id_bits[in_chunk_wave_index] != 0;
                 }
@@ -181,8 +189,8 @@ impl Ship {
                 changed = true;
 
                 if debug_controller.mode == DebugMode::WFCSkip {
-                    let chunk_index = wave_index / CHUNK_WAVE_LEN;
-                    let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+                    let chunk_index = wave_index / WL;
+                    let in_chunk_wave_index = wave_index % WL;
                     last_wave_something =
                         self.chunks[chunk_index].node_id_bits[in_chunk_wave_index] != 0;
                 }
@@ -234,12 +242,12 @@ impl Ship {
         node_controller: &NodeController,
         #[cfg(debug_assertions)] debug_controller: &mut DebugController,
     ) -> Result<()> {
-        let chunk_index = wave_index / CHUNK_WAVE_LEN;
-        let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+        let chunk_index = wave_index / WL;
+        let in_chunk_wave_index = wave_index % WL;
 
-        let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+        let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, IVec3::ONE * WS);
         let chunk_pos = self.chunks[chunk_index].pos;
-        let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+        let wave_pos = in_chunk_wave_pos + chunk_pos * WS;
 
         let config = get_config(wave_pos);
 
@@ -258,7 +266,7 @@ impl Ship {
         for (pattern_index, pattern) in node_controller.patterns[config].iter().enumerate() {
             let accepted = pattern.block_req.iter().all(|(&offset, indecies)| {
                 let req_wave_pos = wave_pos + offset;
-                let req_chunk_pos = get_chunk_pos_of_wave_pos(req_wave_pos);
+                let req_chunk_pos = self.get_chunk_pos_of_wave_pos(req_wave_pos);
                 let req_chunk_index = self.get_chunk_index(req_chunk_pos);
 
                 if req_chunk_index.is_err() {
@@ -267,8 +275,8 @@ impl Ship {
                 debug_assert!((req_wave_pos % 2) == IVec3::ONE);
 
                 let req_block_pos = get_block_pos_of_wave_pos(req_wave_pos);
-                let req_in_chunk_pos = get_in_chunk_pos_of_block_pos(req_block_pos);
-                let index = to_1d_i(req_in_chunk_pos, CHUNK_BLOCK_SIZE) as usize;
+                let req_in_chunk_pos = self.get_in_chunk_pos_of_block_pos(req_block_pos);
+                let index = to_1d_i(req_in_chunk_pos, IVec3::ONE * BS) as usize;
                 let block_index = self.chunks[req_chunk_index.unwrap()].blocks[index];
                 indecies.contains(&block_index)
             });
@@ -300,12 +308,12 @@ impl Ship {
         node_controller: &NodeController,
         #[cfg(debug_assertions)] debug_controller: &mut DebugController,
     ) -> Result<()> {
-        let chunk_index = wave_index / CHUNK_WAVE_LEN;
-        let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+        let chunk_index = wave_index / WL;
+        let in_chunk_wave_index = wave_index % WL;
 
-        let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+        let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, IVec3::ONE * WS);
         let chunk_pos = self.chunks[chunk_index].pos;
-        let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+        let wave_pos = in_chunk_wave_pos + chunk_pos * WS;
 
         let config = get_config(wave_pos);
 
@@ -332,8 +340,8 @@ impl Ship {
 
             let accepted = pattern.node_req.iter().all(|(&offset, indecies)| {
                 let req_wave_pos = wave_pos + offset;
-                let req_chunk_pos = get_chunk_pos_of_wave_pos(req_wave_pos);
-                let req_in_chunk_pos = get_in_chunk_pos_of_block_pos(req_wave_pos);
+                let req_chunk_pos = self.get_chunk_pos_of_wave_pos(req_wave_pos);
+                let req_in_chunk_pos = self.get_in_chunk_pos_of_block_pos(req_wave_pos);
                 let req_chunk_index = self.get_chunk_index(req_chunk_pos);
 
                 if req_chunk_index.is_err() {
@@ -341,7 +349,7 @@ impl Ship {
                 }
 
                 let req_config = get_config(req_wave_pos);
-                let req_wave_index = to_1d_i(req_in_chunk_pos, CHUNK_WAVE_SIZE) as usize;
+                let req_wave_index = to_1d_i(req_in_chunk_pos, IVec3::ONE * WS) as usize;
 
                 let found = self.chunks[req_chunk_index.unwrap()].wave[req_wave_index]
                     .possible_patterns
@@ -370,11 +378,11 @@ impl Ship {
 
         let pattern = &node_controller.patterns[config][new_render_pattern];
 
-        let node_index = to_1d_i(in_chunk_wave_pos, CHUNK_WAVE_SIZE) as usize;
+        let node_index = to_1d_i(in_chunk_wave_pos, IVec3::ONE * WS) as usize;
         chunk.node_id_bits[node_index] = pattern.node.into();
 
         let node_index_with_padding =
-            to_1d_i(in_chunk_wave_pos + IVec3::ONE, CHUNK_WAVE_SIZE_WITH_PADDING) as usize;
+            to_1d_i(in_chunk_wave_pos + IVec3::ONE, IVec3::ONE * PS as i32) as usize;
         chunk.node_voxels[node_index_with_padding] = RenderNode(pattern.node.is_some());
 
         if possible_patterns_changed {
@@ -389,11 +397,11 @@ impl Ship {
 
         for (&offset, _) in pattern.node_req.iter() {
             let req_pos = wave_pos + offset;
-            let req_chunk_pos = get_chunk_pos_of_wave_pos(req_pos);
-            let req_in_chunk_pos = get_in_chunk_pos_of_wave_pos(req_pos);
+            let req_chunk_pos = self.get_chunk_pos_of_wave_pos(req_pos);
+            let req_in_chunk_pos = self.get_in_chunk_pos_of_wave_pos(req_pos);
 
             let req_chunk_index = self.get_chunk_index(req_chunk_pos).unwrap();
-            let req_index = to_1d_i(req_in_chunk_pos, CHUNK_WAVE_SIZE) as usize;
+            let req_index = to_1d_i(req_in_chunk_pos, IVec3::ONE * WS) as usize;
             let req_wave_index = self
                 .get_wave_index(req_chunk_pos, req_in_chunk_pos)
                 .unwrap();
@@ -414,8 +422,8 @@ impl Ship {
     pub fn debug_show_wave(&mut self, debug_controller: &mut DebugController) {
         for chunk in self.chunks.iter() {
             debug_controller.add_cube(
-                (chunk.pos * CHUNK_WAVE_SIZE).as_vec3(),
-                ((chunk.pos + IVec3::ONE) * CHUNK_WAVE_SIZE).as_vec3(),
+                (chunk.pos * WS).as_vec3(),
+                ((chunk.pos + IVec3::ONE) * WS).as_vec3(),
                 vec4(1.0, 0.0, 0.0, 1.0),
             );
         }
@@ -426,12 +434,12 @@ impl Ship {
         while !to_propergate.is_empty() {
             let wave_index = to_propergate.pop_front().unwrap();
 
-            let chunk_index = wave_index / CHUNK_WAVE_LEN;
-            let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+            let chunk_index = wave_index / WL;
+            let in_chunk_wave_index = wave_index % WL;
 
-            let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+            let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, IVec3::ONE * WS);
             let chunk_pos = self.chunks[chunk_index].pos;
-            let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+            let wave_pos = in_chunk_wave_pos + chunk_pos * WS;
 
             let wave = &self.chunks[chunk_index].wave[in_chunk_wave_index];
             let lines = iter::once("p".to_owned())
@@ -455,12 +463,12 @@ impl Ship {
         let mut i = 0;
         while !to_collpase.is_empty() {
             let wave_index = to_collpase.pop_front().unwrap();
-            let chunk_index = wave_index / CHUNK_WAVE_LEN;
-            let in_chunk_wave_index = wave_index % CHUNK_WAVE_LEN;
+            let chunk_index = wave_index / WL;
+            let in_chunk_wave_index = wave_index % WL;
 
-            let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, CHUNK_WAVE_SIZE);
+            let in_chunk_wave_pos = to_3d_i(in_chunk_wave_index as i32, IVec3::ONE * WS);
             let chunk_pos = self.chunks[chunk_index].pos;
-            let wave_pos = in_chunk_wave_pos + chunk_pos * CHUNK_WAVE_SIZE;
+            let wave_pos = in_chunk_wave_pos + chunk_pos * WS;
 
             let wave = &self.chunks[chunk_index].wave[in_chunk_wave_index];
             let lines = iter::once("c".to_owned())
@@ -484,10 +492,10 @@ impl Ship {
         for chunk_index in 0..self.chunks.len() {
             self.chunks[chunk_index].wave = std::array::from_fn(|_| Wave::default());
 
-            let chunk_pos = self.chunks[chunk_index].pos * CHUNK_BLOCK_SIZE;
-            for x in 0..CHUNK_BLOCK_SIZE.x {
-                for y in 0..CHUNK_BLOCK_SIZE.y {
-                    for z in 0..CHUNK_BLOCK_SIZE.z {
+            let chunk_pos = self.chunks[chunk_index].pos * BS;
+            for x in 0..BS as i32 {
+                for y in 0..BS as i32 {
+                    for z in 0..BS as i32 {
                         let pos = ivec3(x, y, z) + chunk_pos;
                         self.update_wave(pos, node_controller)?;
                     }
@@ -497,26 +505,26 @@ impl Ship {
 
         Ok(())
     }
+
+    pub fn get_chunk_pos_of_block_pos(&self, pos: IVec3) -> IVec3 {
+        (pos / BS) - ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
+    }
+
+    pub fn get_in_chunk_pos_of_block_pos(&self, pos: IVec3) -> IVec3 {
+        pos % BS
+    }
+
+    pub fn get_chunk_pos_of_wave_pos(&self, pos: IVec3) -> IVec3 {
+        (pos / WS) - ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
+    }
+
+    pub fn get_in_chunk_pos_of_wave_pos(&self, pos: IVec3) -> IVec3 {
+        pos % WS
+    }
 }
 
-fn pos_in_bounds(pos: IVec3, size: IVec3) -> bool {
+pub fn pos_in_bounds(pos: IVec3, size: IVec3) -> bool {
     pos.cmpge(IVec3::ZERO).all() && pos.cmplt(size).all()
-}
-
-pub fn get_chunk_pos_of_block_pos(pos: IVec3) -> IVec3 {
-    (pos / CHUNK_BLOCK_SIZE.x) - ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
-}
-
-pub fn get_in_chunk_pos_of_block_pos(pos: IVec3) -> IVec3 {
-    pos % CHUNK_BLOCK_SIZE.x
-}
-
-pub fn get_chunk_pos_of_wave_pos(pos: IVec3) -> IVec3 {
-    (pos / CHUNK_WAVE_SIZE.x) - ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
-}
-
-pub fn get_in_chunk_pos_of_wave_pos(pos: IVec3) -> IVec3 {
-    pos % CHUNK_WAVE_SIZE.x
 }
 
 pub fn get_wave_pos_of_block_pos(pos: IVec3) -> IVec3 {
@@ -532,14 +540,22 @@ pub fn get_config(pos: IVec3) -> usize {
     (c.x + (c.y << 1) + (c.z << 2)) as usize
 }
 
-impl ShipChunk {
-    pub fn new(pos: IVec3) -> ShipChunk {
+impl<
+        const BS: i32,
+        const WS: i32,
+        const PS: u32,
+        const BL: usize,
+        const WL: usize,
+        const WPL: usize,
+    > ShipChunk<BS, WS, PS, BL, WL, WPL>
+{
+    pub fn new(pos: IVec3) -> ShipChunk<BS, WS, PS, BL, WL, WPL> {
         ShipChunk {
             pos,
-            blocks: [BLOCK_INDEX_EMPTY; CHUNK_BLOCK_LEN],
+            blocks: [BLOCK_INDEX_EMPTY; BL],
             wave: std::array::from_fn(|_| Wave::default()),
-            node_id_bits: [0; CHUNK_WAVE_LEN],
-            node_voxels: [RenderNode(false); CHUNK_WAVE_WITH_PADDING_LEN],
+            node_id_bits: [0; WL],
+            node_voxels: [RenderNode(false); WPL],
         }
     }
 }

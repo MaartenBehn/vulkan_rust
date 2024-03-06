@@ -1,8 +1,7 @@
-use crate::ship::{SHIP_TYPE_BASE, SHIP_TYPE_BUILD};
 use crate::{
     builder::{self, Builder},
     node::{Node, NodeController},
-    ship::{Ship, ShipType},
+    ship::Ship,
     ship_mesh::{self, ShipMesh},
 };
 use octa_force::glam::{IVec3, UVec3};
@@ -23,12 +22,9 @@ use octa_force::{
 };
 use std::mem::size_of;
 
-#[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
-#[repr(C)]
-pub struct Vertex {
-    pub data: u32,
-}
+type RenderMode = u32;
+const RENDER_MODE_BASE: RenderMode = 0;
+const RENDER_MODE_BUILD: RenderMode = 1;
 
 pub struct ShipRenderer {
     pub render_buffer: Buffer,
@@ -48,6 +44,13 @@ pub struct ShipRenderer {
     pub depth_image_view: ImageView,
 }
 
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+#[repr(C)]
+pub struct Vertex {
+    pub data: u32,
+}
+
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 #[repr(C)]
@@ -64,7 +67,7 @@ pub struct RenderBuffer {
 #[allow(dead_code)]
 #[repr(C)]
 pub struct PushConstant {
-    pub ship_type: ShipType,
+    data: u32,
 }
 
 impl ShipRenderer {
@@ -185,11 +188,11 @@ impl ShipRenderer {
             GraphicsPipelineCreateInfo {
                 shaders: &[
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../shaders/shader.vert.spv")[..],
+                        source: &include_bytes!("../shaders/chunk.vert.spv")[..],
                         stage: vk::ShaderStageFlags::VERTEX,
                     },
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../shaders/shader.frag.spv")[..],
+                        source: &include_bytes!("../shaders/chunk.frag.spv")[..],
                         stage: vk::ShaderStageFlags::FRAGMENT,
                     },
                 ],
@@ -276,26 +279,31 @@ impl ShipRenderer {
             &[&self.static_descriptor_sets[image_index]],
         );
 
-        self.render_ship_mesh(buffer, image_index, &builder.base_ship_mesh, SHIP_TYPE_BASE);
+        self.render_ship_mesh(
+            buffer,
+            image_index,
+            &builder.base_ship_mesh,
+            RENDER_MODE_BASE,
+        );
         self.render_ship_mesh(
             buffer,
             image_index,
             &builder.build_ship_mesh,
-            SHIP_TYPE_BUILD,
+            RENDER_MODE_BUILD,
         );
     }
 
-    pub fn render_ship_mesh(
+    pub fn render_ship_mesh<const PS: u32, const RS: i32>(
         &self,
         buffer: &CommandBuffer,
         image_index: usize,
-        ship_mesh: &ShipMesh,
-        ship_type: ShipType,
+        ship_mesh: &ShipMesh<PS, RS>,
+        render_mode: RenderMode,
     ) {
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT,
-            &PushConstant { ship_type },
+            &PushConstant::new(render_mode, RS as u32),
         );
         for chunk in ship_mesh.chunks.iter() {
             if chunk.index_count == 0 {
@@ -345,5 +353,13 @@ impl octa_force::vulkan::Vertex for Vertex {
             format: vk::Format::R32_UINT,
             offset: 0,
         }]
+    }
+}
+
+impl PushConstant {
+    pub fn new(render_mode: RenderMode, chunk_size: u32) -> Self {
+        let data = render_mode + (chunk_size << 3);
+
+        PushConstant { data }
     }
 }

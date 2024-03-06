@@ -10,10 +10,7 @@ use std::collections::HashMap;
 use crate::debug::{DebugController, DebugMode};
 
 use crate::node::BLOCK_INDEX_EMPTY;
-use crate::ship::{
-    get_chunk_pos_of_block_pos, get_in_chunk_pos_of_block_pos, get_in_chunk_pos_of_wave_pos,
-    WaveIndex, CHUNK_BLOCK_LEN,
-};
+use crate::ship::WaveIndex;
 use index_queue::IndexQueue;
 use octa_force::glam::{vec3, vec4, IVec3, Vec3};
 use octa_force::vulkan::{DescriptorPool, DescriptorSetLayout};
@@ -31,11 +28,11 @@ pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 const DEBUG_COLLAPSE_SPEED: Duration = Duration::from_millis(100);
 
 pub struct Builder {
-    pub ship: Ship,
-    pub build_blocks: HashMap<IVec3, BlockIndex>,
+    pub ship: Ship<8, 16, 18, { 8 * 8 * 8 }, { 16 * 16 * 16 }, { 18 * 18 * 18 }>,
+    pub base_ship_mesh: ShipMesh<18, 16>,
+    pub build_ship_mesh: ShipMesh<18, 16>,
 
-    pub base_ship_mesh: ShipMesh,
-    pub build_ship_mesh: ShipMesh,
+    pub build_blocks: HashMap<IVec3, BlockIndex>,
 
     possible_blocks: Vec<BlockIndex>,
     block_to_build: usize,
@@ -52,11 +49,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(
-        ship: Ship,
-        node_controller: &NodeController,
-        image_count: usize,
-    ) -> Result<Builder> {
+    pub fn new(images_count: usize, node_controller: &NodeController) -> Result<Builder> {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(
             node_controller
@@ -73,11 +66,16 @@ impl Builder {
                 .unwrap(),
         );
 
+        let ship = Ship::new()?;
+        let base_ship_mesh = ShipMesh::new(images_count)?;
+        let build_ship_mesh = ShipMesh::new(images_count)?;
+
         Ok(Builder {
-            build_blocks: HashMap::new(),
-            base_ship_mesh: ShipMesh::new(image_count).unwrap(),
-            build_ship_mesh: ShipMesh::new(image_count).unwrap(),
             ship,
+            base_ship_mesh,
+            build_ship_mesh,
+
+            build_blocks: HashMap::new(),
 
             block_to_build: 1,
             possible_blocks,
@@ -96,6 +94,7 @@ impl Builder {
 
     pub fn update(
         &mut self,
+
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -146,7 +145,7 @@ impl Builder {
                 .as_ivec3();
 
             if self.last_pos != pos || self.last_block_to_build != self.block_to_build {
-                let chunk_pos = get_chunk_pos_of_block_pos(pos);
+                let chunk_pos = self.ship.get_chunk_pos_of_block_pos(pos);
                 if self.ship.has_chunk(chunk_pos) {
                     // Undo the last placement.
                     let last_block_index = *self
@@ -234,8 +233,7 @@ impl Builder {
         Ok(())
     }
 
-    pub fn on_node_controller_change(&mut self, node_controller: &NodeController) -> Result<()> {
-        self.ship.on_node_controller_change(node_controller)?;
+    pub fn on_node_controller_change(&mut self) -> Result<()> {
         self.last_block_to_build = BlockIndex::MAX;
 
         Ok(())

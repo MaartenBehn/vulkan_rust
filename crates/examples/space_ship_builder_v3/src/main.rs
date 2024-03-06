@@ -19,6 +19,7 @@ use octa_force::{log, App, BaseApp};
 use crate::debug::{DebugController, DebugLineRenderer};
 
 use crate::debug::DebugTextRenderer;
+use crate::ship_mesh::ShipMesh;
 use crate::{
     builder::Builder, node::NodeController, ship::Ship, ship_renderer::ShipRenderer,
     voxel_loader::VoxelLoader,
@@ -67,9 +68,7 @@ impl App for SpaceShipBuilder {
         let node_controller =
             NodeController::new(voxel_loader, "./assets/models/space_ship_config_v3.json")?;
 
-        let ship = Ship::new()?;
-
-        let builder = Builder::new(ship, &node_controller, base.swapchain.images.len())?;
+        let builder = Builder::new(base.swapchain.images.len(), &node_controller)?;
 
         let renderer = ShipRenderer::new(
             context,
@@ -139,7 +138,9 @@ impl App for SpaceShipBuilder {
             let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox")?;
             self.node_controller.load(voxel_loader)?;
 
+            self.builder.on_node_controller_change()?;
             self.builder
+                .ship
                 .on_node_controller_change(&self.node_controller)?;
 
             self.renderer = ShipRenderer::new(

@@ -6,7 +6,7 @@ use octa_force::glam::BVec3;
 use octa_force::glam::Mat3;
 use octa_force::glam::Mat4;
 
-use crate::ship::get_config;
+use crate::ship::{get_config, Ship};
 use dot_vox::Color;
 use octa_force::{
     anyhow::Result,

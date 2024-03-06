@@ -3,7 +3,6 @@
 // General
 #define DEBUG_STEPS false
 #define NODE_SIZE 4
-#define CHUNK_SIZE 16
 #define MAX_STEPS 100
 #define RAY_POS_OFFSET 0.0001
 #define BORDER_SIZE 0.01
@@ -50,16 +49,17 @@ layout(set = 0, binding = 2) buffer Mats {
 
 // Ship type (Push constant)
 layout(push_constant, std430) uniform PushConstant {
-    uint ship_type;
+    uint data;
 } push_constant;
-#define SHIP_TYPE push_constant.ship_type
+#define RENDER_MODE uint(push_constant.data & 7)
+#define CHUNK_SIZE uint((push_constant.data >> 3) & 511)
 
 
 // Chunk
 layout(set = 1, binding = 0) buffer Chunk {
     uint node_ids[];
 } chunk;
-#define TO_NODE_ID_INDEX(pos) ((pos.z * CHUNK_SIZE * CHUNK_SIZE) + (pos.y * CHUNK_SIZE) + pos.x)
+#define TO_NODE_ID_INDEX(pos, chunk_size) ((pos.z * chunk_size * chunk_size) + (pos.y * chunk_size) + pos.x)
 #define GET_NODE_ID(index) chunk.node_ids[index]
 
 
@@ -170,7 +170,8 @@ vec4 raycaster(in Ray ray){
     float tMin, tMax = 0;
     float rayLen = 0;
     ivec3 node_size_half = ivec3(NODE_SIZE / 2);
-    uint chunk_voxel_size = CHUNK_SIZE * NODE_SIZE;
+    uint chunk_size = CHUNK_SIZE;
+    uint chunk_voxel_size = chunk_size * NODE_SIZE;
 
     ivec3 cellPos;
     ivec3 nodePos;
@@ -193,7 +194,7 @@ vec4 raycaster(in Ray ray){
         cellPos = ivec3(ray.pos);
 
         nodePos = cellPos / NODE_SIZE;
-        nodeID = GET_NODE_ID(TO_NODE_ID_INDEX(nodePos));
+        nodeID = GET_NODE_ID(TO_NODE_ID_INDEX(nodePos, chunk_size));
         rot = GET_ROT_FROM_NODE_ID(nodeID);
         nodeIndex = GET_NODE_INDEX_FROM_NODE_ID(nodeID);
 
@@ -244,7 +245,7 @@ void main() {
     float tMin, tMax;
     vec4 color = raycaster(ray);
 
-    if (SHIP_TYPE == 1) {
+    if (RENDER_MODE == 1) {
         color.w *= 0.5;
     }
 
