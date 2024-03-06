@@ -1,7 +1,7 @@
 #version 450
 
 // General
-#define DEBUG_STEPS true
+#define DEBUG_STEPS false
 #define NODE_SIZE 4
 #define CHUNK_SIZE 16
 #define MAX_STEPS 100
@@ -185,8 +185,8 @@ vec4 raycaster(in Ray ray){
     if (!checkHit(ray, vec3(0), chunk_voxel_size, tMin, tMax)) {
         return vec4(0);
     }
-    //ray.pos = ray.pos + ray.dir * (tMin + RAY_POS_OFFSET);
-    //ddddddddddrayLen += tMin;
+    ray.pos += ray.dir * RAY_POS_OFFSET;
+    //rayLen += RAY_POS_OFFSET;
     
     int counter = 1;
     while (counter < MAX_STEPS) {
@@ -196,7 +196,6 @@ vec4 raycaster(in Ray ray){
         nodeID = GET_NODE_ID(TO_NODE_ID_INDEX(nodePos));
         rot = GET_ROT_FROM_NODE_ID(nodeID);
         nodeIndex = GET_NODE_INDEX_FROM_NODE_ID(nodeID);
-        return vec4(getColorGradient(float(nodeIndex) / 4096), 1.0);
 
         node = GET_NODE(nodeIndex);
 
@@ -218,17 +217,16 @@ vec4 raycaster(in Ray ray){
         rayLen += tMax;
 
         if (ray.pos.x < 0 || ray.pos.x >= chunk_voxel_size || ray.pos.y < 0 || ray.pos.y >= chunk_voxel_size || ray.pos.z < 0 || ray.pos.z >= chunk_voxel_size){
-            if (DEBUG_STEPS) {
-                return vec4(getColorGradient(float(counter) / MAX_STEPS), 1.0);
-            }
-
-            return vec4(0);
+            break;
         }
 
         counter++;
     }
 
-    return vec4(getColorGradient(1.0), 1.0);
+    if (DEBUG_STEPS) {
+        return vec4(getColorGradient(float(counter) / MAX_STEPS), 1.0);
+    }
+    return vec4(0);
 }
 
 void main() {

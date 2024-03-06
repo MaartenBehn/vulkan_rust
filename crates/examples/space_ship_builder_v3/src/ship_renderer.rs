@@ -99,7 +99,7 @@ impl ShipRenderer {
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 2,
+            images_len * 3,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
@@ -107,7 +107,7 @@ impl ShipRenderer {
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,
-                    descriptor_count: images_len * 3,
+                    descriptor_count: images_len * 4,
                 },
             ],
         )?;
@@ -298,7 +298,7 @@ impl ShipRenderer {
             &PushConstant { ship_type },
         );
         for chunk in ship_mesh.chunks.iter() {
-            if chunk.index_buffer_size == 0 {
+            if chunk.index_count == 0 {
                 continue;
             }
 

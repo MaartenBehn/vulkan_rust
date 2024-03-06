@@ -4,8 +4,8 @@ use octa_force::{
     log,
     vulkan::{Buffer, Context},
 };
-use std::iter;
 use std::mem::size_of;
+use std::{iter, mem};
 
 use crate::math::{to_1d, to_3d};
 use crate::node::{NodeID, EMPYT_PATTERN_INDEX};
@@ -16,10 +16,11 @@ use block_mesh::{
     greedy_quads, Axis, AxisPermutation, GreedyQuadsBuffer, MergeVoxel, OrientedBlockFace,
     QuadCoordinateConfig, Voxel, VoxelVisibility, RIGHT_HANDED_Y_UP_CONFIG,
 };
+use dot_vox::Size;
 use octa_force::anyhow::bail;
 use octa_force::glam::{ivec3, uvec3, IVec3};
 use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::ash::vk::BufferUsageFlags;
+use octa_force::vulkan::ash::vk::{BufferUsageFlags, DeviceSize};
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
 use octa_force::vulkan::{
     DescriptorPool, DescriptorSet, DescriptorSetLayout, WriteDescriptorSet, WriteDescriptorSetKind,
@@ -30,16 +31,14 @@ type ChunkShape = ConstShape3u32<{ CHUNK_SIZE + 2 }, { CHUNK_SIZE + 2 }, { CHUNK
 
 pub struct ShipMesh {
     pub chunks: Vec<MeshChunk>,
+    pub to_drop_buffers: Vec<Vec<Buffer>>,
 }
 
 pub struct MeshChunk {
     pub pos: IVec3,
     pub chunk_buffer: Buffer,
-
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
-    pub vertex_buffer_size: usize,
-    pub index_buffer_size: usize,
     pub index_count: usize,
 
     pub descriptor_sets: Vec<DescriptorSet>,
@@ -49,30 +48,44 @@ pub struct MeshChunk {
 pub struct RenderNode(pub bool);
 
 impl ShipMesh {
-    pub fn new() -> Result<ShipMesh> {
-        Ok(ShipMesh { chunks: Vec::new() })
+    pub fn new(images_len: usize) -> Result<ShipMesh> {
+        let mut to_drop_buffers = Vec::new();
+        for _ in 0..images_len {
+            to_drop_buffers.push(vec![])
+        }
+
+        Ok(ShipMesh {
+            chunks: Vec::new(),
+            to_drop_buffers,
+        })
     }
 
     pub fn update(
         &mut self,
         ship: &Ship,
         changed_chunks: Vec<usize>,
-
-        images_len: usize,
+        image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
+        // Buffers from the last swapchain iteration are being dropped
+        self.to_drop_buffers[image_index].clear();
+
         for chunk_index in changed_chunks.iter() {
             let chunk = &ship.chunks[*chunk_index];
             let mesh_chunk_index = self.chunks.iter().position(|c| c.pos == chunk.pos);
             if mesh_chunk_index.is_some() {
-                self.chunks[mesh_chunk_index.unwrap()].update(chunk, context)?;
+                self.chunks[mesh_chunk_index.unwrap()].update(
+                    chunk,
+                    context,
+                    &mut self.to_drop_buffers[image_index],
+                )?;
             } else {
                 let new_chunk = MeshChunk::new(
                     chunk.pos,
                     chunk,
-                    images_len,
+                    self.to_drop_buffers.len(),
                     context,
                     descriptor_layout,
                     descriptor_pool,
@@ -82,6 +95,41 @@ impl ShipMesh {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    pub fn update_from_mesh(
+        &mut self,
+        other_mesh: &ShipMesh,
+        image_index: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<()> {
+        // Buffers from the last swapchain iteration are being dropped
+        self.to_drop_buffers[image_index].clear();
+
+        for (i, other_chunk) in other_mesh.chunks.iter().enumerate() {
+            if self.chunks.len() <= (i) {
+                let new_chunk = MeshChunk::new_from_chunk(
+                    other_chunk,
+                    self.to_drop_buffers.len(),
+                    context,
+                    descriptor_layout,
+                    descriptor_pool,
+                )?;
+                self.chunks.push(new_chunk);
+            } else {
+                self.chunks[i].update_from_chunk(
+                    other_chunk,
+                    context,
+                    &mut self.to_drop_buffers[image_index],
+                )?;
+            }
+        }
+
+        self.chunks.truncate(other_mesh.chunks.len());
 
         Ok(())
     }
@@ -104,22 +152,30 @@ impl MeshChunk {
             return Ok(None);
         }
 
-        let chunk_buffer = Self::create_chunk_buffer(context, &ship_chunk.node_id_bits)?;
-        let vertx_buffer = Self::create_vertex_buffer(context, vertecies)?;
-        let index_buffer = Self::create_index_buffer(context, indecies)?;
-
-        let mut descriptor_sets = Vec::new();
-        for _ in 0..images_len {
-            let render_descriptor_set = descriptor_pool.allocate_set(descriptor_layout)?;
-
-            render_descriptor_set.update(&[WriteDescriptorSet {
-                binding: 0,
-                kind: WriteDescriptorSetKind::StorageBuffer {
-                    buffer: &chunk_buffer,
-                },
-            }]);
-            descriptor_sets.push(render_descriptor_set);
-        }
+        let chunk_buffer = Self::create_buffer_from_data(
+            context,
+            &ship_chunk.node_id_bits,
+            BufferUsageFlags::STORAGE_BUFFER,
+            (ship_chunk.node_id_bits.len() * size_of::<u32>()) as _,
+        )?;
+        let vertx_buffer = Self::create_buffer_from_data(
+            context,
+            &vertecies,
+            BufferUsageFlags::VERTEX_BUFFER,
+            (vertecies.len() * size_of::<Vertex>()) as _,
+        )?;
+        let index_buffer = Self::create_buffer_from_data(
+            context,
+            &indecies,
+            BufferUsageFlags::INDEX_BUFFER,
+            (indecies.len() * size_of::<u16>()) as _,
+        )?;
+        let descriptor_sets = Self::create_descriptor_sets(
+            &chunk_buffer,
+            images_len,
+            descriptor_layout,
+            descriptor_pool,
+        )?;
 
         Ok(Some(MeshChunk {
             pos,
@@ -127,52 +183,144 @@ impl MeshChunk {
 
             vertex_buffer: vertx_buffer,
             index_buffer,
-            vertex_buffer_size: vertex_size,
-            index_buffer_size: index_size,
             index_count: index_size,
 
             descriptor_sets,
         }))
     }
 
-    pub fn update(&mut self, ship_chunk: &ShipChunk, context: &Context) -> Result<()> {
+    pub fn new_from_chunk(
+        chunk: &MeshChunk,
+        images_len: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<Self> {
+        let chunk_buffer = Self::create_buffer_from_buffer(
+            context,
+            &chunk.chunk_buffer,
+            BufferUsageFlags::STORAGE_BUFFER,
+        )?;
+        let vertex_buffer = Self::create_buffer_from_buffer(
+            context,
+            &chunk.vertex_buffer,
+            BufferUsageFlags::VERTEX_BUFFER,
+        )?;
+        let index_buffer = Self::create_buffer_from_buffer(
+            context,
+            &chunk.index_buffer,
+            BufferUsageFlags::INDEX_BUFFER,
+        )?;
+
+        context.execute_one_time_commands(|cmd_buffer| {
+            cmd_buffer.copy_buffer(&chunk.chunk_buffer, &chunk_buffer);
+            cmd_buffer.copy_buffer(&chunk.vertex_buffer, &vertex_buffer);
+            cmd_buffer.copy_buffer(&chunk.index_buffer, &index_buffer);
+        })?;
+
+        let descriptor_sets = Self::create_descriptor_sets(
+            &chunk_buffer,
+            images_len,
+            descriptor_layout,
+            descriptor_pool,
+        )?;
+
+        Ok(MeshChunk {
+            pos: chunk.pos,
+            chunk_buffer,
+            vertex_buffer,
+            index_buffer,
+            index_count: chunk.index_count,
+            descriptor_sets,
+        })
+    }
+
+    pub fn update(
+        &mut self,
+        ship_chunk: &ShipChunk,
+        context: &Context,
+        to_drop_buffers: &mut Vec<Buffer>,
+    ) -> Result<()> {
         self.chunk_buffer
             .copy_data_to_buffer(&ship_chunk.node_id_bits)?;
 
         let (vertecies, indecies) = Self::create_mesh(ship_chunk);
-        let vertex_size = vertecies.len();
-        let index_size = indecies.len();
+        let vertex_size = (vertecies.len() * size_of::<Vertex>()) as DeviceSize;
+        let index_size = (indecies.len() * size_of::<u16>()) as DeviceSize;
 
-        if vertex_size > self.vertex_buffer_size {
-            self.vertex_buffer = Self::create_vertex_buffer(context, vertecies)?;
-            self.vertex_buffer_size = vertex_size;
+        if vertex_size > self.vertex_buffer.size {
+            let mut buffer = Self::create_buffer_from_data(
+                context,
+                &vertecies,
+                BufferUsageFlags::VERTEX_BUFFER,
+                (vertecies.len() * size_of::<Vertex>()) as _,
+            )?;
+
+            mem::swap(&mut self.vertex_buffer, &mut buffer);
+            to_drop_buffers.push(buffer);
+
             log::trace!("Chunk Vertex Buffer increased.");
         } else {
             self.vertex_buffer.copy_data_to_buffer(&vertecies)?;
         }
 
-        if index_size > self.index_buffer_size {
-            self.index_buffer = Self::create_index_buffer(context, indecies)?;
-            self.index_buffer_size = index_size;
+        if index_size > self.index_buffer.size {
+            let mut buffer = Self::create_buffer_from_data(
+                context,
+                &indecies,
+                BufferUsageFlags::INDEX_BUFFER,
+                (indecies.len() * size_of::<u16>()) as _,
+            )?;
+            mem::swap(&mut self.index_buffer, &mut buffer);
+            to_drop_buffers.push(buffer);
+
             log::trace!("Chunk Index Buffer increased.");
         } else {
             self.index_buffer.copy_data_to_buffer(&indecies)?;
         }
 
-        self.index_count = index_size;
+        self.index_count = indecies.len();
 
         Ok(())
     }
 
-    fn create_chunk_buffer(context: &Context, node_bits: &[u32; CHUNK_WAVE_LEN]) -> Result<Buffer> {
-        let chunk_buffer = context.create_buffer(
-            BufferUsageFlags::STORAGE_BUFFER,
-            MemoryLocation::CpuToGpu,
-            (node_bits.len() * size_of::<u32>()) as _,
-        )?;
-        chunk_buffer.copy_data_to_buffer(node_bits)?;
+    pub fn update_from_chunk(
+        &mut self,
+        chunk: &MeshChunk,
+        context: &Context,
+        to_drop_buffers: &mut Vec<Buffer>,
+    ) -> Result<()> {
+        self.pos = chunk.pos;
 
-        Ok(chunk_buffer)
+        if self.vertex_buffer.size < chunk.vertex_buffer.size {
+            let mut buffer = Self::create_buffer_from_buffer(
+                context,
+                &chunk.vertex_buffer,
+                BufferUsageFlags::VERTEX_BUFFER,
+            )?;
+            mem::swap(&mut self.vertex_buffer, &mut buffer);
+            to_drop_buffers.push(buffer);
+        }
+
+        if self.index_buffer.size < chunk.index_buffer.size {
+            let mut buffer = Self::create_buffer_from_buffer(
+                context,
+                &chunk.index_buffer,
+                BufferUsageFlags::INDEX_BUFFER,
+            )?;
+            mem::swap(&mut self.index_buffer, &mut buffer);
+            to_drop_buffers.push(buffer);
+        }
+
+        context.execute_one_time_commands(|cmd_buffer| {
+            cmd_buffer.copy_buffer(&chunk.chunk_buffer, &self.chunk_buffer);
+            cmd_buffer.copy_buffer(&chunk.vertex_buffer, &self.vertex_buffer);
+            cmd_buffer.copy_buffer(&chunk.index_buffer, &self.index_buffer);
+        })?;
+
+        self.index_count = chunk.index_count;
+
+        Ok(())
     }
 
     pub const RIGHT_HANDED_Z_UP_CONFIG: QuadCoordinateConfig = QuadCoordinateConfig {
@@ -243,26 +391,56 @@ impl MeshChunk {
         (vertecies, indecies)
     }
 
-    fn create_vertex_buffer(context: &Context, vertecies: Vec<Vertex>) -> Result<Buffer> {
-        let vertex_buffer = context.create_buffer(
-            BufferUsageFlags::VERTEX_BUFFER,
+    fn create_buffer_from_data<T: Copy>(
+        context: &Context,
+        data: &[T],
+        usage: BufferUsageFlags,
+        size: DeviceSize,
+    ) -> Result<Buffer> {
+        let buffer = context.create_buffer(
+            usage | BufferUsageFlags::TRANSFER_SRC,
             MemoryLocation::CpuToGpu,
-            (vertecies.len() * size_of::<Vertex>()) as _,
+            size,
         )?;
-        vertex_buffer.copy_data_to_buffer(&vertecies)?;
+        buffer.copy_data_to_buffer(data)?;
 
-        Ok(vertex_buffer)
+        Ok(buffer)
     }
 
-    fn create_index_buffer(context: &Context, indecies: Vec<u16>) -> Result<Buffer> {
-        let index_buffer = context.create_buffer(
-            BufferUsageFlags::INDEX_BUFFER,
-            MemoryLocation::CpuToGpu,
-            (indecies.len() * size_of::<u16>()) as _,
+    fn create_buffer_from_buffer(
+        context: &Context,
+        other_buffer: &Buffer,
+        usage: BufferUsageFlags,
+    ) -> Result<Buffer> {
+        let buffer = context.create_buffer(
+            usage | BufferUsageFlags::TRANSFER_DST,
+            MemoryLocation::GpuOnly,
+            other_buffer.size,
         )?;
-        index_buffer.copy_data_to_buffer(&indecies)?;
 
-        Ok(index_buffer)
+        Ok(buffer)
+    }
+
+    fn create_descriptor_sets(
+        chunk_buffer: &Buffer,
+        images_len: usize,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<Vec<DescriptorSet>> {
+        let mut descriptor_sets = Vec::new();
+        for _ in 0..images_len {
+            let render_descriptor_set = descriptor_pool.allocate_set(descriptor_layout)?;
+
+            render_descriptor_set.update(&[WriteDescriptorSet {
+                binding: 0,
+                kind: WriteDescriptorSetKind::StorageBuffer {
+                    buffer: &chunk_buffer,
+                },
+            }]);
+            descriptor_sets.push(render_descriptor_set);
+        }
+
+        Ok(descriptor_sets)
     }
 }
 

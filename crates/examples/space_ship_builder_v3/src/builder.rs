@@ -52,7 +52,11 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(ship: Ship, node_controller: &NodeController) -> Result<Builder> {
+    pub fn new(
+        ship: Ship,
+        node_controller: &NodeController,
+        image_count: usize,
+    ) -> Result<Builder> {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(
             node_controller
@@ -71,8 +75,8 @@ impl Builder {
 
         Ok(Builder {
             build_blocks: HashMap::new(),
-            base_ship_mesh: ShipMesh::new().unwrap(),
-            build_ship_mesh: ShipMesh::new().unwrap(),
+            base_ship_mesh: ShipMesh::new(image_count).unwrap(),
+            build_ship_mesh: ShipMesh::new(image_count).unwrap(),
             ship,
 
             block_to_build: 1,
@@ -92,7 +96,7 @@ impl Builder {
 
     pub fn update(
         &mut self,
-        images_len: usize,
+        image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
@@ -168,7 +172,13 @@ impl Builder {
             self.build_blocks
                 .insert(self.last_pos, self.possible_blocks[self.block_to_build]);
 
-            //self.base_ship_mesh.update(&self.ship, context)?;
+            self.base_ship_mesh.update_from_mesh(
+                &self.build_ship_mesh,
+                image_index,
+                context,
+                descriptor_layout,
+                descriptor_pool,
+            )?;
         }
 
         let mut changed_chunks = Vec::new();
@@ -215,7 +225,7 @@ impl Builder {
         self.build_ship_mesh.update(
             &self.ship,
             changed_chunks,
-            images_len,
+            image_index,
             context,
             descriptor_layout,
             descriptor_pool,

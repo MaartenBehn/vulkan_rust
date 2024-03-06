@@ -69,7 +69,7 @@ impl App for SpaceShipBuilder {
 
         let ship = Ship::new()?;
 
-        let builder = Builder::new(ship, &node_controller)?;
+        let builder = Builder::new(ship, &node_controller, base.swapchain.images.len())?;
 
         let renderer = ShipRenderer::new(
             context,
@@ -122,7 +122,12 @@ impl App for SpaceShipBuilder {
         })
     }
 
-    fn update(&mut self, base: &mut BaseApp<Self>, _: usize, delta_time: Duration) -> Result<()> {
+    fn update(
+        &mut self,
+        base: &mut BaseApp<Self>,
+        image_index: usize,
+        delta_time: Duration,
+    ) -> Result<()> {
         self.total_time += delta_time;
 
         self.camera.update(&base.controls, delta_time);
@@ -149,7 +154,7 @@ impl App for SpaceShipBuilder {
         }
 
         self.builder.update(
-            base.swapchain.images.len(),
+            image_index,
             &base.context,
             &self.renderer.chunk_descriptor_layout,
             &self.renderer.descriptor_pool,
