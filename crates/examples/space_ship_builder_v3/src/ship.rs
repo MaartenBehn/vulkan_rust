@@ -26,9 +26,9 @@ pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
 
 pub struct Ship<
-    const BS: i32,
-    const WS: i32,
-    const PS: u32,
+    const BS: i32,   // Bock size
+    const WS: i32,   // Wave size
+    const PS: u32,   // Wave size + Padding
     const BL: usize, // Bock array len
     const WL: usize, // Wave array len
     const PL: usize, // Wave with Padding array len
@@ -40,9 +40,9 @@ pub struct Ship<
 }
 
 pub struct ShipChunk<
-    const BS: i32,
-    const WS: i32,
-    const PS: u32,
+    const BS: i32,   // Bock size
+    const WS: i32,   // Wave size
+    const PS: u32,   // Wave size + Padding
     const BL: usize, // Bock array len
     const WL: usize, // Wave array len
     const PL: usize, // Wave with Padding array len
