@@ -1,12 +1,10 @@
+use crate::debug::line_renderer::DebugLineRenderer;
 use octa_force::gui::InWorldGui;
 use std::time::Duration;
 
 use octa_force::glam::{ivec2, uvec2, IVec2, UVec3};
 use octa_force::imgui::{Condition, Ui};
-use octa_force::vulkan::{
-    ash::vk::{self, Format},
-    CommandBuffer,
-};
+use octa_force::vulkan::{ash::vk::{self, Format}, CommandBuffer, Context};
 use octa_force::{
     anyhow::Result,
     camera::Camera,
@@ -16,14 +14,14 @@ use octa_force::{
 use octa_force::{log, App, BaseApp};
 
 #[cfg(debug_assertions)]
-use crate::debug::{DebugController, DebugLineRenderer};
+use crate::debug::DebugController;
 
-use crate::debug::DebugTextRenderer;
 use crate::ship_mesh::ShipMesh;
 use crate::{
     builder::Builder, node::NodeController, ship::Ship, ship_renderer::ShipRenderer,
     voxel_loader::VoxelLoader,
 };
+use crate::debug::text_renderer::DebugTextRenderer;
 
 pub mod builder;
 
@@ -36,7 +34,6 @@ pub mod ship;
 pub mod ship_mesh;
 pub mod ship_renderer;
 pub mod voxel_loader;
-
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Space ship builder";

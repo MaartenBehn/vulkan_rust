@@ -303,7 +303,7 @@ impl ShipRenderer {
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT,
-            &PushConstant::new(render_mode, RS as u32),
+            &PushConstant::new(render_mode, RS as u32, ship_mesh.chunk_scale),
         );
         for chunk in ship_mesh.chunks.iter() {
             if chunk.index_count == 0 {
@@ -357,8 +357,15 @@ impl octa_force::vulkan::Vertex for Vertex {
 }
 
 impl PushConstant {
-    pub fn new(render_mode: RenderMode, chunk_size: u32) -> Self {
-        let data = render_mode + (chunk_size << 3);
+    pub fn new(render_mode: RenderMode, chunk_size: u32, chunk_scale_down: u32) -> Self {
+        // 4 Bit Chunk Size
+        // 3 Bit Chunk Scale Down
+        // rest Render Mode
+
+        let chunk_size_bits = chunk_size.trailing_zeros();
+        let chunk_scale_bits = chunk_scale_down.trailing_zeros();
+
+        let data = chunk_size_bits + (chunk_scale_bits << 4) + (render_mode << 7);
 
         PushConstant { data }
     }

@@ -67,8 +67,8 @@ impl Builder {
         );
 
         let ship = Ship::new()?;
-        let base_ship_mesh = ShipMesh::new(images_count)?;
-        let build_ship_mesh = ShipMesh::new(images_count)?;
+        let base_ship_mesh = ShipMesh::new::<16>(images_count)?;
+        let build_ship_mesh = ShipMesh::new::<16>(images_count)?;
 
         Ok(Builder {
             ship,

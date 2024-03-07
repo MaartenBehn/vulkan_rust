@@ -10,13 +10,9 @@
 // Out
 layout(location = 0) out vec4 finalColor;
 
-
 // In
 layout(location = 0) in vec3 oPos;
-#define POSITION oPos * NODE_SIZE
-
 layout(location = 1) in vec3 oNormal;
-#define NORMAL oNormal
 
 // Render buffer
 layout(set = 0, binding = 0) uniform RenderBuffer {
@@ -25,7 +21,6 @@ layout(set = 0, binding = 0) uniform RenderBuffer {
     vec3 dir;
     vec2 size;
 } renderbuffer;
-#define DIRECTION renderbuffer.dir
 
 // Voxels
 struct Node {
@@ -35,33 +30,33 @@ struct Node {
 layout(set = 0, binding = 1) buffer Nodes {
     Node nodes[];
 } nodes;
-#define TO_VOXEL_INDEX(pos) ((pos.z * NODE_SIZE * NODE_SIZE) + (pos.y * NODE_SIZE) + pos.x)
-#define GET_VOXEL(node, index) (node.voxels[index / 4] >> ((index % 4) * 8)) & 255
-#define GET_NODE(index) nodes.nodes[index]
-
 
 // Materials 
 layout(set = 0, binding = 2) buffer Mats {
     uint mats[];
 } mats;
-#define GET_MAT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
-
 
 // Ship type (Push constant)
 layout(push_constant, std430) uniform PushConstant {
     uint data;
 } push_constant;
-#define RENDER_MODE uint(push_constant.data & 7)
-#define CHUNK_SIZE uint((push_constant.data >> 3) & 511)
-
 
 // Chunk
 layout(set = 1, binding = 0) buffer Chunk {
     uint node_ids[];
 } chunk;
+
+
+#define CHUNK_SIZE       uint(1 << (push_constant.data & 15))           // 4 Bit
+#define CHUNK_SCALE_DOWN uint(1 << ((push_constant.data >> 4) & 7))     // 3 Bit
+#define RENDER_MODE      uint((push_constant.data >> 7))              // rest Bit
+
+#define POSITION vec3(oPos * (float(NODE_SIZE) / CHUNK_SCALE_DOWN))
+#define DIRECTION renderbuffer.dir
+#define NORMAL oNormal
+
 #define TO_NODE_ID_INDEX(pos, chunk_size) ((pos.z * chunk_size * chunk_size) + (pos.y * chunk_size) + pos.x)
 #define GET_NODE_ID(index) chunk.node_ids[index]
-
 
 struct Rot {
     mat4 mat;
@@ -85,6 +80,13 @@ Rot GET_ROT_FROM_NODE_ID(uint nodeID) {
     return rot;
 }
 #define GET_NODE_INDEX_FROM_NODE_ID(nodeID) nodeID >> 7
+
+#define TO_VOXEL_INDEX(pos) ((pos.z * NODE_SIZE * NODE_SIZE) + (pos.y * NODE_SIZE) + pos.x)
+#define GET_VOXEL(node, index) (node.voxels[index / 4] >> ((index % 4) * 8)) & 255
+#define GET_NODE(index) nodes.nodes[index]
+
+#define GET_MAT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
+
 
 
 // Debugging
