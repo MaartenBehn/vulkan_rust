@@ -141,16 +141,18 @@ impl<const PS: u32, const RS: i32> ShipMesh<PS, RS> {
 
     pub fn update_wave_debug<
         const BS: i32,
+        const WS: i32,
         const BL: usize, // Bock array len
         const WL: usize, // Wave array len
         const PL: usize, // Wave with Padding array len
     >(
         &mut self,
-        ship: &Ship<BS, RS, PS, BL, WL, PL>,
+        ship: &Ship<BS, WS, PS, BL, WL, PL>,
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
+        node_controller: &NodeController,
     ) -> Result<()> {
         // Buffers from the last swapchain iteration are being dropped
         self.to_drop_buffers[image_index].clear();
@@ -165,13 +167,14 @@ impl<const PS: u32, const RS: i32> ShipMesh<PS, RS> {
                     &mut self.to_drop_buffers[image_index],
                 )?;
             } else {
-                let new_chunk = MeshChunk::new(
+                let new_chunk = MeshChunk::new_wave_debug(
                     chunk.pos,
                     chunk,
                     self.to_drop_buffers.len(),
                     context,
                     descriptor_layout,
                     descriptor_pool,
+                    node_controller,
                 )?;
                 if new_chunk.is_some() {
                     self.chunks.push(new_chunk.unwrap())
@@ -186,18 +189,19 @@ impl<const PS: u32, const RS: i32> ShipMesh<PS, RS> {
 impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
     pub fn new<
         const BS: i32,
+        const WS: i32,
         const BL: usize, // Bock array len
         const WL: usize, // Wave array len
         const PL: usize, // Wave with Padding array len
     >(
         pos: IVec3,
-        ship_chunk: &ShipChunk<BS, RS, PS, BL, WL, PL>,
+        ship_chunk: &ShipChunk<BS, WS, PS, BL, WL, PL>,
         images_len: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<Option<MeshChunk<PS, RS>>> {
-        let (vertecies, indecies) = Self::create_mesh::<BS, RS, BL, WL, PL>(ship_chunk);
+        let (vertecies, indecies) = Self::create_mesh(ship_chunk);
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
 
@@ -303,7 +307,7 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
         descriptor_pool: &DescriptorPool,
         node_controller: &NodeController,
     ) -> Result<Option<MeshChunk<PS, RS>>> {
-        let (vertecies, indecies) = Self::create_mesh::<BS, WS, BL, WL, PL>(ship_chunk);
+        let (vertecies, indecies) = Self::create_mesh(ship_chunk);
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
 
@@ -311,7 +315,7 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
             return Ok(None);
         }
 
-        let wave_debug_node_id_bits = vec![0; (RS * RS * RS) as usize];
+        let mut wave_debug_node_id_bits = vec![0; (RS * RS * RS) as usize];
         let pattern_block_size = RS / WS;
         for x in 0..WS {
             for y in 0..WS {
@@ -379,12 +383,13 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
 
     pub fn update<
         const BS: i32,
+        const WS: i32,
         const BL: usize, // Bock array len
         const WL: usize, // Wave array len
         const PL: usize, // Wave with Padding array len
     >(
         &mut self,
-        ship_chunk: &ShipChunk<BS, RS, PS, BL, WL, PL>,
+        ship_chunk: &ShipChunk<BS, WS, PS, BL, WL, PL>,
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {

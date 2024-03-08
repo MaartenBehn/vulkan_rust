@@ -546,16 +546,16 @@ impl<
         const PS: u32,
         const BL: usize,
         const WL: usize,
-        const WPL: usize,
-    > ShipChunk<BS, WS, PS, BL, WL, WPL>
+        const PL: usize,
+    > ShipChunk<BS, WS, PS, BL, WL, PL>
 {
-    pub fn new(pos: IVec3) -> ShipChunk<BS, WS, PS, BL, WL, WPL> {
+    pub fn new(pos: IVec3) -> ShipChunk<BS, WS, PS, BL, WL, PL> {
         ShipChunk {
             pos,
             blocks: [BLOCK_INDEX_EMPTY; BL],
             wave: std::array::from_fn(|_| Wave::default()),
             node_id_bits: [0; WL],
-            node_voxels: [RenderNode(false); WPL],
+            node_voxels: [RenderNode(false); PL],
         }
     }
 }

@@ -23,8 +23,8 @@ use octa_force::{
 use std::mem::size_of;
 
 type RenderMode = u32;
-const RENDER_MODE_BASE: RenderMode = 0;
-const RENDER_MODE_BUILD: RenderMode = 1;
+pub const RENDER_MODE_BASE: RenderMode = 0;
+pub const RENDER_MODE_BUILD: RenderMode = 1;
 
 pub struct ShipRenderer {
     pub render_buffer: Buffer,

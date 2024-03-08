@@ -149,7 +149,7 @@ impl DebugLineRenderer {
         Ok(())
     }
 
-    fn render(&self, buffer: &CommandBuffer, image_index: usize) {
+    pub(crate) fn render(&self, buffer: &CommandBuffer, image_index: usize) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,

@@ -1,10 +1,11 @@
-use crate::debug::line_renderer::DebugLineRenderer;
-use octa_force::gui::InWorldGui;
 use std::time::Duration;
 
 use octa_force::glam::{ivec2, uvec2, IVec2, UVec3};
 use octa_force::imgui::{Condition, Ui};
-use octa_force::vulkan::{ash::vk::{self, Format}, CommandBuffer, Context};
+use octa_force::vulkan::{
+    ash::vk::{self, Format},
+    CommandBuffer, Context,
+};
 use octa_force::{
     anyhow::Result,
     camera::Camera,
@@ -16,12 +17,10 @@ use octa_force::{log, App, BaseApp};
 #[cfg(debug_assertions)]
 use crate::debug::DebugController;
 
-use crate::ship_mesh::ShipMesh;
 use crate::{
     builder::Builder, node::NodeController, ship::Ship, ship_renderer::ShipRenderer,
     voxel_loader::VoxelLoader,
 };
-use crate::debug::text_renderer::DebugTextRenderer;
 
 pub mod builder;
 
@@ -51,15 +50,12 @@ struct SpaceShipBuilder {
 
     #[cfg(debug_assertions)]
     debug_controller: DebugController,
+
     camera: Camera,
 }
 
 impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
-        let context = &mut base.context;
-
-        //Rot::print_rot_permutations();
-
         let voxel_loader = VoxelLoader::new("./assets/models/space_ship_v3.vox")?;
 
         let node_controller =
@@ -68,7 +64,7 @@ impl App for SpaceShipBuilder {
         let builder = Builder::new(base.swapchain.images.len(), &node_controller)?;
 
         let renderer = ShipRenderer::new(
-            context,
+            &base.context,
             &node_controller,
             base.swapchain.images.len() as u32,
             base.swapchain.format,
@@ -77,22 +73,16 @@ impl App for SpaceShipBuilder {
         )?;
 
         #[cfg(debug_assertions)]
-        let debug_line_renderer = DebugLineRenderer::new(
-            1000000,
-            context,
-            base.swapchain.images.len() as u32,
-            base.swapchain.format,
-            Format::D32_SFLOAT,
-            &renderer,
-        )?;
-
-        #[cfg(debug_assertions)]
         let debug_gui_id = base.add_in_world_gui()?;
 
-        let debug_text_renderer = DebugTextRenderer::new(debug_gui_id);
-
         #[cfg(debug_assertions)]
-        let debug_controller = DebugController::new(debug_line_renderer, debug_text_renderer)?;
+        let debug_controller = DebugController::new(
+            &base.context,
+            base.swapchain.images.len(),
+            base.swapchain.format,
+            &renderer,
+            debug_gui_id,
+        )?;
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
@@ -170,9 +160,14 @@ impl App for SpaceShipBuilder {
         #[cfg(debug_assertions)]
         {
             self.debug_controller.update(
+                &base.context,
                 &base.controls,
+                &self.renderer,
                 self.total_time,
+                &self.builder.ship,
+                image_index,
                 &mut base.in_world_guis[self.debug_controller.text_renderer.gui_id],
+                
             )?;
         }
 
@@ -206,6 +201,7 @@ impl App for SpaceShipBuilder {
             &self.camera,
             base.swapchain.extent,
             &mut base.in_world_guis[self.debug_controller.text_renderer.gui_id],
+            &self.renderer,
         )?;
 
         buffer.end_rendering();

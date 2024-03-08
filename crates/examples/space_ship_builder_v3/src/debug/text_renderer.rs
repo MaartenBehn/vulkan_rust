@@ -51,7 +51,7 @@ impl DebugTextRenderer {
         Ok(())
     }
 
-    fn render(
+    pub(crate) fn render(
         &mut self,
         buffer: &CommandBuffer,
         camera: &Camera,
