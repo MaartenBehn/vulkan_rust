@@ -17,6 +17,7 @@ use octa_force::{log, App, BaseApp};
 #[cfg(debug_assertions)]
 use crate::debug::DebugController;
 
+use crate::debug::DebugMode::OFF;
 use crate::{
     builder::Builder, node::NodeController, ship::Ship, ship_renderer::ShipRenderer,
     voxel_loader::VoxelLoader,
@@ -167,6 +168,7 @@ impl App for SpaceShipBuilder {
                 &self.builder.ship,
                 image_index,
                 &mut base.in_world_guis[self.debug_controller.text_renderer.gui_id],
+                &self.node_controller,
             )?;
         }
 
@@ -191,7 +193,9 @@ impl App for SpaceShipBuilder {
         buffer.set_viewport(base.swapchain.extent);
         buffer.set_scissor(base.swapchain.extent);
 
-        self.renderer.render(buffer, image_index, &self.builder);
+        if self.debug_controller.mode == OFF {
+            self.renderer.render(buffer, image_index, &self.builder);
+        }
 
         #[cfg(debug_assertions)]
         self.debug_controller.render(

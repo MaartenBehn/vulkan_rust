@@ -327,16 +327,22 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
 
                     let node_pos = wave_pos * pattern_block_size;
                     let config = get_config(wave_pos);
-                    let pattern_counter = 0;
-                    for ix in 0..pattern_block_size {
+                    let mut pattern_counter = 0;
+                    'iter: for ix in 0..pattern_block_size {
                         for iy in 0..pattern_block_size {
                             for iz in 0..pattern_block_size {
+                                if possible_patterns.len() <= pattern_counter {
+                                    break 'iter;
+                                }
+
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
                                 let index = to_1d_i(pattern_pos, IVec3::ONE * RS) as usize;
 
                                 let pattern_index = possible_patterns[pattern_counter];
                                 wave_debug_node_id_bits[index] =
                                     node_controller.patterns[config][pattern_index].node.into();
+
+                                pattern_counter += 1;
                             }
                         }
                     }

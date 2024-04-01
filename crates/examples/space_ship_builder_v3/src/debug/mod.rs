@@ -111,7 +111,7 @@ impl DebugController {
                 ship,
                 image_index,
                 &context,
-                &renderer.static_descriptor_layout,
+                &renderer.chunk_descriptor_layout,
                 &renderer.descriptor_pool,
                 node_controller,
             )?;

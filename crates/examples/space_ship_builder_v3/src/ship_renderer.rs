@@ -102,7 +102,7 @@ impl ShipRenderer {
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 3,
+            images_len * 6,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,

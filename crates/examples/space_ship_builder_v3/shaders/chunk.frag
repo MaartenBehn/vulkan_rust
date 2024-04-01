@@ -51,7 +51,7 @@ layout(set = 1, binding = 0) buffer Chunk {
 #define CHUNK_SCALE_DOWN uint(1 << ((push_constant.data >> 4) & 7))     // 3 Bit
 #define RENDER_MODE      uint((push_constant.data >> 7))              // rest Bit
 
-#define POSITION vec3(oPos * (float(NODE_SIZE) / CHUNK_SCALE_DOWN))
+#define POSITION vec3(oPos * (float(NODE_SIZE) * CHUNK_SCALE_DOWN))
 #define DIRECTION renderbuffer.dir
 #define NORMAL oNormal
 
