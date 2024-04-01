@@ -5,6 +5,7 @@ pub mod wave_renderer;
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
 use crate::debug::wave_renderer::{DebugWaveRenderer, WAVE_DEBUG_PS};
+use crate::node::NodeController;
 use crate::ship::Ship;
 use crate::ship_renderer::ShipRenderer;
 use crate::SpaceShipBuilder;
@@ -18,7 +19,6 @@ use octa_force::vulkan::ash::vk::{Extent2D, Format};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use octa_force::BaseApp;
 use std::time::Duration;
-use crate::node::NodeController;
 
 #[derive(PartialEq)]
 pub enum DebugMode {
@@ -74,7 +74,7 @@ impl DebugController {
         const BL: usize,
         const WL: usize,
         const PL: usize,
-    > (
+    >(
         &mut self,
         context: &Context,
         controls: &Controls,
@@ -107,7 +107,14 @@ impl DebugController {
         if self.mode != DebugMode::OFF {
             self.text_renderer.push_texts(debug_gui)?;
             self.line_renderer.push_lines()?;
-            self.wave_renderer.update(ship, image_index, &context, &renderer.static_descriptor_layout, &renderer.descriptor_pool, node_controller)?;
+            self.wave_renderer.update(
+                ship,
+                image_index,
+                &context,
+                &renderer.static_descriptor_layout,
+                &renderer.descriptor_pool,
+                node_controller,
+            )?;
         } else {
             self.line_renderer.vertecies_count = 0;
         }

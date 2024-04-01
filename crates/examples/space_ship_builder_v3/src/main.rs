@@ -167,7 +167,6 @@ impl App for SpaceShipBuilder {
                 &self.builder.ship,
                 image_index,
                 &mut base.in_world_guis[self.debug_controller.text_renderer.gui_id],
-                
             )?;
         }
 
