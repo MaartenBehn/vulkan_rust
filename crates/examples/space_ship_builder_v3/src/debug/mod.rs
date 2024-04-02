@@ -104,7 +104,15 @@ impl DebugController {
             }
         }
 
+        if self.mode == DebugMode::WFC {
+            self.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0))
+        } else {
+            self.add_text(vec!["WFC Skip".to_owned()], vec3(-1.0, 0.0, 0.0))
+        }
+
         if self.mode != DebugMode::OFF {
+            ship.debug_show_wave(self);
+
             self.text_renderer.push_texts(debug_gui)?;
             self.line_renderer.push_lines()?;
             self.wave_renderer.update(

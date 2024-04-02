@@ -161,9 +161,10 @@ impl<const PS: u32, const RS: i32> ShipMesh<PS, RS> {
             let mesh_chunk_index = self.chunks.iter().position(|c| c.pos == chunk.pos);
 
             if mesh_chunk_index.is_some() {
-                self.chunks[mesh_chunk_index.unwrap()].update(
+                self.chunks[mesh_chunk_index.unwrap()].update_wave_debug(
                     chunk,
                     context,
+                    node_controller,
                     &mut self.to_drop_buffers[image_index],
                 )?;
             } else {
@@ -201,6 +202,32 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<Option<MeshChunk<PS, RS>>> {
+        Self::new_from_node_id_bits(
+            pos,
+            ship_chunk,
+            &ship_chunk.node_id_bits,
+            images_len,
+            context,
+            descriptor_layout,
+            descriptor_pool,
+        )
+    }
+
+    fn new_from_node_id_bits<
+        const BS: i32,
+        const WS: i32,
+        const BL: usize, // Bock array len
+        const WL: usize, // Wave array len
+        const PL: usize, // Wave with Padding array len
+    >(
+        pos: IVec3,
+        ship_chunk: &ShipChunk<BS, WS, PS, BL, WL, PL>,
+        node_id_bits: &[u32],
+        images_len: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<Option<MeshChunk<PS, RS>>> {
         let (vertecies, indecies) = Self::create_mesh(ship_chunk);
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
@@ -211,9 +238,9 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
 
         let chunk_buffer = Self::create_buffer_from_data(
             context,
-            &ship_chunk.node_id_bits,
+            node_id_bits,
             BufferUsageFlags::STORAGE_BUFFER,
-            (ship_chunk.node_id_bits.len() * size_of::<u32>()) as _,
+            (node_id_bits.len() * size_of::<u32>()) as _,
         )?;
         let vertx_buffer = Self::create_buffer_from_data(
             context,
@@ -307,16 +334,33 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
         descriptor_pool: &DescriptorPool,
         node_controller: &NodeController,
     ) -> Result<Option<MeshChunk<PS, RS>>> {
-        let (vertecies, indecies) = Self::create_mesh(ship_chunk);
-        let vertex_size = vertecies.len();
-        let index_size = indecies.len();
+        let wave_debug_node_id_bits =
+            Self::get_chunk_node_id_bits_wave_debug(ship_chunk, node_controller);
 
-        if vertex_size == 0 || index_size == 0 {
-            return Ok(None);
-        }
+        Self::new_from_node_id_bits(
+            pos,
+            ship_chunk,
+            &wave_debug_node_id_bits,
+            images_len,
+            context,
+            descriptor_layout,
+            descriptor_pool,
+        )
+    }
 
+    fn get_chunk_node_id_bits_wave_debug<
+        const BS: i32,
+        const WS: i32,
+        const BL: usize, // Bock array len
+        const WL: usize, // Wave array len
+        const PL: usize, // Wave with Padding array len
+    >(
+        ship_chunk: &ShipChunk<BS, WS, PS, BL, WL, PL>,
+        node_controller: &NodeController,
+    ) -> Vec<u32> {
         let mut wave_debug_node_id_bits = vec![0; (RS * RS * RS) as usize];
         let pattern_block_size = RS / WS;
+
         for x in 0..WS {
             for y in 0..WS {
                 for z in 0..WS {
@@ -328,11 +372,18 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
                     let node_pos = wave_pos * pattern_block_size;
                     let config = get_config(wave_pos);
                     let mut pattern_counter = 0;
-                    'iter: for ix in 0..pattern_block_size {
+                    'iter: for iz in 0..pattern_block_size {
                         for iy in 0..pattern_block_size {
-                            for iz in 0..pattern_block_size {
+                            for ix in 0..pattern_block_size {
                                 if possible_patterns.len() <= pattern_counter {
                                     break 'iter;
+                                } else if possible_patterns[pattern_counter] == EMPYT_PATTERN_INDEX
+                                {
+                                    pattern_counter += 1;
+
+                                    if possible_patterns.len() <= pattern_counter {
+                                        break 'iter;
+                                    }
                                 }
 
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
@@ -350,41 +401,7 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
             }
         }
 
-        let chunk_buffer = Self::create_buffer_from_data(
-            context,
-            &wave_debug_node_id_bits,
-            BufferUsageFlags::STORAGE_BUFFER,
-            (wave_debug_node_id_bits.len() * size_of::<u32>()) as _,
-        )?;
-        let vertx_buffer = Self::create_buffer_from_data(
-            context,
-            &vertecies,
-            BufferUsageFlags::VERTEX_BUFFER,
-            (vertecies.len() * size_of::<Vertex>()) as _,
-        )?;
-        let index_buffer = Self::create_buffer_from_data(
-            context,
-            &indecies,
-            BufferUsageFlags::INDEX_BUFFER,
-            (indecies.len() * size_of::<u16>()) as _,
-        )?;
-        let descriptor_sets = Self::create_descriptor_sets(
-            &chunk_buffer,
-            images_len,
-            descriptor_layout,
-            descriptor_pool,
-        )?;
-
-        Ok(Some(MeshChunk {
-            pos,
-            chunk_buffer,
-
-            vertex_buffer: vertx_buffer,
-            index_buffer,
-            index_count: index_size,
-
-            descriptor_sets,
-        }))
+        wave_debug_node_id_bits
     }
 
     pub fn update<
@@ -399,8 +416,28 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {
-        self.chunk_buffer
-            .copy_data_to_buffer(&ship_chunk.node_id_bits)?;
+        self.update_from_node_id_bits(
+            ship_chunk,
+            &ship_chunk.node_id_bits,
+            context,
+            to_drop_buffers,
+        )
+    }
+
+    pub fn update_from_node_id_bits<
+        const BS: i32,
+        const WS: i32,
+        const BL: usize, // Bock array len
+        const WL: usize, // Wave array len
+        const PL: usize, // Wave with Padding array len
+    >(
+        &mut self,
+        ship_chunk: &ShipChunk<BS, WS, PS, BL, WL, PL>,
+        node_id_bits: &[u32],
+        context: &Context,
+        to_drop_buffers: &mut Vec<Buffer>,
+    ) -> Result<()> {
+        self.chunk_buffer.copy_data_to_buffer(node_id_bits)?;
 
         let (vertecies, indecies) = Self::create_mesh(ship_chunk);
         let vertex_size = (vertecies.len() * size_of::<Vertex>()) as DeviceSize;
@@ -479,6 +516,30 @@ impl<const PS: u32, const RS: i32> MeshChunk<PS, RS> {
         self.index_count = chunk.index_count;
 
         Ok(())
+    }
+
+    pub fn update_wave_debug<
+        const BS: i32,
+        const WS: i32,
+        const BL: usize, // Bock array len
+        const WL: usize, // Wave array len
+        const PL: usize, // Wave with Padding array len
+    >(
+        &mut self,
+        ship_chunk: &ShipChunk<BS, WS, PS, BL, WL, PL>,
+        context: &Context,
+        node_controller: &NodeController,
+        to_drop_buffers: &mut Vec<Buffer>,
+    ) -> Result<()> {
+        let wave_debug_node_id_bits =
+            Self::get_chunk_node_id_bits_wave_debug(ship_chunk, node_controller);
+
+        self.update_from_node_id_bits(
+            ship_chunk,
+            &wave_debug_node_id_bits,
+            context,
+            to_drop_buffers,
+        )
     }
 
     pub const RIGHT_HANDED_Z_UP_CONFIG: QuadCoordinateConfig = QuadCoordinateConfig {

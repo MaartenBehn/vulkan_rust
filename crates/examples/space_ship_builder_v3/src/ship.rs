@@ -419,7 +419,7 @@ impl<
     }
 
     #[cfg(debug_assertions)]
-    pub fn debug_show_wave(&mut self, debug_controller: &mut DebugController) {
+    pub fn debug_show_wave(&self, debug_controller: &mut DebugController) {
         for chunk in self.chunks.iter() {
             debug_controller.add_cube(
                 (chunk.pos * WS).as_vec3(),

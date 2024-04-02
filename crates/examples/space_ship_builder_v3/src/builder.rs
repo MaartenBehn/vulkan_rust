@@ -201,14 +201,6 @@ impl Builder {
 
                 log::info!("BUILDER: TICK FULL {:?}", full);
             }
-
-            if debug_controller.mode == DebugMode::WFC {
-                debug_controller.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0))
-            } else {
-                debug_controller.add_text(vec!["WFC Skip".to_owned()], vec3(-1.0, 0.0, 0.0))
-            }
-
-            self.ship.debug_show_wave(debug_controller);
         } else {
             (self.full_tick, changed_chunks, _) =
                 self.ship
