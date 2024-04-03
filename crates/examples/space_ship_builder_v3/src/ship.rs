@@ -354,7 +354,7 @@ impl<
                 let found = self.chunks[req_chunk_index.unwrap()].wave[req_wave_index]
                     .possible_patterns
                     .iter()
-                    .all(|&possible_pattern_index| {
+                    .any(|&possible_pattern_index| {
                         let possible_pattern =
                             &node_controller.patterns[req_config][possible_pattern_index];
                         indecies.contains(&possible_pattern.node.index)
@@ -528,7 +528,7 @@ pub fn pos_in_bounds(pos: IVec3, size: IVec3) -> bool {
 }
 
 pub fn get_wave_pos_of_block_pos(pos: IVec3) -> IVec3 {
-    pos * 2 - IVec3::ONE
+    pos * 2
 }
 
 pub fn get_block_pos_of_wave_pos(pos: IVec3) -> IVec3 {
