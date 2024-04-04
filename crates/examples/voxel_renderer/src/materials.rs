@@ -1,7 +1,7 @@
 use octa_force::anyhow::Result;
 use octa_force::{
     glam::Vec3,
-    vulkan::{ash::vk, utils::create_gpu_only_buffer_from_data, Buffer, Context},
+    vulkan::{ash::vk, Buffer, Context},
 };
 
 #[derive(Clone, Copy)]
@@ -22,8 +22,7 @@ pub struct MaterialController {
 
 impl MaterialController {
     pub fn new(material_list: MaterialList, context: &Context) -> Result<Self> {
-        let material_buffer: Buffer = create_gpu_only_buffer_from_data(
-            context,
+        let material_buffer: Buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::STORAGE_BUFFER,
             &material_list.materials,
         )?;

@@ -3,7 +3,7 @@ use std::time::Duration;
 use octa_force::anyhow::{ensure, Ok, Result};
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::Vec3;
+use octa_force::glam::{uvec2, Vec3};
 use octa_force::imgui::{Condition, Ui};
 use octa_force::vulkan::ash::vk::{self};
 use octa_force::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
@@ -35,7 +35,7 @@ const SAVE_FOLDER: &str = "./assets/octtree";
 fn start() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
-    octa_force::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
+    octa_force::run::<RayCaster>(APP_NAME, uvec2(WIDTH, HEIGHT), false)?;
     Ok(())
 }
 fn main() {
@@ -64,7 +64,6 @@ pub struct RayCaster {
 }
 
 impl App for RayCaster {
-    type Gui = Gui;
 
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;

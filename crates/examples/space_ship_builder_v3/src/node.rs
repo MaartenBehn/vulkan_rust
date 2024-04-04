@@ -506,7 +506,7 @@ impl NodeController {
                 .node_req
                 .iter()
                 .map(|(pos, indecies)| {
-                    let flipped_pos = ((*pos) - flip_b) * flip_a;
+                    let flipped_pos = (*pos) * flip_a;
                     (flipped_pos, indecies.to_owned())
                 })
                 .collect();
@@ -621,6 +621,48 @@ impl Pattern {
             prio,
             block_req,
             node_req,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_flip_pattern() {
+        let mut block_req = HashMap::new();
+        block_req.insert(ivec3(2, 2, 2), vec![0]);
+
+        let mut node_req = HashMap::new();
+        node_req.insert(ivec3(1, 1, 1), vec![0]);
+
+        let pattern = Pattern::new(NodeID::new(1, Rot::default()), 2, block_req, node_req);
+
+        let flips = vec![
+            BVec3::new(true, false, false),
+            BVec3::new(false, true, false),
+            BVec3::new(true, true, false),
+            BVec3::new(false, false, true),
+            BVec3::new(true, false, true),
+            BVec3::new(false, true, true),
+            BVec3::new(true, true, true),
+        ];
+        let block_reqs = vec![
+            ivec3(-1, 2, 2),
+            ivec3(2, -1, 2),
+            ivec3(-1, -1, 2),
+            ivec3(2, 2, -1),
+            ivec3(-1, 2, -1),
+            ivec3(2, -1, -1),
+            ivec3(-1, -1, -1),
+        ];
+
+        let flipped_patterns = NodeController::flip_pattern(&pattern, &flips);
+
+        for (flipped_pattern, block_req) in flipped_patterns.into_iter().zip(block_reqs.into_iter())
+        {
+            assert!(flipped_pattern.block_req.contains_key(&block_req));
         }
     }
 }

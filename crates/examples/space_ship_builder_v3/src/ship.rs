@@ -284,7 +284,12 @@ impl<
             if accepted {
                 for (&offset, _) in pattern.node_req.iter() {
                     let req_wave_pos = wave_pos + offset;
-                    let req_wave_index = self.get_wave_index_from_wave_pos(req_wave_pos).unwrap();
+                    
+                    let r = self.get_wave_index_from_wave_pos(req_wave_pos);
+                    if r.is_err() {
+                        continue
+                    }
+                    let req_wave_index = r.unwrap();
 
                     if !self.to_collapse.contains(req_wave_index) {
                         self.to_propergate.push_back(req_wave_index);
