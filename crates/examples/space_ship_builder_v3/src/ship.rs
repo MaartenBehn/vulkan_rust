@@ -10,6 +10,7 @@ use crate::{
     ship_mesh::ShipMesh,
 };
 use index_queue::IndexQueue;
+use octa_force::log::debug;
 use octa_force::{
     anyhow::*,
     glam::*,
@@ -325,6 +326,9 @@ impl<
                 vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
+        if wave_pos == ivec3(2, 0, 2) {
+            debug!("Break")
+        }
 
         let old_possible_pattern_size = self.chunks[chunk_index].wave[in_chunk_wave_index]
             .possible_patterns
@@ -442,9 +446,10 @@ impl<
             let wave_pos = in_chunk_wave_pos + chunk_pos * WS;
 
             let wave = &self.chunks[chunk_index].wave[in_chunk_wave_index];
-            let lines = iter::once("p".to_owned())
-                .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
-                .collect();
+            let lines =
+                iter::once(format!("p {} {} {}", wave_pos.x, wave_pos.y, wave_pos.z).to_owned())
+                    .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
+                    .collect();
             debug_controller.add_text(lines, wave_pos.as_vec3() + vec3(0.0, 1.0, 0.0));
 
             if i == 0 {
@@ -471,9 +476,10 @@ impl<
             let wave_pos = in_chunk_wave_pos + chunk_pos * WS;
 
             let wave = &self.chunks[chunk_index].wave[in_chunk_wave_index];
-            let lines = iter::once("c".to_owned())
-                .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
-                .collect();
+            let lines =
+                iter::once(format!("c {} {} {}", wave_pos.x, wave_pos.y, wave_pos.z).to_owned())
+                    .chain(wave.possible_patterns.iter().map(|p| p.to_string()))
+                    .collect();
             debug_controller.add_text(lines, wave_pos.as_vec3() + vec3(0.0, 1.0, 0.0));
 
             if i == 0 {
