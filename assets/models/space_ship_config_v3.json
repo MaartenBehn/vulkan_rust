@@ -134,6 +134,91 @@
             { "pos": [-1, 0, 0], "name": ["Hull"] },
             { "pos": [-1, 0, 2], "name": ["Hull"] }
           ]
+        },
+        {
+          "name": "Hull fill under Ramp 1 2",
+          "type": 2,
+          "prio": 5,
+          "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
+          "rotate": [[1, 0, 0], [0, 0, 1]],
+          "block_req": [
+            { "pos": [0, 0, 0], "name": ["Hull"] },
+            { "pos": [2, 0, 2], "name": ["Hull"] }
+          ]
+        },
+        {
+          "name": "Hull fill under Ramp 1 3",
+          "type": 2,
+          "prio": 6,
+          "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
+          "block_req": [
+            { "pos": [0, 0, 0], "name": ["Empty"] },
+            { "pos": [2, 0, 0], "name": ["Hull"] },
+            { "pos": [0, 2, 0], "name": ["Hull"] },
+            { "pos": [0, 0, 2], "name": ["Hull"] }
+          ]
+        },
+
+
+        {
+          "name": "Hull Ramp 2",
+          "type": 6,
+          "prio": 6,
+          "flip": [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
+          "rotate": [[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 1, 1], [1, 0, 1]],
+          "block_req": [
+            { "pos": [0, 0, 0], "name": ["Hull"] },
+            { "pos": [2, 0, -2], "name": ["Hull"] },
+            { "pos": [4, 0, -2], "name": ["Hull"] },
+            { "pos": [0, 0, 2], "name": ["Empty"] },
+            { "pos": [2, 0, 2], "name": ["Empty"] },
+            { "pos": [4, 0, 2], "name": ["Empty"] },
+            { "pos": [2, 0, 0], "name": ["Empty"] },
+            { "pos": [4, 0, 0], "name": ["Empty"] },
+            { "pos": [4, -2, 2], "name": ["Empty"] },
+            { "pos": [2, -2, 0], "name": ["Empty"] },
+            { "pos": [4, -2, 0], "name": ["Empty"] },
+            { "pos": [4, 2, 2], "name": ["Empty"] },
+            { "pos": [2, 2, 0], "name": ["Empty"] },
+            { "pos": [4, 2, 0], "name": ["Empty"] },
+            { "pos": [4, -4, 0], "name": ["Empty"] },
+            { "pos": [4, 4, 0], "name": ["Empty"] }
+          ]
+        },
+        {
+          "type": 7,
+          "prio": 6,
+          "copy": {"name": "Hull Ramp 2", "offset": [1, 0, 0]}
+        },
+        {
+          "type": 6,
+          "prio": 6,
+          "copy": {"name": "Hull Ramp 2", "offset": [2, 0, -1]}
+        },
+        {
+          "type": 7,
+          "prio": 6,
+          "copy": {"name": "Hull Ramp 2", "offset": [3, 0, -1]}
+        },
+        {
+          "type": 2,
+          "prio": 6,
+          "copy": {"name": "Hull Ramp 2", "offset": [1, 0, -1]}
+        },
+        {
+          "type": 2,
+          "prio": 6,
+          "copy": {"name": "Hull Ramp 2", "offset": [1, 0, -2]}
+        },
+        {
+          "type": 2,
+          "prio": 6,
+          "copy": {"name": "Hull Ramp 2", "offset": [2, 0, -2]}
+        },
+        {
+          "type": 2,
+          "prio": 6,
+          "copy": {"name": "Hull Ramp 2", "offset": [3, 0, -2]}
         }
       ]
     }
