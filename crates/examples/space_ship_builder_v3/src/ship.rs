@@ -285,10 +285,10 @@ impl<
             if accepted {
                 for (&offset, _) in pattern.node_req.iter() {
                     let req_wave_pos = wave_pos + offset;
-                    
+
                     let r = self.get_wave_index_from_wave_pos(req_wave_pos);
                     if r.is_err() {
-                        continue
+                        continue;
                     }
                     let req_wave_index = r.unwrap();
 
@@ -331,7 +331,7 @@ impl<
                 vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
-        if wave_pos == ivec3(2, 0, 2) {
+        if wave_pos == ivec3(2, 7, 2) {
             debug!("Break")
         }
 
@@ -350,7 +350,7 @@ impl<
             let accepted = pattern.node_req.iter().all(|(&offset, indecies)| {
                 let req_wave_pos = wave_pos + offset;
                 let req_chunk_pos = self.get_chunk_pos_of_wave_pos(req_wave_pos);
-                let req_in_chunk_pos = self.get_in_chunk_pos_of_block_pos(req_wave_pos);
+                let req_in_chunk_pos = self.get_in_chunk_pos_of_wave_pos(req_wave_pos);
                 let req_chunk_index = self.get_chunk_index(req_chunk_pos);
 
                 if req_chunk_index.is_err() {
@@ -360,14 +360,21 @@ impl<
                 let req_config = get_config(req_wave_pos);
                 let req_wave_index = to_1d_i(req_in_chunk_pos, IVec3::ONE * WS) as usize;
 
-                let found = self.chunks[req_chunk_index.unwrap()].wave[req_wave_index]
+                let mut found = false;
+                for &possible_pattern_index in self.chunks[req_chunk_index.unwrap()].wave
+                    [req_wave_index]
                     .possible_patterns
                     .iter()
-                    .any(|&possible_pattern_index| {
-                        let possible_pattern =
-                            &node_controller.patterns[req_config][possible_pattern_index];
-                        indecies.contains(&possible_pattern.node.index)
-                    });
+                    .rev()
+                {
+                    let possible_pattern =
+                        &node_controller.patterns[req_config][possible_pattern_index];
+
+                    if indecies.contains(&possible_pattern.node.index) {
+                        found = true;
+                        break;
+                    }
+                }
 
                 found
             });
