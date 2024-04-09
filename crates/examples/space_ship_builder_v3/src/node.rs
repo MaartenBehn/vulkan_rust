@@ -245,6 +245,10 @@ impl NodeController {
                                         let text = n.as_str().unwrap();
                                         let parts: Vec<_> = text.split('_').collect();
                                         let block_name = parts[0];
+                                        if block_name == "Empty" {
+                                            return NODE_INDEX_NONE;
+                                        }
+
                                         let node_type: usize = parts[1].parse().unwrap();
                                         let node_index = voxel_loader
                                             .blocks
@@ -319,13 +323,15 @@ impl NodeController {
                                 }
 
                                 for (&copy_pos, copy_indecies) in copy_pattern.node_req.iter() {
-                                    if !pattern.node_req.contains_key(&copy_pos) {
-                                        pattern.node_req.insert(copy_pos, Vec::new());
+                                    let new_pos = copy_pos - offset;
+
+                                    if !pattern.node_req.contains_key(&new_pos) {
+                                        pattern.node_req.insert(new_pos, Vec::new());
                                     }
 
                                     pattern
                                         .node_req
-                                        .get_mut(&copy_pos)
+                                        .get_mut(&new_pos)
                                         .unwrap()
                                         .append(&mut copy_indecies.to_owned());
                                 }

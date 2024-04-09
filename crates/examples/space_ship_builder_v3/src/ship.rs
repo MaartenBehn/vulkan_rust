@@ -331,9 +331,6 @@ impl<
                 vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
-        if wave_pos == ivec3(2, 7, 2) {
-            debug!("Break")
-        }
 
         let old_possible_pattern_size = self.chunks[chunk_index].wave[in_chunk_wave_index]
             .possible_patterns
@@ -365,7 +362,6 @@ impl<
                     [req_wave_index]
                     .possible_patterns
                     .iter()
-                    .rev()
                 {
                     let possible_pattern =
                         &node_controller.patterns[req_config][possible_pattern_index];

@@ -160,6 +160,7 @@
         },
 
 
+
         {
           "name": "Hull Ramp 2",
           "type": 6,
@@ -169,20 +170,16 @@
           "block_req": [
             { "pos": [0, 0, 0], "name": ["Hull"] },
             { "pos": [2, 0, -2], "name": ["Hull"] },
-            { "pos": [4, 0, -2], "name": ["Hull"] },
-            { "pos": [0, 0, 2], "name": ["Empty"] },
-            { "pos": [2, 0, 2], "name": ["Empty"] },
-            { "pos": [4, 0, 2], "name": ["Empty"] },
-            { "pos": [2, 0, 0], "name": ["Empty"] },
-            { "pos": [4, 0, 0], "name": ["Empty"] },
-            { "pos": [4, -2, 2], "name": ["Empty"] },
-            { "pos": [2, -2, 0], "name": ["Empty"] },
-            { "pos": [4, -2, 0], "name": ["Empty"] },
-            { "pos": [4, 2, 2], "name": ["Empty"] },
-            { "pos": [2, 2, 0], "name": ["Empty"] },
-            { "pos": [4, 2, 0], "name": ["Empty"] },
-            { "pos": [4, -4, 0], "name": ["Empty"] },
-            { "pos": [4, 4, 0], "name": ["Empty"] }
+            { "pos": [4, 0, -2], "name": ["Hull"] }
+          ],
+          "node_req": [
+            { "pos": [0, -1, 0],  "name": ["Hull_6"] },
+            { "pos": [1, -1, 0],  "name": ["Hull_7"] },
+            { "pos": [2, -1, -1], "name": ["Hull_6"] },
+            { "pos": [3, -1, -1], "name": ["Hull_7"] },
+            { "pos": [1,  0, -1], "name": ["Hull_2"] },
+            { "pos": [2,  0, -2], "name": ["Hull_2"] },
+            { "pos": [3,  0, -2], "name": ["Hull_2"] }
           ]
         },
         {
@@ -202,22 +199,22 @@
         },
         {
           "type": 2,
-          "prio": 6,
+          "prio": 7,
           "copy": {"name": "Hull Ramp 2", "offset": [1, 0, -1]}
         },
         {
           "type": 2,
-          "prio": 6,
+          "prio": 7,
           "copy": {"name": "Hull Ramp 2", "offset": [1, 0, -2]}
         },
         {
           "type": 2,
-          "prio": 6,
+          "prio": 7,
           "copy": {"name": "Hull Ramp 2", "offset": [2, 0, -2]}
         },
         {
           "type": 2,
-          "prio": 6,
+          "prio": 7,
           "copy": {"name": "Hull Ramp 2", "offset": [3, 0, -2]}
         }
       ]
