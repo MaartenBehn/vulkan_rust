@@ -74,7 +74,6 @@ pub struct Pattern {
     pub prio: usize,
     pub node: NodeID,
     pub block_req: HashMap<IVec3, Vec<BlockIndex>>,
-    pub node_req: HashMap<IVec3, Vec<NodeIndex>>,
 }
 
 impl NodeController {
@@ -143,7 +142,7 @@ impl NodeController {
             if v.contains_key(&block.name) {
                 let v = v[&block.name].as_object().unwrap();
 
-                for v in v["nodes"].as_array().unwrap().iter() {
+                for v in v["patterns"].as_array().unwrap().iter() {
                     // Required fields
                     let node_type = v["type"].as_u64().unwrap() as usize;
                     if node_type >= block.nodes.len() {
@@ -225,49 +224,6 @@ impl NodeController {
                         HashMap::new()
                     };
 
-                    let r = v["node_req"].as_array();
-                    let node_req: HashMap<_, _> = if r.is_some() {
-                        r.unwrap()
-                            .iter()
-                            .map(|p| {
-                                let pos_array = p["pos"].as_array().unwrap();
-                                let pos = ivec3(
-                                    pos_array[0].as_i64().unwrap() as i32,
-                                    pos_array[1].as_i64().unwrap() as i32,
-                                    pos_array[2].as_i64().unwrap() as i32,
-                                );
-
-                                let nodes: Vec<_> = p["name"]
-                                    .as_array()
-                                    .unwrap()
-                                    .iter()
-                                    .map(|n| {
-                                        let text = n.as_str().unwrap();
-                                        let parts: Vec<_> = text.split('_').collect();
-                                        let block_name = parts[0];
-                                        if block_name == "Empty" {
-                                            return NODE_INDEX_NONE;
-                                        }
-
-                                        let node_type: usize = parts[1].parse().unwrap();
-                                        let node_index = voxel_loader
-                                            .blocks
-                                            .iter()
-                                            .find(|b| (**b).name == block_name)
-                                            .unwrap()
-                                            .nodes[node_type];
-
-                                        node_index
-                                    })
-                                    .collect();
-
-                                (pos, nodes)
-                            })
-                            .collect()
-                    } else {
-                        HashMap::new()
-                    };
-
                     let r = v["copy"].as_object();
                     let copy = if r.is_some() {
                         let name = r.unwrap()["name"].as_str().unwrap().to_owned();
@@ -288,8 +244,7 @@ impl NodeController {
                         named_patterns.insert(name, (index, flip.to_owned(), rotate.to_owned()));
                     }
 
-                    let mut pattern =
-                        Pattern::new(NodeID::from(node_index), prio, block_req, node_req);
+                    let mut pattern = Pattern::new(NodeID::from(node_index), prio, block_req);
                     if copy.is_some() {
                         let (copy_name, offset) = copy.unwrap();
 
@@ -321,20 +276,6 @@ impl NodeController {
                                         .unwrap()
                                         .append(&mut copy_indecies.to_owned());
                                 }
-
-                                for (&copy_pos, copy_indecies) in copy_pattern.node_req.iter() {
-                                    let new_pos = copy_pos - offset;
-
-                                    if !pattern.node_req.contains_key(&new_pos) {
-                                        pattern.node_req.insert(new_pos, Vec::new());
-                                    }
-
-                                    pattern
-                                        .node_req
-                                        .get_mut(&new_pos)
-                                        .unwrap()
-                                        .append(&mut copy_indecies.to_owned());
-                                }
                             }
                         }
                     }
@@ -346,12 +287,7 @@ impl NodeController {
             }
         }
 
-        pattern_list.push(Pattern::new(
-            NodeID::none(),
-            0,
-            HashMap::new(),
-            HashMap::new(),
-        ));
+        pattern_list.push(Pattern::new(NodeID::none(), 0, HashMap::new()));
         pattern_list.append(&mut permutations_patterns);
         log::info!("{:?} Patterns created.", pattern_list.len());
 
@@ -461,20 +397,10 @@ impl NodeController {
                 })
                 .collect();
 
-            let rotated_node_req: HashMap<_, _> = pattern
-                .node_req
-                .iter()
-                .map(|(pos, indecies)| {
-                    let rotated_pos = pos_mat.transform_point3(pos.as_vec3()).round().as_ivec3();
-                    (rotated_pos, indecies.to_owned())
-                })
-                .collect();
-
             let rotated_pattern = Pattern::new(
                 NodeID::new(pattern.node.index, rotated_rot),
                 pattern.prio,
                 rotated_block_req,
-                rotated_node_req,
             );
 
             patterns.push(rotated_pattern);
@@ -508,20 +434,10 @@ impl NodeController {
                 })
                 .collect();
 
-            let node_req: HashMap<_, _> = pattern
-                .node_req
-                .iter()
-                .map(|(pos, indecies)| {
-                    let flipped_pos = (*pos) * flip_a;
-                    (flipped_pos, indecies.to_owned())
-                })
-                .collect();
-
             patterns.push(Pattern::new(
                 NodeID::new(pattern.node.index, rot),
                 pattern.prio,
                 block_req,
-                node_req,
             ))
         }
 
@@ -616,17 +532,11 @@ impl Block {
 }
 
 impl Pattern {
-    pub fn new(
-        node: NodeID,
-        prio: usize,
-        block_req: HashMap<IVec3, Vec<BlockIndex>>,
-        node_req: HashMap<IVec3, Vec<BlockIndex>>,
-    ) -> Self {
+    pub fn new(node: NodeID, prio: usize, block_req: HashMap<IVec3, Vec<BlockIndex>>) -> Self {
         Pattern {
             node,
             prio,
             block_req,
-            node_req,
         }
     }
 }
@@ -640,10 +550,7 @@ mod tests {
         let mut block_req = HashMap::new();
         block_req.insert(ivec3(2, 2, 2), vec![0]);
 
-        let mut node_req = HashMap::new();
-        node_req.insert(ivec3(1, 1, 1), vec![0]);
-
-        let pattern = Pattern::new(NodeID::new(1, Rot::default()), 2, block_req, node_req);
+        let pattern = Pattern::new(NodeID::new(1, Rot::default()), 2, block_req);
 
         let flips = vec![
             BVec3::new(true, false, false),

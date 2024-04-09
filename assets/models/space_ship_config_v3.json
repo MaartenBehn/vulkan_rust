@@ -1,7 +1,7 @@
 {
   "blocks": {
     "Hull": {
-      "nodes": [
+      "patterns": [
         {
           "name": "Hull base",
           "type": 0,
@@ -47,11 +47,6 @@
             { "pos": [-1, 0, 1], "name": ["Hull"] },
             { "pos": [1, 0, 1], "name": ["Empty"] },
             { "pos": [1, 2, 1], "name": ["Empty"] }
-          ],
-          "node_req": [
-            { "pos": [0, -1, 0], "name": ["Hull_2", "Hull_3", "Hull_4"] },
-            { "pos": [-1, 0, 0], "name": ["Hull_0", "Hull_2"] },
-            { "pos": [0, 0, -1], "name": ["Hull_0", "Hull_2"] }
           ]
         },
         {
@@ -69,11 +64,6 @@
             { "pos": [4, 0, -2], "name": ["Empty"] },
             { "pos": [0, 2, 0], "name": ["Empty"] },
             { "pos": [2, 2, -2], "name": ["Empty"] }
-          ],
-          "node_req": [
-            { "pos": [0, -1, 0], "name": ["Hull_2", "Hull_3", "Hull_4"] },
-            { "pos": [-1, 0, 0], "name": ["Hull_0", "Hull_2"] },
-            { "pos": [0, 0, -1], "name": ["Hull_0", "Hull_2"] }
           ]
         },
         {
@@ -93,10 +83,6 @@
             { "pos": [1, 0, -1], "name": ["Hull"] },
             { "pos": [-1, 0, 1], "name": ["Hull"] },
             { "pos": [1, 0, 1], "name": ["Empty"] }
-          ],
-          "node_req": [
-            { "pos": [0, -1, 0], "name": ["Hull_2", "Hull_3", "Hull_4"] },
-            { "pos": [0, 1, 0], "name": ["Hull_2", "Hull_3", "Hull_4"] }
           ]
         },
         {
@@ -111,10 +97,6 @@
             { "pos": [2, 0, 0], "name": ["Empty"] },
             { "pos": [0, 0, 2], "name": ["Empty"] },
             { "pos": [4, 0, -2], "name": ["Empty"] }
-          ],
-          "node_req": [
-            { "pos": [0, -1, 0], "name": ["Hull_2", "Hull_3", "Hull_4"] },
-            { "pos": [0, 1, 0], "name": ["Hull_2", "Hull_3", "Hull_4"] }
           ]
         },
         {
@@ -171,15 +153,6 @@
             { "pos": [0, 0, 0], "name": ["Hull"] },
             { "pos": [2, 0, -2], "name": ["Hull"] },
             { "pos": [4, 0, -2], "name": ["Hull"] }
-          ],
-          "node_req": [
-            { "pos": [0, -1, 0],  "name": ["Hull_6"] },
-            { "pos": [1, -1, 0],  "name": ["Hull_7"] },
-            { "pos": [2, -1, -1], "name": ["Hull_6"] },
-            { "pos": [3, -1, -1], "name": ["Hull_7"] },
-            { "pos": [1,  0, -1], "name": ["Hull_2"] },
-            { "pos": [2,  0, -2], "name": ["Hull_2"] },
-            { "pos": [3,  0, -2], "name": ["Hull_2"] }
           ]
         },
         {
