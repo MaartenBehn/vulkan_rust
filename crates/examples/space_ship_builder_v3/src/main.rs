@@ -140,6 +140,7 @@ impl App for SpaceShipBuilder {
                 Format::D32_SFLOAT,
                 base.swapchain.extent,
             )?;
+
             log::info!(".vox File loaded");
         }
 

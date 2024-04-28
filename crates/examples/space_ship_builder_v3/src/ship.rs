@@ -1,7 +1,7 @@
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode};
 
-use crate::math::{get_packed_index, to_3d_i};
+use crate::math::{get_neigbor_offsets, get_packed_index, to_3d_i};
 use crate::node::{Node, NodeID, PatternIndex, EMPYT_PATTERN_INDEX};
 use crate::ship_mesh::RenderNode;
 use crate::{
@@ -283,20 +283,6 @@ impl<
             });
 
             if accepted {
-                for (&offset, _) in pattern.node_req.iter() {
-                    let req_wave_pos = wave_pos + offset;
-
-                    let r = self.get_wave_index_from_wave_pos(req_wave_pos);
-                    if r.is_err() {
-                        continue;
-                    }
-                    let req_wave_index = r.unwrap();
-
-                    if !self.to_collapse.contains(req_wave_index) {
-                        self.to_propergate.push_back(req_wave_index);
-                    }
-                }
-
                 self.chunks[chunk_index].wave[in_chunk_wave_index]
                     .possible_patterns
                     .push(pattern_index);
@@ -331,9 +317,6 @@ impl<
                 vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
-        if wave_pos == ivec3(2, 0, 2) {
-            debug!("Break")
-        }
 
         let old_possible_pattern_size = self.chunks[chunk_index].wave[in_chunk_wave_index]
             .possible_patterns
@@ -347,30 +330,30 @@ impl<
         {
             let pattern = &node_controller.patterns[config][pattern_index];
 
-            let accepted = pattern.node_req.iter().all(|(&offset, indecies)| {
-                let req_wave_pos = wave_pos + offset;
-                let req_chunk_pos = self.get_chunk_pos_of_wave_pos(req_wave_pos);
-                let req_in_chunk_pos = self.get_in_chunk_pos_of_block_pos(req_wave_pos);
-                let req_chunk_index = self.get_chunk_index(req_chunk_pos);
+            let accepted = true; /*= get_neigbor_offsets().iter().all(|&offset| {
+                                     let req_wave_pos = wave_pos + offset;
+                                     let req_chunk_pos = self.get_chunk_pos_of_wave_pos(req_wave_pos);
+                                     let req_in_chunk_pos = self.get_in_chunk_pos_of_wave_pos(req_wave_pos);
+                                     let req_chunk_index = self.get_chunk_index(req_chunk_pos);
 
-                if req_chunk_index.is_err() {
-                    return false;
-                }
+                                     if req_chunk_index.is_err() {
+                                         return false;
+                                     }
 
-                let req_config = get_config(req_wave_pos);
-                let req_wave_index = to_1d_i(req_in_chunk_pos, IVec3::ONE * WS) as usize;
+                                     let req_config = get_config(req_wave_pos);
+                                     let req_wave_index = to_1d_i(req_in_chunk_pos, IVec3::ONE * WS) as usize;
 
-                let found = self.chunks[req_chunk_index.unwrap()].wave[req_wave_index]
-                    .possible_patterns
-                    .iter()
-                    .any(|&possible_pattern_index| {
-                        let possible_pattern =
-                            &node_controller.patterns[req_config][possible_pattern_index];
-                        indecies.contains(&possible_pattern.node.index)
-                    });
+                                     let possible_pattern_index = self.chunks[req_chunk_index.unwrap()].wave
+                                         [req_wave_index]
+                                         .possible_patterns
+                                         .last();
 
-                found
-            });
+                                     if possible_pattern_index.is_none() {
+                                         return false;
+                                     }
+
+                                     true
+                                 }); */
 
             if !accepted {
                 self.chunks[chunk_index].wave[in_chunk_wave_index]
@@ -401,26 +384,6 @@ impl<
                     .pop_front()
                     .unwrap();
                 self.to_collapse.push_back(index);
-            }
-        }
-
-        for (&offset, _) in pattern.node_req.iter() {
-            let req_pos = wave_pos + offset;
-            let req_chunk_pos = self.get_chunk_pos_of_wave_pos(req_pos);
-            let req_in_chunk_pos = self.get_in_chunk_pos_of_wave_pos(req_pos);
-
-            let req_chunk_index = self.get_chunk_index(req_chunk_pos).unwrap();
-            let req_index = to_1d_i(req_in_chunk_pos, IVec3::ONE * WS) as usize;
-            let req_wave_index = self
-                .get_wave_index(req_chunk_pos, req_in_chunk_pos)
-                .unwrap();
-
-            self.chunks[req_chunk_index].wave[req_index]
-                .dependent_waves
-                .push_back(req_wave_index);
-
-            if possible_patterns_changed {
-                self.to_collapse.push_back(req_wave_index);
             }
         }
 
