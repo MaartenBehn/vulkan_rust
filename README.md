@@ -27,7 +27,7 @@ A side repo where I try a bunch of different rendering technics and Ideas with v
 - `sh scripts/run.sh comp_mandelbulb`
 - `sh scripts/run.sh comp_mandelbrot`
 - `sh scripts/run.sh rt-tringle`
-- `sh scripts/run.sh tringle`
+- `sh scripts/run.sh triangle`
 
 
 

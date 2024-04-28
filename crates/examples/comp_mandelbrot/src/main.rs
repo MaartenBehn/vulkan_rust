@@ -7,8 +7,8 @@ use octa_force::glam::{uvec2, Vec3};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
 use octa_force::vulkan::{
-    Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, DescriptorPool,
-    DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, ComputePipeline, ComputePipelineCreateInfo, DescriptorPool, DescriptorSet,
+    DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
 use octa_force::{App, BaseApp, ImageAndView};
 
@@ -154,7 +154,7 @@ impl App for Mandelbrot {
             1,
         );
 
-        buffer.swapchain_image_render_barrier_after_copy_form_storage_image(
+        buffer.swapchain_image_copy_from_compute_storage_image(
             &self.stored_images[image_index].image,
             &base.swapchain.images[image_index],
         )?;
