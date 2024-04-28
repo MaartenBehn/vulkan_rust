@@ -3,45 +3,49 @@ use std::time::Duration;
 
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
-use octa_force::controls::Controls;
-use octa_force::glam::Vec3;
+use octa_force::glam::{uvec2, Vec3};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
-
-use octa_force::imgui::{Condition, Ui};
 use octa_force::vulkan::{
-    Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, DescriptorPool,
-    DescriptorSet, DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, ComputePipeline, ComputePipelineCreateInfo, DescriptorPool, DescriptorSet,
+    DescriptorSetLayout, PipelineLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use octa_force::{App, BaseApp};
+use octa_force::{App, BaseApp, ImageAndView};
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
-const APP_NAME: &str = "Mandel Bulb";
+const APP_NAME: &str = "Comp Mandelbrot";
 
 const DISPATCH_GROUP_SIZE_X: u32 = 32;
 const DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
 fn main() -> Result<()> {
-    octa_force::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, true)
+    octa_force::run::<Mandelbrot>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
 }
-struct Particles {
+struct Mandelbrot {
+    stored_images: Vec<ImageAndView>,
     compute_ubo_buffer: Buffer,
     _compute_descriptor_pool: DescriptorPool,
     _compute_descriptor_layout: DescriptorSetLayout,
     compute_descriptor_sets: Vec<DescriptorSet>,
     compute_pipeline_layout: PipelineLayout,
     compute_pipeline: ComputePipeline,
+
     camera: Camera,
 }
 
-impl App for Particles {
-    type Gui = Gui;
-
+impl App for Mandelbrot {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
         let images = &base.swapchain.images;
+
+        let stored_images = context.create_storage_images(
+            base.swapchain.format,
+            base.swapchain.extent,
+            images.len(),
+        )?;
+
         let compute_ubo_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             MemoryLocation::CpuToGpu,
@@ -49,7 +53,7 @@ impl App for Particles {
         )?;
 
         let compute_descriptor_pool = context.create_descriptor_pool(
-            3,
+            4 * images.len() as u32,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_IMAGE,
@@ -89,7 +93,7 @@ impl App for Particles {
                     binding: 0,
                     kind: WriteDescriptorSetKind::StorageImage {
                         layout: vk::ImageLayout::GENERAL,
-                        view: &base.storage_images[i].view,
+                        view: &stored_images[i].view,
                     },
                 },
                 WriteDescriptorSet {
@@ -117,6 +121,7 @@ impl App for Particles {
         camera.z_far = 100.0;
 
         Ok(Self {
+            stored_images,
             compute_ubo_buffer,
             _compute_descriptor_pool: compute_descriptor_pool,
             _compute_descriptor_layout: compute_descriptor_layout,
@@ -127,28 +132,13 @@ impl App for Particles {
         })
     }
 
-    fn update(
+    fn record_render_commands(
         &mut self,
-        _: &mut BaseApp<Self>,
-        _: &mut <Self as App>::Gui,
-        _: usize,
-        _: Duration,
-        _: &Controls,
-    ) -> Result<()> {
-        self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
-            pos: self.camera.position,
-            dir: self.camera.direction,
-        }])?;
-
-        Ok(())
-    }
-
-    fn record_compute_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
+        base: &mut BaseApp<Self>,
         image_index: usize,
     ) -> Result<()> {
+        let buffer = &base.command_buffers[image_index];
+
         buffer.bind_compute_pipeline(&self.compute_pipeline);
 
         buffer.bind_descriptor_sets(
@@ -164,46 +154,50 @@ impl App for Particles {
             1,
         );
 
-        Ok(())
-    }
-
-    fn on_recreate_swapchain(&mut self, base: &BaseApp<Self>) -> Result<()> {
-        base.storage_images
-            .iter()
-            .enumerate()
-            .for_each(|(index, img)| {
-                let set = &self.compute_descriptor_sets[index];
-
-                set.update(&[WriteDescriptorSet {
-                    binding: 0,
-                    kind: WriteDescriptorSetKind::StorageImage {
-                        layout: vk::ImageLayout::GENERAL,
-                        view: &img.view,
-                    },
-                }]);
-            });
+        buffer.swapchain_image_copy_from_compute_storage_image(
+            &self.stored_images[image_index].image,
+            &base.swapchain.images[image_index],
+        )?;
 
         Ok(())
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-struct Gui {}
+    fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
+        let stored_images = base.context.create_storage_images(
+            base.swapchain.format,
+            base.swapchain.extent,
+            base.swapchain.images.len(),
+        )?;
 
-impl octa_force::Gui for Gui {
-    fn new() -> Result<Self> {
-        Ok(Gui {})
+        stored_images.iter().enumerate().for_each(|(index, img)| {
+            let set = &self.compute_descriptor_sets[index];
+
+            set.update(&[WriteDescriptorSet {
+                binding: 0,
+                kind: WriteDescriptorSetKind::StorageImage {
+                    layout: vk::ImageLayout::GENERAL,
+                    view: &img.view,
+                },
+            }]);
+        });
+
+        self.stored_images = stored_images;
+
+        Ok(())
     }
 
-    fn build(&mut self, ui: &Ui) {
-        ui.window("Debug")
-            .position([5.0, 5.0], Condition::FirstUseEver)
-            .size([300.0, 250.0], Condition::FirstUseEver)
-            .resizable(false)
-            .movable(false)
-            .build(|| {
-                ui.text("Compute");
-            });
+    fn update(
+        &mut self,
+        base: &mut BaseApp<Self>,
+        _image_index: usize,
+        delta_time: Duration,
+    ) -> Result<()> {
+        self.camera.update(&base.controls, delta_time);
+
+        self.compute_ubo_buffer.copy_data_to_buffer(&[ComputeUbo {
+            pos: self.camera.position,
+            dir: self.camera.direction,
+        }])
     }
 }
 

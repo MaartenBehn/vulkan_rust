@@ -3,19 +3,18 @@ use std::time::{Duration, Instant};
 
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
-use octa_force::controls::Controls;
-use octa_force::glam::{vec3, Mat4};
-use octa_force::imgui::{Condition, Ui};
+use octa_force::egui::DragValue;
+use octa_force::egui_winit::winit::event::WindowEvent;
+use octa_force::glam::{uvec2, vec3, Mat4};
+use octa_force::gui::Gui;
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
-use octa_force::vulkan::utils::create_gpu_only_buffer_from_data;
 use octa_force::vulkan::{
-    Buffer, BufferBarrier, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context,
-    DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
-    GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, PipelineLayout, Vertex,
-    WriteDescriptorSet, WriteDescriptorSetKind,
+    Buffer, BufferBarrier, ComputePipeline, ComputePipelineCreateInfo, Context, DescriptorPool,
+    DescriptorSet, DescriptorSetLayout, GraphicsPipeline, GraphicsPipelineCreateInfo,
+    GraphicsShaderCreateInfo, PipelineLayout, Vertex, WriteDescriptorSet, WriteDescriptorSetKind,
 };
-use octa_force::{log, App, BaseApp};
+use octa_force::{egui, log, App, BaseApp};
 use rand::Rng;
 
 const WIDTH: u32 = 1024;
@@ -30,11 +29,19 @@ const MIN_ATTRACTOR_STRENGTH: u32 = 0;
 const MAX_ATTRACTOR_STRENGTH: u32 = 100;
 
 fn main() -> Result<()> {
-    octa_force::run::<Particles>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<Particles>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
 }
 struct Particles {
     particle_count: u32,
+    particle_size: f32,
+    attractor_position: [f32; 3],
+    new_attractor_position: Option<[f32; 3]>,
+    attractor_strength: u32,
+    color1: [f32; 4],
+    color2: [f32; 4],
+    color3: [f32; 4],
     attractor_center: [f32; 3],
+
     particles_buffer: Buffer,
     compute_ubo_buffer: Buffer,
     _compute_descriptor_pool: DescriptorPool,
@@ -49,12 +56,11 @@ struct Particles {
     graphics_pipeline_layout: PipelineLayout,
     graphics_pipeline: GraphicsPipeline,
 
+    gui: Gui,
     camera: Camera,
 }
 
 impl App for Particles {
-    type Gui = Gui;
-
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
@@ -167,9 +173,24 @@ impl App for Particles {
         camera.position.z = 2.0;
         camera.z_far = 100.0;
 
+        let gui = Gui::new(
+            context,
+            base.swapchain.format,
+            &base.window,
+            base.num_frames_in_flight,
+        )?;
+
         Ok(Self {
-            particle_count: 0,
+            particle_count: MAX_PARTICLE_COUNT / 20,
+            particle_size: MIN_PARTICLE_SIZE,
+            attractor_position: [0.0; 3],
+            new_attractor_position: None,
+            attractor_strength: MAX_ATTRACTOR_STRENGTH / 10,
+            color1: [1.0, 0.0, 0.0, 1.0],
+            color2: [0.0, 1.0, 0.0, 1.0],
+            color3: [0.0, 0.0, 1.0, 1.0],
             attractor_center: [0.0; 3],
+
             particles_buffer,
             compute_ubo_buffer,
             _compute_descriptor_pool: compute_descriptor_pool,
@@ -184,22 +205,20 @@ impl App for Particles {
             graphics_pipeline_layout,
             graphics_pipeline,
 
+            gui,
             camera,
         })
     }
 
     fn update(
         &mut self,
-        _: &mut BaseApp<Self>,
-        gui: &mut <Self as App>::Gui,
-        _: usize,
+        base: &mut BaseApp<Self>,
+        _image_index: usize,
         delta_time: Duration,
-        controls: &Controls,
     ) -> Result<()> {
-        self.camera.update(controls, delta_time);
+        self.camera.update(&base.controls, delta_time);
 
-        self.particle_count = gui.particle_count;
-        self.attractor_center = gui
+        self.attractor_center = self
             .new_attractor_position
             .take()
             .unwrap_or(self.attractor_center);
@@ -211,10 +230,10 @@ impl App for Particles {
                 self.attractor_center[2],
                 0.0,
             ],
-            color1: gui.color1,
-            color2: gui.color2,
-            color3: gui.color3,
-            attractor_strength: gui.attractor_strength,
+            color1: self.color1,
+            color2: self.color2,
+            color3: self.color3,
+            attractor_strength: self.attractor_strength,
             particle_count: self.particle_count,
             elapsed: delta_time.as_secs_f32(),
         }])?;
@@ -222,18 +241,19 @@ impl App for Particles {
         self.graphics_ubo_buffer
             .copy_data_to_buffer(&[GraphicsUbo {
                 view_proj_matrix: self.camera.projection_matrix() * self.camera.view_matrix(),
-                particle_size: gui.particle_size,
+                particle_size: self.particle_size,
             }])?;
 
         Ok(())
     }
 
-    fn record_raster_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
+    fn record_render_commands(
+        &mut self,
+        base: &mut BaseApp<Self>,
         image_index: usize,
     ) -> Result<()> {
+        let buffer = &base.command_buffers[image_index];
+
         buffer.bind_compute_pipeline(&self.compute_pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::COMPUTE,
@@ -250,6 +270,8 @@ impl App for Particles {
             dst_access_mask: vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
             dst_stage_mask: vk::PipelineStageFlags2::VERTEX_ATTRIBUTE_INPUT,
         }]);
+
+        buffer.swapchain_image_render_barrier(&base.swapchain.images[image_index])?;
 
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
@@ -269,96 +291,72 @@ impl App for Particles {
         buffer.set_viewport(base.swapchain.extent);
         buffer.set_scissor(base.swapchain.extent);
         buffer.draw(self.particle_count / DISPATCH_GROUP_SIZE_X * DISPATCH_GROUP_SIZE_X);
+
+        self.gui.cmd_draw(
+            buffer,
+            base.swapchain.extent,
+            image_index,
+            &base.window,
+            &base.context,
+            |ctx| {
+                egui::Window::new("Particles").show(ctx, |ui| {
+                    ui.label("Particles");
+
+                    ui.add(
+                        egui::Slider::new(&mut self.particle_count, 0..=MAX_PARTICLE_COUNT)
+                            .text("Count"),
+                    );
+                    ui.add(
+                        egui::Slider::new(
+                            &mut self.particle_size,
+                            MIN_PARTICLE_SIZE..=MAX_PARTICLE_SIZE,
+                        )
+                        .text("Size"),
+                    );
+
+                    ui.add(
+                        egui::Slider::new(
+                            &mut self.attractor_strength,
+                            MIN_ATTRACTOR_STRENGTH..=MAX_ATTRACTOR_STRENGTH,
+                        )
+                        .text("Strength"),
+                    );
+
+                    ui.label("Transform");
+                    ui.columns(3, |ui| {
+                        ui[0].add(
+                            DragValue::new(&mut self.attractor_position[0])
+                                .clamp_range(-1.0..=1.0)
+                                .speed(0.01),
+                        );
+                        ui[1].add(
+                            DragValue::new(&mut self.attractor_position[1])
+                                .clamp_range(-1.0..=1.0)
+                                .speed(0.01),
+                        );
+                        ui[2].add(
+                            DragValue::new(&mut self.attractor_position[2])
+                                .clamp_range(-1.0..=1.0)
+                                .speed(0.01),
+                        );
+                    });
+
+                    if ui.button("Apply").clicked() {
+                        self.new_attractor_position = Some(self.attractor_position);
+                    }
+                });
+            },
+        )?;
+
         buffer.end_rendering();
 
         Ok(())
     }
 
-    fn on_recreate_swapchain(&mut self, _: &BaseApp<Self>) -> Result<()> {
+    fn on_window_event(&mut self, base: &mut BaseApp<Self>, event: &WindowEvent) -> Result<()> {
+        self.gui.handle_event(&base.window, event);
+
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Gui {
-    particle_count: u32,
-    particle_size: f32,
-    attractor_position: [f32; 3],
-    new_attractor_position: Option<[f32; 3]>,
-    attractor_strength: u32,
-    color1: [f32; 4],
-    color2: [f32; 4],
-    color3: [f32; 4],
-}
-
-impl octa_force::Gui for Gui {
-    fn new() -> Result<Self> {
-        Ok(Gui {
-            particle_count: MAX_PARTICLE_COUNT / 20,
-            particle_size: MIN_PARTICLE_SIZE,
-            attractor_position: [0.0; 3],
-            new_attractor_position: None,
-            attractor_strength: MAX_ATTRACTOR_STRENGTH / 10,
-            color1: [1.0, 0.0, 0.0, 1.0],
-            color2: [0.0, 1.0, 0.0, 1.0],
-            color3: [0.0, 0.0, 1.0, 1.0],
-        })
-    }
-
-    fn build(&mut self, ui: &Ui) {
-        ui.window("Particles")
-            .position([5.0, 5.0], Condition::FirstUseEver)
-            .size([300.0, 250.0], Condition::FirstUseEver)
-            .resizable(false)
-            .movable(false)
-            .build(|| {
-                ui.text("Particles");
-                ui.slider("Count", 0, MAX_PARTICLE_COUNT, &mut self.particle_count);
-                ui.slider_config("Size", MIN_PARTICLE_SIZE, MAX_PARTICLE_SIZE)
-                    .display_format("%.1f")
-                    .build(&mut self.particle_size);
-                ui.color_edit4_config("Color 1", &mut self.color1)
-                    .alpha(false)
-                    .tooltip(false)
-                    .build();
-                ui.color_edit4_config("Color 2", &mut self.color2)
-                    .alpha(false)
-                    .tooltip(false)
-                    .build();
-                ui.color_edit4_config("Color 3", &mut self.color3)
-                    .alpha(false)
-                    .tooltip(false)
-                    .build();
-                ui.text("Attractor");
-                ui.slider(
-                    "Strength",
-                    MIN_ATTRACTOR_STRENGTH,
-                    MAX_ATTRACTOR_STRENGTH,
-                    &mut self.attractor_strength,
-                );
-                ui.input_float3("Position", &mut self.attractor_position)
-                    .build();
-                if ui.button("Apply") {
-                    self.new_attractor_position = Some(self.attractor_position);
-                }
-                ui.same_line();
-                if ui.button("Randomize") {
-                    let mut rng = rand::thread_rng();
-                    let new_position = [
-                        rng.gen_range(-1.0..1.0),
-                        rng.gen_range(-1.0..1.0),
-                        rng.gen_range(-1.0..1.0),
-                    ];
-                    self.attractor_position = new_position;
-                    self.new_attractor_position = Some(new_position);
-                }
-                ui.same_line();
-                if ui.button("Reset") {
-                    let new_position = [0.0; 3];
-                    self.attractor_position = new_position;
-                    self.new_attractor_position = Some(new_position);
-                }
-            });
     }
 }
 
@@ -472,8 +470,7 @@ fn create_particle_buffer(context: &Context) -> Result<Buffer> {
         .flatten()
         .collect::<Vec<_>>();
 
-    let vertex_buffer = create_gpu_only_buffer_from_data(
-        context,
+    let vertex_buffer = context.create_gpu_only_buffer_from_data(
         vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER,
         &particles,
     )?;
