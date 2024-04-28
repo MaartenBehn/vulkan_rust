@@ -285,10 +285,10 @@ impl<
             if accepted {
                 for (&offset, _) in pattern.node_req.iter() {
                     let req_wave_pos = wave_pos + offset;
-                    
+
                     let r = self.get_wave_index_from_wave_pos(req_wave_pos);
                     if r.is_err() {
-                        continue
+                        continue;
                     }
                     let req_wave_index = r.unwrap();
 

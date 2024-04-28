@@ -41,6 +41,7 @@ const VOX_FILE_RELODE_INTERVALL: Duration = Duration::from_secs(1);
 fn main() -> Result<()> {
     octa_force::run::<SpaceShipBuilder>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
 }
+
 struct SpaceShipBuilder {
     total_time: Duration,
     last_vox_reloade: Duration,
