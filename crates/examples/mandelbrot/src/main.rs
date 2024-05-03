@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
+use octa_force::glam::uvec2;
 use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::utils::create_gpu_only_buffer_from_data;
 use octa_force::vulkan::{
     Buffer, CommandBuffer, Context, GraphicsPipeline, GraphicsPipelineCreateInfo,
     GraphicsShaderCreateInfo, PipelineLayout,
@@ -15,7 +15,7 @@ const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Mandelbrot";
 
 fn main() -> Result<()> {
-    octa_force::run::<Mandelbrot>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<Mandelbrot>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
 }
 struct Mandelbrot {
     vertex_buffer: Buffer,
@@ -24,8 +24,6 @@ struct Mandelbrot {
 }
 
 impl App for Mandelbrot {
-    type Gui = ();
-
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
@@ -42,27 +40,12 @@ impl App for Mandelbrot {
         })
     }
 
-    fn on_recreate_swapchain(&mut self, _: &BaseApp<Self>) -> Result<()> {
-        Ok(())
-    }
-
-    fn update(
+    fn record_render_commands(
         &mut self,
-        _: &mut BaseApp<Self>,
-        _: &mut <Self as App>::Gui,
-        _: usize,
-        _: Duration,
-        _: &Controls,
-    ) -> Result<()> {
-        Ok(())
-    }
-
-    fn record_raster_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
+        base: &mut BaseApp<Self>,
         image_index: usize,
     ) -> Result<()> {
+        let buffer = &base.command_buffers[image_index];
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
             None,
@@ -77,6 +60,15 @@ impl App for Mandelbrot {
         buffer.draw(6);
         buffer.end_rendering();
 
+        Ok(())
+    }
+
+    fn update(
+        &mut self,
+        _base: &mut BaseApp<Self>,
+        _image_index: usize,
+        _delta_time: Duration,
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -144,7 +136,7 @@ fn create_vertex_buffer(context: &Context) -> Result<Buffer> {
     ];
 
     let vertex_buffer =
-        create_gpu_only_buffer_from_data(context, vk::BufferUsageFlags::VERTEX_BUFFER, &vertices)?;
+        context.create_gpu_only_buffer_from_data(vk::BufferUsageFlags::VERTEX_BUFFER, &vertices)?;
 
     Ok(vertex_buffer)
 }

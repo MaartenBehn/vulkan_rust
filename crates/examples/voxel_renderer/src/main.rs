@@ -4,10 +4,9 @@ use octa_force::anyhow::{ensure, Ok, Result};
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::glam::{uvec2, Vec3};
-use octa_force::imgui::{Condition, Ui};
 use octa_force::vulkan::ash::vk::{self};
 use octa_force::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
-use octa_force::{log, App, BaseApp};
+use octa_force::{log, App, BaseApp, ImageAndView};
 
 mod octtree_controller;
 use octtree::streamed_octtree::StreamedOcttree;
@@ -61,10 +60,11 @@ pub struct RayCaster {
     max_loaded_batches: usize,
 
     camera: Camera,
+
+    stored_images: Vec<ImageAndView>,
 }
 
 impl App for RayCaster {
-
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
@@ -88,11 +88,17 @@ impl App for RayCaster {
             &octtree_controller.octtree_info_buffer,
         )?;
 
+        let stored_images = context.create_storage_images(
+            base.swapchain.format,
+            base.swapchain.extent,
+            images.len(),
+        )?;
+
         log::info!("Creating Renderer");
         let renderer = Renderer::new(
             context,
             images_len,
-            &base.storage_images,
+            &stored_images,
             &octtree_controller.octtree_buffer,
             &octtree_controller.octtree_info_buffer,
             &material_controller.material_buffer,
@@ -128,22 +134,22 @@ impl App for RayCaster {
             max_loaded_batches,
 
             camera,
+
+            stored_images,
         })
     }
 
     fn update(
         &mut self,
         base: &mut BaseApp<Self>,
-        gui: &mut <Self as App>::Gui,
         _: usize,
         delta_time: Duration,
-        controls: &Controls,
     ) -> Result<()> {
         log::info!("Frame: {:?}", &self.frame_counter);
 
         self.total_time += delta_time;
 
-        self.camera.update(controls, delta_time);
+        self.camera.update(&base.controls, delta_time);
 
         self.octtree_controller
             .octtree_info_buffer
