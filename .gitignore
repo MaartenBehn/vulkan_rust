@@ -10,4 +10,4 @@ assets/template_tree/*
 movement.txt
 graph.png
 Cargo.lock
-
+.direnv

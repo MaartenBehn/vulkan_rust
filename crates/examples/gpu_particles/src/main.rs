@@ -177,7 +177,7 @@ impl App for Particles {
             context,
             base.swapchain.format,
             &base.window,
-            base.num_frames_in_flight,
+            base.num_frames,
         )?;
 
         Ok(Self {
