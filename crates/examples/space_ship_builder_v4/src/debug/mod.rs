@@ -5,18 +5,15 @@ pub mod wave_renderer;
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
 use crate::debug::wave_renderer::{DebugWaveRenderer, WAVE_DEBUG_PS};
-use crate::node::NodeController;
 use crate::ship::Ship;
 use crate::ship_renderer::ShipRenderer;
-use crate::SpaceShipBuilder;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::egui_winit::winit::window::Window;
-use octa_force::glam::{vec3, Vec3, Vec4};
+use octa_force::glam::vec3;
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
-use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
-use octa_force::BaseApp;
+use octa_force::vulkan::{CommandBuffer, Context};
 use std::time::Duration;
 
 #[derive(PartialEq)]
@@ -81,7 +78,6 @@ impl DebugController {
         total_time: Duration,
         ship: &Ship<BS, WS, WAVE_DEBUG_PS, BL, WL, PL>,
         image_index: usize,
-        node_controller: &NodeController,
     ) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
@@ -119,7 +115,6 @@ impl DebugController {
                 &context,
                 &renderer.chunk_descriptor_layout,
                 &renderer.descriptor_pool,
-                node_controller,
             )?;
         } else {
             self.line_renderer.vertecies_count = 0;

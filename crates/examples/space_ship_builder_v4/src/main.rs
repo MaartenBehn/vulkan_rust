@@ -14,24 +14,21 @@ use octa_force::{
 use octa_force::{log, App, BaseApp};
 
 #[cfg(debug_assertions)]
-use crate::debug::DebugController;
+//use crate::debug::DebugController;
 
-use crate::debug::DebugMode::OFF;
-use crate::{
-    builder::Builder, node::NodeController, ship::Ship, ship_renderer::ShipRenderer,
-    voxel_loader::VoxelLoader,
-};
+//use crate::debug::DebugMode::OFF;
+use crate::voxel_loader::VoxelLoader;
 
-pub mod builder;
+// pub mod builder;
 
 #[cfg(debug_assertions)]
-pub mod debug;
+//pub mod debug;
 pub mod math;
 pub mod node;
 pub mod rotation;
-pub mod ship;
-pub mod ship_mesh;
-pub mod ship_renderer;
+// pub mod ship;
+// pub mod ship_mesh;
+// pub mod ship_renderer;
 pub mod voxel_loader;
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
@@ -45,42 +42,12 @@ struct SpaceShipBuilder {
     total_time: Duration,
     last_vox_reloade: Duration,
 
-    node_controller: NodeController,
-    builder: Builder,
-    renderer: ShipRenderer,
-
-    #[cfg(debug_assertions)]
-    debug_controller: DebugController,
-
     camera: Camera,
 }
 
 impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let voxel_loader = VoxelLoader::new("./assets/models/space_ship.vox")?;
-
-        let node_controller =
-            NodeController::new(voxel_loader, "./assets/models/space_ship_config.json")?;
-
-        let builder = Builder::new(base.swapchain.images.len(), &node_controller)?;
-
-        let renderer = ShipRenderer::new(
-            &base.context,
-            &node_controller,
-            base.swapchain.images.len() as u32,
-            base.swapchain.format,
-            Format::D32_SFLOAT,
-            base.swapchain.extent,
-        )?;
-
-        #[cfg(debug_assertions)]
-        let debug_controller = DebugController::new(
-            &base.context,
-            base.swapchain.images.len(),
-            base.swapchain.format,
-            &base.window,
-            &renderer,
-        )?;
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
@@ -95,13 +62,6 @@ impl App for SpaceShipBuilder {
             total_time: Duration::ZERO,
             last_vox_reloade: Duration::ZERO,
 
-            node_controller,
-            builder,
-            renderer,
-
-            #[cfg(debug_assertions)]
-            debug_controller,
-
             camera,
         })
     }
@@ -112,6 +72,7 @@ impl App for SpaceShipBuilder {
         image_index: usize,
         delta_time: Duration,
     ) -> Result<()> {
+        /*
         self.total_time += delta_time;
 
         self.camera.update(&base.controls, delta_time);
@@ -169,6 +130,8 @@ impl App for SpaceShipBuilder {
             )?;
         }
 
+         */
+
         Ok(())
     }
 
@@ -177,6 +140,7 @@ impl App for SpaceShipBuilder {
         base: &mut BaseApp<Self>,
         image_index: usize,
     ) -> Result<()> {
+        /*
         let buffer = &base.command_buffers[image_index];
 
         buffer.swapchain_image_render_barrier(&base.swapchain.images[image_index])?;
@@ -205,12 +169,17 @@ impl App for SpaceShipBuilder {
 
         buffer.end_rendering();
 
+         */
+
         Ok(())
     }
 
     fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
+        /*
         self.renderer
             .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
+
+         */
 
         Ok(())
     }

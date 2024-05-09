@@ -1,5 +1,5 @@
 [package]
-name = "space_ship_builder_v3"
+name = "space_ship_builder_v4"
 version = "0.1.0"
 edition = "2021"
 authors = ["Maarten Behn <maarten.behn@gmail.com>"]

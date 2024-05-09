@@ -6,7 +6,7 @@ use crate::node::{Node, NodeID, PatternIndex, EMPYT_PATTERN_INDEX};
 use crate::ship_mesh::RenderNode;
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
-    node::{BlockIndex, NodeController, Pattern, BLOCK_INDEX_EMPTY},
+    node::{BlockIndex, BLOCK_INDEX_EMPTY},
     ship_mesh::ShipMesh,
 };
 use index_queue::IndexQueue;

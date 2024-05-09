@@ -11,8 +11,8 @@ opt-level = 0
 opt-level = 3
 
 [dependencies]
-#octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", version = "0.1.4" }
-octa-force = { path="../../../../octa-force-rs" }
+octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", version = "0.1.4" }
+# octa-force = { path="../../../../octa-force-rs" }
 
 # Print Progress bars etc
 # indicatif = "0.17.3"
