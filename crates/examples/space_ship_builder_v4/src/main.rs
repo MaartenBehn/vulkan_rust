@@ -1,5 +1,8 @@
 use std::time::Duration;
 
+use crate::builder::Builder;
+use crate::generator::Generator;
+use crate::ship_renderer::ShipRenderer;
 use octa_force::glam::{ivec2, uvec2, IVec2, UVec3};
 use octa_force::vulkan::{
     ash::vk::{self, Format},
@@ -19,17 +22,18 @@ use octa_force::{log, App, BaseApp};
 //use crate::debug::DebugMode::OFF;
 use crate::voxel_loader::VoxelLoader;
 
-// pub mod builder;
-
+pub mod builder;
+mod generator;
 #[cfg(debug_assertions)]
 //pub mod debug;
 pub mod math;
 pub mod node;
 pub mod rotation;
-// pub mod ship;
-// pub mod ship_mesh;
-// pub mod ship_renderer;
+pub mod ship;
+pub mod ship_mesh;
+pub mod ship_renderer;
 pub mod voxel_loader;
+
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Space ship builder";
@@ -42,12 +46,29 @@ struct SpaceShipBuilder {
     total_time: Duration,
     last_vox_reloade: Duration,
 
+    voxel_loader: VoxelLoader,
+    generator: Generator,
+    builder: Builder,
+    renderer: ShipRenderer,
     camera: Camera,
 }
 
 impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let voxel_loader = VoxelLoader::new("./assets/models/space_ship.vox")?;
+
+        let mut generator = Generator::new(&voxel_loader);
+
+        let builder = Builder::new(base.num_frames, &voxel_loader, &mut generator)?;
+
+        let renderer = ShipRenderer::new(
+            &base.context,
+            base.num_frames as u32,
+            base.swapchain.format,
+            Format::D32_SFLOAT,
+            base.swapchain.extent,
+            &voxel_loader,
+        )?;
 
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.extent);
@@ -62,6 +83,10 @@ impl App for SpaceShipBuilder {
             total_time: Duration::ZERO,
             last_vox_reloade: Duration::ZERO,
 
+            voxel_loader,
+            generator,
+            builder,
+            renderer,
             camera,
         })
     }
@@ -72,11 +97,11 @@ impl App for SpaceShipBuilder {
         image_index: usize,
         delta_time: Duration,
     ) -> Result<()> {
-        /*
         self.total_time += delta_time;
 
         self.camera.update(&base.controls, delta_time);
 
+        /*
         if base.controls.q && self.last_vox_reloade + VOX_FILE_RELODE_INTERVALL < self.total_time {
             self.last_vox_reloade = self.total_time;
 
@@ -101,6 +126,8 @@ impl App for SpaceShipBuilder {
             log::info!(".vox File loaded");
         }
 
+         */
+
         self.builder.update(
             image_index,
             &base.context,
@@ -108,29 +135,13 @@ impl App for SpaceShipBuilder {
             &self.renderer.descriptor_pool,
             &base.controls,
             &self.camera,
-            &self.node_controller,
+            &self.voxel_loader,
             delta_time,
             self.total_time,
-            #[cfg(debug_assertions)]
-            &mut self.debug_controller,
+            &mut self.generator,
         )?;
 
         self.renderer.update(&self.camera, base.swapchain.extent)?;
-
-        #[cfg(debug_assertions)]
-        {
-            self.debug_controller.update(
-                &base.context,
-                &base.controls,
-                &self.renderer,
-                self.total_time,
-                &self.builder.ship,
-                image_index,
-                &self.node_controller,
-            )?;
-        }
-
-         */
 
         Ok(())
     }
@@ -140,7 +151,6 @@ impl App for SpaceShipBuilder {
         base: &mut BaseApp<Self>,
         image_index: usize,
     ) -> Result<()> {
-        /*
         let buffer = &base.command_buffers[image_index];
 
         buffer.swapchain_image_render_barrier(&base.swapchain.images[image_index])?;
@@ -154,32 +164,16 @@ impl App for SpaceShipBuilder {
         buffer.set_viewport(base.swapchain.extent);
         buffer.set_scissor(base.swapchain.extent);
 
-        if self.debug_controller.mode == OFF {
-            self.renderer.render(buffer, image_index, &self.builder);
-        }
-
-        #[cfg(debug_assertions)]
-        self.debug_controller.render(
-            buffer,
-            image_index,
-            &self.camera,
-            base.swapchain.extent,
-            &self.renderer,
-        )?;
+        self.renderer.render(buffer, image_index, &self.builder);
 
         buffer.end_rendering();
-
-         */
 
         Ok(())
     }
 
     fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
-        /*
         self.renderer
             .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
-
-         */
 
         Ok(())
     }

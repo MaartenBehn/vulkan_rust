@@ -3,11 +3,12 @@ use crate::ship_mesh::ShipMesh;
 use crate::{node::BlockIndex, ship::Ship};
 use std::collections::HashMap;
 
+use crate::generator::Generator;
 #[cfg(debug_assertions)]
-use crate::debug::{DebugController, DebugMode};
-
+//use crate::debug::{DebugController, DebugMode};
 use crate::node::BLOCK_INDEX_EMPTY;
-use crate::ship::WaveIndex;
+use crate::ship::{WaveIndex, CHUNK_SIZE};
+use crate::voxel_loader::VoxelLoader;
 use index_queue::IndexQueue;
 use octa_force::glam::{vec3, vec4, IVec3, Vec3};
 use octa_force::vulkan::{DescriptorPool, DescriptorSetLayout};
@@ -25,9 +26,9 @@ pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 const DEBUG_COLLAPSE_SPEED: Duration = Duration::from_millis(100);
 
 pub struct Builder {
-    pub ship: Ship<8, 16, 18, { 8 * 8 * 8 }, { 16 * 16 * 16 }, { 18 * 18 * 18 }>,
-    pub base_ship_mesh: ShipMesh<18, 16>,
-    pub build_ship_mesh: ShipMesh<18, 16>,
+    pub ship: Ship,
+    pub base_ship_mesh: ShipMesh,
+    pub build_ship_mesh: ShipMesh,
 
     pub build_blocks: HashMap<IVec3, BlockIndex>,
 
@@ -46,26 +47,23 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(images_count: usize, node_controller: &NodeController) -> Result<Builder> {
+    pub fn new(
+        images_count: usize,
+        voxel_loader: &VoxelLoader,
+        generator: &mut Generator,
+    ) -> Result<Builder> {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(
-            node_controller
-                .blocks
+            voxel_loader
+                .block_names
                 .iter()
-                .position(|b| b.name == "Empty")
-                .unwrap(),
-        );
-        possible_blocks.push(
-            node_controller
-                .blocks
-                .iter()
-                .position(|b| b.name == "Hull")
+                .position(|name| name == "Hull")
                 .unwrap(),
         );
 
-        let ship = Ship::new()?;
-        let base_ship_mesh = ShipMesh::new::<16>(images_count)?;
-        let build_ship_mesh = ShipMesh::new::<16>(images_count)?;
+        let ship = Ship::new(CHUNK_SIZE, generator)?;
+        let base_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
+        let build_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
 
         Ok(Builder {
             ship,
@@ -99,14 +97,18 @@ impl Builder {
 
         controls: &Controls,
         camera: &Camera,
-        node_controller: &NodeController,
+        voxel_loader: &VoxelLoader,
         delta_time: Duration,
         total_time: Duration,
-        #[cfg(debug_assertions)] debug_controller: &mut DebugController,
+        //#[cfg(debug_assertions)] debug_controller: &mut DebugController,
+        generator: &mut Generator,
     ) -> Result<()> {
+        /*
         #[cfg(debug_assertions)]
         let d = debug_controller.mode != DebugMode::WFC;
         #[cfg(not(debug_assertions))]
+
+         */
         let d = true;
         if d {
             if self.full_tick
@@ -130,9 +132,13 @@ impl Builder {
 
         self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
+        /*
         #[cfg(debug_assertions)]
         let d = debug_controller.mode == DebugMode::OFF || controls.lshift;
         #[cfg(not(debug_assertions))]
+
+         */
+        /*
         let d = true;
         if d {
             let pos = (((camera.position + camera.direction * self.distance)
@@ -150,11 +156,11 @@ impl Builder {
                         .get(&self.last_pos)
                         .unwrap_or(&BLOCK_INDEX_EMPTY);
                     self.ship
-                        .place_block(self.last_pos, last_block_index, node_controller)?;
+                        .place_block(self.last_pos, last_block_index, generator)?;
 
                     // Simulate placement of the block to create preview in build_ship.
                     let block_index = self.possible_blocks[self.block_to_build];
-                    let _ = self.ship.place_block(pos, block_index, node_controller)?;
+                    let _ = self.ship.place_block(pos, block_index, generator)?;
 
                     // If block index is valid.
                     self.last_block_to_build = self.block_to_build;
@@ -177,7 +183,10 @@ impl Builder {
             )?;
         }
 
+         */
+
         let mut changed_chunks = Vec::new();
+        /*
         #[cfg(debug_assertions)]
         if debug_controller.mode == DebugMode::WFC || debug_controller.mode == DebugMode::WFCSkip {
             if controls.t && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time {
@@ -205,9 +214,10 @@ impl Builder {
         }
 
         #[cfg(not(debug_assertions))]
+
+         */
         {
-            (self.full_tick, changed_chunks) =
-                self.ship.tick(self.actions_per_tick, node_controller)?;
+            (self.full_tick, changed_chunks) = self.ship.tick(self.actions_per_tick)?;
         }
 
         self.build_ship_mesh.update(

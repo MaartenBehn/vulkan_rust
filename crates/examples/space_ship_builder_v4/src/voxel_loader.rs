@@ -1,4 +1,4 @@
-use crate::node::{BlockIndex, NodeID, NodeIndex, NODE_INDEX_NONE};
+use crate::node::{BlockIndex, NodeID};
 use crate::rotation::Rot;
 use crate::{
     math::to_1d,
@@ -7,11 +7,9 @@ use crate::{
 use dot_vox::{DotVoxData, Position, SceneNode};
 use octa_force::egui::ahash::HashMap;
 use octa_force::glam::{ivec3, IVec3, UVec3};
-use octa_force::log::warn;
 use octa_force::{
     anyhow::{bail, Result},
     glam::uvec3,
-    log,
 };
 
 pub struct VoxelLoader {
@@ -23,8 +21,10 @@ pub struct VoxelLoader {
     pub block_positions: HashMap<UVec3, BlockIndex>,
 }
 
+#[derive(Clone, Default)]
 struct ModelInfo {
     pub nodes: Vec<(UVec3, NodeID)>,
+    pub size: UVec3,
 }
 
 impl VoxelLoader {
@@ -37,17 +37,17 @@ impl VoxelLoader {
         };
 
         let mats = Self::load_materials(&data)?;
-        let (nodes, model_infos) = Self::load_models(&data)?;
+        let (nodes, node_id_map) = Self::load_models(&data)?;
         let (block_names, block_positions) = Self::load_blocks(&data);
-        let node_positions = Self::load_node_positions(&data);
+        let node_positions = Self::load_node_positions(&data, node_id_map)?;
 
         let voxel_loader = Self {
             path: path.to_owned(),
             mats,
             nodes,
             block_names,
-            node_positions: Default::default(),
-            block_positions: Default::default(),
+            node_positions,
+            block_positions,
         };
 
         Ok(voxel_loader)
@@ -62,67 +62,40 @@ impl VoxelLoader {
         Ok(mats)
     }
 
-    fn load_models(data: &DotVoxData) -> Result<(Vec<Node>, Vec<Vec<(UVec3, NodeID)>>)> {
+    fn load_models(data: &DotVoxData) -> Result<(Vec<Node>, Vec<usize>)> {
         let mut nodes = Vec::new();
-        let mut model_infos = Vec::new();
+        let mut node_id_map = Vec::new();
 
-        for (model_id, model) in data.models.iter().enumerate() {
+        for model in data.models.iter() {
             let size = uvec3(model.size.x, model.size.y, model.size.z);
-            if (size % 4) != UVec3::ZERO {
-                warn!("Model size not multiple of 4");
+
+            if size != (UVec3::ONE * 4) {
+                node_id_map.push(usize::MAX);
                 continue;
             }
 
-            let mut model_nodes = Vec::new();
-            for cx in 0..(size.x / 4) {
-                for cy in 0..(size.y / 4) {
-                    for cz in 0..(size.z / 4) {
-                        let mut empty = true;
-                        let mut voxels = [0; NODE_VOXEL_LENGTH];
-                        for v in model.voxels.iter() {
-                            let pos = uvec3(v.x as u32, v.y as u32, v.z as u32);
-                            let c_pos = uvec3(cx, cy, cz);
-                            if pos.cmple(c_pos * 4).any()
-                                || pos.cmpge((c_pos + UVec3::ONE) * 4).any()
-                            {
-                                continue;
-                            }
+            let mut empty = true;
+            let mut voxels = [0; NODE_VOXEL_LENGTH];
+            for v in model.voxels.iter() {
+                let pos = uvec3(v.x as u32, v.y as u32, v.z as u32);
 
-                            let n_pos = pos - c_pos * 4;
+                //let x = (NODE_SIZE.x - 1) - v.x as u32; // Flip x to match game axis system.
+                //let y = (NODE_SIZE.y - 1) - v.y as u32; // Flip x to match game axis system.
 
-                            //let x = (NODE_SIZE.x - 1) - v.x as u32; // Flip x to match game axis system.
-                            //let y = (NODE_SIZE.y - 1) - v.y as u32; // Flip x to match game axis system.
+                voxels[to_1d(pos, NODE_SIZE)] = v.i;
 
-                            voxels[to_1d(n_pos, NODE_SIZE)] = v.i;
-
-                            if v.i != 0 {
-                                empty = false;
-                            }
-                        }
-
-                        if !empty {
-                            let node = Node::new(voxels);
-
-                            let duplicate = node.search_duplicate_node(&nodes);
-
-                            if duplicate.is_some() {
-                                model_nodes.push((uvec3(cx, cy, cz), duplicate.unwrap()));
-                            } else {
-                                model_nodes.push((
-                                    uvec3(cx, cy, cz),
-                                    NodeID::new(nodes.len(), Rot::default()),
-                                ));
-                                nodes.push(node);
-                            }
-                        }
-                    }
+                if v.i != 0 {
+                    empty = false;
                 }
             }
 
-            model_infos.push(model_nodes);
+            if !empty {
+                node_id_map.push(nodes.len());
+                nodes.push(Node::new(voxels));
+            }
         }
 
-        Ok((nodes, model_infos))
+        Ok((nodes, node_id_map))
     }
 
     fn get_group_ids(data: &DotVoxData, name: &str) -> (Vec<u32>, IVec3) {
@@ -163,6 +136,8 @@ impl VoxelLoader {
         let (block_ids, block_group_pos) = Self::get_group_ids(data, "blocks");
 
         let mut block_names = Vec::new();
+        block_names.push("Empty".to_owned());
+
         let mut block_positions = HashMap::default();
         for block_id in block_ids {
             match &data.scenes[block_id as usize] {
@@ -195,26 +170,49 @@ impl VoxelLoader {
         (block_names, block_positions)
     }
 
-    fn load_node_positions(data: &DotVoxData) -> HashMap<UVec3, NodeID> {
-        let (node_ids, block_group_pos) = Self::get_group_ids(data, "nodes");
+    fn load_node_positions(
+        data: &DotVoxData,
+        node_id_map: Vec<usize>,
+    ) -> Result<HashMap<UVec3, NodeID>> {
+        let (node_ids, node_group_pos) = Self::get_group_ids(data, "nodes");
 
         let mut node_positions = HashMap::default();
         for node_id in node_ids {
             match &data.scenes[node_id as usize] {
-                SceneNode::Transform {
-                    frames, attributes, ..
-                } => {
+                SceneNode::Transform { frames, child, .. } => {
+                    let model_id = match &data.scenes[*child as usize] {
+                        SceneNode::Shape { models, .. } => models[0].model_id as usize,
+                        _ => {
+                            bail!("Node child is not a shape node!")
+                        }
+                    };
+                    let node_index = node_id_map[model_id];
+                    if node_index == usize::MAX {
+                        bail!("Node has invalid model id!")
+                    }
+
                     let p = frames[0]
                         .position()
                         .unwrap_or(Position { x: 0, y: 0, z: 0 });
-                    let pos = ivec3(p.x, p.y, p.z) + block_group_pos - IVec3::ONE * 4;
-                    
-                    
+                    let pos = ivec3(p.x, p.y, p.z) + node_group_pos - IVec3::ONE * 2;
+
+                    if pos.is_negative_bitmask() != 0 {
+                        bail!("Node Pos: {:?} can't be negative.", pos)
+                    }
+
+                    let r = frames[0].attributes.get("_r");
+                    let node_rot = if r.is_some() {
+                        Rot::from(r.unwrap().as_str()).from_magica()
+                    } else {
+                        Rot::IDENTITY
+                    };
+
+                    node_positions.insert(pos.as_uvec3(), NodeID::new(node_index, node_rot));
                 }
                 _ => {}
             }
         }
 
-        node_positions
+        Ok(node_positions)
     }
 }

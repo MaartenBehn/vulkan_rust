@@ -1,6 +1,7 @@
+use crate::voxel_loader::VoxelLoader;
 use crate::{
     builder::{self, Builder},
-    node::{Node, NodeController},
+    node::Node,
     ship::Ship,
     ship_mesh::{self, ShipMesh},
 };
@@ -73,11 +74,11 @@ pub struct PushConstant {
 impl ShipRenderer {
     pub fn new(
         context: &Context,
-        node_controller: &NodeController,
         images_len: u32,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
         extent: vk::Extent2D,
+        voxel_loader: &VoxelLoader,
     ) -> Result<Self> {
         let render_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -85,7 +86,7 @@ impl ShipRenderer {
             size_of::<RenderBuffer>() as _,
         )?;
 
-        let node_buffer_size = node_controller.nodes.len() * size_of::<Node>();
+        let node_buffer_size = voxel_loader.nodes.len() * size_of::<Node>();
         log::info!(
             "Node Buffer Size: {:?} MB",
             node_buffer_size as f32 / 1000000.0
@@ -93,12 +94,12 @@ impl ShipRenderer {
 
         let node_buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::STORAGE_BUFFER,
-            &node_controller.nodes,
+            &voxel_loader.nodes,
         )?;
 
         let mat_buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::STORAGE_BUFFER,
-            &node_controller.mats,
+            &voxel_loader.mats,
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
@@ -293,17 +294,17 @@ impl ShipRenderer {
         );
     }
 
-    pub fn render_ship_mesh<const PS: u32, const RS: i32>(
+    pub fn render_ship_mesh(
         &self,
         buffer: &CommandBuffer,
         image_index: usize,
-        ship_mesh: &ShipMesh<PS, RS>,
+        ship_mesh: &ShipMesh,
         render_mode: RenderMode,
     ) {
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT,
-            &PushConstant::new(render_mode, RS as u32, ship_mesh.chunk_scale),
+            &PushConstant::new(render_mode, ship_mesh.size, 1),
         );
         for chunk in ship_mesh.chunks.iter() {
             if chunk.index_count == 0 {

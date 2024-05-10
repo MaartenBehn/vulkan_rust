@@ -218,7 +218,7 @@ impl Rot {
         log::info!("rot z: {} {}", r[0].0, r[1].0);
     }
 
-    pub fn from_magica(b: u8) -> Self {
+    pub fn from_magica(self) -> Self {
         let mut map = HashMap::new();
         // x rot
         map.insert(17, 33);
@@ -237,8 +237,8 @@ impl Rot {
         map.insert(88, 56);
 
         // y flip rot
-        map.insert(56, 88);
-        map.insert(88, 56);
+        // map.insert(88, 56);
+        // map.insert(56, 88);
 
         // z flip rot
         map.insert(54, 102);
@@ -271,10 +271,10 @@ impl Rot {
         map.insert(73, 18);
         map.insert(18, 73);
 
-        let rot = if map.contains_key(&b) {
-            Rot(map[&b])
+        let rot = if map.contains_key(&self.0) {
+            Rot(map[&self.0])
         } else {
-            Rot(b)
+            Rot(self.0)
         };
 
         rot
@@ -326,6 +326,13 @@ impl From<Mat3> for Rot {
         let new_rot =
             index_nz1 + (index_nz2 << 2) + (sign_nz1 << 4) + (sign_nz2 << 5) + (sign_nz3 << 6);
         Rot(new_rot)
+    }
+}
+
+impl From<&str> for Rot {
+    fn from(text: &str) -> Self {
+        let i = text.parse::<u8>().unwrap();
+        Self::from(i)
     }
 }
 

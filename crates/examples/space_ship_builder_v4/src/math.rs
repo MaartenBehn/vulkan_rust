@@ -24,14 +24,35 @@ pub fn to_3d_i(mut i: i32, max: IVec3) -> IVec3 {
     ivec3(x, y, z)
 }
 
-pub fn get_neigbor_offsets() -> [IVec3; 6] {
+pub fn get_neighbors() -> [IVec3; 27] {
     [
-        ivec3(1, 0, 0),
-        ivec3(0, 1, 0),
-        ivec3(0, 0, 1),
-        ivec3(-1, 0, 0),
-        ivec3(0, -1, 0),
+        ivec3(-1, -1, -1),
+        ivec3(0, -1, -1),
+        ivec3(1, -1, -1),
+        ivec3(-1, 0, -1),
         ivec3(0, 0, -1),
+        ivec3(1, 0, -1),
+        ivec3(-1, 1, -1),
+        ivec3(0, 1, -1),
+        ivec3(1, 1, -1),
+        ivec3(-1, -1, 0),
+        ivec3(0, -1, 0),
+        ivec3(1, -1, 0),
+        ivec3(-1, 0, 0),
+        ivec3(0, 0, 0),
+        ivec3(1, 0, 0),
+        ivec3(-1, 1, 0),
+        ivec3(0, 1, 0),
+        ivec3(1, 1, 0),
+        ivec3(-1, -1, 1),
+        ivec3(0, -1, 1),
+        ivec3(1, -1, 1),
+        ivec3(-1, 0, 1),
+        ivec3(0, 0, 1),
+        ivec3(1, 0, 1),
+        ivec3(-1, 1, 1),
+        ivec3(0, 1, 1),
+        ivec3(1, 1, 1),
     ]
 }
 

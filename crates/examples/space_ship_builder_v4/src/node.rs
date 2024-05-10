@@ -1,8 +1,9 @@
 use crate::rotation::Rot;
 use dot_vox::Color;
-use octa_force::glam::{uvec3, vec4, Mat4, UVec3};
+use octa_force::glam::{ivec3, uvec3, vec4, Mat4, UVec3};
 
-use crate::math::{to_1d, to_3d};
+use crate::math::{to_1d, to_3d, to_3d_i};
+use octa_force::log::error;
 use std::hash::Hash;
 use std::iter;
 use std::path::Iter;
@@ -45,6 +46,7 @@ impl Node {
         Node { voxels }
     }
 
+    /*
     pub fn get_rotated_voxels(&self, rot: Rot) -> impl Iterator<Item = (UVec3, Voxel)> {
         let mat: Mat4 = rot.into();
         self.voxels
@@ -52,14 +54,19 @@ impl Node {
             .enumerate()
             .zip(iter::repeat(mat))
             .map(|((i, v), mat)| {
-                let pos = to_3d(i as u32, NODE_SIZE);
+                let pos = to_3d_i(i as i32, NODE_SIZE.as_ivec3()) - (NODE_SIZE / 2).as_ivec3();
                 let pos_f = vec4(pos.x as f32, pos.y as f32, pos.z as f32, 1.0);
                 let new_pos_f = mat.mul_vec4(pos_f);
-                let new_pos = uvec3(
-                    new_pos_f.x.round() as u32,
-                    new_pos_f.y.round() as u32,
-                    new_pos_f.z.round() as u32,
-                );
+                let new_pos = (ivec3(
+                    new_pos_f.x.round() as i32,
+                    new_pos_f.y.round() as i32,
+                    new_pos_f.z.round() as i32,
+                ) + (NODE_SIZE / 2).as_ivec3())
+                .as_uvec3();
+
+                if new_pos.cmpge(UVec3::ONE * 4).any() {
+                    error!("Invalid rotation")
+                }
 
                 (new_pos, v)
             })
@@ -86,6 +93,8 @@ impl Node {
 
         None
     }
+
+     */
 }
 
 impl NodeID {
