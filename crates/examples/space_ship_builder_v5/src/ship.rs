@@ -9,6 +9,7 @@ use crate::{
 };
 use octa_force::{anyhow::*, glam::*, log};
 use std::collections::VecDeque;
+use index_queue::IndexQueue;
 
 pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
@@ -18,6 +19,8 @@ pub const CHUNK_SIZE: i32 = 16;
 pub struct Ship {
     pub chunks: Vec<ShipChunk>,
     pub block_size: i32,
+    
+    pub to_propergate: IndexQueue,
 }
 
 pub struct ShipChunk {
@@ -32,6 +35,8 @@ impl Ship {
         let mut ship = Ship {
             chunks: Vec::new(),
             block_size,
+            
+            to_propergate: IndexQueue::default(),
         };
         ship.add_chunk(IVec3::ZERO);
 
@@ -68,40 +73,19 @@ impl Ship {
         let chunk_pos = self.get_chunk_pos_of_block_pos(block_pos);
         let in_chunk_pos = self.get_in_chunk_pos_of_node_pos(block_pos);
         let chunk_index = self.get_chunk_index(chunk_pos)?;
-        let in_chunk_index = to_1d_i(in_chunk_pos, IVec3::ONE * self.block_size) as usize;
+        let in_chunk_block_index = to_1d_i(in_chunk_pos, IVec3::ONE * self.block_size) as usize;
 
         let chunk = &mut self.chunks[chunk_index];
 
-        if chunk.blocks[in_chunk_index] == block_index {
+        if chunk.blocks[in_chunk_block_index] == block_index {
             return Ok(());
         }
 
         log::info!("Place: {block_pos:?}");
-        chunk.blocks[in_chunk_index] = block_index;
+        chunk.blocks[in_chunk_block_index] = block_index;
 
-        /*
-        let node_pos = Self::get_node_pos_of_block_pos(block_pos);
-        for offset in Self::get_nodes_offsets_of_block() {
-            let pos = node_pos + offset;
-            let chunk_pos = self.get_chunk_pos_of_node_pos(pos);
-            let chunk_index_result = self.get_chunk_index(chunk_pos);
-            if chunk_index_result.is_err() {
-                continue;
-            }
-
-            let node_id = generator.generate_node(self, pos);
-
-            let node_index = to_1d_i(pos, IVec3::ONE * self.node_size()) as usize;
-            let chunk_index = chunk_index_result.unwrap();
-            let node_id_bits: u32 = node_id.into();
-            let node_index_plus_padding =
-                to_1d_i(pos + IVec3::ONE, IVec3::ONE * self.node_size_plus_padding()) as usize;
-
-            self.chunks[chunk_index].node_id_bits[node_index] = node_id_bits;
-            self.chunks[chunk_index].node_voxels[node_index_plus_padding] =
-                RenderNode(node_id_bits != 0);
-        }
-         */
+        let combined_block_index = self.combined_block_index(chunk_index, in_chunk_block_index);
+        self.to_propergate.push_back(combined_block_index);
 
         Ok(())
     }
@@ -173,5 +157,14 @@ impl Ship {
     pub fn get_config(pos: IVec3) -> usize {
         let c = (pos % 2).abs();
         (c.x + (c.y << 1) + (c.z << 2)) as usize
+    }
+    
+    pub fn combined_block_index(&self, chunk_index: usize, in_chunk_block_index: usize) -> usize {
+        in_chunk_block_index + (chunk_index << self.block_length().trailing_zeros())
+    }
+
+    pub fn sperate_block_index(&self, combined_index: usize) -> (usize, usize) {
+        let block_length = self.block_length();
+        (combined_index & (block_length - 1), combined_index >> self.block_length().trailing_zeros())
     }
 }

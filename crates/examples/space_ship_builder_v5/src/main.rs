@@ -47,6 +47,7 @@ struct SpaceShipBuilder {
     last_vox_reloade: Duration,
 
     voxel_loader: VoxelLoader,
+    rules: Rules,
     builder: Builder,
     renderer: ShipRenderer,
     camera: Camera,
@@ -83,6 +84,7 @@ impl App for SpaceShipBuilder {
             last_vox_reloade: Duration::ZERO,
 
             voxel_loader,
+            rules,
             builder,
             renderer,
             camera,
