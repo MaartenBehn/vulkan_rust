@@ -1,5 +1,5 @@
 [package]
-name = "space_ship_builder_v4"
+name = "space_ship_builder_v5"
 version = "0.1.0"
 edition = "2021"
 authors = ["Maarten Behn <maarten.behn@gmail.com>"]
@@ -16,6 +16,5 @@ octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", version =
 
 dot_vox = "5.1.1"
 block-mesh = "0.2.0"
-neuroflow = "0.2.0"
 index_queue = "0.1.0"
 
