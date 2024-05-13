@@ -20,7 +20,7 @@ impl Rules {
         let mut node_id_index_map = Vec::new();
 
         let mut affected_by_block = Vec::new();
-        for _ in 0..(voxel_loader.block_names.len() - 1) {
+        for _ in 0..voxel_loader.block_names.len() {
             affected_by_block.push(Vec::new())
         }
 

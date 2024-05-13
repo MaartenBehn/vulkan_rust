@@ -59,7 +59,7 @@ impl App for SpaceShipBuilder {
 
         let rules = Rules::new(&voxel_loader);
 
-        let builder = Builder::new(base.num_frames, &voxel_loader)?;
+        let builder = Builder::new(base.num_frames, &voxel_loader, &rules)?;
 
         let renderer = ShipRenderer::new(
             &base.context,

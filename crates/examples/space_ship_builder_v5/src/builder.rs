@@ -6,6 +6,7 @@ use std::collections::HashMap;
 #[cfg(debug_assertions)]
 //use crate::debug::{DebugController, DebugMode};
 use crate::node::BLOCK_INDEX_EMPTY;
+use crate::rules::Rules;
 use crate::ship::{WaveIndex, CHUNK_SIZE};
 use crate::voxel_loader::VoxelLoader;
 use index_queue::IndexQueue;
@@ -46,7 +47,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(images_count: usize, voxel_loader: &VoxelLoader) -> Result<Builder> {
+    pub fn new(images_count: usize, voxel_loader: &VoxelLoader, rules: &Rules) -> Result<Builder> {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(
             voxel_loader
@@ -56,7 +57,7 @@ impl Builder {
                 .unwrap(),
         );
 
-        let ship = Ship::new(CHUNK_SIZE)?;
+        let ship = Ship::new(CHUNK_SIZE, rules)?;
         let base_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
         let build_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
 
