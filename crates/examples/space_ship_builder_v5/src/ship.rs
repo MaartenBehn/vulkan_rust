@@ -7,9 +7,9 @@ use crate::{
     node::{BlockIndex, BLOCK_INDEX_EMPTY},
     ship_mesh::ShipMesh,
 };
+use index_queue::IndexQueue;
 use octa_force::{anyhow::*, glam::*, log};
 use std::collections::VecDeque;
-use index_queue::IndexQueue;
 
 pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
@@ -19,7 +19,7 @@ pub const CHUNK_SIZE: i32 = 16;
 pub struct Ship {
     pub chunks: Vec<ShipChunk>,
     pub block_size: i32,
-    
+
     pub to_propergate: IndexQueue,
 }
 
@@ -35,7 +35,7 @@ impl Ship {
         let mut ship = Ship {
             chunks: Vec::new(),
             block_size,
-            
+
             to_propergate: IndexQueue::default(),
         };
         ship.add_chunk(IVec3::ZERO);
@@ -77,7 +77,8 @@ impl Ship {
 
         let chunk = &mut self.chunks[chunk_index];
 
-        if chunk.blocks[in_chunk_block_index] == block_index {
+        let old_block_index = chunk.blocks[in_chunk_block_index];
+        if old_block_index == block_index {
             return Ok(());
         }
 
@@ -85,6 +86,7 @@ impl Ship {
         chunk.blocks[in_chunk_block_index] = block_index;
 
         let combined_block_index = self.combined_block_index(chunk_index, in_chunk_block_index);
+
         self.to_propergate.push_back(combined_block_index);
 
         Ok(())
@@ -158,13 +160,16 @@ impl Ship {
         let c = (pos % 2).abs();
         (c.x + (c.y << 1) + (c.z << 2)) as usize
     }
-    
+
     pub fn combined_block_index(&self, chunk_index: usize, in_chunk_block_index: usize) -> usize {
         in_chunk_block_index + (chunk_index << self.block_length().trailing_zeros())
     }
 
     pub fn sperate_block_index(&self, combined_index: usize) -> (usize, usize) {
         let block_length = self.block_length();
-        (combined_index & (block_length - 1), combined_index >> self.block_length().trailing_zeros())
+        (
+            combined_index & (block_length - 1),
+            combined_index >> self.block_length().trailing_zeros(),
+        )
     }
 }
