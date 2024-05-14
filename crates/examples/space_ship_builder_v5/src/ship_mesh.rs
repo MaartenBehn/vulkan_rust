@@ -135,6 +135,47 @@ impl ShipMesh {
 
         Ok(())
     }
+
+    pub fn update_wave_debug(
+        &mut self,
+        ship: &Ship,
+        image_index: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+        node_controller: &NodeController,
+    ) -> Result<()> {
+        // Buffers from the last swapchain iteration are being dropped
+        self.to_drop_buffers[image_index].clear();
+
+        for chunk in ship.chunks.iter() {
+            let mesh_chunk_index = self.chunks.iter().position(|c| c.pos == chunk.pos);
+
+            if mesh_chunk_index.is_some() {
+                self.chunks[mesh_chunk_index.unwrap()].update_wave_debug(
+                    chunk,
+                    context,
+                    node_controller,
+                    &mut self.to_drop_buffers[image_index],
+                )?;
+            } else {
+                let new_chunk = MeshChunk::new_wave_debug(
+                    chunk.pos,
+                    chunk,
+                    self.to_drop_buffers.len(),
+                    context,
+                    descriptor_layout,
+                    descriptor_pool,
+                    node_controller,
+                )?;
+                if new_chunk.is_some() {
+                    self.chunks.push(new_chunk.unwrap())
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl MeshChunk {
@@ -257,6 +298,58 @@ impl MeshChunk {
         })
     }
 
+    fn get_chunk_node_id_bits_wave_debug(
+        ship_chunk: &ShipChunk,
+        size: IVec3,
+        ship: &Ship,
+        node_controller: &NodeController,
+    ) -> Vec<u32> {
+        let mut wave_debug_node_id_bits = vec![0; ship.node_length()];
+        let pattern_block_size = size / ship.nodes_per_chunk;
+
+        for x in 0..ship.nodes_per_chunk.x {
+            for y in 0..ship.nodes_per_chunk.y {
+                for z in 0..ship.nodes_per_chunk.z {
+                    let node_pos = ivec3(x, y, z);
+                    let possible_patterns = &ship_chunk.nodes
+                        [to_1d_i(node_pos, ship.nodes_per_chunk) as usize]
+                        .possible_patterns;
+
+                    let node_pos = node_pos * pattern_block_size;
+                    let config = get_config(node_pos);
+                    let mut pattern_counter = 0;
+                    'iter: for iz in 0..pattern_block_size {
+                        for iy in 0..pattern_block_size {
+                            for ix in 0..pattern_block_size {
+                                if possible_patterns.len() <= pattern_counter {
+                                    break 'iter;
+                                } else if possible_patterns[pattern_counter] == EMPYT_PATTERN_INDEX
+                                {
+                                    pattern_counter += 1;
+
+                                    if possible_patterns.len() <= pattern_counter {
+                                        break 'iter;
+                                    }
+                                }
+
+                                let pattern_pos = ivec3(ix, iy, iz) + node_pos;
+                                let index = to_1d_i(pattern_pos, IVec3::ONE * RS) as usize;
+
+                                let pattern_index = possible_patterns[pattern_counter];
+                                wave_debug_node_id_bits[index] =
+                                    node_controller.patterns[config][pattern_index].node.into();
+
+                                pattern_counter += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        wave_debug_node_id_bits
+    }
+
     pub fn update(
         &mut self,
         ship_chunk: &ShipChunk,
@@ -357,6 +450,24 @@ impl MeshChunk {
         self.index_count = chunk.index_count;
 
         Ok(())
+    }
+
+    pub fn update_wave_debug(
+        &mut self,
+        ship_chunk: &ShipChunk,
+        context: &Context,
+        node_controller: &NodeController,
+        to_drop_buffers: &mut Vec<Buffer>,
+    ) -> Result<()> {
+        let wave_debug_node_id_bits =
+            Self::get_chunk_node_id_bits_wave_debug(ship_chunk, node_controller);
+
+        self.update_from_node_id_bits(
+            ship_chunk,
+            &wave_debug_node_id_bits,
+            context,
+            to_drop_buffers,
+        )
     }
 
     pub const RIGHT_HANDED_Z_UP_CONFIG: QuadCoordinateConfig = QuadCoordinateConfig {

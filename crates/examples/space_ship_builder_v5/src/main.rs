@@ -24,11 +24,11 @@ use crate::voxel_loader::VoxelLoader;
 
 pub mod builder;
 #[cfg(debug_assertions)]
-//pub mod debug;
+pub mod debug;
 pub mod math;
 pub mod node;
 pub mod rotation;
-mod rules;
+pub mod rules;
 pub mod ship;
 pub mod ship_mesh;
 pub mod ship_renderer;
@@ -136,6 +136,7 @@ impl App for SpaceShipBuilder {
             &base.controls,
             &self.camera,
             &self.voxel_loader,
+            &self.rules,
             delta_time,
             self.total_time,
         )?;

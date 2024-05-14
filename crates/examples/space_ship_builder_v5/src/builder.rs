@@ -58,7 +58,7 @@ impl Builder {
         );
 
         let ship = Ship::new(CHUNK_SIZE, rules)?;
-        let base_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
+        let base_ship_mesh  = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
         let build_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
 
         Ok(Builder {
@@ -94,6 +94,7 @@ impl Builder {
         controls: &Controls,
         camera: &Camera,
         voxel_loader: &VoxelLoader,
+        rules: &Rules,
         delta_time: Duration,
         total_time: Duration,
         //#[cfg(debug_assertions)] debug_controller: &mut DebugController,
@@ -212,7 +213,7 @@ impl Builder {
 
          */
         {
-            (self.full_tick, changed_chunks) = self.ship.tick(self.actions_per_tick)?;
+            (self.full_tick, changed_chunks) = self.ship.tick(self.actions_per_tick, rules)?;
         }
 
         self.build_ship_mesh.update(

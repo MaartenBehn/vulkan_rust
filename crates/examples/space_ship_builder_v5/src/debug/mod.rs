@@ -64,19 +64,13 @@ impl DebugController {
         })
     }
 
-    pub fn update<
-        const BS: i32,
-        const WS: i32,
-        const BL: usize,
-        const WL: usize,
-        const PL: usize,
-    >(
+    pub fn update(
         &mut self,
         context: &Context,
         controls: &Controls,
         renderer: &ShipRenderer,
         total_time: Duration,
-        ship: &Ship<BS, WS, WAVE_DEBUG_PS, BL, WL, PL>,
+        ship: &Ship,
         image_index: usize,
     ) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {

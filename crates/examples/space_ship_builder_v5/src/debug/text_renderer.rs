@@ -1,7 +1,6 @@
 use crate::debug::DebugController;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
-use octa_force::egui::Ui;
 use octa_force::egui_winit::winit::window::Window;
 use octa_force::glam::Vec3;
 use octa_force::gui::Gui;

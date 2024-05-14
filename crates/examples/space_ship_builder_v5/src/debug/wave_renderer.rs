@@ -9,25 +9,19 @@ pub const WAVE_DEBUG_PS: u32 = 18;
 pub const WAVE_DEBUG_RS: i32 = 64;
 
 pub struct DebugWaveRenderer {
-    mesh: ShipMesh<WAVE_DEBUG_PS, WAVE_DEBUG_RS>,
+    mesh: ShipMesh,
 }
 
 impl DebugWaveRenderer {
     pub fn new(image_len: usize) -> Result<Self> {
         Ok(DebugWaveRenderer {
-            mesh: ShipMesh::new::<16>(image_len)?,
+            mesh: ShipMesh::new(image_len, 128)?,
         })
     }
 
-    pub fn update<
-        const BS: i32,
-        const WS: i32,
-        const BL: usize,
-        const WL: usize,
-        const PL: usize,
-    >(
+    pub fn update(
         &mut self,
-        ship: &Ship<BS, WS, WAVE_DEBUG_PS, BL, WL, PL>,
+        ship: &Ship,
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
