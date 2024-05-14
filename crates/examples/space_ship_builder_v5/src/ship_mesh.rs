@@ -143,7 +143,6 @@ impl ShipMesh {
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
-        node_controller: &NodeController,
     ) -> Result<()> {
         // Buffers from the last swapchain iteration are being dropped
         self.to_drop_buffers[image_index].clear();
@@ -155,7 +154,6 @@ impl ShipMesh {
                 self.chunks[mesh_chunk_index.unwrap()].update_wave_debug(
                     chunk,
                     context,
-                    node_controller,
                     &mut self.to_drop_buffers[image_index],
                 )?;
             } else {
@@ -166,7 +164,6 @@ impl ShipMesh {
                     context,
                     descriptor_layout,
                     descriptor_pool,
-                    node_controller,
                 )?;
                 if new_chunk.is_some() {
                     self.chunks.push(new_chunk.unwrap())
@@ -302,7 +299,6 @@ impl MeshChunk {
         ship_chunk: &ShipChunk,
         size: IVec3,
         ship: &Ship,
-        node_controller: &NodeController,
     ) -> Vec<u32> {
         let mut wave_debug_node_id_bits = vec![0; ship.node_length()];
         let pattern_block_size = size / ship.nodes_per_chunk;
@@ -311,9 +307,12 @@ impl MeshChunk {
             for y in 0..ship.nodes_per_chunk.y {
                 for z in 0..ship.nodes_per_chunk.z {
                     let node_pos = ivec3(x, y, z);
-                    let possible_patterns = &ship_chunk.nodes
-                        [to_1d_i(node_pos, ship.nodes_per_chunk) as usize]
-                        .possible_patterns;
+                    let node_index = to_1d_i(node_pos, ship.nodes_per_chunk) as usize;
+                    let possible_patterns = &ship_chunk.nodes[node_index];
+                    if possible_patterns.is_none() {
+                        
+                    }
+                    
 
                     let node_pos = node_pos * pattern_block_size;
                     let config = get_config(node_pos);
