@@ -1,6 +1,7 @@
 use crate::ship::Ship;
 use crate::ship_mesh::ShipMesh;
 use crate::ship_renderer::{ShipRenderer, RENDER_MODE_BUILD};
+use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
@@ -27,7 +28,7 @@ impl DebugWaveRenderer {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
-        self.mesh.update_wave_debug(
+        self.mesh.update_node_debug(
             ship,
             image_index,
             context,

@@ -3,6 +3,7 @@ use std::time::Duration;
 use crate::builder::Builder;
 use crate::rules::Rules;
 use crate::ship_renderer::ShipRenderer;
+use crate::voxel_loader::VoxelLoader;
 use octa_force::glam::{ivec2, uvec2, IVec2, UVec3};
 use octa_force::vulkan::{
     ash::vk::{self, Format},
@@ -17,10 +18,8 @@ use octa_force::{
 use octa_force::{log, App, BaseApp};
 
 #[cfg(debug_assertions)]
-//use crate::debug::DebugController;
-
-//use crate::debug::DebugMode::OFF;
-use crate::voxel_loader::VoxelLoader;
+use crate::debug::DebugController;
+use crate::debug::DebugMode::OFF;
 
 pub mod builder;
 #[cfg(debug_assertions)]
@@ -51,6 +50,9 @@ struct SpaceShipBuilder {
     builder: Builder,
     renderer: ShipRenderer,
     camera: Camera,
+
+    #[cfg(debug_assertions)]
+    debug_controller: DebugController,
 }
 
 impl App for SpaceShipBuilder {
@@ -68,6 +70,15 @@ impl App for SpaceShipBuilder {
             Format::D32_SFLOAT,
             base.swapchain.extent,
             &voxel_loader,
+        )?;
+
+        #[cfg(debug_assertions)]
+        let debug_controller = DebugController::new(
+            &base.context,
+            base.num_frames,
+            base.swapchain.format,
+            &base.window,
+            &renderer,
         )?;
 
         log::info!("Creating Camera");
@@ -88,6 +99,9 @@ impl App for SpaceShipBuilder {
             builder,
             renderer,
             camera,
+
+            #[cfg(debug_assertions)]
+            debug_controller,
         })
     }
 
@@ -139,9 +153,23 @@ impl App for SpaceShipBuilder {
             &self.rules,
             delta_time,
             self.total_time,
+            #[cfg(debug_assertions)]
+            &mut self.debug_controller,
         )?;
 
         self.renderer.update(&self.camera, base.swapchain.extent)?;
+
+        #[cfg(debug_assertions)]
+        {
+            self.debug_controller.update(
+                &base.context,
+                &base.controls,
+                &self.renderer,
+                self.total_time,
+                &self.builder.ship,
+                image_index,
+            )?;
+        }
 
         Ok(())
     }
@@ -164,7 +192,18 @@ impl App for SpaceShipBuilder {
         buffer.set_viewport(base.swapchain.extent);
         buffer.set_scissor(base.swapchain.extent);
 
-        self.renderer.render(buffer, image_index, &self.builder);
+        if self.debug_controller.mode == OFF {
+            self.renderer.render(buffer, image_index, &self.builder);
+        }
+
+        #[cfg(debug_assertions)]
+        self.debug_controller.render(
+            buffer,
+            image_index,
+            &self.camera,
+            base.swapchain.extent,
+            &self.renderer,
+        )?;
 
         buffer.end_rendering();
 

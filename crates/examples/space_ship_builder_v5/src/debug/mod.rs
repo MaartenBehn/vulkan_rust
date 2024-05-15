@@ -7,6 +7,7 @@ use crate::debug::text_renderer::DebugTextRenderer;
 use crate::debug::wave_renderer::{DebugWaveRenderer, WAVE_DEBUG_PS};
 use crate::ship::Ship;
 use crate::ship_renderer::ShipRenderer;
+use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
@@ -56,7 +57,7 @@ impl DebugController {
         let wave_renderer = DebugWaveRenderer::new(images_len)?;
 
         Ok(DebugController {
-            mode: DebugMode::OFF,
+            mode: DebugMode::WFC,
             line_renderer,
             text_renderer,
             wave_renderer,
@@ -99,7 +100,7 @@ impl DebugController {
         }
 
         if self.mode != DebugMode::OFF {
-            ship.debug_show_wave(self);
+            //ship.debug_show_wave(self);
 
             self.text_renderer.push_texts()?;
             self.line_renderer.push_lines()?;

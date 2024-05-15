@@ -1,4 +1,4 @@
-use std::iter;
+use crate::debug::DebugController;
 #[cfg(debug_assertions)]
 use crate::math::{get_packed_index, to_3d_i};
 use crate::node::{Node, NodeID, PatternIndex, EMPYT_PATTERN_INDEX};
@@ -12,7 +12,7 @@ use crate::{
 use index_queue::IndexQueue;
 use log::debug;
 use octa_force::{anyhow::*, glam::*, log};
-use crate::debug::DebugController;
+use std::iter;
 
 pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
@@ -68,7 +68,7 @@ impl Ship {
         };
         ship.add_chunk(IVec3::ZERO);
 
-        ship.place_block(ivec3(0, 0, 0), 1, rules)?;
+        //ship.place_block(ivec3(0, 0, 0), 1, rules)?;
         //ship.fill_all(0, node_controller)?;
 
         Ok(ship)
@@ -222,7 +222,18 @@ impl Ship {
 
         Ok((true, vec![0]))
     }
-    
+
+    #[cfg(debug_assertions)]
+    pub fn show_debug(&self, debug_controller: &mut DebugController) {
+        for chunk in self.chunks.iter() {
+            debug_controller.add_cube(
+                (chunk.pos * self.nodes_per_chunk).as_vec3(),
+                ((chunk.pos + IVec3::ONE) * self.nodes_per_chunk).as_vec3(),
+                vec4(1.0, 0.0, 0.0, 1.0),
+            );
+        }
+    }
+
     // Math
     pub fn block_length(&self) -> usize {
         self.blocks_per_chunk.element_product() as usize

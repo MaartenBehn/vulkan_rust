@@ -1,4 +1,4 @@
-use crate::ship::{Ship, ShipChunk, CHUNK_SIZE};
+use crate::ship::{Ship, ShipChunk, CHUNK_SIZE, VOXELS_PER_NODE};
 use octa_force::{
     anyhow::Result,
     log,
@@ -9,7 +9,9 @@ use std::{iter, mem};
 
 use crate::math::{to_1d, to_1d_i, to_3d};
 use crate::node::{NodeID, EMPYT_PATTERN_INDEX};
+use crate::rules::Rules;
 use crate::ship_renderer::Vertex;
+use crate::voxel_loader::VoxelLoader;
 use block_mesh::ilattice::vector::Vector3;
 use block_mesh::ndshape::{ConstShape, ConstShape3u32, Shape};
 use block_mesh::{
@@ -31,7 +33,7 @@ const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE * 2 + 2) as u32;
 pub struct ShipMesh {
     pub chunks: Vec<MeshChunk>,
     pub to_drop_buffers: Vec<Vec<Buffer>>,
-    pub size: u32,
+    pub size: IVec3,
 }
 
 pub struct MeshChunk {
@@ -57,7 +59,7 @@ impl ShipMesh {
         Ok(ShipMesh {
             chunks: Vec::new(),
             to_drop_buffers,
-            size,
+            size: IVec3::ONE * size as i32,
         })
     }
 
@@ -136,7 +138,7 @@ impl ShipMesh {
         Ok(())
     }
 
-    pub fn update_wave_debug(
+    pub fn update_node_debug(
         &mut self,
         ship: &Ship,
         image_index: usize,
@@ -151,15 +153,19 @@ impl ShipMesh {
             let mesh_chunk_index = self.chunks.iter().position(|c| c.pos == chunk.pos);
 
             if mesh_chunk_index.is_some() {
-                self.chunks[mesh_chunk_index.unwrap()].update_wave_debug(
+                self.chunks[mesh_chunk_index.unwrap()].update_node_debug(
                     chunk,
                     context,
+                    ship,
                     &mut self.to_drop_buffers[image_index],
+                    self.size,
                 )?;
             } else {
                 let new_chunk = MeshChunk::new_wave_debug(
                     chunk.pos,
+                    self.size,
                     chunk,
+                    ship,
                     self.to_drop_buffers.len(),
                     context,
                     descriptor_layout,
@@ -184,10 +190,10 @@ impl MeshChunk {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<Option<MeshChunk>> {
-        Self::new_from_node_id_bits(
+        Self::new_from_data(
             pos,
-            ship_chunk,
             &ship_chunk.node_id_bits,
+            &ship_chunk.node_voxels,
             images_len,
             context,
             descriptor_layout,
@@ -195,16 +201,16 @@ impl MeshChunk {
         )
     }
 
-    fn new_from_node_id_bits(
+    fn new_from_data(
         pos: IVec3,
-        ship_chunk: &ShipChunk,
         node_id_bits: &[u32],
+        render_nodes: &[RenderNode],
         images_len: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<Option<MeshChunk>> {
-        let (vertecies, indecies) = Self::create_mesh(ship_chunk);
+        let (vertecies, indecies) = Self::create_mesh(render_nodes);
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
 
@@ -295,49 +301,70 @@ impl MeshChunk {
         })
     }
 
-    fn get_chunk_node_id_bits_wave_debug(
-        ship_chunk: &ShipChunk,
+    pub fn new_wave_debug(
+        pos: IVec3,
         size: IVec3,
+        ship_chunk: &ShipChunk,
         ship: &Ship,
-    ) -> Vec<u32> {
-        let mut wave_debug_node_id_bits = vec![0; ship.node_length()];
+
+        images_len: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<Option<MeshChunk>> {
+        let wave_debug_node_id_bits = Self::get_chunk_node_id_bits_debug(ship_chunk, size, ship);
+        let render_nodes = vec![RenderNode(true); ship.node_length_plus_padding()];
+
+        Self::new_from_data(
+            pos,
+            &wave_debug_node_id_bits,
+            &render_nodes,
+            images_len,
+            context,
+            descriptor_layout,
+            descriptor_pool,
+        )
+    }
+
+    fn get_chunk_node_id_bits_debug(ship_chunk: &ShipChunk, size: IVec3, ship: &Ship) -> Vec<u32> {
+        let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
         let pattern_block_size = size / ship.nodes_per_chunk;
 
         for x in 0..ship.nodes_per_chunk.x {
             for y in 0..ship.nodes_per_chunk.y {
                 for z in 0..ship.nodes_per_chunk.z {
-                    let node_pos = ivec3(x, y, z);
-                    let node_index = to_1d_i(node_pos, ship.nodes_per_chunk) as usize;
-                    let possible_patterns = &ship_chunk.nodes[node_index];
-                    if possible_patterns.is_none() {
-                        
+                    let node_pos = ivec3(x, y, z) * VOXELS_PER_NODE;
+                    let node_index = ship.get_node_index(node_pos);
+                    let r = ship_chunk.nodes[node_index].to_owned();
+                    if r.is_none() {
+                        continue;
                     }
-                    
 
-                    let node_pos = node_pos * pattern_block_size;
-                    let config = get_config(node_pos);
                     let mut pattern_counter = 0;
-                    'iter: for iz in 0..pattern_block_size {
-                        for iy in 0..pattern_block_size {
-                            for ix in 0..pattern_block_size {
-                                if possible_patterns.len() <= pattern_counter {
+                    let possible_pattern = r.unwrap();
+                    let node_pos = node_pos * pattern_block_size;
+
+                    'iter: for iz in 0..pattern_block_size.x {
+                        for iy in 0..pattern_block_size.y {
+                            for ix in 0..pattern_block_size.z {
+                                if possible_pattern.len() <= pattern_counter {
                                     break 'iter;
-                                } else if possible_patterns[pattern_counter] == EMPYT_PATTERN_INDEX
-                                {
+                                } else if possible_pattern[pattern_counter].is_none() {
                                     pattern_counter += 1;
 
-                                    if possible_patterns.len() <= pattern_counter {
+                                    if possible_pattern.len() <= pattern_counter {
                                         break 'iter;
                                     }
                                 }
 
-                                let pattern_pos = ivec3(ix, iy, iz) + node_pos;
-                                let index = to_1d_i(pattern_pos, IVec3::ONE * RS) as usize;
+                                let pattern_pos = ivec3(ix, iy, iz) * VOXELS_PER_NODE + node_pos;
+                                let index = to_1d_i(
+                                    pattern_pos / VOXELS_PER_NODE,
+                                    ship.nodes_per_chunk * pattern_block_size,
+                                ) as usize;
 
-                                let pattern_index = possible_patterns[pattern_counter];
-                                wave_debug_node_id_bits[index] =
-                                    node_controller.patterns[config][pattern_index].node.into();
-
+                                let node = possible_pattern[pattern_counter];
+                                node_debug_node_id_bits[index] = node.into();
                                 pattern_counter += 1;
                             }
                         }
@@ -346,7 +373,7 @@ impl MeshChunk {
             }
         }
 
-        wave_debug_node_id_bits
+        node_debug_node_id_bits
     }
 
     pub fn update(
@@ -355,24 +382,24 @@ impl MeshChunk {
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {
-        self.update_from_node_id_bits(
-            ship_chunk,
+        self.update_from_data(
             &ship_chunk.node_id_bits,
+            &ship_chunk.node_voxels,
             context,
             to_drop_buffers,
         )
     }
 
-    pub fn update_from_node_id_bits(
+    pub fn update_from_data(
         &mut self,
-        ship_chunk: &ShipChunk,
         node_id_bits: &[u32],
+        render_nodes: &[RenderNode],
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {
         self.chunk_buffer.copy_data_to_buffer(node_id_bits)?;
 
-        let (vertecies, indecies) = Self::create_mesh(ship_chunk);
+        let (vertecies, indecies) = Self::create_mesh(render_nodes);
         let vertex_size = (vertecies.len() * size_of::<Vertex>()) as DeviceSize;
         let index_size = (indecies.len() * size_of::<u16>()) as DeviceSize;
 
@@ -451,19 +478,20 @@ impl MeshChunk {
         Ok(())
     }
 
-    pub fn update_wave_debug(
+    pub fn update_node_debug(
         &mut self,
         ship_chunk: &ShipChunk,
         context: &Context,
-        node_controller: &NodeController,
+        ship: &Ship,
         to_drop_buffers: &mut Vec<Buffer>,
+        size: IVec3,
     ) -> Result<()> {
-        let wave_debug_node_id_bits =
-            Self::get_chunk_node_id_bits_wave_debug(ship_chunk, node_controller);
+        let wave_debug_node_id_bits = Self::get_chunk_node_id_bits_debug(ship_chunk, size, ship);
+        let render_nodes = vec![RenderNode(true); ship.node_length_plus_padding()];
 
-        self.update_from_node_id_bits(
-            ship_chunk,
+        self.update_from_data(
             &wave_debug_node_id_bits,
+            &render_nodes,
             context,
             to_drop_buffers,
         )
@@ -483,8 +511,8 @@ impl MeshChunk {
         u_flip_face: Axis::X,
     };
 
-    fn create_mesh(chunk: &ShipChunk) -> (Vec<Vertex>, Vec<u16>) {
-        let mut buffer = GreedyQuadsBuffer::new(chunk.node_voxels.len());
+    fn create_mesh(render_nodes: &[RenderNode]) -> (Vec<Vertex>, Vec<u16>) {
+        let mut buffer = GreedyQuadsBuffer::new(render_nodes.len());
         let shape: ConstShape3u32<
             NODE_SIZE_PLUS_PADDING,
             NODE_SIZE_PLUS_PADDING,
@@ -492,7 +520,7 @@ impl MeshChunk {
         > = ConstShape3u32 {};
 
         greedy_quads(
-            &chunk.node_voxels,
+            render_nodes,
             &shape,
             [0; 3],
             [NODE_SIZE_PLUS_PADDING - 1; 3],

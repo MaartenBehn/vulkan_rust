@@ -1,21 +1,19 @@
-use crate::math::{to_1d, to_1d_i};
 use crate::ship_mesh::ShipMesh;
 use crate::{node::BlockIndex, ship::Ship};
 use std::collections::HashMap;
 
-#[cfg(debug_assertions)]
-//use crate::debug::{DebugController, DebugMode};
-use crate::node::BLOCK_INDEX_EMPTY;
 use crate::rules::Rules;
-use crate::ship::{WaveIndex, CHUNK_SIZE};
+use crate::ship::CHUNK_SIZE;
 use crate::voxel_loader::VoxelLoader;
 use index_queue::IndexQueue;
-use octa_force::glam::{vec3, vec4, IVec3, Vec3};
+use octa_force::glam::{vec3, IVec3};
 use octa_force::vulkan::{DescriptorPool, DescriptorSetLayout};
-use octa_force::{
-    anyhow::Result, camera::Camera, controls::Controls, glam::UVec3, log, vulkan::Context,
-};
+use octa_force::{anyhow::Result, camera::Camera, controls::Controls, vulkan::Context};
 use std::time::Duration;
+
+#[cfg(debug_assertions)]
+use crate::debug::{DebugController, DebugMode};
+use crate::node::BLOCK_INDEX_EMPTY;
 
 const SCROLL_SPEED: f32 = 0.01;
 const PLACE_SPEED: Duration = Duration::from_millis(100);
@@ -53,12 +51,19 @@ impl Builder {
             voxel_loader
                 .block_names
                 .iter()
+                .position(|name| name == "Empty")
+                .unwrap(),
+        );
+        possible_blocks.push(
+            voxel_loader
+                .block_names
+                .iter()
                 .position(|name| name == "Hull")
                 .unwrap(),
         );
 
         let ship = Ship::new(CHUNK_SIZE, rules)?;
-        let base_ship_mesh  = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
+        let base_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
         let build_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
 
         Ok(Builder {
@@ -97,15 +102,14 @@ impl Builder {
         rules: &Rules,
         delta_time: Duration,
         total_time: Duration,
-        //#[cfg(debug_assertions)] debug_controller: &mut DebugController,
+
+        #[cfg(debug_assertions)] debug_controller: &mut DebugController,
     ) -> Result<()> {
-        /*
         #[cfg(debug_assertions)]
         let d = debug_controller.mode != DebugMode::WFC;
         #[cfg(not(debug_assertions))]
-
-         */
         let d = true;
+
         if d {
             if self.full_tick
                 && delta_time < MIN_TICK_LENGTH
@@ -128,14 +132,11 @@ impl Builder {
 
         self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
-        /*
         #[cfg(debug_assertions)]
         let d = debug_controller.mode == DebugMode::OFF || controls.lshift;
         #[cfg(not(debug_assertions))]
-
-         */
-        /*
         let d = true;
+
         if d {
             let pos = (((camera.position + camera.direction * self.distance)
                 - vec3(1.0, 1.0, 1.0))
@@ -144,19 +145,22 @@ impl Builder {
                 .as_ivec3();
 
             if self.last_pos != pos || self.last_block_to_build != self.block_to_build {
-                let chunk_pos = self.ship.get_chunk_pos_of_block_pos(pos);
-                if self.ship.has_chunk(chunk_pos) {
+                let chunk_index = self
+                    .ship
+                    .get_chunk_index(self.ship.get_voxel_pos_from_block_pos(pos));
+                if chunk_index.is_ok() {
                     // Undo the last placement.
                     let last_block_index = *self
                         .build_blocks
                         .get(&self.last_pos)
                         .unwrap_or(&BLOCK_INDEX_EMPTY);
+
                     self.ship
-                        .place_block(self.last_pos, last_block_index, generator)?;
+                        .place_block(self.last_pos, last_block_index, rules)?;
 
                     // Simulate placement of the block to create preview in build_ship.
                     let block_index = self.possible_blocks[self.block_to_build];
-                    let _ = self.ship.place_block(pos, block_index, generator)?;
+                    let _ = self.ship.place_block(pos, block_index, rules)?;
 
                     // If block index is valid.
                     self.last_block_to_build = self.block_to_build;
@@ -179,10 +183,8 @@ impl Builder {
             )?;
         }
 
-         */
-
         let mut changed_chunks = Vec::new();
-        /*
+
         #[cfg(debug_assertions)]
         if debug_controller.mode == DebugMode::WFC || debug_controller.mode == DebugMode::WFCSkip {
             if controls.t && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time {
@@ -192,11 +194,11 @@ impl Builder {
                 loop {
                     debug_controller.line_renderer.vertecies.clear();
                     debug_controller.text_renderer.texts.clear();
-                    let (f, c, last_some) = self.ship.tick(1, node_controller, debug_controller)?;
+                    let (f, c) = self.ship.tick(1, rules)?;
                     full &= f;
                     changed_chunks = c;
 
-                    if debug_controller.mode == DebugMode::WFC || !f || last_some {
+                    if debug_controller.mode == DebugMode::WFC || !f {
                         break;
                     }
                 }
@@ -204,14 +206,10 @@ impl Builder {
                 log::info!("BUILDER: TICK FULL {:?}", full);
             }
         } else {
-            (self.full_tick, changed_chunks, _) =
-                self.ship
-                    .tick(self.actions_per_tick, node_controller, debug_controller)?;
+            (self.full_tick, changed_chunks) = self.ship.tick(self.actions_per_tick, rules)?;
         }
 
         #[cfg(not(debug_assertions))]
-
-         */
         {
             (self.full_tick, changed_chunks) = self.ship.tick(self.actions_per_tick, rules)?;
         }
@@ -224,6 +222,11 @@ impl Builder {
             descriptor_layout,
             descriptor_pool,
         )?;
+
+        #[cfg(debug_assertions)]
+        {
+            self.ship.show_debug(debug_controller);
+        }
 
         Ok(())
     }
