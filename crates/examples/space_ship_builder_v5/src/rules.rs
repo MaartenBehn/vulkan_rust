@@ -47,7 +47,7 @@ impl Rules {
 
             // Neighbor Nodes
             for offset in get_neighbors() {
-                let neighbor_offset = offset * 4;
+                let neighbor_offset = offset;
                 let neighbor_pos = pos.as_ivec3() + neighbor_offset;
 
                 if neighbor_pos.is_negative_bitmask() != 0 {
@@ -73,11 +73,11 @@ impl Rules {
             }
 
             // Neighbor Blocks
-            let block_pos = (pos.as_ivec3() / 8) * 8;
-            let in_block_pos = pos.as_ivec3() % 8;
+            let block_pos = (pos.as_ivec3() / 2) * 2;
+            let in_block_pos = pos.as_ivec3() % 2;
 
             for offset in get_neighbors() {
-                let neighbor_offset = offset * 8;
+                let neighbor_offset = offset * 2;
                 let neighbor_pos = block_pos + neighbor_offset;
 
                 if neighbor_pos.is_negative_bitmask() != 0 {

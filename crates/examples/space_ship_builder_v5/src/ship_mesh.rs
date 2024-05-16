@@ -28,7 +28,7 @@ use octa_force::vulkan::{
     DescriptorPool, DescriptorSet, DescriptorSetLayout, WriteDescriptorSet, WriteDescriptorSetKind,
 };
 
-const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE * 2 + 2) as u32;
+const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 
 pub struct ShipMesh {
     pub chunks: Vec<MeshChunk>,
