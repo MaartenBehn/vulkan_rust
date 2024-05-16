@@ -147,7 +147,7 @@ impl Builder {
             if self.last_pos != pos || self.last_block_to_build != self.block_to_build {
                 let chunk_index = self
                     .ship
-                    .get_chunk_index(self.ship.get_voxel_pos_from_block_pos(pos));
+                    .get_chunk_index(self.ship.get_node_pos_from_block_pos(pos));
                 if chunk_index.is_ok() {
                     // Undo the last placement.
                     let last_block_index = *self

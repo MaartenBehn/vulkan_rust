@@ -166,7 +166,7 @@ impl VoxelLoader {
                         .unwrap_or(Position { x: 0, y: 0, z: 0 });
                     let pos = ivec3(p.x, p.y, p.z) + block_group_pos - IVec3::ONE * 4;
 
-                    block_positions.insert(pos.as_uvec3(), block_index);
+                    block_positions.insert(pos.as_uvec3() / 4, block_index);
                 }
                 _ => {}
             }
@@ -212,7 +212,7 @@ impl VoxelLoader {
                         Rot::IDENTITY
                     };
 
-                    node_positions.insert(pos.as_uvec3(), NodeID::new(node_index, node_rot));
+                    node_positions.insert(pos.as_uvec3() / 4, NodeID::new(node_index, node_rot));
                 }
                 _ => {}
             }

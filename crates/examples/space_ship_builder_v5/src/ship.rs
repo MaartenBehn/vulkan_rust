@@ -17,9 +17,7 @@ use std::iter;
 pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
 
-pub const CHUNK_SIZE: i32 = 16;
-pub const VOXELS_PER_NODE: i32 = 4;
-pub const VOXELS_PER_BLOCK: i32 = 8;
+pub const CHUNK_SIZE: i32 = 32;
 
 pub struct Ship {
     pub chunks: Vec<ShipChunk>,
@@ -44,12 +42,12 @@ pub struct ShipChunk {
 }
 
 impl Ship {
-    pub fn new(block_size: i32, rules: &Rules) -> Result<Ship> {
-        let blocks_per_chunk = IVec3::ONE * block_size;
-        let nodes_per_chunk = IVec3::ONE * block_size * 2;
-        let chunk_pos_mask = IVec3::ONE * !((block_size * VOXELS_PER_BLOCK) - 1);
-        let chunk_voxel_size = IVec3::ONE * (block_size * VOXELS_PER_BLOCK);
-        let in_chunk_pos_mask = IVec3::ONE * ((block_size * VOXELS_PER_BLOCK) - 1);
+    pub fn new(node_size: i32, rules: &Rules) -> Result<Ship> {
+        let blocks_per_chunk = IVec3::ONE * node_size / 2;
+        let nodes_per_chunk = IVec3::ONE * node_size;
+        let chunk_pos_mask = IVec3::ONE * !(node_size - 1);
+        let chunk_voxel_size = IVec3::ONE * node_size;
+        let in_chunk_pos_mask = IVec3::ONE * (node_size - 1);
         let node_index_bits = (nodes_per_chunk.element_product().trailing_zeros() + 1) as usize;
         let node_index_mask = (nodes_per_chunk.element_product() - 1) as usize;
 
@@ -80,7 +78,7 @@ impl Ship {
         block_index: BlockIndex,
         rules: &Rules,
     ) -> Result<()> {
-        let pos = self.get_voxel_pos_from_block_pos(block_pos);
+        let pos = self.get_node_pos_from_block_pos(block_pos);
 
         let chunk_index = self.get_chunk_index(pos)?;
         let in_chunk_block_index = self.get_block_index(pos);
@@ -131,7 +129,7 @@ impl Ship {
 
             let node_world_index = self.to_propergate.pop_front().unwrap();
             let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
-            let pos = self.pos_from_World_node_index(chunk_index, node_index);
+            let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
             debug!("Node: {node_index}");
 
@@ -232,6 +230,20 @@ impl Ship {
                 vec4(1.0, 0.0, 0.0, 1.0),
             );
         }
+
+        let mut to_propergate = self.to_propergate.to_owned();
+
+        while !to_propergate.is_empty() {
+            let node_world_index = to_propergate.pop_front().unwrap();
+            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
+            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+
+            debug_controller.add_cube(
+                pos.as_vec3(),
+                pos.as_vec3() + Vec3::ONE,
+                vec4(0.0, 0.0, 1.0, 1.0),
+            );
+        }
     }
 
     // Math
@@ -277,12 +289,12 @@ impl Ship {
         Ok(0)
     }
 
-    pub fn get_voxel_pos_from_block_pos(&self, pos: IVec3) -> IVec3 {
-        pos * VOXELS_PER_BLOCK
+    pub fn get_node_pos_from_block_pos(&self, pos: IVec3) -> IVec3 {
+        pos * 2
     }
 
     pub fn get_chunk_pos(&self, pos: IVec3) -> IVec3 {
-        pos & self.chunk_pos_mask
+        (pos & self.chunk_pos_mask)
             - self.chunk_voxel_size
                 * ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
     }
@@ -293,12 +305,12 @@ impl Ship {
 
     pub fn get_block_index(&self, pos: IVec3) -> usize {
         let in_chunk_index = self.get_in_chunk_pos(pos);
-        to_1d_i(in_chunk_index / VOXELS_PER_BLOCK, self.blocks_per_chunk) as usize
+        to_1d_i(in_chunk_index / 2, self.blocks_per_chunk) as usize
     }
 
     pub fn get_node_index(&self, pos: IVec3) -> usize {
         let in_chunk_index = self.get_in_chunk_pos(pos);
-        to_1d_i(in_chunk_index / VOXELS_PER_NODE, self.nodes_per_chunk) as usize
+        to_1d_i(in_chunk_index, self.nodes_per_chunk) as usize
     }
 
     pub fn to_world_node_index(&self, chunk_index: usize, node_index: usize) -> usize {
@@ -312,9 +324,9 @@ impl Ship {
         )
     }
 
-    pub fn pos_from_World_node_index(&self, chunk_index: usize, node_index: usize) -> IVec3 {
+    pub fn pos_from_world_node_index(&self, chunk_index: usize, node_index: usize) -> IVec3 {
         let chunk_pos = self.chunks[chunk_index].pos;
-        let node_pos = to_3d_i(node_index as i32, VOXELS_PER_NODE * self.nodes_per_chunk);
+        let node_pos = to_3d_i(node_index as i32, self.nodes_per_chunk);
 
         chunk_pos + node_pos
     }

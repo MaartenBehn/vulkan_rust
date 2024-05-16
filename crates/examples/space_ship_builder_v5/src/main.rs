@@ -78,6 +78,7 @@ impl App for SpaceShipBuilder {
             base.num_frames,
             base.swapchain.format,
             &base.window,
+            &builder.ship,
             &renderer,
         )?;
 

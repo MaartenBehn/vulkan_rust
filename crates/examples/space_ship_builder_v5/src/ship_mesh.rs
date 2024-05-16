@@ -1,4 +1,4 @@
-use crate::ship::{Ship, ShipChunk, CHUNK_SIZE, VOXELS_PER_NODE};
+use crate::ship::{Ship, ShipChunk, CHUNK_SIZE};
 use octa_force::{
     anyhow::Result,
     log,
@@ -141,6 +141,8 @@ impl ShipMesh {
     pub fn update_node_debug(
         &mut self,
         ship: &Ship,
+        render_nodes: &Vec<RenderNode>,
+
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -154,9 +156,10 @@ impl ShipMesh {
 
             if mesh_chunk_index.is_some() {
                 self.chunks[mesh_chunk_index.unwrap()].update_node_debug(
-                    chunk,
-                    context,
                     ship,
+                    chunk,
+                    render_nodes,
+                    context,
                     &mut self.to_drop_buffers[image_index],
                     self.size,
                 )?;
@@ -164,8 +167,9 @@ impl ShipMesh {
                 let new_chunk = MeshChunk::new_wave_debug(
                     chunk.pos,
                     self.size,
-                    chunk,
                     ship,
+                    chunk,
+                    render_nodes,
                     self.to_drop_buffers.len(),
                     context,
                     descriptor_layout,
@@ -304,8 +308,10 @@ impl MeshChunk {
     pub fn new_wave_debug(
         pos: IVec3,
         size: IVec3,
-        ship_chunk: &ShipChunk,
+
         ship: &Ship,
+        ship_chunk: &ShipChunk,
+        render_nodes: &Vec<RenderNode>,
 
         images_len: usize,
         context: &Context,
@@ -313,12 +319,11 @@ impl MeshChunk {
         descriptor_pool: &DescriptorPool,
     ) -> Result<Option<MeshChunk>> {
         let wave_debug_node_id_bits = Self::get_chunk_node_id_bits_debug(ship_chunk, size, ship);
-        let render_nodes = vec![RenderNode(true); ship.node_length_plus_padding()];
 
         Self::new_from_data(
             pos,
             &wave_debug_node_id_bits,
-            &render_nodes,
+            render_nodes,
             images_len,
             context,
             descriptor_layout,
@@ -333,7 +338,7 @@ impl MeshChunk {
         for x in 0..ship.nodes_per_chunk.x {
             for y in 0..ship.nodes_per_chunk.y {
                 for z in 0..ship.nodes_per_chunk.z {
-                    let node_pos = ivec3(x, y, z) * VOXELS_PER_NODE;
+                    let node_pos = ivec3(x, y, z);
                     let node_index = ship.get_node_index(node_pos);
                     let r = ship_chunk.nodes[node_index].to_owned();
                     if r.is_none() {
@@ -357,11 +362,10 @@ impl MeshChunk {
                                     }
                                 }
 
-                                let pattern_pos = ivec3(ix, iy, iz) * VOXELS_PER_NODE + node_pos;
-                                let index = to_1d_i(
-                                    pattern_pos / VOXELS_PER_NODE,
-                                    ship.nodes_per_chunk * pattern_block_size,
-                                ) as usize;
+                                let pattern_pos = ivec3(ix, iy, iz) + node_pos;
+                                let index =
+                                    to_1d_i(pattern_pos, ship.nodes_per_chunk * pattern_block_size)
+                                        as usize;
 
                                 let node = possible_pattern[pattern_counter];
                                 node_debug_node_id_bits[index] = node.into();
@@ -480,18 +484,20 @@ impl MeshChunk {
 
     pub fn update_node_debug(
         &mut self,
-        ship_chunk: &ShipChunk,
-        context: &Context,
+
         ship: &Ship,
+        ship_chunk: &ShipChunk,
+        render_nodes: &Vec<RenderNode>,
+
+        context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
         size: IVec3,
     ) -> Result<()> {
         let wave_debug_node_id_bits = Self::get_chunk_node_id_bits_debug(ship_chunk, size, ship);
-        let render_nodes = vec![RenderNode(true); ship.node_length_plus_padding()];
 
         self.update_from_data(
             &wave_debug_node_id_bits,
-            &render_nodes,
+            render_nodes,
             context,
             to_drop_buffers,
         )

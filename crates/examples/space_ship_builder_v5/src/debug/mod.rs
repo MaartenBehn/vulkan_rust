@@ -41,6 +41,7 @@ impl DebugController {
         images_len: usize,
         format: Format,
         window: &Window,
+        ship: &Ship,
         renderer: &ShipRenderer,
     ) -> Result<Self> {
         let line_renderer = DebugLineRenderer::new(
@@ -54,7 +55,7 @@ impl DebugController {
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
 
-        let wave_renderer = DebugWaveRenderer::new(images_len)?;
+        let wave_renderer = DebugWaveRenderer::new(images_len, ship)?;
 
         Ok(DebugController {
             mode: DebugMode::WFC,
