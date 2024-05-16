@@ -304,7 +304,11 @@ impl ShipRenderer {
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT,
-            &PushConstant::new(render_mode, ship_mesh.size.x as u32, 1),
+            &PushConstant::new(
+                render_mode,
+                ship_mesh.size.x as u32,
+                ship_mesh.scale_down.x as u32,
+            ),
         );
         for chunk in ship_mesh.chunks.iter() {
             if chunk.index_count == 0 {

@@ -20,7 +20,7 @@ impl DebugWaveRenderer {
     pub fn new(image_len: usize, ship: &Ship) -> Result<Self> {
         let render_nodes = Self::get_debug_render_nodes(ship);
         Ok(DebugWaveRenderer {
-            mesh: ShipMesh::new(image_len, 128)?,
+            mesh: ShipMesh::new(image_len, 128, ship)?,
             render_nodes,
         })
     }

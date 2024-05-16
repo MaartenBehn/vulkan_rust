@@ -63,8 +63,8 @@ impl Builder {
         );
 
         let ship = Ship::new(CHUNK_SIZE, rules)?;
-        let base_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
-        let build_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32 * 2)?;
+        let base_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32, &ship)?;
+        let build_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32, &ship)?;
 
         Ok(Builder {
             ship,

@@ -31,6 +31,7 @@ pub struct Ship {
     pub node_index_mask: usize,
 
     pub to_propergate: IndexQueue,
+    pub to_collapse: IndexQueue,
 }
 
 pub struct ShipChunk {
@@ -63,6 +64,7 @@ impl Ship {
             node_index_mask,
 
             to_propergate: IndexQueue::default(),
+            to_collapse: IndexQueue::default(),
         };
         ship.add_chunk(IVec3::ZERO);
 
@@ -94,7 +96,11 @@ impl Ship {
         chunk.blocks[in_chunk_block_index] = block_index;
 
         let mut push_propergate = |block_index: BlockIndex, pos: IVec3| -> Result<()> {
-            for offset in rules.affected_by_block[old_block_index].iter() {
+            if block_index == BLOCK_INDEX_EMPTY {
+                return Ok(());
+            }
+
+            for offset in rules.affected_by_block[block_index].iter() {
                 let affected_pos = pos + *offset;
 
                 let chunk_index = self.get_chunk_index(affected_pos);
@@ -123,103 +129,122 @@ impl Ship {
         rules: &Rules,
     ) -> Result<(bool, Vec<ChunkIndex>)> {
         for _ in 0..actions_per_tick {
-            if self.to_propergate.is_empty() {
+            if !self.to_propergate.is_empty() {
+                
+                self.propergate(rules)?;
+                
+            } else if !self.to_collapse.is_empty() {
+                
+                
+                
+            } else {
                 return Ok((false, vec![0]));
             }
-
-            let node_world_index = self.to_propergate.pop_front().unwrap();
-            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
-            let pos = self.pos_from_world_node_index(chunk_index, node_index);
-
-            debug!("Node: {node_index}");
-
-            let mut new_possible_node_ids = Vec::new();
-            for (node_id, reqs) in rules
-                .map_rules_index_to_node_id
-                .iter()
-                .zip(rules.node_rules.iter())
-            {
-                let mut accepted = true;
-                for (offset, ids) in reqs.iter() {
-                    let test_pos = pos + *offset;
-
-                    let test_chunk_index = self.get_chunk_index(test_pos);
-                    let test_node_index = self.get_node_index(test_pos);
-
-                    let mut found = false;
-                    if test_chunk_index.is_err() {
-                        for id in ids.iter() {
-                            if id.is_none() {
-                                found = true;
-                                break;
-                            }
-                        }
-                    } else {
-                        let test_ids = self.chunks[test_chunk_index.unwrap()].nodes
-                            [test_node_index]
-                            .to_owned();
-
-                        if test_ids.is_none() {
-                            found = true;
-                        } else {
-                            for test_id in test_ids.unwrap().iter() {
-                                found = ids.contains(&test_id);
-                            }
-                        }
-                    };
-
-                    accepted &= found
-                }
-
-                if accepted {
-                    new_possible_node_ids.push(node_id.to_owned());
-                }
-            }
-
-            let possible_node_ids = self.chunks[chunk_index].nodes[node_index].take();
-
-            let mut push_propergate = |node_id: NodeID| -> Result<()> {
-                for offset in rules.affected_by_node[&node_id].iter() {
-                    let affected_pos = pos + *offset;
-
-                    let chunk_index = self.get_chunk_index(affected_pos);
-                    if chunk_index.is_err() {
-                        continue;
-                    }
-
-                    let node_index = self.get_node_index(affected_pos);
-
-                    let node_world_index =
-                        self.to_world_node_index(chunk_index.unwrap(), node_index);
-                    self.to_propergate.push_back(node_world_index);
-                }
-
-                Ok(())
-            };
-
-            if possible_node_ids.is_none() {
-                for node_id in new_possible_node_ids.iter() {
-                    push_propergate(node_id.to_owned())?;
-                }
-            } else {
-                let old_possible_node_ids = possible_node_ids.unwrap();
-                if old_possible_node_ids.len() != new_possible_node_ids.len() {
-                    for node_id in old_possible_node_ids.iter() {
-                        push_propergate(node_id.to_owned())?;
-                    }
-
-                    for node_id in new_possible_node_ids.iter() {
-                        push_propergate(node_id.to_owned())?;
-                    }
-                }
-            }
-            self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
         }
 
         debug!("Tick: {actions_per_tick}");
 
         Ok((true, vec![0]))
     }
+    
+    fn propergate(&mut self, rules: &Rules) -> Result<()> {
+        let node_world_index = self.to_propergate.pop_front().unwrap();
+        let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
+        let pos = self.pos_from_world_node_index(chunk_index, node_index);
+
+        debug!("Node: {node_index}");
+
+        let mut new_possible_node_ids = Vec::new();
+        for (node_id, reqs) in rules
+            .map_rules_index_to_node_id
+            .iter()
+            .zip(rules.node_rules.iter())
+        {
+            let mut accepted = true;
+            for (offset, ids) in reqs.iter() {
+                let test_pos = pos + *offset;
+
+                let test_chunk_index = self.get_chunk_index(test_pos);
+                let test_node_index = self.get_node_index(test_pos);
+
+                let mut found = false;
+                if test_chunk_index.is_err() {
+                    for id in ids.iter() {
+                        if id.is_none() {
+                            found = true;
+                            break;
+                        }
+                    }
+                } else {
+                    let test_ids = self.chunks[test_chunk_index.unwrap()].nodes
+                        [test_node_index]
+                        .to_owned();
+
+                    if test_ids.is_none() {
+                        found = true;
+                    } else {
+                        for test_id in test_ids.unwrap().iter() {
+                            found = ids.contains(&test_id);
+                        }
+                    }
+                };
+
+                accepted &= found
+            }
+
+            if accepted {
+                new_possible_node_ids.push(node_id.to_owned());
+            }
+        }
+
+        let possible_node_ids = self.chunks[chunk_index].nodes[node_index].take();
+
+        let mut push_propergate = |node_id: NodeID| -> Result<()> {
+            for offset in rules.affected_by_node[&node_id].iter() {
+                let affected_pos = pos + *offset;
+
+                let chunk_index = self.get_chunk_index(affected_pos);
+                if chunk_index.is_err() {
+                    continue;
+                }
+
+                let node_index = self.get_node_index(affected_pos);
+
+                let node_world_index =
+                    self.to_world_node_index(chunk_index.unwrap(), node_index);
+                self.to_propergate.push_back(node_world_index);
+            }
+
+            Ok(())
+        };
+
+        if possible_node_ids.is_none() {
+            for node_id in new_possible_node_ids.iter() {
+                push_propergate(node_id.to_owned())?;
+            }
+        } else {
+            let old_possible_node_ids = possible_node_ids.unwrap();
+            if old_possible_node_ids.len() != new_possible_node_ids.len() {
+                for node_id in old_possible_node_ids.iter() {
+                    push_propergate(node_id.to_owned())?;
+                }
+
+                for node_id in new_possible_node_ids.iter() {
+                    push_propergate(node_id.to_owned())?;
+                }
+            }
+        }
+        self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
+        
+        Ok(())
+    }
+    
+    fn collapse() -> Result<()> {
+        
+        
+        Ok(())
+    }
+    
 
     #[cfg(debug_assertions)]
     pub fn show_debug(&self, debug_controller: &mut DebugController) {

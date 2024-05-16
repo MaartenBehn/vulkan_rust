@@ -58,7 +58,7 @@ impl DebugController {
         let wave_renderer = DebugWaveRenderer::new(images_len, ship)?;
 
         Ok(DebugController {
-            mode: DebugMode::WFC,
+            mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
             wave_renderer,

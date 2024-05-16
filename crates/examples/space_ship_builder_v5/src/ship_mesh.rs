@@ -34,6 +34,7 @@ pub struct ShipMesh {
     pub chunks: Vec<MeshChunk>,
     pub to_drop_buffers: Vec<Vec<Buffer>>,
     pub size: IVec3,
+    pub scale_down: IVec3,
 }
 
 pub struct MeshChunk {
@@ -50,16 +51,19 @@ pub struct MeshChunk {
 pub struct RenderNode(pub bool);
 
 impl ShipMesh {
-    pub fn new(images_len: usize, size: u32) -> Result<ShipMesh> {
+    pub fn new(images_len: usize, size: u32, ship: &Ship) -> Result<ShipMesh> {
         let mut to_drop_buffers = Vec::new();
         for _ in 0..images_len {
             to_drop_buffers.push(vec![])
         }
 
+        let size = IVec3::ONE * size as i32;
+        let scale_down = size / ship.nodes_per_chunk;
         Ok(ShipMesh {
             chunks: Vec::new(),
             to_drop_buffers,
-            size: IVec3::ONE * size as i32,
+            size,
+            scale_down,
         })
     }
 
@@ -156,12 +160,12 @@ impl ShipMesh {
 
             if mesh_chunk_index.is_some() {
                 self.chunks[mesh_chunk_index.unwrap()].update_node_debug(
+                    self.size,
                     ship,
                     chunk,
                     render_nodes,
                     context,
                     &mut self.to_drop_buffers[image_index],
-                    self.size,
                 )?;
             } else {
                 let new_chunk = MeshChunk::new_wave_debug(
@@ -485,13 +489,14 @@ impl MeshChunk {
     pub fn update_node_debug(
         &mut self,
 
+        size: IVec3,
+
         ship: &Ship,
         ship_chunk: &ShipChunk,
         render_nodes: &Vec<RenderNode>,
 
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
-        size: IVec3,
     ) -> Result<()> {
         let wave_debug_node_id_bits = Self::get_chunk_node_id_bits_debug(ship_chunk, size, ship);
 
