@@ -63,8 +63,10 @@ impl Builder {
         );
 
         let ship = Ship::new(CHUNK_SIZE, rules)?;
-        let base_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32, &ship)?;
-        let build_ship_mesh = ShipMesh::new(images_count, CHUNK_SIZE as u32, &ship)?;
+        let base_ship_mesh =
+            ShipMesh::new(images_count, ship.nodes_per_chunk, ship.nodes_per_chunk)?;
+        let build_ship_mesh =
+            ShipMesh::new(images_count, ship.nodes_per_chunk, ship.nodes_per_chunk)?;
 
         Ok(Builder {
             ship,
@@ -186,24 +188,14 @@ impl Builder {
         let mut changed_chunks = Vec::new();
 
         #[cfg(debug_assertions)]
-        if debug_controller.mode == DebugMode::WFC || debug_controller.mode == DebugMode::WFCSkip {
+        if debug_controller.mode == DebugMode::WFC {
             if controls.t && (self.last_action_time + DEBUG_COLLAPSE_SPEED) < total_time {
                 self.last_action_time = total_time;
 
-                let mut full = true;
-                loop {
-                    debug_controller.line_renderer.vertecies.clear();
-                    debug_controller.text_renderer.texts.clear();
-                    let (f, c) = self.ship.tick(1, rules)?;
-                    full &= f;
-                    changed_chunks = c;
-
-                    if debug_controller.mode == DebugMode::WFC || !f {
-                        break;
-                    }
-                }
-
-                log::info!("BUILDER: TICK FULL {:?}", full);
+                debug_controller.line_renderer.vertecies.clear();
+                debug_controller.text_renderer.texts.clear();
+                let (_, c) = self.ship.tick(1, rules)?;
+                changed_chunks = c;
             }
         } else {
             (self.full_tick, changed_chunks) = self.ship.tick(self.actions_per_tick, rules)?;

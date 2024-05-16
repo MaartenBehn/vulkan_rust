@@ -1,13 +1,15 @@
 pub mod line_renderer;
+pub mod possible_node_renderer;
+pub mod rules_renderer;
 pub mod text_renderer;
-pub mod wave_renderer;
 
 use crate::debug::line_renderer::DebugLineRenderer;
+use crate::debug::possible_node_renderer::DebugPossibleNodeRenderer;
+use crate::debug::rules_renderer::DebugRulesRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
-use crate::debug::wave_renderer::{DebugWaveRenderer, WAVE_DEBUG_PS};
+use crate::rules::Rules;
 use crate::ship::Ship;
 use crate::ship_renderer::ShipRenderer;
-use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
@@ -21,7 +23,7 @@ use std::time::Duration;
 pub enum DebugMode {
     OFF,
     WFC,
-    WFCSkip,
+    RULES,
 }
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
@@ -30,7 +32,8 @@ pub struct DebugController {
     pub mode: DebugMode,
     pub line_renderer: DebugLineRenderer,
     pub text_renderer: DebugTextRenderer,
-    pub wave_renderer: DebugWaveRenderer,
+    pub possible_node_renderer: DebugPossibleNodeRenderer,
+    pub rules_renderer: DebugRulesRenderer,
 
     last_mode_change: Duration,
 }
@@ -55,13 +58,15 @@ impl DebugController {
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
 
-        let wave_renderer = DebugWaveRenderer::new(images_len, ship)?;
+        let possible_node_renderer = DebugPossibleNodeRenderer::new(images_len, ship)?;
+        let rules_renderer = DebugRulesRenderer::new(images_len)?;
 
         Ok(DebugController {
             mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
-            wave_renderer,
+            possible_node_renderer,
+            rules_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
@@ -74,6 +79,7 @@ impl DebugController {
         total_time: Duration,
         ship: &Ship,
         image_index: usize,
+        rules: &Rules,
     ) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
@@ -87,8 +93,8 @@ impl DebugController {
         if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::WFCSkip {
-                DebugMode::WFCSkip
+            self.mode = if self.mode != DebugMode::RULES {
+                DebugMode::RULES
             } else {
                 DebugMode::OFF
             }
@@ -97,7 +103,7 @@ impl DebugController {
         if self.mode == DebugMode::WFC {
             self.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0))
         } else {
-            self.add_text(vec!["WFC Skip".to_owned()], vec3(-1.0, 0.0, 0.0))
+            self.add_text(vec!["RULES".to_owned()], vec3(-1.0, 0.0, 0.0))
         }
 
         if self.mode != DebugMode::OFF {
@@ -105,15 +111,28 @@ impl DebugController {
 
             self.text_renderer.push_texts()?;
             self.line_renderer.push_lines()?;
-            self.wave_renderer.update(
+        } else {
+            self.line_renderer.vertecies_count = 0;
+        }
+
+        if self.mode == DebugMode::WFC {
+            self.possible_node_renderer.update(
                 ship,
                 image_index,
                 &context,
                 &renderer.chunk_descriptor_layout,
                 &renderer.descriptor_pool,
             )?;
-        } else {
-            self.line_renderer.vertecies_count = 0;
+        }
+
+        if self.mode == DebugMode::RULES {
+            self.rules_renderer.update(
+                rules,
+                image_index,
+                &context,
+                &renderer.chunk_descriptor_layout,
+                &renderer.descriptor_pool,
+            )?;
         }
 
         Ok(())
@@ -133,7 +152,15 @@ impl DebugController {
 
         self.text_renderer.render(buffer, camera, extent)?;
         self.line_renderer.render(buffer, image_index);
-        self.wave_renderer.render(buffer, renderer, image_index);
+
+        if self.mode == DebugMode::WFC {
+            self.possible_node_renderer
+                .render(buffer, renderer, image_index);
+        }
+
+        if self.mode == DebugMode::RULES {
+            self.rules_renderer.render(buffer, renderer, image_index);
+        }
 
         Ok(())
     }

@@ -69,6 +69,8 @@ impl VoxelLoader {
         let mut nodes = Vec::new();
         let mut node_id_map = Vec::new();
 
+        nodes.push(Node::new([0; NODE_VOXEL_LENGTH]));
+
         for model in data.models.iter() {
             let size = uvec3(model.size.x, model.size.y, model.size.z);
 

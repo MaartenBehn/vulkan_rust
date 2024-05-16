@@ -104,7 +104,28 @@ impl Rules {
             }
         }
 
+        possible_node_neighbor_list.iter_mut().for_each(|neighbor| {
+            neighbor.iter_mut().for_each(|(_, ids)| {
+                ids.sort();
+                ids.dedup();
+            });
+        });
+
+        possible_block_neighbor_list
+            .iter_mut()
+            .for_each(|neighbor| {
+                neighbor.iter_mut().for_each(|(_, ids)| {
+                    ids.sort();
+                    ids.dedup();
+                });
+            });
+
         affected_by_block.iter_mut().for_each(|offsets| {
+            offsets.sort_by(|p, q| p.element_sum().cmp(&q.element_sum()));
+            offsets.dedup()
+        });
+
+        affected_by_node.iter_mut().for_each(|(_, offsets)| {
             offsets.sort_by(|p, q| p.element_sum().cmp(&q.element_sum()));
             offsets.dedup()
         });

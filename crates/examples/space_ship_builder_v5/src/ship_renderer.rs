@@ -307,7 +307,7 @@ impl ShipRenderer {
             &PushConstant::new(
                 render_mode,
                 ship_mesh.size.x as u32,
-                ship_mesh.scale_down.x as u32,
+                (ship_mesh.size.x / ship_mesh.render_size.x) as u32,
             ),
         );
         for chunk in ship_mesh.chunks.iter() {

@@ -169,6 +169,7 @@ impl App for SpaceShipBuilder {
                 self.total_time,
                 &self.builder.ship,
                 image_index,
+                &self.rules,
             )?;
         }
 
