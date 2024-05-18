@@ -37,7 +37,7 @@ pub struct Ship {
 pub struct ShipChunk {
     pub pos: IVec3,
     pub blocks: Vec<BlockIndex>,
-    pub nodes: Vec<Option<Vec<NodeID>>>,
+    pub nodes: Vec<Option<Vec<(NodeID, usize)>>>,
     pub node_id_bits: Vec<u32>,
     pub render_nodes: Vec<RenderNode>,
 }
@@ -195,7 +195,7 @@ impl Ship {
                 }
 
                 if accepted && check_performed {
-                    new_possible_node_ids.push(node_id.to_owned());
+                    new_possible_node_ids.push((node_id.to_owned(), *prio));
                 }
             }
         }
@@ -223,11 +223,11 @@ impl Ship {
         };
 
         if old_possible_node_ids != new_possible_node_ids {
-            for node_id in old_possible_node_ids.iter() {
+            for (node_id, _) in old_possible_node_ids.iter() {
                 push_propergate(node_id.to_owned())?;
             }
 
-            for node_id in new_possible_node_ids.iter() {
+            for (node_id, _) in new_possible_node_ids.iter() {
                 push_propergate(node_id.to_owned())?;
             }
 
@@ -249,9 +249,10 @@ impl Ship {
             .take()
             .unwrap_or(Vec::new());
 
-        let node_id = possible_node_ids
-            .first()
-            .unwrap_or(&NodeID::none())
+        let (node_id, _) = possible_node_ids
+            .iter()
+            .max_by(|(_, prio1), (_, prio2)| prio1.cmp(prio2))
+            .unwrap_or(&(NodeID::none(), 0))
             .to_owned();
         self.chunks[chunk_index].node_id_bits[node_index] = node_id.into();
         self.chunks[chunk_index].render_nodes[node_index_plus_padding] =

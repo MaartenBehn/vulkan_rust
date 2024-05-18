@@ -9,31 +9,13 @@ use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLa
 
 pub struct DebugPossibleNodeRenderer {
     mesh: ShipMesh,
-    render_nodes: Vec<RenderNode>,
 }
 
 impl DebugPossibleNodeRenderer {
     pub fn new(image_len: usize, ship: &Ship) -> Result<Self> {
-        let render_nodes = Self::get_debug_render_nodes(ship);
         Ok(DebugPossibleNodeRenderer {
             mesh: ShipMesh::new(image_len, IVec3::ONE * 128, ship.nodes_per_chunk)?,
-            render_nodes,
         })
-    }
-
-    fn get_debug_render_nodes(ship: &Ship) -> Vec<RenderNode> {
-        let mut render_nodes = vec![RenderNode(false); ship.node_length_plus_padding()];
-
-        for x in 1..=ship.nodes_per_chunk.x {
-            for y in 1..=ship.nodes_per_chunk.y {
-                for z in 1..=ship.nodes_per_chunk.z {
-                    let i = to_1d_i(ivec3(x, y, z), ship.node_size_plus_padding()) as usize;
-                    render_nodes[i] = RenderNode(true);
-                }
-            }
-        }
-
-        render_nodes
     }
 
     pub fn update(
@@ -46,7 +28,6 @@ impl DebugPossibleNodeRenderer {
     ) -> Result<()> {
         self.mesh.update_possible_node_debug(
             ship,
-            &self.render_nodes,
             image_index,
             context,
             descriptor_layout,

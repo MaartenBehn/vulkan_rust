@@ -153,7 +153,6 @@ impl ShipMesh {
     pub fn update_possible_node_debug(
         &mut self,
         ship: &Ship,
-        render_nodes: &Vec<RenderNode>,
 
         image_index: usize,
         context: &Context,
@@ -171,7 +170,6 @@ impl ShipMesh {
                     self.size,
                     ship,
                     chunk,
-                    render_nodes,
                     context,
                     &mut self.to_drop_buffers[image_index],
                 )?;
@@ -182,7 +180,6 @@ impl ShipMesh {
                     self.render_size,
                     ship,
                     chunk,
-                    render_nodes,
                     self.to_drop_buffers.len(),
                     context,
                     descriptor_layout,
@@ -383,7 +380,6 @@ impl MeshChunk {
 
         ship: &Ship,
         ship_chunk: &ShipChunk,
-        render_nodes: &Vec<RenderNode>,
 
         images_len: usize,
         context: &Context,
@@ -397,7 +393,7 @@ impl MeshChunk {
             size,
             render_size,
             &wave_debug_node_id_bits,
-            render_nodes,
+            &ship_chunk.render_nodes,
             images_len,
             context,
             descriptor_layout,
@@ -457,7 +453,7 @@ impl MeshChunk {
                             for ix in 0..pattern_block_size.z {
                                 if possible_pattern.len() <= pattern_counter {
                                     break 'iter;
-                                } else if possible_pattern[pattern_counter].is_none() {
+                                } else if possible_pattern[pattern_counter].0.is_none() {
                                     pattern_counter += 1;
 
                                     if possible_pattern.len() <= pattern_counter {
@@ -468,7 +464,7 @@ impl MeshChunk {
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
                                 let index = to_1d_i(pattern_pos, size) as usize;
 
-                                let node = possible_pattern[pattern_counter];
+                                let (node, _) = possible_pattern[pattern_counter];
                                 node_debug_node_id_bits[index] = node.into();
                                 pattern_counter += 1;
                             }
@@ -648,7 +644,6 @@ impl MeshChunk {
 
         ship: &Ship,
         ship_chunk: &ShipChunk,
-        render_nodes: &Vec<RenderNode>,
 
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
@@ -657,7 +652,7 @@ impl MeshChunk {
 
         self.update_from_data(
             &wave_debug_node_id_bits,
-            render_nodes,
+            &ship_chunk.render_nodes,
             context,
             to_drop_buffers,
         )
