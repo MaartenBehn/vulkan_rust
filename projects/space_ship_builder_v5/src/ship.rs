@@ -158,49 +158,43 @@ impl Ship {
             .iter()
             .zip(rules.block_rules.iter())
         {
-            let mut accepted = true;
+            for (req, prio) in reqs {
+                let mut accepted = true;
+                let mut check_performed = false;
+                // Go over all offsets of the requirement
+                for (offset, id) in req.iter() {
+                    let test_pos = pos + *offset;
 
-            let mut check_performed = false;
-            // Go over all offsets of the requirement
-            for (offset, ids) in reqs.iter() {
-                let test_pos = pos + *offset;
+                    // If the offset does not aling with the node just ignore it.
+                    if (test_pos % 2) != IVec3::ZERO {
+                        continue;
+                    }
 
-                // If the offset does not aling with the node just ignore it.
-                if (test_pos % 2) != IVec3::ZERO {
-                    continue;
+                    let test_chunk_index = self.get_chunk_index(test_pos);
+                    let test_block_index = self.get_block_index(test_pos);
+
+                    let mut found = false;
+                    if test_chunk_index.is_err() {
+                        // If the block is in chunk that does not exist it is always Air.
+
+                        found = *id == BLOCK_INDEX_EMPTY
+                    } else {
+                        // If the chuck exists.
+
+                        let index = self.chunks[test_chunk_index.unwrap()].blocks[test_block_index]
+                            .to_owned();
+
+                        // Check if the Block at the pos is in the allowed block ids.
+                        found = *id == index;
+                    };
+
+                    accepted &= found;
+                    check_performed = true;
                 }
 
-                let test_chunk_index = self.get_chunk_index(test_pos);
-                let test_block_index = self.get_block_index(test_pos);
-
-                let mut found = false;
-
-                if test_chunk_index.is_err() {
-                    // If the block is in chunk that does not exist it is always Air.
-
-                    // Check if the allowed block ids contain the Empty Block
-                    for id in ids.iter() {
-                        if *id == BLOCK_INDEX_EMPTY {
-                            found = true;
-                            break;
-                        }
-                    }
-                } else {
-                    // If the chuck exists.
-
-                    let index =
-                        self.chunks[test_chunk_index.unwrap()].blocks[test_block_index].to_owned();
-
-                    // Check if the Block at the pos is in the allowed block ids.
-                    found = ids.contains(&index);
-                };
-
-                accepted &= found;
-                check_performed = true;
-            }
-
-            if accepted && check_performed {
-                new_possible_node_ids.push(node_id.to_owned());
+                if accepted && check_performed {
+                    new_possible_node_ids.push(node_id.to_owned());
+                }
             }
         }
 
@@ -226,7 +220,7 @@ impl Ship {
             Ok(())
         };
 
-        if old_possible_node_ids.len() != new_possible_node_ids.len() {
+        if old_possible_node_ids != new_possible_node_ids {
             for node_id in old_possible_node_ids.iter() {
                 push_propergate(node_id.to_owned())?;
             }
@@ -286,6 +280,20 @@ impl Ship {
                 pos.as_vec3(),
                 pos.as_vec3() + Vec3::ONE,
                 vec4(0.0, 0.0, 1.0, 1.0),
+            );
+        }
+
+        let mut to_collapse = self.to_collapse.to_owned();
+
+        while !to_collapse.is_empty() {
+            let node_world_index = to_collapse.pop_front().unwrap();
+            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
+            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+
+            debug_controller.add_cube(
+                pos.as_vec3(),
+                pos.as_vec3() + Vec3::ONE,
+                vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
     }

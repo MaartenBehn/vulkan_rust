@@ -20,8 +20,8 @@ pub struct VoxelLoader {
     pub mats: [Material; 256],
     pub nodes: Vec<Node>,
     pub block_names: Vec<String>,
-    pub node_positions: HashMap<UVec3, NodeID>,
     pub block_positions: HashMap<UVec3, BlockIndex>,
+    pub node_positions: HashMap<UVec3, (NodeID, usize)>,
 }
 
 #[derive(Clone, Default)]
@@ -49,8 +49,8 @@ impl VoxelLoader {
             mats,
             nodes,
             block_names,
-            node_positions,
             block_positions,
+            node_positions,
         };
 
         Ok(voxel_loader)
@@ -180,13 +180,18 @@ impl VoxelLoader {
     fn load_node_positions(
         data: &DotVoxData,
         node_id_map: Vec<usize>,
-    ) -> Result<HashMap<UVec3, NodeID>> {
+    ) -> Result<HashMap<UVec3, (NodeID, usize)>> {
         let (node_ids, node_group_pos) = Self::get_group_ids(data, "nodes");
 
         let mut node_positions = HashMap::default();
         for node_id in node_ids {
             match &data.scenes[node_id as usize] {
-                SceneNode::Transform { frames, child, .. } => {
+                SceneNode::Transform {
+                    frames,
+                    child,
+                    attributes,
+                    ..
+                } => {
                     let model_id = match &data.scenes[*child as usize] {
                         SceneNode::Shape { models, .. } => models[0].model_id as usize,
                         _ => {
@@ -214,7 +219,13 @@ impl VoxelLoader {
                         Rot::IDENTITY
                     };
 
-                    node_positions.insert(pos.as_uvec3() / 4, NodeID::new(node_index, node_rot));
+                    let name = attributes.get("_name").unwrap();
+                    let prio = name.parse::<usize>().unwrap();
+
+                    node_positions.insert(
+                        pos.as_uvec3() / 4,
+                        (NodeID::new(node_index, node_rot), prio),
+                    );
                 }
                 _ => {}
             }
