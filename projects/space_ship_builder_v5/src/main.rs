@@ -57,7 +57,7 @@ struct SpaceShipBuilder {
 
 impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
-        let voxel_loader = VoxelLoader::new("./assets/models/space_ship.vox")?;
+        let voxel_loader = VoxelLoader::new("./assets/space_ship.vox")?;
 
         let rules = Rules::new(&voxel_loader);
 

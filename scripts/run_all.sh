@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for d in ./crates/examples/*; do
+for d in ./projects/*; do
     echo $(basename $d)
     sh ./scripts/run.sh $(basename $d)
 done
