@@ -1,5 +1,5 @@
 use crate::math::get_neighbors;
-use crate::node::{BlockIndex, NodeID};
+use crate::node::{BlockIndex, NodeID, BLOCK_INDEX_EMPTY};
 use crate::voxel_loader::VoxelLoader;
 use octa_force::egui::ahash::HashMap;
 use octa_force::glam::IVec3;
@@ -80,21 +80,22 @@ impl Rules {
                 let neighbor_offset = offset * 2;
                 let neighbor_pos = block_pos + neighbor_offset;
 
+                let block_neigbor_offset = neighbor_offset - in_block_pos;
+                let possible_ids = possible_block_neighbor_list[node_id_index]
+                    .entry(block_neigbor_offset)
+                    .or_insert(Vec::new());
+
                 if neighbor_pos.is_negative_bitmask() != 0 {
+                    possible_ids.push(BLOCK_INDEX_EMPTY);
                     continue;
                 }
 
                 let neighbor_block_index =
                     voxel_loader.block_positions.get(&neighbor_pos.as_uvec3());
                 if neighbor_block_index.is_none() {
-                    // No Block at neighbor pos
+                    possible_ids.push(BLOCK_INDEX_EMPTY);
                     continue;
                 }
-
-                let block_neigbor_offset = neighbor_offset - in_block_pos;
-                let possible_ids = possible_block_neighbor_list[node_id_index]
-                    .entry(block_neigbor_offset)
-                    .or_insert(Vec::new());
 
                 possible_ids.push(neighbor_block_index.unwrap().to_owned());
 

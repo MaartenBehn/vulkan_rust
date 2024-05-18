@@ -151,25 +151,34 @@ impl Ship {
         //debug!("Propergate: {node_world_index}");
 
         let mut new_possible_node_ids = Vec::new();
+
+        // Go over all node ids and their block requirements
         for (node_id, reqs) in rules
             .map_rules_index_to_node_id
             .iter()
             .zip(rules.block_rules.iter())
         {
             let mut accepted = true;
-            'iter: for (offset, ids) in reqs.iter() {
+
+            let mut check_performed = false;
+            // Go over all offsets of the requirement
+            for (offset, ids) in reqs.iter() {
                 let test_pos = pos + *offset;
 
-                if test_pos % 2 != IVec3::ZERO {
-                    accepted = false;
-                    break 'iter;
+                // If the offset does not aling with the node just ignore it.
+                if (test_pos % 2) != IVec3::ZERO {
+                    continue;
                 }
 
                 let test_chunk_index = self.get_chunk_index(test_pos);
                 let test_block_index = self.get_block_index(test_pos);
 
                 let mut found = false;
+
                 if test_chunk_index.is_err() {
+                    // If the block is in chunk that does not exist it is always Air.
+
+                    // Check if the allowed block ids contain the Empty Block
                     for id in ids.iter() {
                         if *id == BLOCK_INDEX_EMPTY {
                             found = true;
@@ -177,16 +186,20 @@ impl Ship {
                         }
                     }
                 } else {
+                    // If the chuck exists.
+
                     let index =
                         self.chunks[test_chunk_index.unwrap()].blocks[test_block_index].to_owned();
 
+                    // Check if the Block at the pos is in the allowed block ids.
                     found = ids.contains(&index);
                 };
 
-                accepted &= found
+                accepted &= found;
+                check_performed = true;
             }
 
-            if accepted {
+            if accepted && check_performed {
                 new_possible_node_ids.push(node_id.to_owned());
             }
         }
