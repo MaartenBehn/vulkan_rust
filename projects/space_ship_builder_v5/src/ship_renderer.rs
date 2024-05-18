@@ -328,6 +328,54 @@ impl ShipRenderer {
             buffer.draw_indexed(chunk.index_count as u32);
         }
     }
+
+    pub fn on_rules_changed(
+        &mut self,
+        voxel_loader: &VoxelLoader,
+        context: &Context,
+        num_frames: usize,
+    ) -> Result<()> {
+        let node_buffer_size = voxel_loader.nodes.len() * size_of::<Node>();
+        log::info!(
+            "Node Buffer Size: {:?} MB",
+            node_buffer_size as f32 / 1000000.0
+        );
+
+        self.node_buffer = context.create_gpu_only_buffer_from_data(
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            &voxel_loader.nodes,
+        )?;
+
+        self.mat_buffer = context.create_gpu_only_buffer_from_data(
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            &voxel_loader.mats,
+        )?;
+
+        for i in 0..num_frames {
+            self.static_descriptor_sets[i].update(&[
+                WriteDescriptorSet {
+                    binding: 0,
+                    kind: WriteDescriptorSetKind::UniformBuffer {
+                        buffer: &self.render_buffer,
+                    },
+                },
+                WriteDescriptorSet {
+                    binding: 1,
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &self.node_buffer,
+                    },
+                },
+                WriteDescriptorSet {
+                    binding: 2,
+                    kind: WriteDescriptorSetKind::StorageBuffer {
+                        buffer: &self.mat_buffer,
+                    },
+                },
+            ]);
+        }
+
+        Ok(())
+    }
 }
 
 impl Vertex {

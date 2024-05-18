@@ -1,5 +1,3 @@
-use crate::debug::DebugController;
-#[cfg(debug_assertions)]
 use crate::math::{get_packed_index, to_3d_i};
 use crate::node::{Node, NodeID, PatternIndex, EMPYT_PATTERN_INDEX};
 use crate::rules::Rules;
@@ -10,9 +8,11 @@ use crate::{
     ship_mesh::ShipMesh,
 };
 use index_queue::IndexQueue;
-use log::debug;
+use log::{debug, info};
 use octa_force::{anyhow::*, glam::*, log};
-use std::iter;
+
+#[cfg(debug_assertions)]
+use crate::debug::DebugController;
 
 pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
@@ -128,19 +128,21 @@ impl Ship {
         actions_per_tick: usize,
         rules: &Rules,
     ) -> Result<(bool, Vec<ChunkIndex>)> {
+        let mut changed_chunks = Vec::new();
         for _ in 0..actions_per_tick {
             if !self.to_propergate.is_empty() {
                 self.propergate(rules)?;
             } else if !self.to_collapse.is_empty() {
                 self.collapse()?;
+                changed_chunks = vec![0];
             } else {
-                return Ok((false, vec![0]));
+                return Ok((false, changed_chunks));
             }
         }
 
-        //debug!("Tick: {actions_per_tick}");
+        info!("Tick: {actions_per_tick}");
 
-        Ok((true, vec![0]))
+        Ok((true, changed_chunks))
     }
 
     fn propergate(&mut self, rules: &Rules) -> Result<()> {
@@ -296,6 +298,17 @@ impl Ship {
                 vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
+    }
+
+    pub fn on_rules_changed(&mut self) -> Result<()> {
+        for chunk_index in 0..self.chunks.len() {
+            for node_index in 0..self.node_length() {
+                let node_world_index = self.to_world_node_index(chunk_index, node_index);
+                self.to_propergate.push_back(node_world_index);
+            }
+        }
+
+        std::prelude::rust_2015::Ok(())
     }
 
     // Math

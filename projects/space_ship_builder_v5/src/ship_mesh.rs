@@ -30,7 +30,9 @@ use octa_force::vulkan::{
 
 const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 
+#[cfg(debug_assertions)]
 use crate::debug::rules_renderer::RULES_SIZE;
+#[cfg(debug_assertions)]
 const RULES_SIZE_PLUS_PADDING: u32 = (RULES_SIZE + 2) as u32;
 
 pub struct ShipMesh {
@@ -717,7 +719,10 @@ impl MeshChunk {
                 &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
                 &mut buffer,
             );
-        } else if render_size == (IVec3::ONE * RULES_SIZE) {
+        }
+
+        #[cfg(debug_assertions)]
+        if render_size == (IVec3::ONE * RULES_SIZE) {
             let shape: ConstShape3u32<
                 RULES_SIZE_PLUS_PADDING,
                 RULES_SIZE_PLUS_PADDING,

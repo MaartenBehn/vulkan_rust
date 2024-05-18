@@ -18,8 +18,7 @@ use octa_force::{
 use octa_force::{log, App, BaseApp};
 
 #[cfg(debug_assertions)]
-use crate::debug::DebugController;
-use crate::debug::DebugMode::OFF;
+use crate::debug::{DebugController, DebugMode::OFF};
 
 pub mod builder;
 #[cfg(debug_assertions)]
@@ -116,32 +115,20 @@ impl App for SpaceShipBuilder {
 
         self.camera.update(&base.controls, delta_time);
 
-        /*
         if base.controls.q && self.last_vox_reloade + VOX_FILE_RELODE_INTERVALL < self.total_time {
             self.last_vox_reloade = self.total_time;
 
             log::info!("reloading .vox File");
-            let voxel_loader = VoxelLoader::new("./assets/models/space_ship.vox")?;
-            self.node_controller.load(voxel_loader)?;
+            let voxel_loader = VoxelLoader::new("./assets/space_ship.vox")?;
+            self.rules = Rules::new(&voxel_loader);
 
-            self.builder.on_node_controller_change()?;
-            self.builder
-                .ship
-                .on_node_controller_change(&self.node_controller)?;
-
-            self.renderer = ShipRenderer::new(
-                &base.context,
-                &self.node_controller,
-                base.swapchain.images.len() as u32,
-                base.swapchain.format,
-                Format::D32_SFLOAT,
-                base.swapchain.extent,
-            )?;
+            self.builder.on_rules_changed()?;
+            self.builder.ship.on_rules_changed()?;
+            self.renderer
+                .on_rules_changed(&self.voxel_loader, &base.context, base.num_frames)?;
 
             log::info!(".vox File loaded");
         }
-
-         */
 
         self.builder.update(
             image_index,
@@ -150,7 +137,6 @@ impl App for SpaceShipBuilder {
             &self.renderer.descriptor_pool,
             &base.controls,
             &self.camera,
-            &self.voxel_loader,
             &self.rules,
             delta_time,
             self.total_time,
@@ -194,18 +180,23 @@ impl App for SpaceShipBuilder {
         buffer.set_viewport(base.swapchain.extent);
         buffer.set_scissor(base.swapchain.extent);
 
-        if self.debug_controller.mode == OFF {
-            self.renderer.render(buffer, image_index, &self.builder);
-        }
+        #[cfg(not(debug_assertions))]
+        self.renderer.render(buffer, image_index, &self.builder);
 
         #[cfg(debug_assertions)]
-        self.debug_controller.render(
-            buffer,
-            image_index,
-            &self.camera,
-            base.swapchain.extent,
-            &self.renderer,
-        )?;
+        {
+            if self.debug_controller.mode == OFF {
+                self.renderer.render(buffer, image_index, &self.builder);
+            }
+
+            self.debug_controller.render(
+                buffer,
+                image_index,
+                &self.camera,
+                base.swapchain.extent,
+                &self.renderer,
+            )?;
+        }
 
         buffer.end_rendering();
 

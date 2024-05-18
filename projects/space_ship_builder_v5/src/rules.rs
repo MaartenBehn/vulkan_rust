@@ -206,7 +206,7 @@ impl Rules {
             BVec3::new(false, false, false),
             BVec3::new(true, false, false),
             BVec3::new(false, true, false),
-            BVec3::new(true, true, false),s
+            BVec3::new(true, true, false),
             BVec3::new(false, false, true),
             BVec3::new(true, false, true),
             BVec3::new(false, true, true),

@@ -100,7 +100,6 @@ impl Builder {
 
         controls: &Controls,
         camera: &Camera,
-        voxel_loader: &VoxelLoader,
         rules: &Rules,
         delta_time: Duration,
         total_time: Duration,
@@ -223,7 +222,7 @@ impl Builder {
         Ok(())
     }
 
-    pub fn on_node_controller_change(&mut self) -> Result<()> {
+    pub fn on_rules_changed(&mut self) -> Result<()> {
         self.last_block_to_build = BlockIndex::MAX;
 
         Ok(())
