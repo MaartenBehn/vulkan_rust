@@ -10,6 +10,7 @@ use crate::{
 use index_queue::IndexQueue;
 use log::{debug, info};
 use octa_force::{anyhow::*, glam::*, log};
+use std::cmp::max;
 
 #[cfg(debug_assertions)]
 use crate::debug::DebugController;
@@ -30,6 +31,8 @@ pub struct Ship {
     pub node_index_bits: usize,
     pub node_index_mask: usize,
 
+    pub to_reset: IndexQueue,
+    pub was_reset: IndexQueue,
     pub to_propergate: IndexQueue,
     pub to_collapse: IndexQueue,
 }
@@ -63,6 +66,8 @@ impl Ship {
             node_index_bits,
             node_index_mask,
 
+            to_reset: IndexQueue::default(),
+            was_reset: IndexQueue::default(),
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
         };
@@ -95,7 +100,7 @@ impl Ship {
         log::info!("Place: {block_pos:?}");
         chunk.blocks[in_chunk_block_index] = block_index;
 
-        let mut push_propergate = |block_index: BlockIndex, pos: IVec3| -> Result<()> {
+        let mut push_reset = |block_index: BlockIndex, pos: IVec3| -> Result<()> {
             if block_index == BLOCK_INDEX_EMPTY {
                 return Ok(());
             }
@@ -111,14 +116,14 @@ impl Ship {
                 let node_index = self.get_node_index(affected_pos);
 
                 let node_world_index = self.to_world_node_index(chunk_index.unwrap(), node_index);
-                self.to_propergate.push_back(node_world_index);
+                self.to_reset.push_back(node_world_index);
             }
 
             Ok(())
         };
 
-        push_propergate(old_block_index, pos)?;
-        push_propergate(block_index, pos)?;
+        push_reset(old_block_index, pos)?;
+        push_reset(block_index, pos)?;
 
         Ok(())
     }
@@ -127,11 +132,18 @@ impl Ship {
         &mut self,
         actions_per_tick: usize,
         rules: &Rules,
+        #[cfg(debug_assertions)] debug: bool,
     ) -> Result<(bool, Vec<ChunkIndex>)> {
         let mut changed_chunks = Vec::new();
         for _ in 0..actions_per_tick {
-            if !self.to_propergate.is_empty() {
-                self.propergate(rules)?;
+            if !self.to_reset.is_empty() {
+                #[cfg(debug_assertions)]
+                self.reset(rules, debug);
+
+                #[cfg(not(debug_assertions))]
+                self.reset(rules);
+            } else if !self.to_propergate.is_empty() {
+                self.propergate(rules);
             } else if !self.to_collapse.is_empty() {
                 self.collapse()?;
                 changed_chunks = vec![0];
@@ -145,24 +157,88 @@ impl Ship {
         Ok((true, changed_chunks))
     }
 
-    fn propergate(&mut self, rules: &Rules) -> Result<()> {
-        let node_world_index = self.to_propergate.pop_front().unwrap();
+    fn reset(&mut self, rules: &Rules, #[cfg(debug_assertions)] debug: bool) {
+        let node_world_index = self.to_reset.pop_front().unwrap();
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
-        //debug!("Propergate: {node_world_index}");
+        let new_possible_node_ids = self.propergate_node_world_index(rules, node_world_index, true);
+
+        let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index]
+            .take()
+            .unwrap_or(Vec::new());
+
+        if new_possible_node_ids == old_possible_node_ids {
+            return;
+        }
+
+        let mut push_neigbors = |node_id: NodeID| {
+            for offset in rules.affected_by_node[&node_id].iter() {
+                let affected_pos = pos + *offset;
+
+                let chunk_index = self.get_chunk_index(affected_pos);
+                if chunk_index.is_err() {
+                    continue;
+                }
+
+                let node_index = self.get_node_index(affected_pos);
+
+                let node_world_index = self.to_world_node_index(chunk_index.unwrap(), node_index);
+
+                if !self.was_reset.contains(node_world_index) {
+                    self.to_reset.push_back(node_world_index);
+                } else {
+                    self.to_propergate.push_back(node_world_index);
+                }
+            }
+        };
+
+        for (node_id, _) in old_possible_node_ids.iter() {
+            push_neigbors(node_id.to_owned());
+        }
+
+        for (node_id, _) in new_possible_node_ids.iter() {
+            push_neigbors(node_id.to_owned());
+        }
+
+        self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
+        self.chunks[chunk_index].node_id_bits[node_index] = NodeID::none().into();
+
+        #[cfg(debug_assertions)]
+        if debug {
+            let node_index_plus_padding = self.node_index_to_node_index_plus_padding(node_index);
+            self.chunks[chunk_index].render_nodes[node_index_plus_padding] = RenderNode(true);
+        }
+
+        self.was_reset.push_back(node_world_index);
+        self.to_propergate.push_back(node_world_index);
+        self.to_collapse.push_back(node_world_index);
+    }
+
+    fn propergate_node_world_index(
+        &mut self,
+        rules: &Rules,
+        node_world_index: usize,
+        reset_nodes: bool,
+    ) -> Vec<(NodeID, usize)> {
+        let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
+        let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
         let mut new_possible_node_ids = Vec::new();
 
-        // Go over all node ids and their block requirements
-        for (node_id, reqs) in rules
+        for ((node_id, block_reqs), node_req) in rules
             .map_rules_index_to_node_id
             .iter()
             .zip(rules.block_rules.iter())
+            .zip(rules.node_rules.iter())
         {
-            for (req, prio) in reqs {
-                let mut accepted = true;
+            let mut block_accepted = false;
+            let mut block_prio = 0;
+
+            // Go over all possible nodes
+            for (req, prio) in block_reqs {
                 let mut check_performed = false;
+                let mut accepted = true;
                 // Go over all offsets of the requirement
                 for (offset, id) in req.iter() {
                     let test_pos = pos + *offset;
@@ -186,7 +262,7 @@ impl Ship {
                         let index = self.chunks[test_chunk_index.unwrap()].blocks[test_block_index]
                             .to_owned();
 
-                        // Check if the Block at the pos is in the allowed block ids.
+                        // Check if the Block at the pos is in the allowed id.
                         found = *id == index;
                     };
 
@@ -195,16 +271,73 @@ impl Ship {
                 }
 
                 if accepted && check_performed {
-                    new_possible_node_ids.push((node_id.to_owned(), *prio));
+                    block_accepted = true;
+                    block_prio = max(block_prio, *prio);
+                    break;
                 }
             }
+
+            if !block_accepted {
+                continue;
+            }
+
+            let mut node_accepted = true;
+            for (offset, ids) in node_req {
+                let test_pos = pos + *offset;
+
+                let test_chunk_index = self.get_chunk_index(test_pos);
+                let test_node_index = self.get_node_index(test_pos);
+
+                let mut found = false;
+                if test_chunk_index.is_err() {
+                    found = ids.iter().any(|node| node.is_none());
+                } else {
+                    let test_node = &self.chunks[test_chunk_index.unwrap()].nodes[test_node_index];
+                    if reset_nodes || test_node.is_none() {
+                        found = true;
+                    } else {
+                        let test_ids = test_node.to_owned().unwrap();
+                        for (test_id, _) in test_ids {
+                            if ids.contains(&test_id) {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                node_accepted &= found;
+            }
+
+            if !node_accepted {
+                continue;
+            }
+
+            new_possible_node_ids.push((node_id.to_owned(), block_prio));
         }
+
+        return new_possible_node_ids;
+    }
+
+    fn propergate(&mut self, rules: &Rules) {
+        let node_world_index = self.to_propergate.pop_front().unwrap();
+        let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
+        let pos = self.pos_from_world_node_index(chunk_index, node_index);
+
+        //debug!("Propergate: {node_world_index}");
+
+        let new_possible_node_ids =
+            self.propergate_node_world_index(rules, node_world_index, false);
 
         let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index]
             .take()
             .unwrap_or(Vec::new());
 
-        let mut push_propergate = |node_id: NodeID| -> Result<()> {
+        if old_possible_node_ids == new_possible_node_ids {
+            return;
+        }
+
+        let mut push_neigbors = |node_id: NodeID| {
             for offset in rules.affected_by_node[&node_id].iter() {
                 let affected_pos = pos + *offset;
 
@@ -216,26 +349,22 @@ impl Ship {
                 let node_index = self.get_node_index(affected_pos);
 
                 let node_world_index = self.to_world_node_index(chunk_index.unwrap(), node_index);
+
                 self.to_propergate.push_back(node_world_index);
             }
-
-            Ok(())
         };
 
-        if old_possible_node_ids != new_possible_node_ids {
-            for (node_id, _) in old_possible_node_ids.iter() {
-                push_propergate(node_id.to_owned())?;
-            }
-
-            for (node_id, _) in new_possible_node_ids.iter() {
-                push_propergate(node_id.to_owned())?;
-            }
-
-            self.to_collapse.push_back(node_world_index);
+        for (node_id, _) in old_possible_node_ids.iter() {
+            push_neigbors(node_id.to_owned());
         }
+
+        for (node_id, _) in new_possible_node_ids.iter() {
+            push_neigbors(node_id.to_owned());
+        }
+
         self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
 
-        Ok(())
+        self.to_collapse.push_back(node_world_index);
     }
 
     fn collapse(&mut self) -> Result<()> {
@@ -272,6 +401,20 @@ impl Ship {
             );
         }
 
+        let mut to_reset = self.to_reset.to_owned();
+
+        while !to_reset.is_empty() {
+            let node_world_index = to_reset.pop_front().unwrap();
+            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
+            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+
+            debug_controller.add_cube(
+                pos.as_vec3(),
+                pos.as_vec3() + Vec3::ONE,
+                vec4(1.0, 0.0, 0.0, 1.0),
+            );
+        }
+
         let mut to_propergate = self.to_propergate.to_owned();
 
         while !to_propergate.is_empty() {
@@ -280,9 +423,9 @@ impl Ship {
             let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
-                pos.as_vec3(),
-                pos.as_vec3() + Vec3::ONE,
-                vec4(0.0, 0.0, 1.0, 1.0),
+                pos.as_vec3() + Vec3::ONE * 0.01,
+                pos.as_vec3() + Vec3::ONE * 0.99,
+                vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
 
@@ -294,9 +437,9 @@ impl Ship {
             let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
-                pos.as_vec3(),
-                pos.as_vec3() + Vec3::ONE,
-                vec4(0.0, 1.0, 0.0, 1.0),
+                pos.as_vec3() + Vec3::ONE * 0.02,
+                pos.as_vec3() + Vec3::ONE * 0.98,
+                vec4(0.0, 0.0, 1.0, 1.0),
             );
         }
     }

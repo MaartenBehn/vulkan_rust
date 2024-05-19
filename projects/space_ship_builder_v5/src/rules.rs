@@ -43,6 +43,10 @@ impl Rules {
 
             // Neighbor Nodes
             for offset in get_neighbors() {
+                if offset == IVec3::ZERO {
+                    continue;
+                }
+
                 let neighbor_offset = offset;
                 let neighbor_pos = pos.as_ivec3() + neighbor_offset;
 
@@ -141,6 +145,11 @@ impl Rules {
 
                     // Check if rule already was added
                     for (offset, new_ids) in permutated_req {
+                        let inv_offset = offset * -1;
+                        if !affected.contains(&inv_offset) {
+                            affected.push(inv_offset);
+                        }
+
                         let ids = permutated_possible_node_neighbor_list[node_id_index]
                             .entry(offset)
                             .or_default();

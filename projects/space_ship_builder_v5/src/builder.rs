@@ -193,11 +193,12 @@ impl Builder {
 
                 debug_controller.line_renderer.vertecies.clear();
                 debug_controller.text_renderer.texts.clear();
-                let (_, c) = self.ship.tick(1, rules)?;
-                changed_chunks = c;
+                self.ship.tick(1, rules, true)?;
+                changed_chunks = vec![0];
             }
         } else {
-            (self.full_tick, changed_chunks) = self.ship.tick(self.actions_per_tick, rules)?;
+            (self.full_tick, changed_chunks) =
+                self.ship.tick(self.actions_per_tick, rules, false)?;
         }
 
         #[cfg(not(debug_assertions))]

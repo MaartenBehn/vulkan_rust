@@ -62,7 +62,7 @@ impl DebugController {
         let rules_renderer = DebugRulesRenderer::new(images_len)?;
 
         Ok(DebugController {
-            mode: DebugMode::OFF,
+            mode: DebugMode::WFC,
             line_renderer,
             text_renderer,
             possible_node_renderer,
