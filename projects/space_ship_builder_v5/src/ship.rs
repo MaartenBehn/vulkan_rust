@@ -168,51 +168,51 @@ impl Ship {
             .take()
             .unwrap_or(Vec::new());
 
-        if new_possible_node_ids == old_possible_node_ids {
-            return;
-        }
+        if new_possible_node_ids != old_possible_node_ids {
+            let mut push_neigbors = |node_id: NodeID| {
+                for offset in rules.affected_by_node[&node_id].iter() {
+                    let affected_pos = pos + *offset;
 
-        let mut push_neigbors = |node_id: NodeID| {
-            for offset in rules.affected_by_node[&node_id].iter() {
-                let affected_pos = pos + *offset;
+                    let chunk_index = self.get_chunk_index(affected_pos);
+                    if chunk_index.is_err() {
+                        continue;
+                    }
 
-                let chunk_index = self.get_chunk_index(affected_pos);
-                if chunk_index.is_err() {
-                    continue;
+                    let node_index = self.get_node_index(affected_pos);
+
+                    let node_world_index =
+                        self.to_world_node_index(chunk_index.unwrap(), node_index);
+
+                    if !self.was_reset.contains(node_world_index) {
+                        self.to_reset.push_back(node_world_index);
+                    } else {
+                        self.to_propergate.push_back(node_world_index);
+                    }
                 }
+            };
 
-                let node_index = self.get_node_index(affected_pos);
-
-                let node_world_index = self.to_world_node_index(chunk_index.unwrap(), node_index);
-
-                if !self.was_reset.contains(node_world_index) {
-                    self.to_reset.push_back(node_world_index);
-                } else {
-                    self.to_propergate.push_back(node_world_index);
-                }
+            for (node_id, _) in old_possible_node_ids.iter() {
+                push_neigbors(node_id.to_owned());
             }
-        };
 
-        for (node_id, _) in old_possible_node_ids.iter() {
-            push_neigbors(node_id.to_owned());
-        }
+            for (node_id, _) in new_possible_node_ids.iter() {
+                push_neigbors(node_id.to_owned());
+            }
 
-        for (node_id, _) in new_possible_node_ids.iter() {
-            push_neigbors(node_id.to_owned());
+            #[cfg(debug_assertions)]
+            if debug {
+                let node_index_plus_padding =
+                    self.node_index_to_node_index_plus_padding(node_index);
+                self.chunks[chunk_index].render_nodes[node_index_plus_padding] = RenderNode(true);
+            }
+
+            self.was_reset.push_back(node_world_index);
+            self.to_propergate.push_back(node_world_index);
+            self.to_collapse.push_back(node_world_index);
         }
 
         self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
         self.chunks[chunk_index].node_id_bits[node_index] = NodeID::none().into();
-
-        #[cfg(debug_assertions)]
-        if debug {
-            let node_index_plus_padding = self.node_index_to_node_index_plus_padding(node_index);
-            self.chunks[chunk_index].render_nodes[node_index_plus_padding] = RenderNode(true);
-        }
-
-        self.was_reset.push_back(node_world_index);
-        self.to_propergate.push_back(node_world_index);
-        self.to_collapse.push_back(node_world_index);
     }
 
     fn propergate_node_world_index(
@@ -333,38 +333,37 @@ impl Ship {
             .take()
             .unwrap_or(Vec::new());
 
-        if old_possible_node_ids == new_possible_node_ids {
-            return;
-        }
+        if old_possible_node_ids != new_possible_node_ids {
+            let mut push_neigbors = |node_id: NodeID| {
+                for offset in rules.affected_by_node[&node_id].iter() {
+                    let affected_pos = pos + *offset;
 
-        let mut push_neigbors = |node_id: NodeID| {
-            for offset in rules.affected_by_node[&node_id].iter() {
-                let affected_pos = pos + *offset;
+                    let chunk_index = self.get_chunk_index(affected_pos);
+                    if chunk_index.is_err() {
+                        continue;
+                    }
 
-                let chunk_index = self.get_chunk_index(affected_pos);
-                if chunk_index.is_err() {
-                    continue;
+                    let node_index = self.get_node_index(affected_pos);
+
+                    let node_world_index =
+                        self.to_world_node_index(chunk_index.unwrap(), node_index);
+
+                    self.to_propergate.push_back(node_world_index);
                 }
+            };
 
-                let node_index = self.get_node_index(affected_pos);
-
-                let node_world_index = self.to_world_node_index(chunk_index.unwrap(), node_index);
-
-                self.to_propergate.push_back(node_world_index);
+            for (node_id, _) in old_possible_node_ids.iter() {
+                push_neigbors(node_id.to_owned());
             }
-        };
 
-        for (node_id, _) in old_possible_node_ids.iter() {
-            push_neigbors(node_id.to_owned());
-        }
+            for (node_id, _) in new_possible_node_ids.iter() {
+                push_neigbors(node_id.to_owned());
+            }
 
-        for (node_id, _) in new_possible_node_ids.iter() {
-            push_neigbors(node_id.to_owned());
+            self.to_collapse.push_back(node_world_index);
         }
 
         self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
-
-        self.to_collapse.push_back(node_world_index);
     }
 
     fn collapse(&mut self) -> Result<()> {
