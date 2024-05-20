@@ -228,12 +228,14 @@ impl Ship {
 
         let mut new_possible_node_ids = Vec::new();
 
-        for ((node_id, block_reqs), node_req) in rules
+        for ((node_ids, block_reqs), node_req) in rules
             .map_rules_index_to_node_id
             .iter()
             .zip(rules.block_rules.iter())
             .zip(rules.node_rules.iter())
         {
+            let node_id = node_ids[0];
+
             let mut block_accepted = false;
             let mut block_prio = 0;
 

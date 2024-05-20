@@ -29,16 +29,12 @@ impl Rules {
             }
 
             // Find node_id index
-
-            let node_id_index = if r.is_none() {
+            let (node_id_index, new_node_id) =
+                Self::find_node_index(&mut node_id_index_map, node_id, voxel_loader);
+            if new_node_id {
                 possible_node_neighbor_list.push(HashMap::default());
                 possible_block_neighbor_list.push(Vec::new());
-
-                node_id_index_map.push(node_id.to_owned());
-                node_id_index_map.len() - 1
-            } else {
-                r.unwrap()
-            };
+            }
 
             // Neighbor Nodes
             for offset in get_neighbors() {
@@ -110,13 +106,15 @@ impl Rules {
         let mut affected_by_node: HashMap<NodeID, Vec<IVec3>> = HashMap::default();
 
         let (rotations, flips) = Self::all_rotations_and_flips();
-        for ((node_id, node_req), block_reqs) in node_id_index_map
+        for ((node_ids, node_req), block_reqs) in node_id_index_map
             .iter()
             .zip(possible_node_neighbor_list.iter())
             .zip(possible_block_neighbor_list.iter())
         {
+            let node_id = &node_ids[0];
+
             // Nodes
-            let flipped_rules = Self::flip_node_req(&node_id, node_req, &flips);
+            let flipped_rules = Self::flip_node_req(node_id, node_req, &flips);
 
             for (flipped_node_id, flipped_req) in flipped_rules {
                 let rotated_rules =
@@ -124,18 +122,15 @@ impl Rules {
 
                 for (permutated_node_id, permutated_req) in rotated_rules {
                     // Find node_id index
-                    let r = permutated_node_id_index_map
-                        .iter()
-                        .position(|test_id| *test_id == permutated_node_id);
-                    let node_id_index = if r.is_none() {
+                    let (node_id_index, new_node_id) = Self::find_node_index(
+                        &mut permutated_node_id_index_map,
+                        &permutated_node_id,
+                        voxel_loader,
+                    );
+                    if new_node_id {
                         permutated_possible_node_neighbor_list.push(HashMap::default());
                         permutated_possible_block_neighbor_list.push(Vec::new());
-
-                        permutated_node_id_index_map.push(permutated_node_id.to_owned());
-                        permutated_node_id_index_map.len() - 1
-                    } else {
-                        r.unwrap()
-                    };
+                    }
 
                     // Affected by node
                     let mut affected = affected_by_node
@@ -172,18 +167,16 @@ impl Rules {
 
                     for (permutated_node_id, permutated_req) in rotated_rules {
                         // Find node_id index
-                        let r = permutated_node_id_index_map
-                            .iter()
-                            .position(|test_id| *test_id == permutated_node_id);
-                        let node_id_index = if r.is_none() {
+
+                        let (node_id_index, new_node_id) = Self::find_node_index(
+                            &mut permutated_node_id_index_map,
+                            &permutated_node_id,
+                            voxel_loader,
+                        );
+                        if new_node_id {
                             permutated_possible_node_neighbor_list.push(HashMap::default());
                             permutated_possible_block_neighbor_list.push(Vec::new());
-
-                            permutated_node_id_index_map.push(permutated_node_id.to_owned());
-                            permutated_node_id_index_map.len() - 1
-                        } else {
-                            r.unwrap()
-                        };
+                        }
 
                         // Affected Blocks
                         for (offset, block_index) in permutated_req.iter() {
@@ -222,28 +215,37 @@ impl Rules {
         }
     }
 
-    fn find_node_index(map_rules_index_to_node_id: &mut Vec<Vec<NodeID>>, node_id: NodeID, voxel_loader: &VoxelLoader) -> (usize, bool) {
+    fn find_node_index(
+        map_rules_index_to_node_id: &mut Vec<Vec<NodeID>>,
+        node_id: &NodeID,
+        voxel_loader: &VoxelLoader,
+    ) -> (usize, bool) {
         let r = map_rules_index_to_node_id
             .iter()
-            .position(|test_ids| {
-                test_ids.contains(&node_id)
-            });
+            .position(|test_ids| test_ids.contains(&node_id));
 
-        let index = if r.is_none() {
-            let mut found = 0;
+        let mut index = 0;
+        let mut new_node_id = false;
+        if r.is_none() {
+            let mut found = false;
             for (i, ids) in map_rules_index_to_node_id.iter_mut().enumerate() {
-                if Node::is_duplicate_node_id(ids[0], node_id, voxel_loader) {
-                    ids.push(node_id);
-                    found = i;
+                if Node::is_duplicate_node_id(&ids[0], node_id, voxel_loader) {
+                    ids.push(node_id.to_owned());
+                    index = i;
+                    found = true;
                     break;
                 }
             }
-            found
+
+            if !found {
+                map_rules_index_to_node_id.push(vec![node_id.to_owned()]);
+                new_node_id = true;
+            }
         } else {
-            r.unwrap()
+            index = r.unwrap()
         };
 
-        (index, r.is_some())
+        (index, new_node_id)
     }
 
     fn all_rotations_and_flips() -> (Vec<BVec3>, Vec<BVec3>) {

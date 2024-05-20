@@ -1,15 +1,15 @@
 use crate::rotation::Rot;
 use dot_vox::Color;
-use octa_force::glam::{ivec3, uvec3, vec4, Mat4, UVec3, Mat3};
+use octa_force::glam::{ivec3, uvec3, vec4, Mat3, Mat4, UVec3};
 
 use crate::math::{to_1d, to_3d, to_3d_i};
+use crate::rules::Rules;
+use crate::voxel_loader::VoxelLoader;
 use octa_force::log::error;
 use std::hash::Hash;
 use std::iter;
 use std::ops::Mul;
 use std::path::Iter;
-use crate::rules::Rules;
-use crate::voxel_loader::VoxelLoader;
 
 pub type NodeIndex = usize;
 pub type BlockIndex = usize;
@@ -49,7 +49,6 @@ impl Node {
         Node { voxels }
     }
 
-
     pub fn get_rotated_voxels(&self, rot: Rot) -> impl Iterator<Item = (UVec3, Voxel)> {
         let mat: Mat4 = rot.into();
         self.voxels
@@ -75,7 +74,11 @@ impl Node {
             })
     }
 
-    pub fn is_duplicate_node_id(node_id: NodeID, test_id: NodeID, voxel_loader: &VoxelLoader) -> bool {
+    pub fn is_duplicate_node_id(
+        node_id: &NodeID,
+        test_id: &NodeID,
+        voxel_loader: &VoxelLoader,
+    ) -> bool {
         let mut same = true;
 
         let node = &voxel_loader.nodes[node_id.index];

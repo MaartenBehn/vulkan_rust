@@ -488,7 +488,8 @@ impl MeshChunk {
 
         let middle_pos = rules_size / 2;
         let middle_index = to_1d_i(middle_pos * pattern_block_size, size) as usize;
-        node_debug_node_id_bits[middle_index] = rules.map_rules_index_to_node_id[rule_index].into();
+        node_debug_node_id_bits[middle_index] =
+            rules.map_rules_index_to_node_id[rule_index][0].into();
 
         let nodes = &rules.node_rules[rule_index];
         for x in 0..rules_size.x {
