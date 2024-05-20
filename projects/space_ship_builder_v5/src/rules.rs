@@ -1,14 +1,15 @@
 use crate::math::get_neighbors;
-use crate::node::{BlockIndex, NodeID};
+use crate::node::{BlockIndex, Node, NodeID};
 use crate::rotation::Rot;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::glam::{ivec3, BVec3, IVec3, Mat3, Mat4};
 use std::collections::HashMap;
 
 pub struct Rules {
+    pub map_rules_index_to_node_id: Vec<Vec<NodeID>>,
+
     pub node_rules: Vec<HashMap<IVec3, Vec<NodeID>>>,
     pub block_rules: Vec<Vec<(HashMap<IVec3, BlockIndex>, usize)>>,
-    pub map_rules_index_to_node_id: Vec<NodeID>,
 
     pub affected_by_block: Vec<Vec<IVec3>>,
     pub affected_by_node: HashMap<NodeID, Vec<IVec3>>,
@@ -28,9 +29,7 @@ impl Rules {
             }
 
             // Find node_id index
-            let r = node_id_index_map
-                .iter()
-                .position(|test_id| test_id == node_id);
+
             let node_id_index = if r.is_none() {
                 possible_node_neighbor_list.push(HashMap::default());
                 possible_block_neighbor_list.push(Vec::new());
@@ -221,6 +220,30 @@ impl Rules {
             affected_by_block,
             affected_by_node,
         }
+    }
+
+    fn find_node_index(map_rules_index_to_node_id: &mut Vec<Vec<NodeID>>, node_id: NodeID, voxel_loader: &VoxelLoader) -> (usize, bool) {
+        let r = map_rules_index_to_node_id
+            .iter()
+            .position(|test_ids| {
+                test_ids.contains(&node_id)
+            });
+
+        let index = if r.is_none() {
+            let mut found = 0;
+            for (i, ids) in map_rules_index_to_node_id.iter_mut().enumerate() {
+                if Node::is_duplicate_node_id(ids[0], node_id, voxel_loader) {
+                    ids.push(node_id);
+                    found = i;
+                    break;
+                }
+            }
+            found
+        } else {
+            r.unwrap()
+        };
+
+        (index, r.is_some())
     }
 
     fn all_rotations_and_flips() -> (Vec<BVec3>, Vec<BVec3>) {

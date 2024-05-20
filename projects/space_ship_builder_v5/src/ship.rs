@@ -125,6 +125,8 @@ impl Ship {
         push_reset(old_block_index, pos)?;
         push_reset(block_index, pos)?;
 
+        self.was_reset = IndexQueue::default();
+
         Ok(())
     }
 
@@ -205,6 +207,7 @@ impl Ship {
                     self.node_index_to_node_index_plus_padding(node_index);
                 self.chunks[chunk_index].render_nodes[node_index_plus_padding] = RenderNode(true);
             }
+            self.chunks[chunk_index].node_id_bits[node_index] = NodeID::none().into();
 
             self.was_reset.push_back(node_world_index);
             self.to_propergate.push_back(node_world_index);
@@ -212,7 +215,6 @@ impl Ship {
         }
 
         self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
-        self.chunks[chunk_index].node_id_bits[node_index] = NodeID::none().into();
     }
 
     fn propergate_node_world_index(

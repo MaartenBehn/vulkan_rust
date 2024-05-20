@@ -139,12 +139,7 @@ impl App for RayCaster {
         })
     }
 
-    fn update(
-        &mut self,
-        base: &mut BaseApp<Self>,
-        _: usize,
-        delta_time: Duration,
-    ) -> Result<()> {
+    fn update(&mut self, base: &mut BaseApp<Self>, _: usize, delta_time: Duration) -> Result<()> {
         log::info!("Frame: {:?}", &self.frame_counter);
 
         self.total_time += delta_time;

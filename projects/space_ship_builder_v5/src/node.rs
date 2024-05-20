@@ -1,12 +1,15 @@
 use crate::rotation::Rot;
 use dot_vox::Color;
-use octa_force::glam::{ivec3, uvec3, vec4, Mat4, UVec3};
+use octa_force::glam::{ivec3, uvec3, vec4, Mat4, UVec3, Mat3};
 
 use crate::math::{to_1d, to_3d, to_3d_i};
 use octa_force::log::error;
 use std::hash::Hash;
 use std::iter;
+use std::ops::Mul;
 use std::path::Iter;
+use crate::rules::Rules;
+use crate::voxel_loader::VoxelLoader;
 
 pub type NodeIndex = usize;
 pub type BlockIndex = usize;
@@ -46,7 +49,7 @@ impl Node {
         Node { voxels }
     }
 
-    /*
+
     pub fn get_rotated_voxels(&self, rot: Rot) -> impl Iterator<Item = (UVec3, Voxel)> {
         let mat: Mat4 = rot.into();
         self.voxels
@@ -72,29 +75,25 @@ impl Node {
             })
     }
 
-    pub fn search_duplicate_node(&self, nodes: &Vec<Node>) -> Option<NodeID> {
-        let rots = Rot::default().get_all_permutations();
-        for (test_node_index, test_node) in nodes.iter().enumerate() {
-            for rot in rots.clone().into_iter() {
-                let mut same = true;
-                for (rotated_pos, voxel) in test_node.get_rotated_voxels(rot) {
-                    let voxel_index = to_1d(rotated_pos, NODE_SIZE);
+    pub fn is_duplicate_node_id(node_id: NodeID, test_id: NodeID, voxel_loader: &VoxelLoader) -> bool {
+        let mut same = true;
 
-                    if self.voxels[voxel_index] != voxel {
-                        same = false;
-                    }
-                }
+        let node = &voxel_loader.nodes[node_id.index];
+        let test_node = &voxel_loader.nodes[test_id.index];
+        let mat: Mat3 = node_id.rot.into();
+        let inv_rot: Rot = mat.inverse().into();
+        let combined_rot = test_id.rot.mul(inv_rot);
 
-                if same {
-                    return Some(NodeID::new(test_node_index, rot));
-                }
+        for (rotated_pos, voxel) in test_node.get_rotated_voxels(combined_rot) {
+            let voxel_index = to_1d(rotated_pos, NODE_SIZE);
+
+            if node.voxels[voxel_index] != voxel {
+                same = false;
             }
         }
 
-        None
+        same
     }
-
-     */
 }
 
 impl NodeID {
