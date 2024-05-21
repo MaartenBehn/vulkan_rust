@@ -8,6 +8,7 @@ use crate::voxel_loader::VoxelLoader;
 use octa_force::log::error;
 use std::hash::Hash;
 use std::iter;
+use std::iter::repeat;
 use std::ops::Mul;
 use std::path::Iter;
 
@@ -51,11 +52,20 @@ impl Node {
 
     pub fn get_rotated_voxels(&self, rot: Rot) -> impl Iterator<Item = (UVec3, Voxel)> {
         let mat: Mat4 = rot.into();
+
+        let rot_bits: u8 = rot.into();
+        let rot_offset = ivec3(
+            (rot_bits & (1 << 4) != 0).into(),
+            (rot_bits & (1 << 5) != 0).into(),
+            (rot_bits & (1 << 6) != 0).into(),
+        );
+
         self.voxels
             .into_iter()
             .enumerate()
-            .zip(iter::repeat(mat))
-            .map(|((i, v), mat)| {
+            .zip(repeat(mat))
+            .zip(repeat(rot_offset))
+            .map(|(((i, v), mat), rot_offset)| {
                 let pos = to_3d_i(i as i32, NODE_SIZE.as_ivec3()) - (NODE_SIZE / 2).as_ivec3();
                 let pos_f = vec4(pos.x as f32, pos.y as f32, pos.z as f32, 1.0);
                 let new_pos_f = mat.mul_vec4(pos_f);
@@ -63,8 +73,9 @@ impl Node {
                     new_pos_f.x.round() as i32,
                     new_pos_f.y.round() as i32,
                     new_pos_f.z.round() as i32,
-                ) + (NODE_SIZE / 2).as_ivec3())
-                .as_uvec3();
+                ) + (NODE_SIZE / 2).as_ivec3()
+                    - rot_offset)
+                    .as_uvec3();
 
                 if new_pos.cmpge(UVec3::ONE * 4).any() {
                     error!("Invalid rotation")

@@ -5,7 +5,7 @@ pub mod text_renderer;
 
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::possible_node_renderer::DebugPossibleNodeRenderer;
-use crate::debug::rules_renderer::DebugRulesRenderer;
+use crate::debug::rules_renderer::{DebugRulesRenderer, RULES_SIZE};
 use crate::debug::text_renderer::DebugTextRenderer;
 use crate::rules::Rules;
 use crate::ship::Ship;
@@ -14,7 +14,7 @@ use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::egui_winit::winit::window::Window;
-use octa_force::glam::vec3;
+use octa_force::glam::{vec3, vec4, Vec3};
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::time::Duration;
@@ -62,7 +62,7 @@ impl DebugController {
         let rules_renderer = DebugRulesRenderer::new(images_len)?;
 
         Ok(DebugController {
-            mode: DebugMode::WFC,
+            mode: DebugMode::RULES,
             line_renderer,
             text_renderer,
             possible_node_renderer,
@@ -100,39 +100,51 @@ impl DebugController {
             }
         }
 
-        if self.mode == DebugMode::WFC {
-            self.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0))
-        } else {
-            self.add_text(vec!["RULES".to_owned()], vec3(-1.0, 0.0, 0.0))
-        }
+        match self.mode {
+            DebugMode::OFF => {
+                self.line_renderer.vertecies_count = 0;
+            }
+            DebugMode::WFC => {
+                self.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0));
 
-        if self.mode != DebugMode::OFF {
-            //ship.debug_show_wave(self);
+                ship.show_debug(self);
+                self.possible_node_renderer.update(
+                    ship,
+                    image_index,
+                    &context,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
+                )?;
 
-            self.text_renderer.push_texts()?;
-            self.line_renderer.push_lines()?;
-        } else {
-            self.line_renderer.vertecies_count = 0;
-        }
+                self.text_renderer.push_texts()?;
+                self.line_renderer.push_lines()?;
+            }
+            DebugMode::RULES => {
+                self.add_text(vec!["RULES".to_owned()], vec3(-1.0, 0.0, 0.0));
 
-        if self.mode == DebugMode::WFC {
-            self.possible_node_renderer.update(
-                ship,
-                image_index,
-                &context,
-                &renderer.chunk_descriptor_layout,
-                &renderer.descriptor_pool,
-            )?;
-        }
+                self.add_cube(
+                    Vec3::ZERO,
+                    Vec3::ONE * RULES_SIZE as f32,
+                    vec4(1.0, 0.0, 0.0, 1.0),
+                );
+                self.add_cube(
+                    Vec3::ONE * (RULES_SIZE / 2) as f32,
+                    Vec3::ONE * ((RULES_SIZE / 2) + 1) as f32,
+                    vec4(0.0, 0.0, 1.0, 1.0),
+                );
+                self.rules_renderer.update(
+                    rules,
+                    controls,
+                    image_index,
+                    &context,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
+                    total_time,
+                )?;
 
-        if self.mode == DebugMode::RULES {
-            self.rules_renderer.update(
-                rules,
-                image_index,
-                &context,
-                &renderer.chunk_descriptor_layout,
-                &renderer.descriptor_pool,
-            )?;
+                self.text_renderer.push_texts()?;
+                self.line_renderer.push_lines()?;
+            }
         }
 
         Ok(())

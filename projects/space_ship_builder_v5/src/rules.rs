@@ -132,16 +132,15 @@ impl Rules {
                         permutated_possible_block_neighbor_list.push(Vec::new());
                     }
 
-                    // Affected by node
-                    let mut affected = affected_by_node
-                        .entry(permutated_node_id)
-                        .or_insert(Vec::new());
-
                     // Check if rule already was added
                     for (offset, new_ids) in permutated_req {
-                        let inv_offset = offset * -1;
-                        if !affected.contains(&inv_offset) {
-                            affected.push(inv_offset);
+                        let inv_offset = offset;
+                        for new_id in new_ids.iter() {
+                            let affected = affected_by_node.entry(new_id.to_owned()).or_default();
+
+                            if !affected.contains(&inv_offset) {
+                                affected.push(inv_offset);
+                            }
                         }
 
                         let ids = permutated_possible_node_neighbor_list[node_id_index]
@@ -240,6 +239,7 @@ impl Rules {
             if !found {
                 map_rules_index_to_node_id.push(vec![node_id.to_owned()]);
                 new_node_id = true;
+                index = map_rules_index_to_node_id.len() - 1;
             }
         } else {
             index = r.unwrap()
@@ -281,9 +281,16 @@ impl Rules {
 
             let flippped_req: HashMap<_, _> = node_req
                 .iter()
-                .map(|(pos, indecies)| {
+                .map(|(pos, ids)| {
                     let flipped_pos = (*pos) * flip_a;
-                    (flipped_pos, indecies.to_owned())
+                    let flipped_ids = ids
+                        .iter()
+                        .map(|id| {
+                            let flipped_rot = node_id.rot.flip(flip.to_owned());
+                            NodeID::new(id.index, flipped_rot)
+                        })
+                        .collect();
+                    (flipped_pos, flipped_ids)
                 })
                 .collect();
 
@@ -334,9 +341,17 @@ impl Rules {
 
             let rotated_req: HashMap<_, _> = node_req
                 .iter()
-                .map(|(pos, indecies)| {
+                .map(|(pos, ids)| {
                     let rotated_pos = pos_mat.transform_point3(pos.as_vec3()).round().as_ivec3();
-                    (rotated_pos, indecies.to_owned())
+                    let rotated_ids = ids
+                        .iter()
+                        .map(|id| {
+                            let mat = Mat4::from_mat3(id.rot.into());
+                            let roteted_rot: Rot = Mat3::from_mat4(mat * rot_mat).into();
+                            NodeID::new(id.index, roteted_rot)
+                        })
+                        .collect();
+                    (rotated_pos, rotated_ids)
                 })
                 .collect();
 

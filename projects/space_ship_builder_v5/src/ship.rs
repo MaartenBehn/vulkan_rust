@@ -172,6 +172,10 @@ impl Ship {
 
         if new_possible_node_ids != old_possible_node_ids {
             let mut push_neigbors = |node_id: NodeID| {
+                if !rules.affected_by_node.contains_key(&node_id) {
+                    return;
+                }
+
                 for offset in rules.affected_by_node[&node_id].iter() {
                     let affected_pos = pos + *offset;
 
@@ -339,6 +343,10 @@ impl Ship {
 
         if old_possible_node_ids != new_possible_node_ids {
             let mut push_neigbors = |node_id: NodeID| {
+                if !rules.affected_by_node.contains_key(&node_id) {
+                    return;
+                }
+
                 for offset in rules.affected_by_node[&node_id].iter() {
                     let affected_pos = pos + *offset;
 

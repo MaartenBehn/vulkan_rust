@@ -215,11 +215,6 @@ impl Builder {
             descriptor_pool,
         )?;
 
-        #[cfg(debug_assertions)]
-        {
-            self.ship.show_debug(debug_controller);
-        }
-
         Ok(())
     }
 
