@@ -3,7 +3,7 @@ use crate::ship::{Ship, ShipChunk};
 use crate::ship_mesh::{MeshChunk, RenderNode, ShipMesh};
 use crate::ship_renderer::{ShipRenderer, RENDER_MODE_BUILD};
 use octa_force::anyhow::Result;
-use octa_force::glam::{ivec3, IVec3};
+use octa_force::glam::{ivec3, vec4, IVec3, Vec3};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 
@@ -112,19 +112,20 @@ impl DebugPossibleNodeRenderer {
                             for ix in 0..pattern_block_size.z {
                                 if possible_pattern.len() <= pattern_counter {
                                     break 'iter;
-                                } else if possible_pattern[pattern_counter].0.is_none() {
-                                    pattern_counter += 1;
-
-                                    if possible_pattern.len() <= pattern_counter {
-                                        break 'iter;
-                                    }
                                 }
 
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
                                 let index = to_1d_i(pattern_pos, size) as usize;
 
-                                let (node, _) = possible_pattern[pattern_counter];
-                                node_debug_node_id_bits[index] = node.into();
+                                let (node_id, _) = possible_pattern[pattern_counter];
+                                node_debug_node_id_bits[index] = node_id.into();
+
+                                if node_id.is_none() {
+                                    let one_cell_size = Vec3::ONE / pattern_block_size.as_vec3();
+                                    let p = pattern_pos.as_vec3() * one_cell_size;
+                                    self.add_cube(p, p + one_cell_size, vec4(0.0, 1.0, 0.0, 1.0));
+                                }
+
                                 pattern_counter += 1;
                             }
                         }

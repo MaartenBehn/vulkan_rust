@@ -1,3 +1,4 @@
+use crate::debug::DebugController;
 use crate::math::to_1d_i;
 use crate::rules::Rules;
 use crate::ship_mesh::{MeshChunk, RenderNode, ShipMesh};
@@ -5,7 +6,7 @@ use crate::ship_renderer::{ShipRenderer, RENDER_MODE_BUILD};
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
-use octa_force::glam::{ivec3, IVec3};
+use octa_force::glam::{ivec3, vec3, vec4, IVec3, Vec3};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::time::Duration;
@@ -33,6 +34,59 @@ impl DebugRulesRenderer {
         })
     }
 
+    fn update_rule_index(&mut self, controls: &Controls, rules: &Rules, total_time: Duration) {
+        if controls.t && (self.last_action_time + NEXT_NODE_SPEED) < total_time {
+            self.last_action_time = total_time;
+
+            self.rule_index += 1;
+            if self.rule_index >= rules.node_rules.len() {
+                self.rule_index = 0;
+            }
+
+            info!("Debug Rule: {}", self.rule_index);
+        }
+    }
+
+    fn update_renderer(
+        &mut self,
+
+        node_id_bits: &Vec<u32>,
+
+        image_index: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<()> {
+        // Buffers from the last swapchain iteration are being dropped
+        self.mesh.to_drop_buffers[image_index].clear();
+
+        if !self.mesh.chunks.is_empty() {
+            self.mesh.chunks[0].update_from_data(
+                node_id_bits,
+                &self.render_nodes,
+                context,
+                &mut self.mesh.to_drop_buffers[image_index],
+            )?;
+        } else {
+            let new_chunk = MeshChunk::new_from_data(
+                IVec3::ZERO,
+                self.mesh.size,
+                self.mesh.render_size,
+                node_id_bits,
+                &self.render_nodes,
+                self.mesh.to_drop_buffers.len(),
+                context,
+                descriptor_layout,
+                descriptor_pool,
+            )?;
+            if new_chunk.is_some() {
+                self.mesh.chunks.push(new_chunk.unwrap())
+            }
+        }
+
+        Ok(())
+    }
+
     fn get_debug_render_nodes(render_size: IVec3) -> Vec<RenderNode> {
         let mut render_nodes =
             vec![RenderNode(false); (render_size + 2).element_product() as usize];
@@ -49,7 +103,21 @@ impl DebugRulesRenderer {
         render_nodes
     }
 
-    pub fn update(
+    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
+        buffer.bind_graphics_pipeline(&renderer.pipeline);
+        buffer.bind_descriptor_sets(
+            vk::PipelineBindPoint::GRAPHICS,
+            &renderer.pipeline_layout,
+            0,
+            &[&renderer.static_descriptor_sets[image_index]],
+        );
+
+        renderer.render_ship_mesh(buffer, image_index, &self.mesh, RENDER_MODE_BUILD)
+    }
+}
+
+impl DebugController {
+    pub fn update_rules(
         &mut self,
 
         rules: &Rules,
@@ -61,81 +129,45 @@ impl DebugRulesRenderer {
         descriptor_pool: &DescriptorPool,
         total_time: Duration,
     ) -> Result<()> {
-        if controls.t && (self.last_action_time + NEXT_NODE_SPEED) < total_time {
-            self.last_action_time = total_time;
+        self.rules_renderer
+            .update_rule_index(controls, rules, total_time);
 
-            self.rule_index += 1;
-            if self.rule_index >= rules.node_rules.len() {
-                self.rule_index = 0;
-            }
+        self.add_text(vec!["RULES".to_owned()], vec3(-1.0, 0.0, 0.0));
 
-            info!("Debug Rule: {}", self.rule_index);
-        }
+        self.add_cube(
+            Vec3::ZERO,
+            Vec3::ONE * RULES_SIZE as f32,
+            vec4(1.0, 0.0, 0.0, 1.0),
+        );
+        self.add_cube(
+            Vec3::ONE * (RULES_SIZE / 2) as f32,
+            Vec3::ONE * ((RULES_SIZE / 2) + 1) as f32,
+            vec4(0.0, 0.0, 1.0, 1.0),
+        );
 
-        // Buffers from the last swapchain iteration are being dropped
-        self.mesh.to_drop_buffers[image_index].clear();
+        let node_id_bits = self.get_rule_node_id_bits_debug(
+            self.rules_renderer.mesh.size,
+            self.rules_renderer.mesh.render_size,
+            rules,
+            self.rules_renderer.rule_index,
+        );
 
-        if !self.mesh.chunks.is_empty() {
-            Self::update_rules_debug(
-                &mut self.mesh.chunks[0],
-                self.mesh.size,
-                self.mesh.render_size,
-                rules,
-                self.rule_index,
-                &self.render_nodes,
-                context,
-                &mut self.mesh.to_drop_buffers[image_index],
-            )?;
-        } else {
-            let new_chunk = Self::new_rules_debug(
-                self.mesh.size,
-                self.mesh.render_size,
-                rules,
-                self.rule_index,
-                &self.render_nodes,
-                self.mesh.to_drop_buffers.len(),
-                context,
-                descriptor_layout,
-                descriptor_pool,
-            )?;
-            if new_chunk.is_some() {
-                self.mesh.chunks.push(new_chunk.unwrap())
-            }
-        }
+        self.rules_renderer.update_renderer(
+            &node_id_bits,
+            image_index,
+            context,
+            descriptor_layout,
+            descriptor_pool,
+        )?;
+
+        self.text_renderer.push_texts()?;
+        self.line_renderer.push_lines()?;
 
         Ok(())
     }
 
-    fn new_rules_debug(
-        size: IVec3,
-        render_size: IVec3,
-
-        rules: &Rules,
-        rule_index: usize,
-        render_nodes: &Vec<RenderNode>,
-
-        images_len: usize,
-        context: &Context,
-        descriptor_layout: &DescriptorSetLayout,
-        descriptor_pool: &DescriptorPool,
-    ) -> Result<Option<MeshChunk>> {
-        let wave_debug_node_id_bits =
-            Self::get_rule_node_id_bits_debug(size, render_size, rules, rule_index);
-
-        MeshChunk::new_from_data(
-            IVec3::ZERO,
-            size,
-            render_size,
-            &wave_debug_node_id_bits,
-            render_nodes,
-            images_len,
-            context,
-            descriptor_layout,
-            descriptor_pool,
-        )
-    }
-
     fn get_rule_node_id_bits_debug(
+        &mut self,
         size: IVec3,
         rules_size: IVec3,
         rules: &Rules,
@@ -169,19 +201,20 @@ impl DebugRulesRenderer {
                             for ix in 0..pattern_block_size.z {
                                 if possible_nodes.len() <= pattern_counter {
                                     break 'iter;
-                                } else if possible_nodes[pattern_counter].is_none() {
-                                    pattern_counter += 1;
-
-                                    if possible_nodes.len() <= pattern_counter {
-                                        break 'iter;
-                                    }
                                 }
 
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
                                 let index = to_1d_i(pattern_pos, size) as usize;
 
-                                let node = possible_nodes[pattern_counter];
-                                node_debug_node_id_bits[index] = node.into();
+                                let node_id = possible_nodes[pattern_counter];
+                                node_debug_node_id_bits[index] = node_id.into();
+
+                                if node_id.is_none() {
+                                    let one_cell_size = Vec3::ONE / pattern_block_size.as_vec3();
+                                    let p = pattern_pos.as_vec3() * one_cell_size;
+                                    self.add_cube(p, p + one_cell_size, vec4(0.0, 1.0, 0.0, 1.0));
+                                }
+
                                 pattern_counter += 1;
                             }
                         }
@@ -191,41 +224,5 @@ impl DebugRulesRenderer {
         }
 
         node_debug_node_id_bits
-    }
-
-    fn update_rules_debug(
-        chunk: &mut MeshChunk,
-
-        size: IVec3,
-        render_size: IVec3,
-
-        rules: &Rules,
-        rule_index: usize,
-        render_nodes: &Vec<RenderNode>,
-
-        context: &Context,
-        to_drop_buffers: &mut Vec<Buffer>,
-    ) -> Result<()> {
-        let wave_debug_node_id_bits =
-            Self::get_rule_node_id_bits_debug(size, render_size, rules, rule_index);
-
-        chunk.update_from_data(
-            &wave_debug_node_id_bits,
-            render_nodes,
-            context,
-            to_drop_buffers,
-        )
-    }
-
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
-        buffer.bind_graphics_pipeline(&renderer.pipeline);
-        buffer.bind_descriptor_sets(
-            vk::PipelineBindPoint::GRAPHICS,
-            &renderer.pipeline_layout,
-            0,
-            &[&renderer.static_descriptor_sets[image_index]],
-        );
-
-        renderer.render_ship_mesh(buffer, image_index, &self.mesh, RENDER_MODE_BUILD)
     }
 }

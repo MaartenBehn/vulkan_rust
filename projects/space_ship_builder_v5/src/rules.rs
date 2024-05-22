@@ -21,14 +21,13 @@ impl Rules {
         let mut possible_block_neighbor_list: Vec<Vec<(HashMap<IVec3, BlockIndex>, usize)>> =
             Vec::new();
         let mut node_id_index_map = Vec::new();
-        //node_id_index_map.push(vec![NodeID::none()]);
+
+        // Add empty Node as the first index
+        node_id_index_map.push(vec![NodeID::none()]);
+        possible_node_neighbor_list.push(HashMap::default());
+        possible_block_neighbor_list.push(Vec::new());
 
         for (pos, (node_id, prio)) in voxel_loader.node_positions.iter() {
-            if node_id.is_none() {
-                // Dont add empty Nodes
-                continue;
-            }
-
             // Find node_id index
             let (node_id_index, new_node_id) =
                 Self::find_node_index(&mut node_id_index_map, node_id, voxel_loader);
@@ -72,7 +71,9 @@ impl Rules {
                     .entry(neighbor_offset)
                     .or_insert(Vec::new());
 
-                possible_ids.push(mapped_req_id);
+                if !possible_ids.contains(&mapped_req_id) {
+                    possible_ids.push(mapped_req_id);
+                }
             }
 
             // Neighbor Blocks
@@ -110,6 +111,11 @@ impl Rules {
             Vec<(HashMap<IVec3, BlockIndex>, usize)>,
         > = Vec::new();
         let mut permutated_node_id_index_map = Vec::new();
+
+        // Add empty Node as the first index
+        permutated_node_id_index_map.push(vec![NodeID::none()]);
+        permutated_possible_node_neighbor_list.push(HashMap::default());
+        permutated_possible_block_neighbor_list.push(Vec::new());
 
         let mut affected_by_block = Vec::new();
         for _ in 0..voxel_loader.block_names.len() {
@@ -229,9 +235,9 @@ impl Rules {
         }
 
         Rules {
-            node_rules: possible_node_neighbor_list,
-            block_rules: possible_block_neighbor_list,
-            map_rules_index_to_node_id: node_id_index_map,
+            node_rules: permutated_possible_node_neighbor_list,
+            block_rules: permutated_possible_block_neighbor_list,
+            map_rules_index_to_node_id: permutated_node_id_index_map,
             affected_by_block,
             affected_by_node,
         }
@@ -242,6 +248,10 @@ impl Rules {
         node_id: &NodeID,
         voxel_loader: &VoxelLoader,
     ) -> (usize, bool) {
+        if node_id.is_none() {
+            return (0, false);
+        }
+
         let r = map_rules_index_to_node_id
             .iter()
             .position(|test_ids| test_ids.contains(&node_id));
@@ -309,7 +319,7 @@ impl Rules {
                     let flipped_ids = ids
                         .iter()
                         .map(|id| {
-                            let flipped_rot = node_id.rot.flip(flip.to_owned());
+                            let flipped_rot = id.rot.flip(flip.to_owned());
                             NodeID::new(id.index, flipped_rot)
                         })
                         .collect();

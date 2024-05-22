@@ -1,11 +1,11 @@
 pub mod line_renderer;
 pub mod possible_node_renderer;
-pub mod rules_renderer;
+pub mod rules;
 pub mod text_renderer;
 
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::possible_node_renderer::DebugPossibleNodeRenderer;
-use crate::debug::rules_renderer::{DebugRulesRenderer, RULES_SIZE};
+use crate::debug::rules::{DebugRulesRenderer, RULES_SIZE};
 use crate::debug::text_renderer::DebugTextRenderer;
 use crate::rules::Rules;
 use crate::ship::Ship;
@@ -120,19 +120,7 @@ impl DebugController {
                 self.line_renderer.push_lines()?;
             }
             DebugMode::RULES => {
-                self.add_text(vec!["RULES".to_owned()], vec3(-1.0, 0.0, 0.0));
-
-                self.add_cube(
-                    Vec3::ZERO,
-                    Vec3::ONE * RULES_SIZE as f32,
-                    vec4(1.0, 0.0, 0.0, 1.0),
-                );
-                self.add_cube(
-                    Vec3::ONE * (RULES_SIZE / 2) as f32,
-                    Vec3::ONE * ((RULES_SIZE / 2) + 1) as f32,
-                    vec4(0.0, 0.0, 1.0, 1.0),
-                );
-                self.rules_renderer.update(
+                self.update_rules(
                     rules,
                     controls,
                     image_index,
@@ -141,9 +129,6 @@ impl DebugController {
                     &renderer.descriptor_pool,
                     total_time,
                 )?;
-
-                self.text_renderer.push_texts()?;
-                self.line_renderer.push_lines()?;
             }
         }
 

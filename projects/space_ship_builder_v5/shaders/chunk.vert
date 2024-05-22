@@ -22,15 +22,15 @@ layout(set = 0, binding = 0) uniform RenderBuffer {
 
 void main() {
     vec3 p = vec3(
-        float(vData & 511),
-        float((vData >> 9) & 511),
-        float((vData >> 18) & 511));
+        float(vData & uint(511)),
+        float((vData >> 9) & uint(511)),
+        float((vData >> 18) & uint(511)));
 
     oPos = p;
     oNormal = vec3(
-        float((vData >> 27) & 1),
-        float((vData >> 28) & 1),
-        float((vData >> 29) & 1));
+        float((vData >> 27) & uint(1)),
+        float((vData >> 28) & uint(1)),
+        float((vData >> 29) & uint(1)));
 
     gl_Position = renderbuffer.proj_mat * renderbuffer.view_mat * vec4(p, 1.0);
 }
