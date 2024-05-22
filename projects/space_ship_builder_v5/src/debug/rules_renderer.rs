@@ -2,6 +2,7 @@ use crate::math::to_1d_i;
 use crate::rules::Rules;
 use crate::ship_mesh::{MeshChunk, RenderNode, ShipMesh};
 use crate::ship_renderer::{ShipRenderer, RENDER_MODE_BUILD};
+use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
 use octa_force::glam::{ivec3, IVec3};
@@ -67,6 +68,8 @@ impl DebugRulesRenderer {
             if self.rule_index >= rules.node_rules.len() {
                 self.rule_index = 0;
             }
+
+            info!("Debug Rule: {}", self.rule_index);
         }
 
         // Buffers from the last swapchain iteration are being dropped

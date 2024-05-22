@@ -90,6 +90,10 @@ impl Node {
         test_id: &NodeID,
         voxel_loader: &VoxelLoader,
     ) -> bool {
+        if node_id.is_none() || test_id.is_none() {
+            return node_id.is_none() && test_id.is_none();
+        }
+
         let mut same = true;
 
         let node = &voxel_loader.nodes[node_id.index];

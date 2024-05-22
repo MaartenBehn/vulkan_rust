@@ -21,6 +21,7 @@ impl Rules {
         let mut possible_block_neighbor_list: Vec<Vec<(HashMap<IVec3, BlockIndex>, usize)>> =
             Vec::new();
         let mut node_id_index_map = Vec::new();
+        //node_id_index_map.push(vec![NodeID::none()]);
 
         for (pos, (node_id, prio)) in voxel_loader.node_positions.iter() {
             if node_id.is_none() {
@@ -55,11 +56,23 @@ impl Rules {
                     continue;
                 }
 
+                let (mapped_req_index, new_node_id) = Self::find_node_index(
+                    &mut node_id_index_map,
+                    &neighbor_node_id.unwrap().0,
+                    voxel_loader,
+                );
+                if new_node_id {
+                    possible_node_neighbor_list.push(HashMap::default());
+                    possible_block_neighbor_list.push(Vec::new());
+                }
+
+                let mapped_req_id = node_id_index_map[mapped_req_index][0];
+
                 let possible_ids = possible_node_neighbor_list[node_id_index]
                     .entry(neighbor_offset)
                     .or_insert(Vec::new());
 
-                possible_ids.push(neighbor_node_id.unwrap().to_owned().0);
+                possible_ids.push(mapped_req_id);
             }
 
             // Neighbor Blocks
@@ -133,23 +146,33 @@ impl Rules {
                     }
 
                     // Check if rule already was added
-                    for (offset, new_ids) in permutated_req {
+                    for (offset, req_ids) in permutated_req {
                         let inv_offset = offset;
-                        for new_id in new_ids.iter() {
-                            let affected = affected_by_node.entry(new_id.to_owned()).or_default();
+                        for req_id in req_ids.iter() {
+                            let (mapped_req_index, new_node_id) = Self::find_node_index(
+                                &mut permutated_node_id_index_map,
+                                req_id,
+                                voxel_loader,
+                            );
+                            if new_node_id {
+                                permutated_possible_node_neighbor_list.push(HashMap::default());
+                                permutated_possible_block_neighbor_list.push(Vec::new());
+                            }
 
+                            let mapped_req_id = permutated_node_id_index_map[mapped_req_index][0];
+
+                            let affected = affected_by_node
+                                .entry(mapped_req_id.to_owned())
+                                .or_default();
                             if !affected.contains(&inv_offset) {
                                 affected.push(inv_offset);
                             }
-                        }
 
-                        let ids = permutated_possible_node_neighbor_list[node_id_index]
-                            .entry(offset)
-                            .or_default();
-
-                        for id in new_ids {
-                            if !ids.contains(&id) {
-                                ids.push(id);
+                            let ids = permutated_possible_node_neighbor_list[node_id_index]
+                                .entry(offset)
+                                .or_default();
+                            if !ids.contains(&mapped_req_id) {
+                                ids.push(mapped_req_id);
                             }
                         }
                     }
@@ -206,9 +229,9 @@ impl Rules {
         }
 
         Rules {
-            node_rules: permutated_possible_node_neighbor_list,
-            block_rules: permutated_possible_block_neighbor_list,
-            map_rules_index_to_node_id: permutated_node_id_index_map,
+            node_rules: possible_node_neighbor_list,
+            block_rules: possible_block_neighbor_list,
+            map_rules_index_to_node_id: node_id_index_map,
             affected_by_block,
             affected_by_node,
         }
