@@ -1,9 +1,10 @@
+use crate::debug::DebugController;
 use crate::math::to_1d_i;
 use crate::ship::{Ship, ShipChunk};
 use crate::ship_mesh::{MeshChunk, RenderNode, ShipMesh};
 use crate::ship_renderer::{ShipRenderer, RENDER_MODE_BUILD};
 use octa_force::anyhow::Result;
-use octa_force::glam::{ivec3, vec4, IVec3, Vec3};
+use octa_force::glam::{ivec3, vec3, vec4, IVec3, Vec3};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 
@@ -18,7 +19,21 @@ impl DebugPossibleNodeRenderer {
         })
     }
 
-    pub fn update(
+    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
+        buffer.bind_graphics_pipeline(&renderer.pipeline);
+        buffer.bind_descriptor_sets(
+            vk::PipelineBindPoint::GRAPHICS,
+            &renderer.pipeline_layout,
+            0,
+            &[&renderer.static_descriptor_sets[image_index]],
+        );
+
+        renderer.render_ship_mesh(buffer, image_index, &self.mesh, RENDER_MODE_BUILD)
+    }
+}
+
+impl DebugController {
+    pub fn update_possible_nodes(
         &mut self,
         ship: &Ship,
         image_index: usize,
@@ -26,70 +41,68 @@ impl DebugPossibleNodeRenderer {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
-        self.mesh.to_drop_buffers[image_index].clear();
+        self.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0));
+
+        ship.show_debug(self);
+
+        self.possible_node_renderer.mesh.to_drop_buffers[image_index].clear();
 
         for chunk in ship.chunks.iter() {
-            let mesh_chunk_index = self.mesh.chunks.iter().position(|c| c.pos == chunk.pos);
+            let mesh_chunk_index = self
+                .possible_node_renderer
+                .mesh
+                .chunks
+                .iter()
+                .position(|c| c.pos == chunk.pos);
+
+            let node_id_bits = self.get_chunk_node_id_bits_debug(
+                chunk,
+                self.possible_node_renderer.mesh.size,
+                ship,
+            );
 
             if mesh_chunk_index.is_some() {
-                Self::update_possible_node_debug(
-                    &mut self.mesh.chunks[mesh_chunk_index.unwrap()],
-                    self.mesh.size,
-                    ship,
-                    chunk,
-                    context,
-                    &mut self.mesh.to_drop_buffers[image_index],
-                )?;
+                self.possible_node_renderer.mesh.chunks[mesh_chunk_index.unwrap()]
+                    .update_from_data(
+                        &node_id_bits,
+                        &chunk.render_nodes,
+                        context,
+                        &mut self.possible_node_renderer.mesh.to_drop_buffers[image_index],
+                    )?;
             } else {
-                let new_chunk = Self::new_possible_node_debug(
+                let new_chunk = MeshChunk::new_from_data(
                     chunk.pos,
-                    self.mesh.size,
-                    self.mesh.render_size,
-                    ship,
-                    chunk,
-                    self.mesh.to_drop_buffers.len(),
+                    self.possible_node_renderer.mesh.size,
+                    self.possible_node_renderer.mesh.render_size,
+                    &node_id_bits,
+                    &chunk.render_nodes,
+                    self.possible_node_renderer.mesh.to_drop_buffers.len(),
                     context,
                     descriptor_layout,
                     descriptor_pool,
                 )?;
+
                 if new_chunk.is_some() {
-                    self.mesh.chunks.push(new_chunk.unwrap())
+                    self.possible_node_renderer
+                        .mesh
+                        .chunks
+                        .push(new_chunk.unwrap())
                 }
             }
         }
 
+        self.text_renderer.push_texts()?;
+        self.line_renderer.push_lines()?;
+
         Ok(())
     }
 
-    fn new_possible_node_debug(
-        pos: IVec3,
-        size: IVec3,
-        render_size: IVec3,
-
-        ship: &Ship,
+    fn get_chunk_node_id_bits_debug(
+        &mut self,
         ship_chunk: &ShipChunk,
-
-        images_len: usize,
-        context: &Context,
-        descriptor_layout: &DescriptorSetLayout,
-        descriptor_pool: &DescriptorPool,
-    ) -> Result<Option<MeshChunk>> {
-        let wave_debug_node_id_bits = Self::get_chunk_node_id_bits_debug(ship_chunk, size, ship);
-
-        MeshChunk::new_from_data(
-            pos,
-            size,
-            render_size,
-            &wave_debug_node_id_bits,
-            &ship_chunk.render_nodes,
-            images_len,
-            context,
-            descriptor_layout,
-            descriptor_pool,
-        )
-    }
-
-    fn get_chunk_node_id_bits_debug(ship_chunk: &ShipChunk, size: IVec3, ship: &Ship) -> Vec<u32> {
+        size: IVec3,
+        ship: &Ship,
+    ) -> Vec<u32> {
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
         let pattern_block_size = size / ship.nodes_per_chunk;
 
@@ -135,38 +148,5 @@ impl DebugPossibleNodeRenderer {
         }
 
         node_debug_node_id_bits
-    }
-
-    fn update_possible_node_debug(
-        chunk: &mut MeshChunk,
-
-        size: IVec3,
-
-        ship: &Ship,
-        ship_chunk: &ShipChunk,
-
-        context: &Context,
-        to_drop_buffers: &mut Vec<Buffer>,
-    ) -> Result<()> {
-        let wave_debug_node_id_bits = Self::get_chunk_node_id_bits_debug(ship_chunk, size, ship);
-
-        chunk.update_from_data(
-            &wave_debug_node_id_bits,
-            &ship_chunk.render_nodes,
-            context,
-            to_drop_buffers,
-        )
-    }
-
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
-        buffer.bind_graphics_pipeline(&renderer.pipeline);
-        buffer.bind_descriptor_sets(
-            vk::PipelineBindPoint::GRAPHICS,
-            &renderer.pipeline_layout,
-            0,
-            &[&renderer.static_descriptor_sets[image_index]],
-        );
-
-        renderer.render_ship_mesh(buffer, image_index, &self.mesh, RENDER_MODE_BUILD)
     }
 }

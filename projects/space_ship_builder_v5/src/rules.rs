@@ -1,9 +1,11 @@
 use crate::math::get_neighbors;
-use crate::node::{BlockIndex, Node, NodeID};
+use crate::node::{BlockIndex, Node, NodeID, NODE_INDEX_NONE};
 use crate::rotation::Rot;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::glam::{ivec3, BVec3, IVec3, Mat3, Mat4};
 use std::collections::HashMap;
+
+const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_NONE;
 
 pub struct Rules {
     pub map_rules_index_to_node_id: Vec<Vec<NodeID>>,
@@ -22,12 +24,11 @@ impl Rules {
             Vec::new();
         let mut node_id_index_map = Vec::new();
 
-        // Add empty Node as the first index
-        node_id_index_map.push(vec![NodeID::none()]);
-        possible_node_neighbor_list.push(HashMap::default());
-        possible_block_neighbor_list.push(Vec::new());
-
         for (pos, (node_id, prio)) in voxel_loader.node_positions.iter() {
+            if node_id.is_none() {
+                continue;
+            }
+
             // Find node_id index
             let (node_id_index, new_node_id) =
                 Self::find_node_index(&mut node_id_index_map, node_id, voxel_loader);
@@ -65,7 +66,11 @@ impl Rules {
                     possible_block_neighbor_list.push(Vec::new());
                 }
 
-                let mapped_req_id = node_id_index_map[mapped_req_index][0];
+                let mapped_req_id = if mapped_req_index != NODE_ID_MAP_INDEX_NONE {
+                    node_id_index_map[mapped_req_index][0]
+                } else {
+                    NodeID::none()
+                };
 
                 let possible_ids = possible_node_neighbor_list[node_id_index]
                     .entry(neighbor_offset)
@@ -112,11 +117,6 @@ impl Rules {
         > = Vec::new();
         let mut permutated_node_id_index_map = Vec::new();
 
-        // Add empty Node as the first index
-        permutated_node_id_index_map.push(vec![NodeID::none()]);
-        permutated_possible_node_neighbor_list.push(HashMap::default());
-        permutated_possible_block_neighbor_list.push(Vec::new());
-
         let mut affected_by_block = Vec::new();
         for _ in 0..voxel_loader.block_names.len() {
             affected_by_block.push(Vec::new())
@@ -153,7 +153,7 @@ impl Rules {
 
                     // Check if rule already was added
                     for (offset, req_ids) in permutated_req {
-                        let inv_offset = offset;
+                        let inv_offset = offset * -1;
                         for req_id in req_ids.iter() {
                             let (mapped_req_index, new_node_id) = Self::find_node_index(
                                 &mut permutated_node_id_index_map,
@@ -165,7 +165,11 @@ impl Rules {
                                 permutated_possible_block_neighbor_list.push(Vec::new());
                             }
 
-                            let mapped_req_id = permutated_node_id_index_map[mapped_req_index][0];
+                            let mapped_req_id = if mapped_req_index != NODE_ID_MAP_INDEX_NONE {
+                                permutated_node_id_index_map[mapped_req_index][0]
+                            } else {
+                                NodeID::none()
+                            };
 
                             let affected = affected_by_node
                                 .entry(mapped_req_id.to_owned())
@@ -249,7 +253,7 @@ impl Rules {
         voxel_loader: &VoxelLoader,
     ) -> (usize, bool) {
         if node_id.is_none() {
-            return (0, false);
+            return (NODE_ID_MAP_INDEX_NONE, false);
         }
 
         let r = map_rules_index_to_node_id

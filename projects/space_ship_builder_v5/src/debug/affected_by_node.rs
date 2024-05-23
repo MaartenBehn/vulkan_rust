@@ -14,20 +14,19 @@ use std::time::Duration;
 pub const RULES_SIZE: i32 = 4;
 const NEXT_NODE_SPEED: Duration = Duration::from_millis(100);
 
-pub struct DebugRulesRenderer {
+pub struct AffectedByNodeRenderer {
     mesh: ShipMesh,
     render_nodes: Vec<RenderNode>,
     rule_index: usize,
     last_action_time: Duration,
 }
 
-impl DebugRulesRenderer {
+impl AffectedByNodeRenderer {
     pub fn new(image_len: usize) -> Result<Self> {
-        let size = IVec3::ONE * RULES_SIZE * 4;
-        let render_size = IVec3::ONE * RULES_SIZE;
-        let render_nodes = Self::get_debug_render_nodes(render_size);
-        Ok(DebugRulesRenderer {
-            mesh: ShipMesh::new(image_len, size, render_size)?,
+        let size = IVec3::ONE * RULES_SIZE;
+        let render_nodes = Self::get_debug_render_nodes(size);
+        Ok(AffectedByNodeRenderer {
+            mesh: ShipMesh::new(image_len, size, size)?,
             render_nodes,
             rule_index: 0,
             last_action_time: Duration::ZERO,
@@ -117,7 +116,7 @@ impl DebugRulesRenderer {
 }
 
 impl DebugController {
-    pub fn update_rules(
+    pub fn update_affected_by_node(
         &mut self,
 
         rules: &Rules,
@@ -129,10 +128,10 @@ impl DebugController {
         descriptor_pool: &DescriptorPool,
         total_time: Duration,
     ) -> Result<()> {
-        self.rules_renderer
+        self.affected_by_node_renderer
             .update_rule_index(controls, rules, total_time);
 
-        self.add_text(vec!["RULES".to_owned()], vec3(-1.0, 0.0, 0.0));
+        self.add_text(vec!["Affected by Node".to_owned()], vec3(-1.0, 0.0, 0.0));
 
         self.add_cube(
             Vec3::ZERO,
@@ -145,14 +144,25 @@ impl DebugController {
             vec4(0.0, 0.0, 1.0, 1.0),
         );
 
-        let node_id_bits = self.get_rule_node_id_bits_debug(
-            self.rules_renderer.mesh.size,
-            self.rules_renderer.mesh.render_size,
+        let node_id =
+            rules.map_rules_index_to_node_id[self.affected_by_node_renderer.rule_index][0];
+        if rules.affected_by_node.contains_key(&node_id) {
+            let affected_positions: &Vec<IVec3> = &rules.affected_by_node[&node_id];
+            let middle_pos = self.affected_by_node_renderer.mesh.size / 2;
+
+            for pos in affected_positions {
+                let p = (*pos + middle_pos).as_vec3();
+                self.add_cube(p, p + Vec3::ONE, vec4(0.0, 1.0, 0.0, 1.0))
+            }
+        }
+
+        let node_id_bits = self.get_affected_by_node_node_id_bits(
+            self.affected_by_node_renderer.mesh.size,
             rules,
-            self.rules_renderer.rule_index,
+            self.affected_by_node_renderer.rule_index,
         );
 
-        self.rules_renderer.update_renderer(
+        self.affected_by_node_renderer.update_renderer(
             &node_id_bits,
             image_index,
             context,
@@ -166,62 +176,18 @@ impl DebugController {
         Ok(())
     }
 
-    fn get_rule_node_id_bits_debug(
+    fn get_affected_by_node_node_id_bits(
         &mut self,
         size: IVec3,
-        rules_size: IVec3,
         rules: &Rules,
         rule_index: usize,
     ) -> Vec<u32> {
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
-        let pattern_block_size = size / rules_size;
 
-        let middle_pos = rules_size / 2;
-        let middle_index = to_1d_i(middle_pos * pattern_block_size, size) as usize;
+        let middle_pos = size / 2;
+        let middle_index = to_1d_i(middle_pos, size) as usize;
         node_debug_node_id_bits[middle_index] =
             rules.map_rules_index_to_node_id[rule_index][0].into();
-
-        let nodes = &rules.node_rules[rule_index];
-        for x in 0..rules_size.x {
-            for y in 0..rules_size.y {
-                for z in 0..rules_size.z {
-                    let node_pos = ivec3(x, y, z);
-                    let test_pos = node_pos - middle_pos;
-
-                    if !nodes.contains_key(&test_pos) {
-                        continue;
-                    }
-
-                    let mut pattern_counter = 0;
-                    let possible_nodes = &nodes[&test_pos];
-                    let node_pos = node_pos * pattern_block_size;
-
-                    'iter: for iz in 0..pattern_block_size.x {
-                        for iy in 0..pattern_block_size.y {
-                            for ix in 0..pattern_block_size.z {
-                                if possible_nodes.len() <= pattern_counter {
-                                    break 'iter;
-                                }
-
-                                let pattern_pos = ivec3(ix, iy, iz) + node_pos;
-                                let index = to_1d_i(pattern_pos, size) as usize;
-
-                                let node_id = possible_nodes[pattern_counter];
-                                node_debug_node_id_bits[index] = node_id.into();
-
-                                if node_id.is_none() {
-                                    let one_cell_size = Vec3::ONE / pattern_block_size.as_vec3();
-                                    let p = pattern_pos.as_vec3() * one_cell_size;
-                                    self.add_cube(p, p + one_cell_size, vec4(0.0, 1.0, 0.0, 1.0));
-                                }
-
-                                pattern_counter += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
         node_debug_node_id_bits
     }

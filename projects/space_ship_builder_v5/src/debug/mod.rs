@@ -1,11 +1,13 @@
+mod affected_by_node;
 pub mod line_renderer;
+pub mod node_req;
 pub mod possible_node_renderer;
-pub mod rules;
 pub mod text_renderer;
 
+use crate::debug::affected_by_node::AffectedByNodeRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
+use crate::debug::node_req::{NodeReqRenderer, RULES_SIZE};
 use crate::debug::possible_node_renderer::DebugPossibleNodeRenderer;
-use crate::debug::rules::{DebugRulesRenderer, RULES_SIZE};
 use crate::debug::text_renderer::DebugTextRenderer;
 use crate::rules::Rules;
 use crate::ship::Ship;
@@ -13,6 +15,7 @@ use crate::ship_renderer::ShipRenderer;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
+use octa_force::egui::Key::A;
 use octa_force::egui_winit::winit::window::Window;
 use octa_force::glam::{vec3, vec4, Vec3};
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
@@ -23,7 +26,8 @@ use std::time::Duration;
 pub enum DebugMode {
     OFF,
     WFC,
-    RULES,
+    NODE_REQ,
+    AFFCETD_BY_NODE,
 }
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
@@ -33,7 +37,8 @@ pub struct DebugController {
     pub line_renderer: DebugLineRenderer,
     pub text_renderer: DebugTextRenderer,
     pub possible_node_renderer: DebugPossibleNodeRenderer,
-    pub rules_renderer: DebugRulesRenderer,
+    pub node_req_renderer: NodeReqRenderer,
+    pub affected_by_node_renderer: AffectedByNodeRenderer,
 
     last_mode_change: Duration,
 }
@@ -59,14 +64,16 @@ impl DebugController {
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
 
         let possible_node_renderer = DebugPossibleNodeRenderer::new(images_len, ship)?;
-        let rules_renderer = DebugRulesRenderer::new(images_len)?;
+        let node_req_renderer = NodeReqRenderer::new(images_len)?;
+        let affected_by_node_renderer = AffectedByNodeRenderer::new(images_len)?;
 
         Ok(DebugController {
-            mode: DebugMode::RULES,
+            mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
             possible_node_renderer,
-            rules_renderer,
+            node_req_renderer,
+            affected_by_node_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
@@ -93,8 +100,18 @@ impl DebugController {
         if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::RULES {
-                DebugMode::RULES
+            self.mode = if self.mode != DebugMode::NODE_REQ {
+                DebugMode::NODE_REQ
+            } else {
+                DebugMode::OFF
+            }
+        }
+
+        if controls.f4 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
+            self.mode = if self.mode != DebugMode::AFFCETD_BY_NODE {
+                DebugMode::AFFCETD_BY_NODE
             } else {
                 DebugMode::OFF
             }
@@ -105,22 +122,27 @@ impl DebugController {
                 self.line_renderer.vertecies_count = 0;
             }
             DebugMode::WFC => {
-                self.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0));
-
-                ship.show_debug(self);
-                self.possible_node_renderer.update(
+                self.update_possible_nodes(
                     ship,
                     image_index,
                     &context,
                     &renderer.chunk_descriptor_layout,
                     &renderer.descriptor_pool,
                 )?;
-
-                self.text_renderer.push_texts()?;
-                self.line_renderer.push_lines()?;
             }
-            DebugMode::RULES => {
-                self.update_rules(
+            DebugMode::NODE_REQ => {
+                self.update_node_req(
+                    rules,
+                    controls,
+                    image_index,
+                    &context,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
+                    total_time,
+                )?;
+            }
+            DebugMode::AFFCETD_BY_NODE => {
+                self.update_affected_by_node(
                     rules,
                     controls,
                     image_index,
@@ -150,13 +172,19 @@ impl DebugController {
         self.text_renderer.render(buffer, camera, extent)?;
         self.line_renderer.render(buffer, image_index);
 
-        if self.mode == DebugMode::WFC {
-            self.possible_node_renderer
-                .render(buffer, renderer, image_index);
-        }
-
-        if self.mode == DebugMode::RULES {
-            self.rules_renderer.render(buffer, renderer, image_index);
+        match self.mode {
+            DebugMode::OFF => {}
+            DebugMode::WFC => {
+                self.possible_node_renderer
+                    .render(buffer, renderer, image_index);
+            }
+            DebugMode::NODE_REQ => {
+                self.node_req_renderer.render(buffer, renderer, image_index);
+            }
+            DebugMode::AFFCETD_BY_NODE => {
+                self.affected_by_node_renderer
+                    .render(buffer, renderer, image_index);
+            }
         }
 
         Ok(())

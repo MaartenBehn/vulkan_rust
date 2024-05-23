@@ -154,7 +154,7 @@ impl Ship {
             }
         }
 
-        info!("Tick: {actions_per_tick}");
+        info!("Full Tick: {actions_per_tick}");
 
         Ok((true, changed_chunks))
     }
@@ -290,25 +290,32 @@ impl Ship {
             }
 
             let mut node_accepted = true;
-            for (offset, ids) in node_req {
+            for (offset, req_ids) in node_req {
                 let test_pos = pos + *offset;
 
                 let test_chunk_index = self.get_chunk_index(test_pos);
                 let test_node_index = self.get_node_index(test_pos);
 
                 let mut found = false;
+                let req_ids_contains_none = req_ids.iter().any(|node| node.is_none());
+
                 if test_chunk_index.is_err() {
-                    found = ids.iter().any(|node| node.is_none());
+                    found = req_ids_contains_none;
                 } else {
-                    let test_node = &self.chunks[test_chunk_index.unwrap()].nodes[test_node_index];
-                    if reset_nodes || test_node.is_none() {
+                    let test_nodes = &self.chunks[test_chunk_index.unwrap()].nodes[test_node_index];
+                    if reset_nodes || test_nodes.is_none() {
                         found = true;
                     } else {
-                        let test_ids = test_node.to_owned().unwrap();
-                        for (test_id, _) in test_ids {
-                            if ids.contains(&test_id) {
-                                found = true;
-                                break;
+                        let test_ids = test_nodes.to_owned().unwrap();
+
+                        if test_ids.is_empty() && req_ids_contains_none {
+                            found = true;
+                        } else {
+                            for (test_id, _) in test_ids {
+                                if req_ids.contains(&test_id) {
+                                    found = true;
+                                    break;
+                                }
                             }
                         }
                     }
