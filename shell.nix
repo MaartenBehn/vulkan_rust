@@ -17,6 +17,8 @@ pkgs.mkShell rec {
     xorg.libXrandr
     xorg.libXi
     glslang
+    linuxPackages_latest.perf
+    hotspot
   ];
 
   buildInputs = with pkgs; [
