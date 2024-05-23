@@ -211,7 +211,7 @@ impl Ship {
                     self.node_index_to_node_index_plus_padding(node_index);
                 self.chunks[chunk_index].render_nodes[node_index_plus_padding] = RenderNode(true);
             }
-            self.chunks[chunk_index].node_id_bits[node_index] = NodeID::none().into();
+            self.chunks[chunk_index].node_id_bits[node_index] = NodeID::empty().into();
 
             self.was_reset.push_back(node_world_index);
             self.to_propergate.push_back(node_world_index);
@@ -297,7 +297,8 @@ impl Ship {
                 let test_node_index = self.get_node_index(test_pos);
 
                 let mut found = false;
-                let req_ids_contains_none = req_ids.iter().any(|node| node.is_none());
+                let req_ids_contains_none = req_ids.iter().any(|node| node.is_empty());
+                let req_ids_contains_any = req_ids.iter().any(|node| node.is_any());
 
                 if test_chunk_index.is_err() {
                     found = req_ids_contains_none;
@@ -310,6 +311,8 @@ impl Ship {
 
                         if test_ids.is_empty() && req_ids_contains_none {
                             found = true;
+                        } else if req_ids_contains_any {
+                            found = test_ids.iter().any(|(node, _)| !node.is_empty())
                         } else {
                             for (test_id, _) in test_ids {
                                 if req_ids.contains(&test_id) {
@@ -399,11 +402,11 @@ impl Ship {
         let (node_id, _) = possible_node_ids
             .iter()
             .max_by(|(_, prio1), (_, prio2)| prio1.cmp(prio2))
-            .unwrap_or(&(NodeID::none(), 0))
+            .unwrap_or(&(NodeID::empty(), 0))
             .to_owned();
         self.chunks[chunk_index].node_id_bits[node_index] = node_id.into();
         self.chunks[chunk_index].render_nodes[node_index_plus_padding] =
-            RenderNode(!node_id.is_none());
+            RenderNode(!node_id.is_empty());
 
         self.chunks[chunk_index].nodes[node_index] = Some(possible_node_ids);
         Ok(())

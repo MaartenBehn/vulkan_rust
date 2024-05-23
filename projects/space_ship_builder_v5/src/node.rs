@@ -19,7 +19,9 @@ pub type Voxel = u8;
 
 pub const BLOCK_INDEX_EMPTY: BlockIndex = 0;
 
-pub const NODE_INDEX_NONE: NodeIndex = NodeIndex::MAX;
+pub const NODE_INDEX_EMPTY: NodeIndex = NodeIndex::MAX;
+
+pub const NODE_INDEX_ANY: NodeIndex = NodeIndex::MAX - 1;
 pub const VOXEL_EMPTY: Voxel = 0;
 
 pub const NODE_SIZE: UVec3 = uvec3(4, 4, 4);
@@ -90,8 +92,8 @@ impl Node {
         test_id: &NodeID,
         voxel_loader: &VoxelLoader,
     ) -> bool {
-        if node_id.is_none() || test_id.is_none() {
-            return node_id.is_none() && test_id.is_none();
+        if node_id.is_empty() || test_id.is_empty() {
+            return node_id.is_empty() && test_id.is_empty();
         }
 
         let mut same = true;
@@ -119,31 +121,41 @@ impl NodeID {
         NodeID { index, rot }
     }
 
-    pub fn none() -> NodeID {
-        NodeID::default()
+    pub fn empty() -> NodeID {
+        NodeID {
+            index: NODE_INDEX_EMPTY,
+            rot: Default::default(),
+        }
+    }
+    pub fn any() -> NodeID {
+        NodeID {
+            index: NODE_INDEX_ANY,
+            rot: Default::default(),
+        }
     }
 
-    pub fn is_none(self) -> bool {
-        self.index == NODE_INDEX_NONE
+    pub fn is_empty(self) -> bool {
+        self.index == NODE_INDEX_EMPTY
+    }
+
+    pub fn is_any(self) -> bool {
+        self.index == NODE_INDEX_ANY
     }
 
     pub fn is_some(self) -> bool {
-        self.index != NODE_INDEX_NONE
+        self.index != NODE_INDEX_EMPTY && self.index != NODE_INDEX_ANY
     }
 }
 
 impl Default for NodeID {
     fn default() -> Self {
-        Self {
-            index: NODE_INDEX_NONE,
-            rot: Default::default(),
-        }
+        Self::empty()
     }
 }
 
 impl Into<u32> for NodeID {
     fn into(self) -> u32 {
-        if self.is_none() {
+        if self.is_empty() {
             0
         } else {
             ((self.index as u32) << 7) + <Rot as Into<u8>>::into(self.rot) as u32

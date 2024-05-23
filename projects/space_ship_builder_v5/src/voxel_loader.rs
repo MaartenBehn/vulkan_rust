@@ -1,4 +1,4 @@
-use crate::node::{BlockIndex, NodeID, NODE_INDEX_NONE};
+use crate::node::{BlockIndex, NodeID, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
 use crate::rotation::Rot;
 use crate::{
     math::to_1d,
@@ -13,7 +13,9 @@ use octa_force::{
 };
 
 const BLOCK_NODE_ID_MAP_INDEX: usize = usize::MAX - 1;
-const EMPTY_NODE_ID_MAP_INDEX: usize = NODE_INDEX_NONE;
+const EMPTY_NODE_ID_MAP_INDEX: usize = NODE_INDEX_EMPTY;
+
+pub const IGNORE_PRIO: usize = usize::MAX;
 
 pub struct VoxelLoader {
     pub path: String,
@@ -198,7 +200,7 @@ impl VoxelLoader {
                             bail!("Node child is not a shape node!")
                         }
                     };
-                    let node_index = node_id_map[model_id];
+                    let mut node_index = node_id_map[model_id];
                     if node_index == BLOCK_NODE_ID_MAP_INDEX {
                         bail!("Node has model id of block.")
                     }
@@ -220,7 +222,20 @@ impl VoxelLoader {
                     };
 
                     let name = attributes.get("_name").unwrap();
-                    let prio = name.parse::<usize>().unwrap();
+
+                    let prio = if name == "ignore" {
+                        IGNORE_PRIO
+                    } else if name == "empty" {
+                        node_index = NODE_INDEX_EMPTY;
+
+                        IGNORE_PRIO
+                    } else if name == "any" {
+                        node_index = NODE_INDEX_ANY;
+
+                        IGNORE_PRIO
+                    } else {
+                        name.parse::<usize>().unwrap()
+                    };
 
                     node_positions.insert(
                         pos.as_uvec3() / 4,

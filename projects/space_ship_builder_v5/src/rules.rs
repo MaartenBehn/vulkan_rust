@@ -1,11 +1,12 @@
 use crate::math::get_neighbors;
-use crate::node::{BlockIndex, Node, NodeID, NODE_INDEX_NONE};
+use crate::node::{BlockIndex, Node, NodeID, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
 use crate::rotation::Rot;
-use crate::voxel_loader::VoxelLoader;
+use crate::voxel_loader::{VoxelLoader, IGNORE_PRIO};
 use octa_force::glam::{ivec3, BVec3, IVec3, Mat3, Mat4};
 use std::collections::HashMap;
 
-const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_NONE;
+const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
+const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
 
 pub struct Rules {
     pub map_rules_index_to_node_id: Vec<Vec<NodeID>>,
@@ -25,7 +26,7 @@ impl Rules {
         let mut node_id_index_map = Vec::new();
 
         for (pos, (node_id, prio)) in voxel_loader.node_positions.iter() {
-            if node_id.is_none() {
+            if node_id.is_empty() || *prio == IGNORE_PRIO {
                 continue;
             }
 
@@ -66,10 +67,12 @@ impl Rules {
                     possible_block_neighbor_list.push(Vec::new());
                 }
 
-                let mapped_req_id = if mapped_req_index != NODE_ID_MAP_INDEX_NONE {
-                    node_id_index_map[mapped_req_index][0]
+                let mapped_req_id = if mapped_req_index == NODE_ID_MAP_INDEX_NONE {
+                    NodeID::empty()
+                } else if mapped_req_index == NODE_ID_MAP_INDEX_ANY {
+                    NodeID::any()
                 } else {
-                    NodeID::none()
+                    node_id_index_map[mapped_req_index][0]
                 };
 
                 let possible_ids = possible_node_neighbor_list[node_id_index]
@@ -165,10 +168,12 @@ impl Rules {
                                 permutated_possible_block_neighbor_list.push(Vec::new());
                             }
 
-                            let mapped_req_id = if mapped_req_index != NODE_ID_MAP_INDEX_NONE {
-                                permutated_node_id_index_map[mapped_req_index][0]
+                            let mapped_req_id = if mapped_req_index == NODE_ID_MAP_INDEX_NONE {
+                                NodeID::empty()
+                            } else if mapped_req_index == NODE_ID_MAP_INDEX_ANY {
+                                NodeID::any()
                             } else {
-                                NodeID::none()
+                                permutated_node_id_index_map[mapped_req_index][0]
                             };
 
                             let affected = affected_by_node
@@ -238,6 +243,27 @@ impl Rules {
             }
         }
 
+        for possible_ids in permutated_possible_node_neighbor_list.iter_mut() {
+            for (_, ids) in possible_ids.iter_mut() {
+                let mut has_any = false;
+                let mut has_empty = false;
+
+                for id in ids.iter() {
+                    has_empty |= id.is_empty();
+                    has_any |= id.is_any();
+                }
+
+                if has_any {
+                    ids.clear();
+                    ids.push(NodeID::any());
+
+                    if has_empty {
+                        ids.push(NodeID::empty());
+                    }
+                }
+            }
+        }
+
         Rules {
             node_rules: permutated_possible_node_neighbor_list,
             block_rules: permutated_possible_block_neighbor_list,
@@ -252,8 +278,12 @@ impl Rules {
         node_id: &NodeID,
         voxel_loader: &VoxelLoader,
     ) -> (usize, bool) {
-        if node_id.is_none() {
+        if node_id.is_empty() {
             return (NODE_ID_MAP_INDEX_NONE, false);
+        }
+
+        if node_id.is_any() {
+            return (NODE_ID_MAP_INDEX_ANY, false);
         }
 
         let r = map_rules_index_to_node_id
