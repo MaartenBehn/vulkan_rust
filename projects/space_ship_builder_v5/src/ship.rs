@@ -46,7 +46,7 @@ pub struct ShipChunk {
 }
 
 impl Ship {
-    pub fn new(node_size: i32, rules: &Rules) -> Result<Ship> {
+    pub fn new(node_size: i32) -> Ship {
         let blocks_per_chunk = IVec3::ONE * node_size / 2;
         let nodes_per_chunk = IVec3::ONE * node_size;
         let chunk_pos_mask = IVec3::ONE * !(node_size - 1);
@@ -71,12 +71,8 @@ impl Ship {
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
         };
-        ship.add_chunk(IVec3::ZERO);
 
-        //ship.place_block(ivec3(0, 0, 0), 1, rules)?;
-        //ship.fill_all(0, node_controller)?;
-
-        Ok(ship)
+        ship
     }
 
     pub fn place_block(
@@ -97,7 +93,7 @@ impl Ship {
             return Ok(());
         }
 
-        log::info!("Place: {block_pos:?}");
+        info!("Place: {block_pos:?}");
         chunk.blocks[in_chunk_block_index] = block_index;
 
         let mut push_reset = |block_index: BlockIndex, pos: IVec3| -> Result<()> {
@@ -465,15 +461,13 @@ impl Ship {
         }
     }
 
-    pub fn on_rules_changed(&mut self) -> Result<()> {
+    pub fn recompute(&mut self) {
         for chunk_index in 0..self.chunks.len() {
             for node_index in 0..self.node_length() {
                 let node_world_index = self.to_world_node_index(chunk_index, node_index);
-                self.to_propergate.push_back(node_world_index);
+                self.to_reset.push_back(node_world_index);
             }
         }
-
-        std::prelude::rust_2015::Ok(())
     }
 
     // Math

@@ -45,7 +45,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(images_count: usize, voxel_loader: &VoxelLoader, rules: &Rules) -> Result<Builder> {
+    pub fn new(ship: Ship, images_count: usize, voxel_loader: &VoxelLoader) -> Result<Builder> {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(
             voxel_loader
@@ -62,7 +62,6 @@ impl Builder {
                 .unwrap(),
         );
 
-        let ship = Ship::new(CHUNK_SIZE, rules)?;
         let base_ship_mesh =
             ShipMesh::new(images_count, ship.nodes_per_chunk, ship.nodes_per_chunk)?;
         let build_ship_mesh =

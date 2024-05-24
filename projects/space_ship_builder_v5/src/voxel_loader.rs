@@ -5,6 +5,7 @@ use crate::{
     node::{Material, Node, NODE_SIZE, NODE_VOXEL_LENGTH},
 };
 use dot_vox::{DotVoxData, Position, SceneNode};
+use log::error;
 use octa_force::egui::ahash::HashMap;
 use octa_force::glam::{ivec3, IVec3, UVec3};
 use octa_force::{
@@ -41,9 +42,11 @@ impl VoxelLoader {
             r.unwrap()
         };
 
+        let block_names = vec!["Empty".to_owned(), "Hull".to_owned()];
+
         let mats = Self::load_materials(&data)?;
         let (nodes, node_id_map) = Self::load_models(&data)?;
-        let (block_names, block_positions) = Self::load_blocks(&data);
+        let block_positions = Self::load_blocks(&data, &block_names)?;
         let node_positions = Self::load_node_positions(&data, node_id_map)?;
 
         let voxel_loader = Self {
@@ -141,11 +144,11 @@ impl VoxelLoader {
             .unwrap()
     }
 
-    fn load_blocks(data: &DotVoxData) -> (Vec<String>, HashMap<UVec3, BlockIndex>) {
+    fn load_blocks(
+        data: &DotVoxData,
+        block_names: &Vec<String>,
+    ) -> Result<HashMap<UVec3, BlockIndex>> {
         let (block_ids, block_group_pos) = Self::get_group_ids(data, "blocks");
-
-        let mut block_names = Vec::new();
-        block_names.push("Empty".to_owned());
 
         let mut block_positions = HashMap::default();
         for block_id in block_ids {
@@ -160,9 +163,7 @@ impl VoxelLoader {
                     let block_index = if duplicate.is_some() {
                         duplicate.unwrap()
                     } else {
-                        let i = block_names.len();
-                        block_names.push(name.to_owned());
-                        i
+                        bail!("Invalid Block name: {}", name);
                     };
 
                     let p = frames[0]
@@ -176,7 +177,7 @@ impl VoxelLoader {
             }
         }
 
-        (block_names, block_positions)
+        Ok(block_positions)
     }
 
     fn load_node_positions(
