@@ -3,6 +3,9 @@
 - Hot reload Bug 
   - Rotation wrong 
 
+## TODO
+- Split Fragment and Vertex Push Constant
+
 
 ## What is the Game actually about?
 - Shipbuilder -> like Starbase? 
