@@ -1,4 +1,18 @@
-use crate::ship::{Ship, ShipChunk, CHUNK_SIZE};
+use crate::ship::data::{ShipData, ShipDataChunk};
+use crate::ship::renderer::Vertex;
+use crate::ship::CHUNK_SIZE;
+use block_mesh::ilattice::vector::Vector3;
+use block_mesh::ndshape::{ConstShape3u32, Shape};
+use block_mesh::{
+    greedy_quads, Axis, AxisPermutation, GreedyQuadsBuffer, MergeVoxel, OrientedBlockFace,
+    QuadCoordinateConfig, Voxel, VoxelVisibility,
+};
+use octa_force::glam::{ivec3, uvec3, IVec3};
+use octa_force::vulkan::ash::vk::{BufferUsageFlags, DeviceSize};
+use octa_force::vulkan::gpu_allocator::MemoryLocation;
+use octa_force::vulkan::{
+    DescriptorPool, DescriptorSet, DescriptorSetLayout, WriteDescriptorSet, WriteDescriptorSetKind,
+};
 use octa_force::{
     anyhow::Result,
     log,
@@ -7,31 +21,11 @@ use octa_force::{
 use std::mem::size_of;
 use std::{iter, mem};
 
-use crate::math::{to_1d, to_1d_i, to_3d};
-use crate::node::{NodeID, EMPYT_PATTERN_INDEX};
-use crate::rules::Rules;
-use crate::ship_renderer::Vertex;
-use crate::voxel_loader::VoxelLoader;
-use block_mesh::ilattice::vector::Vector3;
-use block_mesh::ndshape::{ConstShape, ConstShape3u32, Shape};
-use block_mesh::{
-    greedy_quads, Axis, AxisPermutation, GreedyQuadsBuffer, MergeVoxel, OrientedBlockFace,
-    QuadCoordinateConfig, Voxel, VoxelVisibility, RIGHT_HANDED_Y_UP_CONFIG,
-};
-use dot_vox::Size;
-use octa_force::anyhow::bail;
-use octa_force::glam::{ivec3, uvec3, IVec3};
-use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::ash::vk::{BufferUsageFlags, DeviceSize};
-use octa_force::vulkan::gpu_allocator::MemoryLocation;
-use octa_force::vulkan::{
-    DescriptorPool, DescriptorSet, DescriptorSetLayout, WriteDescriptorSet, WriteDescriptorSetKind,
-};
-
 const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 
 #[cfg(debug_assertions)]
 use crate::debug::node_req::RULES_SIZE;
+
 #[cfg(debug_assertions)]
 const RULES_SIZE_PLUS_PADDING: u32 = (RULES_SIZE + 2) as u32;
 
@@ -59,23 +53,40 @@ pub struct MeshChunk {
 pub struct RenderNode(pub bool);
 
 impl ShipMesh {
-    pub fn new(images_len: usize, size: IVec3, render_size: IVec3) -> Result<ShipMesh> {
+    pub fn new(images_len: usize, size: IVec3, render_size: IVec3) -> ShipMesh {
         let mut to_drop_buffers = Vec::new();
         for _ in 0..images_len {
             to_drop_buffers.push(vec![])
         }
 
-        Ok(ShipMesh {
+        ShipMesh {
             chunks: Vec::new(),
             to_drop_buffers,
             size,
             render_size,
-        })
+        }
+    }
+
+    pub fn new_from_mesh(
+        other_mesh: &ShipMesh,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<ShipMesh> {
+        let mut new_mesh = ShipMesh::new(
+            other_mesh.to_drop_buffers.len(),
+            other_mesh.size,
+            other_mesh.render_size,
+        );
+
+        new_mesh.update_from_mesh(other_mesh, 0, context, descriptor_layout, descriptor_pool)?;
+
+        Ok(new_mesh)
     }
 
     pub fn update(
         &mut self,
-        ship: &Ship,
+        ship: &ShipData,
         changed_chunks: Vec<usize>,
         image_index: usize,
         context: &Context,
@@ -127,7 +138,7 @@ impl ShipMesh {
         self.to_drop_buffers[image_index].clear();
 
         for (i, other_chunk) in other_mesh.chunks.iter().enumerate() {
-            if self.chunks.len() <= (i) {
+            if self.chunks.len() <= i {
                 let new_chunk = MeshChunk::new_from_chunk(
                     other_chunk,
                     self.to_drop_buffers.len(),
@@ -156,7 +167,7 @@ impl MeshChunk {
         pos: IVec3,
         size: IVec3,
         render_size: IVec3,
-        ship_chunk: &ShipChunk,
+        ship_chunk: &ShipDataChunk,
         images_len: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -287,7 +298,7 @@ impl MeshChunk {
     pub fn update(
         &mut self,
 
-        ship_chunk: &ShipChunk,
+        ship_chunk: &ShipDataChunk,
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {

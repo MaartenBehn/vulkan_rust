@@ -10,12 +10,12 @@ use crate::debug::node_req::{NodeReqRenderer, RULES_SIZE};
 use crate::debug::possible_node_renderer::DebugPossibleNodeRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
 use crate::rules::Rules;
+use crate::ship::data::ShipData;
+use crate::ship::renderer::ShipRenderer;
 use crate::ship::Ship;
-use crate::ship_renderer::ShipRenderer;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::egui::Key::A;
 use octa_force::egui_winit::winit::window::Window;
 use octa_force::glam::{vec3, vec4, Vec3};
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
@@ -49,7 +49,7 @@ impl DebugController {
         images_len: usize,
         format: Format,
         window: &Window,
-        ship: &Ship,
+        ship: &ShipData,
         renderer: &ShipRenderer,
     ) -> Result<Self> {
         let line_renderer = DebugLineRenderer::new(
@@ -63,9 +63,9 @@ impl DebugController {
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
 
-        let possible_node_renderer = DebugPossibleNodeRenderer::new(images_len, ship)?;
-        let node_req_renderer = NodeReqRenderer::new(images_len)?;
-        let affected_by_node_renderer = AffectedByNodeRenderer::new(images_len)?;
+        let possible_node_renderer = DebugPossibleNodeRenderer::new(images_len, ship);
+        let node_req_renderer = NodeReqRenderer::new(images_len);
+        let affected_by_node_renderer = AffectedByNodeRenderer::new(images_len);
 
         Ok(DebugController {
             mode: DebugMode::OFF,
@@ -84,7 +84,7 @@ impl DebugController {
         controls: &Controls,
         renderer: &ShipRenderer,
         total_time: Duration,
-        ship: &Ship,
+        ship: &ShipData,
         image_index: usize,
         rules: &Rules,
     ) -> Result<()> {

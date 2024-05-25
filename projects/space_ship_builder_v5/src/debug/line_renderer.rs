@@ -1,5 +1,5 @@
 use crate::debug::DebugController;
-use crate::ship_renderer::ShipRenderer;
+use crate::ship::renderer::ShipRenderer;
 use octa_force::glam::{vec3, Vec3, Vec4};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;

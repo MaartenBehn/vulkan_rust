@@ -1,8 +1,8 @@
 use crate::debug::DebugController;
 use crate::math::to_1d_i;
 use crate::rules::Rules;
-use crate::ship_mesh::{MeshChunk, RenderNode, ShipMesh};
-use crate::ship_renderer::{ShipRenderer, RENDER_MODE_BUILD};
+use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
+use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BUILD};
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
@@ -22,16 +22,16 @@ pub struct NodeReqRenderer {
 }
 
 impl NodeReqRenderer {
-    pub fn new(image_len: usize) -> Result<Self> {
+    pub fn new(image_len: usize) -> Self {
         let size = IVec3::ONE * RULES_SIZE * 4;
         let render_size = IVec3::ONE * RULES_SIZE;
         let render_nodes = Self::get_debug_render_nodes(render_size);
-        Ok(NodeReqRenderer {
-            mesh: ShipMesh::new(image_len, size, render_size)?,
+        NodeReqRenderer {
+            mesh: ShipMesh::new(image_len, size, render_size),
             render_nodes,
             rule_index: 0,
             last_action_time: Duration::ZERO,
-        })
+        }
     }
 
     fn update_rule_index(&mut self, controls: &Controls, rules: &Rules, total_time: Duration) {
@@ -104,15 +104,7 @@ impl NodeReqRenderer {
     }
 
     pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
-        buffer.bind_graphics_pipeline(&renderer.pipeline);
-        buffer.bind_descriptor_sets(
-            vk::PipelineBindPoint::GRAPHICS,
-            &renderer.pipeline_layout,
-            0,
-            &[&renderer.static_descriptor_sets[image_index]],
-        );
-
-        renderer.render_ship_mesh(buffer, image_index, &self.mesh, RENDER_MODE_BUILD)
+        renderer.render(buffer, image_index, RENDER_MODE_BUILD, &self.mesh)
     }
 }
 

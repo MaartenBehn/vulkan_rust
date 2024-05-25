@@ -1,41 +1,33 @@
 use crate::debug::DebugController;
 use crate::math::to_1d_i;
-use crate::ship::{Ship, ShipChunk};
-use crate::ship_mesh::{MeshChunk, RenderNode, ShipMesh};
-use crate::ship_renderer::{ShipRenderer, RENDER_MODE_BUILD};
+use crate::ship::data::{ShipData, ShipDataChunk};
+use crate::ship::mesh::{MeshChunk, ShipMesh};
+use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BUILD};
 use octa_force::anyhow::Result;
 use octa_force::glam::{ivec3, vec3, vec4, IVec3, Vec3};
 use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::{Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
+use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 
 pub struct DebugPossibleNodeRenderer {
     mesh: ShipMesh,
 }
 
 impl DebugPossibleNodeRenderer {
-    pub fn new(image_len: usize, ship: &Ship) -> Result<Self> {
-        Ok(DebugPossibleNodeRenderer {
-            mesh: ShipMesh::new(image_len, IVec3::ONE * 128, ship.nodes_per_chunk)?,
-        })
+    pub fn new(image_len: usize, ship: &ShipData) -> Self {
+        DebugPossibleNodeRenderer {
+            mesh: ShipMesh::new(image_len, IVec3::ONE * 128, ship.nodes_per_chunk),
+        }
     }
 
     pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
-        buffer.bind_graphics_pipeline(&renderer.pipeline);
-        buffer.bind_descriptor_sets(
-            vk::PipelineBindPoint::GRAPHICS,
-            &renderer.pipeline_layout,
-            0,
-            &[&renderer.static_descriptor_sets[image_index]],
-        );
-
-        renderer.render_ship_mesh(buffer, image_index, &self.mesh, RENDER_MODE_BUILD)
+        renderer.render(buffer, image_index, RENDER_MODE_BUILD, &self.mesh)
     }
 }
 
 impl DebugController {
     pub fn update_possible_nodes(
         &mut self,
-        ship: &Ship,
+        ship: &ShipData,
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -99,9 +91,9 @@ impl DebugController {
 
     fn get_chunk_node_id_bits_debug(
         &mut self,
-        ship_chunk: &ShipChunk,
+        ship_chunk: &ShipDataChunk,
         size: IVec3,
-        ship: &Ship,
+        ship: &ShipData,
     ) -> Vec<u32> {
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
         let pattern_block_size = size / ship.nodes_per_chunk;

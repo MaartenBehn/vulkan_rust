@@ -11,6 +11,13 @@ layout(set = 0, binding = 0) uniform RenderBuffer {
     vec2 size;
 } renderbuffer;
 
+layout(push_constant, std430) uniform PushConstant {
+    uint data;
+} push_constant;
+
+#define CHUNK_POS        ivec3(int(push_constant.data & 255) - 128, int((push_constant.data >> 8) & 255) - 128, int((push_constant.data >> 16) & 255) - 128)
+#define CHUNK_SIZE       int(1 << ((push_constant.data >> 24) & 15))  // 4 Bit
+
 /*
  let data = (pos.x & 0b111111111)
             + ((pos.y & 0b111111111) << 9)
@@ -32,5 +39,5 @@ void main() {
         float((vData >> 28) & uint(1)),
         float((vData >> 29) & uint(1)));
 
-    gl_Position = renderbuffer.proj_mat * renderbuffer.view_mat * vec4(p, 1.0);
+    gl_Position = renderbuffer.proj_mat * renderbuffer.view_mat * vec4(p + vec3(CHUNK_POS * CHUNK_SIZE), 1.0);
 }

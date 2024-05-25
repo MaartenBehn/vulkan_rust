@@ -1,10 +1,8 @@
+use crate::node::Node;
+use crate::ship::builder::ShipBuilder;
+use crate::ship::mesh::ShipMesh;
 use crate::voxel_loader::VoxelLoader;
-use crate::{
-    builder::{self, Builder},
-    node::Node,
-    ship::Ship,
-    ship_mesh::{self, ShipMesh},
-};
+use log::debug;
 use octa_force::glam::{IVec3, UVec3};
 use octa_force::vulkan::ash::vk::IndexType;
 use octa_force::{
@@ -176,8 +174,10 @@ impl ShipRenderer {
             descriptor_sets.push(render_descriptor_set);
         }
 
-        let push_constant_range =
-            create_push_constant_range(ShaderStageFlags::FRAGMENT, size_of::<PushConstant>());
+        let push_constant_range = create_push_constant_range(
+            ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+            size_of::<PushConstant>(),
+        );
 
         let pipeline_layout = context.create_pipeline_layout(
             &[&static_descriptor_layout, &chunk_descriptor_layout],
@@ -189,11 +189,11 @@ impl ShipRenderer {
             GraphicsPipelineCreateInfo {
                 shaders: &[
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../shaders/chunk.vert.spv")[..],
+                        source: &include_bytes!("../../shaders/chunk.vert.spv")[..],
                         stage: vk::ShaderStageFlags::VERTEX,
                     },
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../shaders/chunk.frag.spv")[..],
+                        source: &include_bytes!("../../shaders/chunk.frag.spv")[..],
                         stage: vk::ShaderStageFlags::FRAGMENT,
                     },
                 ],
@@ -271,7 +271,13 @@ impl ShipRenderer {
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer, image_index: usize, builder: &Builder) {
+    pub fn render(
+        &self,
+        buffer: &CommandBuffer,
+        image_index: usize,
+        render_mode: RenderMode,
+        ship_mesh: &ShipMesh,
+    ) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,
@@ -280,36 +286,6 @@ impl ShipRenderer {
             &[&self.static_descriptor_sets[image_index]],
         );
 
-        self.render_ship_mesh(
-            buffer,
-            image_index,
-            &builder.base_ship_mesh,
-            RENDER_MODE_BASE,
-        );
-        self.render_ship_mesh(
-            buffer,
-            image_index,
-            &builder.build_ship_mesh,
-            RENDER_MODE_BUILD,
-        );
-    }
-
-    pub fn render_ship_mesh(
-        &self,
-        buffer: &CommandBuffer,
-        image_index: usize,
-        ship_mesh: &ShipMesh,
-        render_mode: RenderMode,
-    ) {
-        buffer.push_constant(
-            &self.pipeline_layout,
-            ShaderStageFlags::FRAGMENT,
-            &PushConstant::new(
-                render_mode,
-                ship_mesh.size.x as u32,
-                (ship_mesh.size.x / ship_mesh.render_size.x) as u32,
-            ),
-        );
         for chunk in ship_mesh.chunks.iter() {
             if chunk.index_count == 0 {
                 continue;
@@ -324,6 +300,17 @@ impl ShipRenderer {
 
             buffer.bind_vertex_buffer(&chunk.vertex_buffer);
             buffer.bind_index_buffer_complex(&chunk.index_buffer, 0, IndexType::UINT16);
+
+            buffer.push_constant(
+                &self.pipeline_layout,
+                ShaderStageFlags::FRAGMENT | ShaderStageFlags::VERTEX,
+                &PushConstant::new(
+                    chunk.pos / ship_mesh.render_size,
+                    ship_mesh.size.x as u32,
+                    (ship_mesh.size.x / ship_mesh.render_size.x) as u32,
+                    render_mode,
+                ),
+            );
 
             buffer.draw_indexed(chunk.index_count as u32);
         }
@@ -410,15 +397,31 @@ impl octa_force::vulkan::Vertex for Vertex {
 }
 
 impl PushConstant {
-    pub fn new(render_mode: RenderMode, chunk_size: u32, chunk_scale_down: u32) -> Self {
+    pub fn new(
+        chunk_pos: IVec3,
+        chunk_size: u32,
+        chunk_scale_down: u32,
+        render_mode: RenderMode,
+    ) -> Self {
+        // 8 Bit Chunk Pos X
+        // 8 Bit Chunk Pos Y
+        // 8 Bit Chunk Pos Z
         // 4 Bit Chunk Size
         // 3 Bit Chunk Scale Down
-        // rest Render Mode
+        // 1 Bit Render Mode
 
+        let chunk_pos_x_bits = (chunk_pos.x + 128) as u32;
+        let chunk_pos_y_bits = (chunk_pos.y + 128) as u32;
+        let chunk_pos_z_bits = (chunk_pos.z + 128) as u32;
         let chunk_size_bits = chunk_size.trailing_zeros();
         let chunk_scale_bits = chunk_scale_down.trailing_zeros();
 
-        let data = chunk_size_bits + (chunk_scale_bits << 4) + (render_mode << 7);
+        let data = chunk_pos_x_bits
+            + (chunk_pos_y_bits << 8)
+            + (chunk_pos_z_bits << 16)
+            + (chunk_size_bits << 24)
+            + (chunk_scale_bits << 28)
+            + (render_mode << 31);
 
         PushConstant { data }
     }

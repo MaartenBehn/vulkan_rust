@@ -47,11 +47,21 @@ layout(set = 1, binding = 0) buffer Chunk {
 } chunk;
 
 
-#define CHUNK_SIZE       uint(1 << (push_constant.data & 15))           // 4 Bit
-#define CHUNK_SCALE_DOWN uint(1 << ((push_constant.data >> 4) & 7))     // 3 Bit
-#define RENDER_MODE      uint((push_constant.data >> 7))              // rest Bit
+/*
+let data = chunk_pos_x_bits
+            + (chunk_pos_y_bits << 8)
+            + (chunk_pos_z_bits << 16)
+            + (chunk_size_bits  << 24)
+            + (chunk_scale_bits << 28)
+            + (render_mode << 31);
+*/
+#define CHUNK_POS        ivec3(int(push_constant.data & 255) - 128, int((push_constant.data >> 8) & 255) - 128, int((push_constant.data >> 16) & 255) - 128)
+#define CHUNK_SIZE       uint(1 << ((push_constant.data >> 24) & 15))  // 4 Bit
+#define CHUNK_SCALE_DOWN uint(1 << ((push_constant.data >> 28) & 7))   // 3 Bit
+#define RENDER_MODE      uint((push_constant.data >> 31))              // 1 Bit Render Mode
 
-#define POSITION vec3(oPos * (float(NODE_SIZE) * CHUNK_SCALE_DOWN))
+
+#define POSITION vec3(oPos * float(NODE_SIZE * CHUNK_SCALE_DOWN))
 #define DIRECTION renderbuffer.dir
 #define NORMAL oNormal
 

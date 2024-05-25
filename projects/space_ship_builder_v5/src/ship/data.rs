@@ -1,11 +1,9 @@
 use crate::math::{get_packed_index, to_3d_i};
 use crate::node::{Node, NodeID, PatternIndex, EMPYT_PATTERN_INDEX};
 use crate::rules::Rules;
-use crate::ship_mesh::RenderNode;
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
     node::{BlockIndex, BLOCK_INDEX_EMPTY},
-    ship_mesh::ShipMesh,
 };
 use index_queue::IndexQueue;
 use log::{debug, info};
@@ -14,19 +12,18 @@ use std::cmp::max;
 
 #[cfg(debug_assertions)]
 use crate::debug::DebugController;
+use crate::ship::mesh::RenderNode;
 
 pub type ChunkIndex = usize;
 pub type WaveIndex = usize;
 
-pub const CHUNK_SIZE: i32 = 32;
-
-pub struct Ship {
-    pub chunks: Vec<ShipChunk>,
+#[derive(Clone)]
+pub struct ShipData {
+    pub chunks: Vec<ShipDataChunk>,
 
     pub blocks_per_chunk: IVec3,
     pub nodes_per_chunk: IVec3,
     pub chunk_pos_mask: IVec3,
-    pub chunk_voxel_size: IVec3,
     pub in_chunk_pos_mask: IVec3,
     pub node_index_bits: usize,
     pub node_index_mask: usize,
@@ -37,7 +34,8 @@ pub struct Ship {
     pub to_collapse: IndexQueue,
 }
 
-pub struct ShipChunk {
+#[derive(Clone)]
+pub struct ShipDataChunk {
     pub pos: IVec3,
     pub blocks: Vec<BlockIndex>,
     pub nodes: Vec<Option<Vec<(NodeID, usize)>>>,
@@ -45,23 +43,21 @@ pub struct ShipChunk {
     pub render_nodes: Vec<RenderNode>,
 }
 
-impl Ship {
-    pub fn new(node_size: i32) -> Ship {
+impl ShipData {
+    pub fn new(node_size: i32) -> ShipData {
         let blocks_per_chunk = IVec3::ONE * node_size / 2;
         let nodes_per_chunk = IVec3::ONE * node_size;
         let chunk_pos_mask = IVec3::ONE * !(node_size - 1);
-        let chunk_voxel_size = IVec3::ONE * node_size;
         let in_chunk_pos_mask = IVec3::ONE * (node_size - 1);
         let node_index_bits = (nodes_per_chunk.element_product().trailing_zeros() + 1) as usize;
         let node_index_mask = (nodes_per_chunk.element_product() - 1) as usize;
 
-        let mut ship = Ship {
+        let mut ship = ShipData {
             chunks: Vec::new(),
 
             blocks_per_chunk,
             nodes_per_chunk,
             chunk_pos_mask,
-            chunk_voxel_size,
             in_chunk_pos_mask,
             node_index_bits,
             node_index_mask,
@@ -75,55 +71,51 @@ impl Ship {
         ship
     }
 
-    pub fn place_block(
-        &mut self,
-        block_pos: IVec3,
-        block_index: BlockIndex,
-        rules: &Rules,
-    ) -> Result<()> {
+    pub fn place_block(&mut self, block_pos: IVec3, block_index: BlockIndex, rules: &Rules) {
         let pos = self.get_node_pos_from_block_pos(block_pos);
 
-        let chunk_index = self.get_chunk_index(pos)?;
+        let chunk_index = self.get_chunk_index_from_node_pos(pos);
         let in_chunk_block_index = self.get_block_index(pos);
-
         let chunk = &mut self.chunks[chunk_index];
 
         let old_block_index = chunk.blocks[in_chunk_block_index];
         if old_block_index == block_index {
-            return Ok(());
+            return;
         }
 
         info!("Place: {block_pos:?}");
         chunk.blocks[in_chunk_block_index] = block_index;
 
-        let mut push_reset = |block_index: BlockIndex, pos: IVec3| -> Result<()> {
+        let mut push_reset = |block_index: BlockIndex, pos: IVec3| {
             if block_index == BLOCK_INDEX_EMPTY {
-                return Ok(());
+                return;
             }
 
             for offset in rules.affected_by_block[block_index].iter() {
                 let affected_pos = pos + *offset;
 
-                let chunk_index = self.get_chunk_index(affected_pos);
-                if chunk_index.is_err() {
-                    continue;
-                }
+                let chunk_index = self.get_chunk_index_from_node_pos(affected_pos);
 
                 let node_index = self.get_node_index(affected_pos);
 
-                let node_world_index = self.to_world_node_index(chunk_index.unwrap(), node_index);
+                let node_world_index = self.to_world_node_index(chunk_index, node_index);
                 self.to_reset.push_back(node_world_index);
             }
-
-            Ok(())
         };
 
-        push_reset(old_block_index, pos)?;
-        push_reset(block_index, pos)?;
+        push_reset(old_block_index, pos);
+        push_reset(block_index, pos);
 
         self.was_reset = IndexQueue::default();
+    }
 
-        Ok(())
+    pub fn get_block_at_pos(&mut self, block_pos: IVec3) -> BlockIndex {
+        let pos = self.get_node_pos_from_block_pos(block_pos);
+
+        let chunk_index = self.get_chunk_index_from_node_pos(pos);
+        let in_chunk_block_index = self.get_block_index(pos);
+
+        self.chunks[chunk_index].blocks[in_chunk_block_index]
     }
 
     pub fn tick(
@@ -131,8 +123,9 @@ impl Ship {
         actions_per_tick: usize,
         rules: &Rules,
         #[cfg(debug_assertions)] debug: bool,
-    ) -> Result<(bool, Vec<ChunkIndex>)> {
+    ) -> (bool, Vec<ChunkIndex>) {
         let mut changed_chunks = Vec::new();
+
         for _ in 0..actions_per_tick {
             if !self.to_reset.is_empty() {
                 #[cfg(debug_assertions)]
@@ -143,16 +136,19 @@ impl Ship {
             } else if !self.to_propergate.is_empty() {
                 self.propergate(rules);
             } else if !self.to_collapse.is_empty() {
-                self.collapse()?;
-                changed_chunks = vec![0];
+                let changed_chunk = self.collapse();
+
+                if !changed_chunks.contains(&changed_chunk) {
+                    changed_chunks.push(changed_chunk)
+                }
             } else {
-                return Ok((false, changed_chunks));
+                return (false, changed_chunks);
             }
         }
 
         info!("Full Tick: {actions_per_tick}");
 
-        Ok((true, changed_chunks))
+        (true, changed_chunks)
     }
 
     fn reset(&mut self, rules: &Rules, #[cfg(debug_assertions)] debug: bool) {
@@ -175,15 +171,11 @@ impl Ship {
                 for offset in rules.affected_by_node[&node_id].iter() {
                     let affected_pos = pos + *offset;
 
-                    let chunk_index = self.get_chunk_index(affected_pos);
-                    if chunk_index.is_err() {
-                        continue;
-                    }
+                    let chunk_index = self.get_chunk_index_from_node_pos(affected_pos);
 
                     let node_index = self.get_node_index(affected_pos);
 
-                    let node_world_index =
-                        self.to_world_node_index(chunk_index.unwrap(), node_index);
+                    let node_world_index = self.to_world_node_index(chunk_index, node_index);
 
                     if !self.was_reset.contains(node_world_index) {
                         self.to_reset.push_back(node_world_index);
@@ -252,25 +244,13 @@ impl Ship {
                         continue;
                     }
 
-                    let test_chunk_index = self.get_chunk_index(test_pos);
+                    let test_chunk_index = self.get_chunk_index_from_node_pos(test_pos);
                     let test_block_index = self.get_block_index(test_pos);
 
-                    let mut found = false;
-                    if test_chunk_index.is_err() {
-                        // If the block is in chunk that does not exist it is always Air.
+                    let index = self.chunks[test_chunk_index].blocks[test_block_index].to_owned();
 
-                        found = *id == BLOCK_INDEX_EMPTY
-                    } else {
-                        // If the chuck exists.
-
-                        let index = self.chunks[test_chunk_index.unwrap()].blocks[test_block_index]
-                            .to_owned();
-
-                        // Check if the Block at the pos is in the allowed id.
-                        found = *id == index;
-                    };
-
-                    accepted &= found;
+                    // Check if the Block at the pos is in the allowed id.
+                    accepted &= *id == index;
                     check_performed = true;
                 }
 
@@ -289,32 +269,28 @@ impl Ship {
             for (offset, req_ids) in node_req {
                 let test_pos = pos + *offset;
 
-                let test_chunk_index = self.get_chunk_index(test_pos);
+                let test_chunk_index = self.get_chunk_index_from_node_pos(test_pos);
                 let test_node_index = self.get_node_index(test_pos);
 
                 let mut found = false;
                 let req_ids_contains_none = req_ids.iter().any(|node| node.is_empty());
                 let req_ids_contains_any = req_ids.iter().any(|node| node.is_any());
 
-                if test_chunk_index.is_err() {
-                    found = req_ids_contains_none;
+                let test_nodes = &self.chunks[test_chunk_index].nodes[test_node_index];
+                if reset_nodes || test_nodes.is_none() {
+                    found = true;
                 } else {
-                    let test_nodes = &self.chunks[test_chunk_index.unwrap()].nodes[test_node_index];
-                    if reset_nodes || test_nodes.is_none() {
-                        found = true;
-                    } else {
-                        let test_ids = test_nodes.to_owned().unwrap();
+                    let test_ids = test_nodes.to_owned().unwrap();
 
-                        if test_ids.is_empty() && req_ids_contains_none {
-                            found = true;
-                        } else if req_ids_contains_any {
-                            found = test_ids.iter().any(|(node, _)| !node.is_empty())
-                        } else {
-                            for (test_id, _) in test_ids {
-                                if req_ids.contains(&test_id) {
-                                    found = true;
-                                    break;
-                                }
+                    if test_ids.is_empty() && req_ids_contains_none {
+                        found = true;
+                    } else if req_ids_contains_any {
+                        found = test_ids.iter().any(|(node, _)| !node.is_empty())
+                    } else {
+                        for (test_id, _) in test_ids {
+                            if req_ids.contains(&test_id) {
+                                found = true;
+                                break;
                             }
                         }
                     }
@@ -356,15 +332,11 @@ impl Ship {
                 for offset in rules.affected_by_node[&node_id].iter() {
                     let affected_pos = pos + *offset;
 
-                    let chunk_index = self.get_chunk_index(affected_pos);
-                    if chunk_index.is_err() {
-                        continue;
-                    }
+                    let chunk_index = self.get_chunk_index_from_node_pos(affected_pos);
 
                     let node_index = self.get_node_index(affected_pos);
 
-                    let node_world_index =
-                        self.to_world_node_index(chunk_index.unwrap(), node_index);
+                    let node_world_index = self.to_world_node_index(chunk_index, node_index);
 
                     self.to_propergate.push_back(node_world_index);
                 }
@@ -384,7 +356,7 @@ impl Ship {
         self.chunks[chunk_index].nodes[node_index] = Some(new_possible_node_ids);
     }
 
-    fn collapse(&mut self) -> Result<()> {
+    fn collapse(&mut self) -> usize {
         let node_world_index = self.to_collapse.pop_front().unwrap();
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let node_index_plus_padding = self.node_index_to_node_index_plus_padding(node_index);
@@ -405,7 +377,8 @@ impl Ship {
             RenderNode(!node_id.is_empty());
 
         self.chunks[chunk_index].nodes[node_index] = Some(possible_node_ids);
-        Ok(())
+
+        chunk_index
     }
 
     #[cfg(debug_assertions)]
@@ -485,7 +458,7 @@ impl Ship {
     }
 
     pub fn add_chunk(&mut self, chunk_pos: IVec3) {
-        let chunk = ShipChunk {
+        let chunk = ShipDataChunk {
             pos: chunk_pos,
             blocks: vec![BLOCK_INDEX_EMPTY; self.block_length()],
             nodes: vec![None; self.node_length()],
@@ -497,27 +470,35 @@ impl Ship {
     }
 
     pub fn has_chunk(&self, chunk_pos: IVec3) -> bool {
-        chunk_pos == IVec3::ZERO
+        self.chunks.iter().find(|c| c.pos == chunk_pos).is_some()
     }
 
-    pub fn get_chunk_index(&self, pos: IVec3) -> Result<usize> {
-        let chunk_pos = self.get_chunk_pos(pos);
+    pub fn get_chunk_index_from_node_pos(&mut self, node_pos: IVec3) -> usize {
+        let chunk_pos = self.get_chunk_pos_from_node_pos(node_pos);
 
-        if !self.has_chunk(chunk_pos) {
-            bail!("Chunk not found!");
-        }
+        let r = self.chunks.iter().position(|c| c.pos == chunk_pos);
+        let index = if r.is_none() {
+            self.add_chunk(chunk_pos);
+            self.chunks.len() - 1
+        } else {
+            r.unwrap()
+        };
 
-        Ok(0)
+        index
     }
 
-    pub fn get_node_pos_from_block_pos(&self, pos: IVec3) -> IVec3 {
-        pos * 2
+    pub fn get_node_pos_from_block_pos(&self, block_pos: IVec3) -> IVec3 {
+        block_pos * 2
     }
 
-    pub fn get_chunk_pos(&self, pos: IVec3) -> IVec3 {
-        (pos & self.chunk_pos_mask)
-            - self.chunk_voxel_size
-                * ivec3((pos.x < 0) as i32, (pos.y < 0) as i32, (pos.z < 0) as i32)
+    pub fn get_chunk_pos_from_node_pos(&self, node_pos: IVec3) -> IVec3 {
+        ((node_pos / self.nodes_per_chunk)
+            - ivec3(
+                (node_pos.x < 0) as i32,
+                (node_pos.y < 0) as i32,
+                (node_pos.z < 0) as i32,
+            ))
+            * self.nodes_per_chunk
     }
 
     pub fn get_in_chunk_pos(&self, pos: IVec3) -> IVec3 {
@@ -555,5 +536,13 @@ impl Ship {
     pub fn node_index_to_node_index_plus_padding(&self, node_index: usize) -> usize {
         let node_pos = to_3d_i(node_index as i32, self.nodes_per_chunk);
         to_1d_i(node_pos + IVec3::ONE, self.node_size_plus_padding()) as usize
+    }
+
+    pub fn block_world_pos_from_in_chunk_block_index(
+        &self,
+        block_index: usize,
+        chunk_pos: IVec3,
+    ) -> IVec3 {
+        to_3d_i(block_index as i32, self.blocks_per_chunk) + chunk_pos
     }
 }
