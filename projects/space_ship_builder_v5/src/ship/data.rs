@@ -434,15 +434,6 @@ impl ShipData {
         }
     }
 
-    pub fn recompute(&mut self) {
-        for chunk_index in 0..self.chunks.len() {
-            for node_index in 0..self.node_length() {
-                let node_world_index = self.to_world_node_index(chunk_index, node_index);
-                self.to_reset.push_back(node_world_index);
-            }
-        }
-    }
-
     // Math
     pub fn block_length(&self) -> usize {
         self.blocks_per_chunk.element_product() as usize

@@ -97,9 +97,7 @@ impl ShipBuilder {
         Ok(())
     }
 
-    pub fn on_rules_changed(&mut self) -> Result<()> {
+    pub fn on_rules_changed(&mut self) {
         self.last_block_to_build = BlockIndex::MAX;
-
-        Ok(())
     }
 }

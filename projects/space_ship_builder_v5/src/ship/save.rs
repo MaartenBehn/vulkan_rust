@@ -15,6 +15,16 @@ pub struct ShipSave {
 
 impl ShipData {
     pub fn save(&self, path: &str) -> Result<()> {
+        let save = self.get_save();
+
+        let mut file = File::create(path)?;
+        let data: Vec<u8> = bitcode::encode(&save);
+        file.write_all(&data)?;
+
+        Ok(())
+    }
+
+    pub fn get_save(&self) -> ShipSave {
         let mut blocks = Vec::new();
         for chunk in self.chunks.iter() {
             for (i, block) in chunk.blocks.iter().enumerate() {
@@ -28,16 +38,10 @@ impl ShipData {
             }
         }
 
-        let save = ShipSave {
+        ShipSave {
             blocks,
             nodes_per_chunk: self.nodes_per_chunk.into(),
-        };
-
-        let mut file = File::create(path)?;
-        let data: Vec<u8> = bitcode::encode(&save);
-        file.write_all(&data)?;
-
-        Ok(())
+        }
     }
 
     pub fn load(path: &str, rules: &Rules) -> Result<Self> {
@@ -48,12 +52,17 @@ impl ShipData {
         file.read(&mut data)?;
         let ship_save: ShipSave = bitcode::decode(&data)?;
 
-        let mut ship = ShipData::new(ship_save.nodes_per_chunk[0]);
+        let ship = Self::new_from_save(ship_save, rules);
+        Ok(ship)
+    }
 
-        for (pos, block) in ship_save.blocks {
+    pub fn new_from_save(save: ShipSave, rules: &Rules) -> Self {
+        let mut ship = ShipData::new(save.nodes_per_chunk[0]);
+
+        for (pos, block) in save.blocks {
             ship.place_block(pos.into(), block, rules);
         }
 
-        Ok(ship)
+        ship
     }
 }

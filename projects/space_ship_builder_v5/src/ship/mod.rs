@@ -142,6 +142,32 @@ impl ShipManager {
                 .render(buffer, image_index, RENDER_MODE_BASE, &ship.mesh);
         }
     }
+
+    pub fn on_voxel_change(
+        &mut self,
+        context: &Context,
+        num_frames: usize,
+        voxel_loader: &VoxelLoader,
+        rules: &Rules,
+    ) -> Result<()> {
+        for ship in self.ships.iter_mut() {
+            let save = ship.data.get_save();
+            ship.data = ShipData::new_from_save(save, rules);
+
+            if ship.has_builder() {
+                let mut builder = ship.builder.take().unwrap();
+
+                builder.on_rules_changed();
+
+                ship.builder = Some(builder);
+            }
+        }
+
+        self.renderer
+            .on_rules_changed(voxel_loader, context, num_frames)?;
+
+        Ok(())
+    }
 }
 
 impl Ship {

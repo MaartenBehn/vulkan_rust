@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Maarten Behn <maarten.behn@gmail.com>"]
 
 [profile.dev]
-opt-level = 0
+opt-level = 3
 
 [profile.release]
 opt-level = 3

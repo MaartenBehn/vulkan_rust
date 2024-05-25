@@ -113,22 +113,22 @@ impl App for SpaceShipBuilder {
 
         self.camera.update(&base.controls, delta_time);
 
-        /*
-                if base.controls.q && self.last_input + INPUT_INTERVALL < self.total_time {
-                    self.last_input = self.total_time;
+        if base.controls.q && self.last_input + INPUT_INTERVALL < self.total_time {
+            self.last_input = self.total_time;
 
-                    log::info!("reloading .vox File");
-                    let voxel_loader = VoxelLoader::new("./assets/space_ship.vox")?;
-                    self.rules = Rules::new(&voxel_loader);
+            log::info!("reloading .vox File");
+            let voxel_loader = VoxelLoader::new("./assets/space_ship.vox")?;
+            self.rules = Rules::new(&voxel_loader);
 
-                    self.builder.on_rules_changed()?;
-                    self.builder.ship.recompute();
-                    self.renderer
-                        .on_rules_changed(&self.voxel_loader, &base.context, base.num_frames)?;
+            self.ship_manager.on_voxel_change(
+                &base.context,
+                base.num_frames,
+                &self.voxel_loader,
+                &self.rules,
+            )?;
 
-                    log::info!(".vox File loaded");
-                }
-        */
+            log::info!(".vox File loaded");
+        }
 
         self.ship_manager.update(
             &self.rules,
