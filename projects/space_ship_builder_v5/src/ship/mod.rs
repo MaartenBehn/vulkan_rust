@@ -1,5 +1,3 @@
-use crate::debug::DebugController;
-use crate::debug::DebugMode::WFC;
 use crate::rules::Rules;
 use crate::ship::builder::ShipBuilder;
 use crate::ship::data::ShipData;
@@ -17,6 +15,9 @@ use octa_force::vulkan::ash::vk::Extent2D;
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::cmp::{max, min};
 use std::time::Duration;
+
+#[cfg(debug_assertions)]
+use crate::debug::{DebugController, DebugMode::WFC};
 
 pub mod builder;
 pub mod data;
@@ -72,7 +73,7 @@ impl ShipManager {
             ships: vec![ship],
             renderer,
 
-            actions_per_tick: 5,
+            actions_per_tick: 4,
             last_full_tick: false,
 
             last_input: Duration::default(),
@@ -95,9 +96,9 @@ impl ShipManager {
         #[cfg(debug_assertions)] debug_controller: &DebugController,
     ) -> Result<()> {
         if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
-            self.actions_per_tick = min(self.actions_per_tick + 5, 1_000_000_000);
+            self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
         } else if delta_time > MAX_TICK_LENGTH {
-            self.actions_per_tick = max(self.actions_per_tick - 5, 5);
+            self.actions_per_tick = max(self.actions_per_tick / 2, 4);
         }
 
         for ship in self.ships.iter_mut() {

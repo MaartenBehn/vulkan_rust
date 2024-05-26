@@ -2,6 +2,8 @@
 ## Bugs 
 - Hot reload Bug 
   - Rotation wrong 
+- Affected Node Bug 
+  - Collapse wird nicht immer richtig gepsuhed
 
 ## TODO
 - Split Fragment and Vertex Push Constant

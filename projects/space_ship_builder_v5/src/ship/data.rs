@@ -207,7 +207,8 @@ impl ShipData {
             }
         }
 
-        if new_base_possible_node_ids != self.chunks[chunk_index].nodes_base[node_index] {
+        let old_possible_node_ids = self.chunks[chunk_index].nodes_base[node_index].to_owned();
+        if new_base_possible_node_ids != old_possible_node_ids {
             let mut push_neigbors = |node_id: NodeID| {
                 if !rules.affected_by_node.contains_key(&node_id) {
                     return;
@@ -223,16 +224,21 @@ impl ShipData {
                     let node_world_index = self.to_world_node_index(chunk_index, node_index);
 
                     self.block_changed.push_back(node_world_index);
+                    self.to_reset.push_back(node_world_index);
                 }
             };
+
+            for (_, node_id, _) in old_possible_node_ids.iter() {
+                push_neigbors(node_id.to_owned());
+            }
 
             for (_, node_id, _) in new_base_possible_node_ids.iter() {
                 push_neigbors(node_id.to_owned());
             }
 
-            self.chunks[chunk_index].node_id_bits[node_index] = NodeID::empty().into();
             self.to_reset.push_back(node_world_index);
             self.was_reset.push_back(node_world_index);
+            self.to_collapse.push_back(node_world_index);
 
             #[cfg(debug_assertions)]
             if debug {
@@ -313,7 +319,8 @@ impl ShipData {
         let new_possible_node_ids =
             self.propergate_node_world_index(pos, chunk_index, node_index, rules, true);
 
-        if new_possible_node_ids != self.chunks[chunk_index].nodes[node_index] {
+        let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index].to_owned();
+        if new_possible_node_ids != old_possible_node_ids {
             let mut push_neigbors = |node_id: NodeID| {
                 if !rules.affected_by_node.contains_key(&node_id) {
                     return;
@@ -336,6 +343,10 @@ impl ShipData {
                 }
             };
 
+            for (_, node_id, _) in old_possible_node_ids.iter() {
+                push_neigbors(node_id.to_owned());
+            }
+
             for (_, node_id, _) in new_possible_node_ids.iter() {
                 push_neigbors(node_id.to_owned());
             }
@@ -355,7 +366,8 @@ impl ShipData {
         let new_possible_node_ids =
             self.propergate_node_world_index(pos, chunk_index, node_index, rules, false);
 
-        if new_possible_node_ids != self.chunks[chunk_index].nodes[node_index] {
+        let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index].to_owned();
+        if new_possible_node_ids != *old_possible_node_ids {
             let mut push_neigbors = |node_id: NodeID| {
                 if !rules.affected_by_node.contains_key(&node_id) {
                     return;
@@ -373,6 +385,10 @@ impl ShipData {
                     self.to_propergate.push_back(node_world_index);
                 }
             };
+
+            for (_, node_id, _) in old_possible_node_ids.iter() {
+                push_neigbors(node_id.to_owned());
+            }
 
             for (_, node_id, _) in new_possible_node_ids.iter() {
                 push_neigbors(node_id.to_owned());
@@ -410,6 +426,20 @@ impl ShipData {
                 (chunk.pos * self.nodes_per_chunk).as_vec3(),
                 ((chunk.pos + IVec3::ONE) * self.nodes_per_chunk).as_vec3(),
                 vec4(1.0, 0.0, 0.0, 1.0),
+            );
+        }
+
+        let mut block_changed = self.block_changed.to_owned();
+
+        while !block_changed.is_empty() {
+            let node_world_index = block_changed.pop_front().unwrap();
+            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
+            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+
+            debug_controller.add_cube(
+                pos.as_vec3(),
+                pos.as_vec3() + Vec3::ONE,
+                vec4(1.0, 0.0, 1.0, 1.0),
             );
         }
 
