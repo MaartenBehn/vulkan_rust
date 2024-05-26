@@ -224,7 +224,7 @@ impl ShipData {
                     let node_world_index = self.to_world_node_index(chunk_index, node_index);
 
                     self.block_changed.push_back(node_world_index);
-                    self.to_reset.push_back(node_world_index);
+                    self.to_collapse.push_back(node_world_index);
                 }
             };
 
