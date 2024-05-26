@@ -1,3 +1,5 @@
+use crate::debug::DebugController;
+use crate::debug::DebugMode::WFC;
 use crate::rules::Rules;
 use crate::ship::builder::ShipBuilder;
 use crate::ship::data::ShipData;
@@ -89,6 +91,8 @@ impl ShipManager {
         controls: &Controls,
         camera: &Camera,
         extent: Extent2D,
+
+        #[cfg(debug_assertions)] debug_controller: &DebugController,
     ) -> Result<()> {
         if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick + 5, 1_000_000_000);
@@ -100,6 +104,12 @@ impl ShipManager {
             if ship.builder.is_some() {
                 let mut builder = ship.builder.take().unwrap();
 
+                #[cfg(debug_assertions)]
+                if debug_controller.mode != WFC || controls.lshift {
+                    builder.update(&mut ship.data, controls, camera, rules, total_time)?;
+                }
+
+                #[cfg(not(debug_assertions))]
                 builder.update(&mut ship.data, controls, camera, rules, total_time)?;
 
                 ship.builder = Some(builder);

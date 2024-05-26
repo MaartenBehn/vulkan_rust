@@ -139,6 +139,7 @@ impl App for SpaceShipBuilder {
             &base.controls,
             &self.camera,
             base.swapchain.extent,
+            &self.debug_controller,
         )?;
 
         #[cfg(debug_assertions)]

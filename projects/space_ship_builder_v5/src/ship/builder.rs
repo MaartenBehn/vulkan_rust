@@ -1,3 +1,4 @@
+use crate::debug::DebugController;
 use crate::node::BlockIndex;
 use crate::rules::Rules;
 use crate::voxel_loader::VoxelLoader;
@@ -66,7 +67,6 @@ impl ShipBuilder {
 
             self.block_to_build = (self.block_to_build + 1) % self.possible_blocks.len();
         }
-
         self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
         let pos = (((camera.position + camera.direction * self.distance) - vec3(1.0, 1.0, 1.0))

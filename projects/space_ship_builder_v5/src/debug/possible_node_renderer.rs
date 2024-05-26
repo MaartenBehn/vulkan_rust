@@ -103,13 +103,9 @@ impl DebugController {
                 for z in 0..ship.nodes_per_chunk.z {
                     let node_pos = ivec3(x, y, z);
                     let node_index = ship.get_node_index(node_pos);
-                    let r = ship_chunk.nodes[node_index].to_owned();
-                    if r.is_none() {
-                        continue;
-                    }
 
                     let mut pattern_counter = 0;
-                    let possible_pattern = r.unwrap();
+                    let possible_pattern = ship_chunk.nodes[node_index].to_owned();
                     let node_pos = node_pos * pattern_block_size;
 
                     'iter: for iz in 0..pattern_block_size.x {
@@ -122,7 +118,7 @@ impl DebugController {
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
                                 let index = to_1d_i(pattern_pos, size) as usize;
 
-                                let (node_id, _) = possible_pattern[pattern_counter];
+                                let (_, node_id, _) = possible_pattern[pattern_counter];
                                 node_debug_node_id_bits[index] = node_id.into();
 
                                 if node_id.is_empty() {
