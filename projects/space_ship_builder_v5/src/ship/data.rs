@@ -1,4 +1,4 @@
-use crate::math::{get_packed_index, to_3d_i};
+use crate::math::{get_neighbors, get_packed_index, to_3d_i};
 use crate::node::{Node, NodeID, NodeIndex, PatternIndex, EMPYT_PATTERN_INDEX};
 use crate::rules::Rules;
 use crate::{
@@ -316,43 +316,25 @@ impl ShipData {
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
+        let neighbor_infos = self.get_neighbor_infos(pos);
+
         let new_possible_node_ids =
             self.propergate_node_world_index(pos, chunk_index, node_index, rules, true);
 
         let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index].to_owned();
         if new_possible_node_ids != old_possible_node_ids {
-            let mut push_neigbors = |node_id: NodeID| {
-                if !rules.affected_by_node.contains_key(&node_id) {
-                    return;
+            for (_, chunk_index, node_index) in neighbor_infos {
+                let node_world_index = self.to_world_node_index(chunk_index, node_index);
+                if !self.was_reset.contains(node_world_index) {
+                    self.to_reset.push_back(node_world_index);
+                } else {
+                    self.to_propergate.push_back(node_world_index);
                 }
-
-                for offset in rules.affected_by_node[&node_id].iter() {
-                    let affected_pos = pos + *offset;
-
-                    let chunk_index = self.get_chunk_index_from_node_pos(affected_pos);
-
-                    let node_index = self.get_node_index(affected_pos);
-
-                    let node_world_index = self.to_world_node_index(chunk_index, node_index);
-
-                    if !self.was_reset.contains(node_world_index) {
-                        self.to_reset.push_back(node_world_index);
-                    } else {
-                        self.to_propergate.push_back(node_world_index);
-                    }
-                }
-            };
-
-            for (_, node_id, _) in old_possible_node_ids.iter() {
-                push_neigbors(node_id.to_owned());
-            }
-
-            for (_, node_id, _) in new_possible_node_ids.iter() {
-                push_neigbors(node_id.to_owned());
             }
 
             self.was_reset.push_back(node_world_index);
             self.to_propergate.push_back(node_world_index);
+            self.to_collapse.push_back(node_world_index);
 
             self.chunks[chunk_index].nodes[node_index] = new_possible_node_ids;
         }
@@ -363,35 +345,16 @@ impl ShipData {
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
+        let neighbor_infos = self.get_neighbor_infos(pos);
+
         let new_possible_node_ids =
             self.propergate_node_world_index(pos, chunk_index, node_index, rules, false);
 
         let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index].to_owned();
         if new_possible_node_ids != *old_possible_node_ids {
-            let mut push_neigbors = |node_id: NodeID| {
-                if !rules.affected_by_node.contains_key(&node_id) {
-                    return;
-                }
-
-                for offset in rules.affected_by_node[&node_id].iter() {
-                    let affected_pos = pos + *offset;
-
-                    let chunk_index = self.get_chunk_index_from_node_pos(affected_pos);
-
-                    let node_index = self.get_node_index(affected_pos);
-
-                    let node_world_index = self.to_world_node_index(chunk_index, node_index);
-
-                    self.to_propergate.push_back(node_world_index);
-                }
-            };
-
-            for (_, node_id, _) in old_possible_node_ids.iter() {
-                push_neigbors(node_id.to_owned());
-            }
-
-            for (_, node_id, _) in new_possible_node_ids.iter() {
-                push_neigbors(node_id.to_owned());
+            for (_, chunk_index, node_index) in neighbor_infos {
+                let node_world_index = self.to_world_node_index(chunk_index, node_index);
+                self.to_propergate.push_back(node_world_index);
             }
 
             self.to_collapse.push_back(node_world_index);
@@ -588,5 +551,18 @@ impl ShipData {
         chunk_pos: IVec3,
     ) -> IVec3 {
         to_3d_i(block_index as i32, self.blocks_per_chunk) + chunk_pos
+    }
+
+    fn get_neighbor_infos(&mut self, pos: IVec3) -> Vec<(IVec3, usize, usize)> {
+        get_neighbors()
+            .into_iter()
+            .map(|offset| {
+                let neighbor_pos = pos + offset;
+                let chunk_index = self.get_chunk_index_from_node_pos(neighbor_pos);
+                let node_index = self.get_node_index(neighbor_pos);
+
+                (neighbor_pos, chunk_index, node_index)
+            })
+            .collect()
     }
 }
