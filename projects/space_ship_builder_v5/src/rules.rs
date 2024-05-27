@@ -12,16 +12,15 @@ pub struct Rules {
     pub map_rules_index_to_node_id: Vec<Vec<NodeID>>,
 
     pub node_rules: Vec<HashMap<IVec3, Vec<NodeID>>>,
-    pub block_rules: Vec<Vec<(HashMap<IVec3, BlockIndex>, usize)>>,
+    pub block_rules: Vec<Vec<(Vec<(IVec3, BlockIndex)>, usize)>>,
 
     pub affected_by_block: Vec<Vec<IVec3>>,
-    pub affected_by_node: HashMap<NodeID, Vec<IVec3>>,
 }
 
 impl Rules {
     pub fn new(voxel_loader: &VoxelLoader) -> Self {
         let mut possible_node_neighbor_list: Vec<HashMap<IVec3, Vec<NodeID>>> = Vec::new();
-        let mut possible_block_neighbor_list: Vec<Vec<(HashMap<IVec3, BlockIndex>, usize)>> =
+        let mut possible_block_neighbor_list: Vec<Vec<(Vec<(IVec3, BlockIndex)>, usize)>> =
             Vec::new();
         let mut node_id_index_map = Vec::new();
 
@@ -88,7 +87,7 @@ impl Rules {
             let block_pos = (pos.as_ivec3() / 2) * 2;
             let in_block_pos = pos.as_ivec3() % 2;
 
-            let mut possible_block_neighbors = HashMap::default();
+            let mut possible_block_neighbors = Vec::new();
             for offset in get_neighbors() {
                 let neighbor_offset = offset * 2;
                 let neighbor_pos = block_pos + neighbor_offset;
@@ -104,10 +103,10 @@ impl Rules {
                 }
 
                 let block_neigbor_offset = neighbor_offset - in_block_pos;
-                possible_block_neighbors.insert(
+                possible_block_neighbors.push((
                     block_neigbor_offset,
                     neighbor_block_index.unwrap().to_owned(),
-                );
+                ));
             }
 
             possible_block_neighbor_list[node_id_index].push((possible_block_neighbors, *prio));
@@ -116,7 +115,7 @@ impl Rules {
         let mut permutated_possible_node_neighbor_list: Vec<HashMap<IVec3, Vec<NodeID>>> =
             Vec::new();
         let mut permutated_possible_block_neighbor_list: Vec<
-            Vec<(HashMap<IVec3, BlockIndex>, usize)>,
+            Vec<(Vec<(IVec3, BlockIndex)>, usize)>,
         > = Vec::new();
         let mut permutated_node_id_index_map = Vec::new();
 
@@ -124,8 +123,6 @@ impl Rules {
         for _ in 0..voxel_loader.block_names.len() {
             affected_by_block.push(Vec::new())
         }
-
-        let mut affected_by_node: HashMap<NodeID, Vec<IVec3>> = HashMap::default();
 
         let (rotations, flips) = Self::all_rotations_and_flips();
         for ((node_ids, node_req), block_reqs) in node_id_index_map
@@ -175,13 +172,6 @@ impl Rules {
                             } else {
                                 permutated_node_id_index_map[mapped_req_index][0]
                             };
-
-                            let affected = affected_by_node
-                                .entry(mapped_req_id.to_owned())
-                                .or_default();
-                            if !affected.contains(&inv_offset) {
-                                affected.push(inv_offset);
-                            }
 
                             let ids = permutated_possible_node_neighbor_list[node_id_index]
                                 .entry(offset)
@@ -269,7 +259,6 @@ impl Rules {
             block_rules: permutated_possible_block_neighbor_list,
             map_rules_index_to_node_id: permutated_node_id_index_map,
             affected_by_block,
-            affected_by_node,
         }
     }
 
@@ -430,9 +419,9 @@ impl Rules {
 
     fn flip_block_req(
         node_id: &NodeID,
-        block_req: &HashMap<IVec3, BlockIndex>,
+        block_req: &Vec<(IVec3, BlockIndex)>,
         flips: &Vec<BVec3>,
-    ) -> Vec<(NodeID, HashMap<IVec3, BlockIndex>)> {
+    ) -> Vec<(NodeID, Vec<(IVec3, BlockIndex)>)> {
         let mut rotated_rules = Vec::new();
 
         for flip in flips.iter() {
@@ -448,7 +437,7 @@ impl Rules {
             );
             let flipped_rot = node_id.rot.flip(flip.to_owned());
 
-            let flippped_req: HashMap<_, _> = block_req
+            let flippped_req: Vec<_> = block_req
                 .iter()
                 .map(|(pos, indecies)| {
                     let flipped_pos = ((*pos) + flip_b) * flip_a;
@@ -464,9 +453,9 @@ impl Rules {
 
     fn rotate_block_req(
         node_id: &NodeID,
-        block_req: &HashMap<IVec3, BlockIndex>,
+        block_req: &Vec<(IVec3, BlockIndex)>,
         rotates: &Vec<BVec3>,
-    ) -> Vec<(NodeID, HashMap<IVec3, BlockIndex>)> {
+    ) -> Vec<(NodeID, Vec<(IVec3, BlockIndex)>)> {
         let mut rotated_rules = Vec::new();
 
         for &rotate in rotates {
@@ -501,7 +490,7 @@ impl Rules {
 
             let rotated_rot: Rot = Mat3::from_mat4(mat * rot_mat).into();
 
-            let rotated_req: HashMap<_, _> = block_req
+            let rotated_req: Vec<_> = block_req
                 .iter()
                 .map(|(pos, indecies)| {
                     let rotated_pos = pos_mat.transform_point3(pos.as_vec3()).round().as_ivec3();

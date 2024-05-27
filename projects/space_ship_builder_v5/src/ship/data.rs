@@ -209,31 +209,9 @@ impl ShipData {
 
         let old_possible_node_ids = self.chunks[chunk_index].nodes_base[node_index].to_owned();
         if new_base_possible_node_ids != old_possible_node_ids {
-            let mut push_neigbors = |node_id: NodeID| {
-                if !rules.affected_by_node.contains_key(&node_id) {
-                    return;
-                }
-
-                for offset in rules.affected_by_node[&node_id].iter() {
-                    let affected_pos = pos + *offset;
-
-                    let chunk_index = self.get_chunk_index_from_node_pos(affected_pos);
-
-                    let node_index = self.get_node_index(affected_pos);
-
-                    let node_world_index = self.to_world_node_index(chunk_index, node_index);
-
-                    self.block_changed.push_back(node_world_index);
-                    self.to_collapse.push_back(node_world_index);
-                }
-            };
-
-            for (_, node_id, _) in old_possible_node_ids.iter() {
-                push_neigbors(node_id.to_owned());
-            }
-
-            for (_, node_id, _) in new_base_possible_node_ids.iter() {
-                push_neigbors(node_id.to_owned());
+            for node_world_index in self.get_neighbor_world_node_index(pos) {
+                self.block_changed.push_back(node_world_index);
+                self.to_collapse.push_back(node_world_index);
             }
 
             self.to_reset.push_back(node_world_index);
@@ -277,9 +255,19 @@ impl ShipData {
                 let test_chunk_index = self.get_chunk_index_from_node_pos(test_pos);
                 let test_node_index = self.get_node_index(test_pos);
 
-                let mut found = false;
-                let req_ids_contains_none = req_ids.iter().any(|node| node.is_empty());
-                let req_ids_contains_any = req_ids.iter().any(|node| node.is_any());
+                let mut req_ids_contains_empty = false;
+                let mut req_ids_contains_any = false;
+                for req_node in req_ids {
+                    if req_node.is_empty() {
+                        req_ids_contains_empty = true;
+                    }
+                    if req_node.is_any() {
+                        req_ids_contains_any = true;
+                    }
+                    if req_ids_contains_empty && req_ids_contains_any {
+                        break;
+                    }
+                }
 
                 let test_nodes = if reset_nodes {
                     &self.chunks[test_chunk_index].nodes_base[test_node_index]
@@ -287,7 +275,8 @@ impl ShipData {
                     &self.chunks[test_chunk_index].nodes[test_node_index]
                 };
 
-                if test_nodes.is_empty() && req_ids_contains_none {
+                let mut found = false;
+                if test_nodes.is_empty() && req_ids_contains_empty {
                     found = true;
                 } else if req_ids_contains_any {
                     found = test_nodes.iter().any(|(_, node, _)| !node.is_empty())
@@ -316,15 +305,12 @@ impl ShipData {
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
-        let neighbor_infos = self.get_neighbor_infos(pos);
-
         let new_possible_node_ids =
             self.propergate_node_world_index(pos, chunk_index, node_index, rules, true);
 
         let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index].to_owned();
         if new_possible_node_ids != old_possible_node_ids {
-            for (_, chunk_index, node_index) in neighbor_infos {
-                let node_world_index = self.to_world_node_index(chunk_index, node_index);
+            for node_world_index in self.get_neighbor_world_node_index(pos) {
                 if !self.was_reset.contains(node_world_index) {
                     self.to_reset.push_back(node_world_index);
                 } else {
@@ -345,15 +331,12 @@ impl ShipData {
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
-        let neighbor_infos = self.get_neighbor_infos(pos);
-
         let new_possible_node_ids =
             self.propergate_node_world_index(pos, chunk_index, node_index, rules, false);
 
         let old_possible_node_ids = self.chunks[chunk_index].nodes[node_index].to_owned();
         if new_possible_node_ids != *old_possible_node_ids {
-            for (_, chunk_index, node_index) in neighbor_infos {
-                let node_world_index = self.to_world_node_index(chunk_index, node_index);
+            for node_world_index in self.get_neighbor_world_node_index(pos) {
                 self.to_propergate.push_back(node_world_index);
             }
 
@@ -518,8 +501,8 @@ impl ShipData {
     }
 
     pub fn get_node_index(&self, pos: IVec3) -> usize {
-        let in_chunk_index = self.get_in_chunk_pos(pos);
-        to_1d_i(in_chunk_index, self.nodes_per_chunk) as usize
+        let in_chunk_pos = self.get_in_chunk_pos(pos);
+        to_1d_i(in_chunk_pos, self.nodes_per_chunk) as usize
     }
 
     pub fn to_world_node_index(&self, chunk_index: usize, node_index: usize) -> usize {
@@ -553,16 +536,16 @@ impl ShipData {
         to_3d_i(block_index as i32, self.blocks_per_chunk) + chunk_pos
     }
 
-    fn get_neighbor_infos(&mut self, pos: IVec3) -> Vec<(IVec3, usize, usize)> {
+    fn get_neighbor_world_node_index(&mut self, pos: IVec3) -> impl Iterator<Item = usize> {
         get_neighbors()
-            .into_iter()
             .map(|offset| {
                 let neighbor_pos = pos + offset;
                 let chunk_index = self.get_chunk_index_from_node_pos(neighbor_pos);
                 let node_index = self.get_node_index(neighbor_pos);
+                let node_world_index = self.to_world_node_index(chunk_index, node_index);
 
-                (neighbor_pos, chunk_index, node_index)
+                node_world_index
             })
-            .collect()
+            .into_iter()
     }
 }

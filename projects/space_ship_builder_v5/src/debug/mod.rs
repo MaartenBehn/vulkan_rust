@@ -1,10 +1,8 @@
-mod affected_by_node;
 pub mod line_renderer;
 pub mod node_req;
 pub mod possible_node_renderer;
 pub mod text_renderer;
 
-use crate::debug::affected_by_node::AffectedByNodeRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::node_req::NodeReqRenderer;
 use crate::debug::possible_node_renderer::DebugPossibleNodeRenderer;
@@ -25,7 +23,6 @@ pub enum DebugMode {
     OFF,
     WFC,
     NODE_REQ,
-    AFFCETD_BY_NODE,
 }
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
@@ -36,7 +33,6 @@ pub struct DebugController {
     pub text_renderer: DebugTextRenderer,
     pub possible_node_renderer: DebugPossibleNodeRenderer,
     pub node_req_renderer: NodeReqRenderer,
-    pub affected_by_node_renderer: AffectedByNodeRenderer,
 
     last_mode_change: Duration,
 }
@@ -63,7 +59,6 @@ impl DebugController {
 
         let possible_node_renderer = DebugPossibleNodeRenderer::new(images_len, ship);
         let node_req_renderer = NodeReqRenderer::new(images_len);
-        let affected_by_node_renderer = AffectedByNodeRenderer::new(images_len);
 
         Ok(DebugController {
             mode: DebugMode::OFF,
@@ -71,7 +66,6 @@ impl DebugController {
             text_renderer,
             possible_node_renderer,
             node_req_renderer,
-            affected_by_node_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
@@ -105,16 +99,6 @@ impl DebugController {
             }
         }
 
-        if controls.f4 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
-            self.last_mode_change = total_time;
-
-            self.mode = if self.mode != DebugMode::AFFCETD_BY_NODE {
-                DebugMode::AFFCETD_BY_NODE
-            } else {
-                DebugMode::OFF
-            }
-        }
-
         match self.mode {
             DebugMode::OFF => {
                 self.line_renderer.vertecies_count = 0;
@@ -130,17 +114,6 @@ impl DebugController {
             }
             DebugMode::NODE_REQ => {
                 self.update_node_req(
-                    rules,
-                    controls,
-                    image_index,
-                    &context,
-                    &renderer.chunk_descriptor_layout,
-                    &renderer.descriptor_pool,
-                    total_time,
-                )?;
-            }
-            DebugMode::AFFCETD_BY_NODE => {
-                self.update_affected_by_node(
                     rules,
                     controls,
                     image_index,
@@ -178,10 +151,6 @@ impl DebugController {
             }
             DebugMode::NODE_REQ => {
                 self.node_req_renderer.render(buffer, renderer, image_index);
-            }
-            DebugMode::AFFCETD_BY_NODE => {
-                self.affected_by_node_renderer
-                    .render(buffer, renderer, image_index);
             }
         }
 
