@@ -82,6 +82,17 @@ pub fn all_bvec3s() -> [BVec3; 8] {
     ]
 }
 
+pub fn all_sides_dirs() -> [IVec3; 6] {
+    [
+        ivec3(1, 0, 0),
+        ivec3(-1, 0, 0),
+        ivec3(0, 1, 0),
+        ivec3(0, -1, 0),
+        ivec3(0, 0, 1),
+        ivec3(0, 0, -1),
+    ]
+}
+
 pub const PACKED_WORD_SIZE: usize = 8;
 pub fn get_packed_index(index: usize) -> (usize, u8) {
     (index / PACKED_WORD_SIZE, 1 << (index % PACKED_WORD_SIZE))

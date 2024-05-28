@@ -1,5 +1,5 @@
-use crate::math::{get_neighbors, get_packed_index, to_3d_i};
-use crate::node::{Node, NodeID, NodeIndex, BLOCK_INDEX_EMPTY};
+use crate::math::{get_neighbors, to_3d_i};
+use crate::node::{NodeID, NodeIndex, BLOCK_INDEX_EMPTY};
 use crate::rules::{Prio, Rules};
 use crate::{
     math::{to_1d, to_1d_i, to_3d},
@@ -93,6 +93,7 @@ impl ShipData {
                 return;
             }
 
+            /*
             for offset in rules.affected_by_block[block_index].iter() {
                 let affected_pos = pos + *offset;
 
@@ -103,6 +104,7 @@ impl ShipData {
                 let node_world_index = self.to_world_node_index(chunk_index, node_index);
                 self.block_changed.push_back(node_world_index);
             }
+             */
         };
 
         push_blocks_changed(old_block_index, pos);
@@ -159,6 +161,8 @@ impl ShipData {
         let node_world_index = self.block_changed.pop_front().unwrap();
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let pos = self.pos_from_world_node_index(chunk_index, node_index);
+
+        /*
 
         let mut new_base_possible_node_ids = Vec::new();
         for (i, (node_ids, block_reqs)) in rules
@@ -227,6 +231,8 @@ impl ShipData {
 
             self.chunks[chunk_index].nodes_base[node_index] = new_base_possible_node_ids;
         }
+
+         */
     }
 
     fn propergate_node_world_index(
@@ -239,6 +245,7 @@ impl ShipData {
     ) -> Vec<(usize, NodeID, Prio)> {
         let mut new_possible_node_ids = Vec::new();
 
+        /*
         let possible_node_ids = if reset_nodes {
             self.chunks[chunk_index].nodes_base[node_index].to_owned()
         } else {
@@ -296,6 +303,8 @@ impl ShipData {
                 new_possible_node_ids.push((*i, node_id.to_owned(), *prio));
             }
         }
+
+         */
 
         return new_possible_node_ids;
     }

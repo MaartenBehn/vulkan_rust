@@ -24,10 +24,7 @@ use std::{iter, mem};
 const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 
 #[cfg(debug_assertions)]
-use crate::debug::node_req::RULES_SIZE;
-
-#[cfg(debug_assertions)]
-const RULES_SIZE_PLUS_PADDING: u32 = (RULES_SIZE + 2) as u32;
+const RULES_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 
 pub struct ShipMesh {
     pub chunks: Vec<MeshChunk>,
@@ -433,7 +430,7 @@ impl MeshChunk {
         }
 
         #[cfg(debug_assertions)]
-        if render_size == (IVec3::ONE * RULES_SIZE) {
+        if render_size == (IVec3::ONE * CHUNK_SIZE) {
             let shape: ConstShape3u32<
                 RULES_SIZE_PLUS_PADDING,
                 RULES_SIZE_PLUS_PADDING,

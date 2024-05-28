@@ -1,11 +1,16 @@
 use crate::rotation::Rot;
 use dot_vox::Color;
-use octa_force::{glam::{ivec3, uvec3, vec4, IVec3, Mat4, UVec3}, anyhow::Result};
+use octa_force::{
+    anyhow::Result,
+    glam::{ivec3, uvec3, vec4, IVec3, Mat4, UVec3},
+};
 
 use crate::math::{to_1d, to_3d};
+use crate::rules::Rules;
+use octa_force::glam::Mat3;
 use std::hash::Hash;
 use std::iter::repeat;
-use octa_force::anyhow::bail;
+use std::ops::Mul;
 
 pub type NodeIndex = usize;
 pub type BlockIndex = usize;
@@ -81,35 +86,24 @@ impl Node {
             })
     }
 
-    /*
-    pub fn is_duplicate_node_id(
-        node_id: &NodeID,
-        test_id: &NodeID,
-        rules: &VoxelLoader,
-    ) -> bool {
-        if node_id.is_empty() || test_id.is_empty() {
-            return node_id.is_empty() && test_id.is_empty();
-        }
-
+    pub fn is_duplicate_node_id(&self, rot: Rot, other_node: &Node, other_rot: Rot) -> bool {
         let mut same = true;
 
-        let node = &voxel_loader.nodes[node_id.index];
-        let test_node = &voxel_loader.nodes[test_id.index];
-        let mat: Mat3 = node_id.rot.into();
+        let mat: Mat3 = rot.into();
         let inv_rot: Rot = mat.inverse().into();
-        let combined_rot = test_id.rot.mul(inv_rot);
+        let combined_rot = other_rot.mul(inv_rot);
 
-        for (rotated_pos, voxel) in test_node.get_rotated_voxels(combined_rot) {
+        for (rotated_pos, voxel) in other_node.get_rotated_voxels(combined_rot) {
             let voxel_index = to_1d(rotated_pos, NODE_SIZE);
 
-            if node.voxels[voxel_index] != voxel {
+            if self.voxels[voxel_index] != voxel {
                 same = false;
+                break;
             }
         }
 
         same
     }
-     */
 
     pub fn shares_side_voxels(
         &self,
@@ -117,7 +111,7 @@ impl Node {
         other_node: &Node,
         other_rot: Rot,
         side: IVec3,
-    ) -> Result<bool> {
+    ) -> bool {
         let mat: Mat4 = rot.into();
         let other_mat: Mat4 = other_rot.into();
 
@@ -125,7 +119,7 @@ impl Node {
         let other_rot_offset = Self::get_voxel_rot_offset(other_rot);
 
         let (index_i, index_j, index_k, k_pos, k_neg) = if side.x == 1 {
-           (1, 2, 0, 3, 0)
+            (1, 2, 0, 3, 0)
         } else if side.x == -1 {
             (1, 2, 0, 0, 3)
         } else if side.y == 1 {
@@ -137,9 +131,9 @@ impl Node {
         } else if side.z == -1 {
             (0, 1, 2, 3, 0)
         } else {
-            bail!("Invalid side vector {}", side)
+            unreachable!()
         };
-        
+
         let mut same = true;
         for i in 0..4 {
             for j in 0..4 {
@@ -148,24 +142,24 @@ impl Node {
                 p[index_j] = j;
                 p[index_k] = k_pos;
                 let pos = UVec3::from(p);
-                
+
                 p[index_k] = k_neg;
                 let other_pos = UVec3::from(p);
-                
+
                 let rotated_pos = Self::rotate_voxel_pos(pos, mat, rot_offset);
-                let rotated_other_pos = Self::rotate_voxel_pos(other_pos, other_mat, other_rot_offset);
+                let rotated_other_pos =
+                    Self::rotate_voxel_pos(other_pos, other_mat, other_rot_offset);
                 let voxel = self.voxels[to_1d(rotated_pos, NODE_SIZE)];
-                let other_voxel = self.voxels[to_1d(rotated_other_pos, NODE_SIZE)];
-                
+                let other_voxel = other_node.voxels[to_1d(rotated_other_pos, NODE_SIZE)];
+
                 if voxel != other_voxel {
                     same = false;
                     break;
                 }
-                
             }
         }
-        
-        Ok(same)
+
+        same
     }
 }
 

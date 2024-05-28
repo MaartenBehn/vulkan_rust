@@ -28,6 +28,7 @@ pub mod rotation;
 pub mod rules;
 pub mod ship;
 pub mod voxel_loader;
+
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Space ship builder";

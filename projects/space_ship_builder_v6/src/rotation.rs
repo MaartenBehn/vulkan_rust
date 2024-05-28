@@ -1,6 +1,6 @@
 use std::{collections::HashMap, f32::consts::PI};
 
-use crate::math::{all_bvec3s, in_node_positions};
+use crate::math::{all_bvec3s, all_sides_dirs};
 use octa_force::{
     glam::{vec3, BVec3, Mat3, Mat4, Quat, Vec3},
     log,
