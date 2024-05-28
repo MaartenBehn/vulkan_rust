@@ -1,0 +1,22 @@
+[package]
+name = "space_ship_builder_v6"
+version = "0.1.0"
+edition = "2021"
+authors = ["Maarten Behn <maarten.behn@gmail.com>"]
+
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+
+[dependencies]
+octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", version = "0.1.6" }
+# octa-force = { path="../../../../octa-force-rs" }
+
+dot_vox = "5.1.1"
+block-mesh = "0.2.0"
+index_queue = "0.1.0"
+log = "0.4.17"
+bitcode = "0.6.0"
+

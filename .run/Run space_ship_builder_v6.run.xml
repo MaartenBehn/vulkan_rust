@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Run space_ship_builder_v5" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="run --package space_ship_builder_v5 --bin space_ship_builder_v5" />
-    <option name="workingDirectory" value="file://$PROJECT_DIR$/projects/space_ship_builder_v5" />
+  <configuration default="false" name="Run space_ship_builder_v6" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="run --package space_ship_builder_v6 --bin space_ship_builder_v6" />
+    <option name="workingDirectory" value="file://$PROJECT_DIR$/projects/space_ship_builder_v6" />
     <envs />
     <option name="emulateTerminal" value="true" />
     <option name="channel" value="DEFAULT" />
