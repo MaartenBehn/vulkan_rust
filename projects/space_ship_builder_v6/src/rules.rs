@@ -84,12 +84,7 @@ impl Rules {
 
     fn add_sides_match_node_rules(&mut self, node_ids: &[NodeID]) {
         for node_id in node_ids.to_owned() {
-            
-            for test_id in node_ids {
-                
-                
-                
-            }
+            for test_id in node_ids {}
         }
     }
 }
