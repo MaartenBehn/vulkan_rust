@@ -271,7 +271,6 @@ impl ShipData {
 
     #[cfg(debug_assertions)]
     pub fn show_debug(&self, debug_controller: &mut DebugController) {
-        /*
         for chunk in self.chunks.iter() {
             debug_controller.add_cube(
                 (chunk.pos * self.nodes_per_chunk).as_vec3(),
@@ -281,11 +280,10 @@ impl ShipData {
         }
 
         let mut block_changed = self.block_changed.to_owned();
-
         while !block_changed.is_empty() {
-            let node_world_index = block_changed.pop_front().unwrap();
-            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
-            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+            let order = block_changed.pop_front().unwrap();
+            let (_, chunk_index, node_index) = self.order_controller.unpack_order_with_block(order);
+            let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
                 pos.as_vec3(),
@@ -295,11 +293,10 @@ impl ShipData {
         }
 
         let mut to_reset = self.to_reset.to_owned();
-
         while !to_reset.is_empty() {
-            let node_world_index = to_reset.pop_front().unwrap();
-            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
-            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+            let order = to_reset.pop_front().unwrap();
+            let (_, chunk_index, node_index) = self.order_controller.unpack_order_with_block(order);
+            let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
                 pos.as_vec3(),
@@ -309,11 +306,10 @@ impl ShipData {
         }
 
         let mut to_propergate = self.to_propergate.to_owned();
-
         while !to_propergate.is_empty() {
-            let node_world_index = to_propergate.pop_front().unwrap();
-            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
-            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+            let order = to_propergate.pop_front().unwrap();
+            let (_, chunk_index, node_index) = self.order_controller.unpack_order_with_block(order);
+            let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
                 pos.as_vec3() + Vec3::ONE * 0.01,
@@ -323,11 +319,10 @@ impl ShipData {
         }
 
         let mut to_collapse = self.to_collapse.to_owned();
-
         while !to_collapse.is_empty() {
-            let node_world_index = to_collapse.pop_front().unwrap();
-            let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
-            let pos = self.pos_from_world_node_index(chunk_index, node_index);
+            let order = to_collapse.pop_front().unwrap();
+            let (chunk_index, node_index) = self.order_controller.unpack_order(order);
+            let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
                 pos.as_vec3() + Vec3::ONE * 0.02,
@@ -335,8 +330,6 @@ impl ShipData {
                 vec4(0.0, 0.0, 1.0, 1.0),
             );
         }
-
-         */
     }
 
     pub fn add_chunk(&mut self, chunk_pos: IVec3) {

@@ -22,7 +22,7 @@ pub enum DebugMode {
     WFC,
 }
 
-const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(100);
+const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(500);
 
 pub struct DebugController {
     pub mode: DebugMode,

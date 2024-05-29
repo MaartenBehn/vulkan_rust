@@ -98,7 +98,6 @@ impl DebugController {
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
         let pattern_block_size = size / ship.nodes_per_chunk;
 
-        /*
         for x in 0..ship.nodes_per_chunk.x {
             for y in 0..ship.nodes_per_chunk.y {
                 for z in 0..ship.nodes_per_chunk.z {
@@ -106,7 +105,7 @@ impl DebugController {
                     let node_index = ship.get_node_index(node_pos);
 
                     let mut pattern_counter = 0;
-                    let possible_pattern = ship_chunk.nodes[node_index].to_owned();
+                    let possible_pattern: Vec<_> = ship_chunk.nodes[node_index].get_all().collect();
                     let node_pos = node_pos * pattern_block_size;
 
                     'iter: for iz in 0..pattern_block_size.x {
@@ -119,8 +118,8 @@ impl DebugController {
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
                                 let index = to_1d_i(pattern_pos, size) as usize;
 
-                                let (_, node_id, _) = possible_pattern[pattern_counter];
-                                node_debug_node_id_bits[index] = node_id.into();
+                                let (node_id, _) = possible_pattern[pattern_counter];
+                                node_debug_node_id_bits[index] = node_id.to_owned().into();
 
                                 if node_id.is_empty() {
                                     let one_cell_size = Vec3::ONE / pattern_block_size.as_vec3();
@@ -135,8 +134,6 @@ impl DebugController {
                 }
             }
         }
-
-         */
 
         node_debug_node_id_bits
     }
