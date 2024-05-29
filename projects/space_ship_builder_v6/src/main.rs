@@ -119,13 +119,13 @@ impl App for SpaceShipBuilder {
             self.rules = Rules::new(voxel_loader)?;
 
             self.ship_manager
-                .on_voxel_change(&base.context, base.num_frames, &self.rules)?;
+                .on_voxel_change(&base.context, base.num_frames, &mut self.rules)?;
 
             log::info!(".vox File loaded");
         }
 
         self.ship_manager.update(
-            &self.rules,
+            &mut self.rules,
             self.total_time,
             delta_time,
             image_index,

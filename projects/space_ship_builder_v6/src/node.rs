@@ -1,12 +1,8 @@
 use crate::rotation::Rot;
 use dot_vox::Color;
-use octa_force::{
-    anyhow::Result,
-    glam::{ivec3, uvec3, vec4, IVec3, Mat4, UVec3},
-};
+use octa_force::glam::{ivec3, uvec3, vec4, IVec3, Mat4, UVec3};
 
 use crate::math::{to_1d, to_3d};
-use crate::rules::Rules;
 use octa_force::glam::Mat3;
 use std::hash::Hash;
 use std::iter::repeat;
@@ -160,6 +156,14 @@ impl Node {
         }
 
         same
+    }
+}
+
+impl Default for Node {
+    fn default() -> Self {
+        Self {
+            voxels: [VOXEL_EMPTY; NODE_VOXEL_LENGTH],
+        }
     }
 }
 

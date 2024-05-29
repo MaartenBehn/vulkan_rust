@@ -1,13 +1,13 @@
 mod block_preview;
+mod empty;
 mod hull;
 pub mod solver;
-mod empty;
 
 use crate::node::{Material, Node, NodeID, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
 use crate::rules::block_preview::BlockPreview;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
-use octa_force::{anyhow::Result};
+use octa_force::anyhow::Result;
 
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
 const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
@@ -16,6 +16,16 @@ const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
 pub enum Prio {
     ZERO,
     BASE,
+
+    HULL0,
+    HULL1,
+    HULL2,
+    HULL3,
+    HULL4,
+    HULL5,
+    HULL6,
+    HULL7,
+    HULL8,
 }
 
 pub struct Rules {

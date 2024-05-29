@@ -22,6 +22,8 @@ use crate::debug::{DebugController, DebugMode::WFC};
 pub mod builder;
 pub mod data;
 pub mod mesh;
+mod node_order;
+mod possible_nodes;
 pub mod renderer;
 pub mod save;
 
@@ -56,7 +58,8 @@ impl ShipManager {
         num_frames: usize,
         rules: &Rules,
     ) -> Result<ShipManager> {
-        let mut ship = Ship::try_load_save(SHIP_SAVE_FILE_PATH, num_frames, rules);
+        // let mut ship = Ship::try_load_save(SHIP_SAVE_FILE_PATH, num_frames, rules);
+        let mut ship = Ship::new(num_frames, rules);
         ship.add_builder(rules);
 
         let renderer = ShipRenderer::new(
@@ -157,7 +160,7 @@ impl ShipManager {
         &mut self,
         context: &Context,
         num_frames: usize,
-        rules: &Rules,
+        rules: &mut Rules,
     ) -> Result<()> {
         for ship in self.ships.iter_mut() {
             let save = ship.data.get_save();
@@ -179,8 +182,8 @@ impl ShipManager {
 }
 
 impl Ship {
-    pub fn new(num_frames: usize) -> Ship {
-        let mut data = ShipData::new(CHUNK_SIZE);
+    pub fn new(num_frames: usize, rules: &Rules) -> Ship {
+        let mut data = ShipData::new(CHUNK_SIZE, rules);
 
         let mesh = ShipMesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
 
@@ -196,7 +199,7 @@ impl Ship {
         let data = if r.is_ok() {
             r.unwrap()
         } else {
-            ShipData::new(CHUNK_SIZE)
+            ShipData::new(CHUNK_SIZE, rules)
         };
 
         let mesh = ShipMesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);

@@ -98,6 +98,7 @@ impl DebugController {
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
         let pattern_block_size = size / ship.nodes_per_chunk;
 
+        /*
         for x in 0..ship.nodes_per_chunk.x {
             for y in 0..ship.nodes_per_chunk.y {
                 for z in 0..ship.nodes_per_chunk.z {
@@ -134,6 +135,8 @@ impl DebugController {
                 }
             }
         }
+
+         */
 
         node_debug_node_id_bits
     }

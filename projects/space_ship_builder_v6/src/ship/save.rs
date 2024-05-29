@@ -57,7 +57,7 @@ impl ShipData {
     }
 
     pub fn new_from_save(save: ShipSave, rules: &Rules) -> Self {
-        let mut ship = ShipData::new(save.nodes_per_chunk[0]);
+        let mut ship = ShipData::new(save.nodes_per_chunk[0], rules);
 
         for (pos, block) in save.blocks {
             ship.place_block(pos.into(), block, rules);
