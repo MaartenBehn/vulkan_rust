@@ -26,6 +26,8 @@ pub enum Prio {
     HULL6,
     HULL7,
     HULL8,
+    HULL9,
+    HULL10,
 }
 
 pub struct Rules {

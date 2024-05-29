@@ -58,8 +58,8 @@ impl ShipManager {
         num_frames: usize,
         rules: &Rules,
     ) -> Result<ShipManager> {
-        // let mut ship = Ship::try_load_save(SHIP_SAVE_FILE_PATH, num_frames, rules);
-        let mut ship = Ship::new(num_frames, rules);
+        let mut ship = Ship::try_load_save(SHIP_SAVE_FILE_PATH, num_frames, rules);
+        // let mut ship = Ship::new(num_frames, rules);
         ship.add_builder(rules);
 
         let renderer = ShipRenderer::new(

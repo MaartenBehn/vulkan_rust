@@ -84,7 +84,7 @@ impl App for SpaceShipBuilder {
 
         camera.position = Vec3::new(1.0, -2.0, 1.0);
         camera.direction = Vec3::new(0.0, 1.0, 0.0).normalize();
-        camera.speed = 2.0;
+        camera.speed = 4.0;
         camera.z_far = 100.0;
         camera.up = vec3(0.0, 0.0, 1.0);
 

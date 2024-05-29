@@ -3,7 +3,9 @@ use crate::node::{BlockIndex, NodeID};
 use crate::rotation::Rot;
 use crate::rules::block_preview::BlockPreview;
 use crate::rules::solver::{push_in_block_affected_nodes, Solver};
-use crate::rules::Prio::{HULL0, HULL1, HULL2, HULL3, HULL4, HULL5, HULL6, HULL7, HULL8};
+use crate::rules::Prio::{
+    HULL0, HULL1, HULL10, HULL2, HULL3, HULL4, HULL5, HULL6, HULL7, HULL8, HULL9,
+};
 use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
 use crate::voxel_loader::VoxelLoader;
@@ -22,7 +24,7 @@ impl Rules {
         self.block_names.push("Hull".to_owned());
 
         let mut node_ids = vec![];
-        let max_hull_node = 8;
+        let max_hull_node = 10;
         for i in 0..=max_hull_node {
             let node_id = self.add_node(&format!("Hull-{i}"), voxel_loader)?;
             node_ids.push(node_id);
@@ -97,8 +99,13 @@ impl HullSolver {
         hull_block_index: usize,
     ) -> Vec<(NodeID, Prio, Vec<(IVec3, BlockIndex)>)> {
         let block_reqs = vec![
-            (vec![(ivec3(0, 0, -1), hull_block_index)], HULL0),
             (
+                node_ids[0],
+                vec![(ivec3(0, 0, -1), hull_block_index)],
+                HULL0,
+            ),
+            (
+                node_ids[1],
                 vec![
                     (ivec3(-2, 0, -1), hull_block_index),
                     (ivec3(0, 0, -1), hull_block_index),
@@ -106,6 +113,7 @@ impl HullSolver {
                 HULL1,
             ),
             (
+                node_ids[2],
                 vec![
                     (ivec3(-2, 0, -1), hull_block_index),
                     (ivec3(0, -2, -1), hull_block_index),
@@ -114,6 +122,7 @@ impl HullSolver {
                 HULL2,
             ),
             (
+                node_ids[3],
                 vec![
                     (ivec3(-2, -2, -1), hull_block_index),
                     (ivec3(-2, 0, -1), hull_block_index),
@@ -123,6 +132,7 @@ impl HullSolver {
                 HULL3,
             ),
             (
+                node_ids[4],
                 vec![
                     (ivec3(-2, -2, -1), hull_block_index),
                     (ivec3(-2, 0, -1), hull_block_index),
@@ -132,8 +142,8 @@ impl HullSolver {
                 HULL4,
             ),
             (
+                node_ids[8],
                 vec![
-                    (ivec3(-2, -2, -1), hull_block_index),
                     (ivec3(-2, 0, -1), hull_block_index),
                     (ivec3(0, -2, -1), hull_block_index),
                     (ivec3(0, 0, -1), hull_block_index),
@@ -142,6 +152,43 @@ impl HullSolver {
                 HULL5,
             ),
             (
+                node_ids[5],
+                vec![
+                    (ivec3(-2, -2, -1), hull_block_index),
+                    (ivec3(-2, 0, -1), hull_block_index),
+                    (ivec3(0, -2, -1), hull_block_index),
+                    (ivec3(0, 0, -1), hull_block_index),
+                    (ivec3(0, 0, 1), hull_block_index),
+                ],
+                HULL6,
+            ),
+            (
+                node_ids[7],
+                vec![
+                    (ivec3(-2, -2, -1), hull_block_index),
+                    (ivec3(-2, 0, -1), hull_block_index),
+                    (ivec3(0, -2, -1), hull_block_index),
+                    (ivec3(0, 0, -1), hull_block_index),
+                    (ivec3(-2, 0, 1), hull_block_index),
+                    (ivec3(0, 0, 1), hull_block_index),
+                ],
+                HULL7,
+            ),
+            (
+                node_ids[8],
+                vec![
+                    (ivec3(-2, -2, -1), hull_block_index),
+                    (ivec3(-2, 0, -1), hull_block_index),
+                    (ivec3(0, -2, -1), hull_block_index),
+                    (ivec3(0, 0, -1), hull_block_index),
+                    (ivec3(-2, 0, 1), hull_block_index),
+                    (ivec3(0, 0, 1), hull_block_index),
+                    (ivec3(0, -2, 1), hull_block_index),
+                ],
+                HULL8,
+            ),
+            (
+                node_ids[6],
                 vec![
                     (ivec3(-2, -2, -1), hull_block_index),
                     (ivec3(-2, 0, -1), hull_block_index),
@@ -152,30 +199,16 @@ impl HullSolver {
                     (ivec3(0, -2, 1), hull_block_index),
                     (ivec3(0, 0, 1), hull_block_index),
                 ],
-                HULL8,
+                HULL9,
             ),
             (
+                node_ids[9],
                 vec![
-                    (ivec3(-2, -2, -1), hull_block_index),
-                    (ivec3(-2, 0, -1), hull_block_index),
-                    (ivec3(0, -2, -1), hull_block_index),
                     (ivec3(0, 0, -1), hull_block_index),
-                    (ivec3(0, -2, 1), hull_block_index),
-                    (ivec3(0, 0, 1), hull_block_index),
+                    (ivec3(0, 0, -3), hull_block_index),
+                    (ivec3(0, 2, -1), hull_block_index),
                 ],
-                HULL6,
-            ),
-            (
-                vec![
-                    (ivec3(-2, -2, -1), hull_block_index),
-                    (ivec3(-2, 0, -1), hull_block_index),
-                    (ivec3(0, -2, -1), hull_block_index),
-                    (ivec3(0, 0, -1), hull_block_index),
-                    (ivec3(-2, 0, 1), hull_block_index),
-                    (ivec3(0, -2, 1), hull_block_index),
-                    (ivec3(0, 0, 1), hull_block_index),
-                ],
-                HULL7,
+                HULL10,
             ),
         ];
 
@@ -184,7 +217,7 @@ impl HullSolver {
 
         let mut permutated_block_reqs: Vec<(NodeID, Prio, Vec<(IVec3, BlockIndex)>)> = Vec::new();
 
-        for (node_id, (block_reqs, prio)) in node_ids.iter().zip(block_reqs.iter()) {
+        for (node_id, block_reqs, prio) in block_reqs.iter() {
             let flipped_rules = Self::flip_block_req(&node_id, block_reqs, &flips);
 
             for (flipped_node_id, flipped_req) in flipped_rules {
@@ -303,6 +336,57 @@ impl HullSolver {
         rotated_rules
     }
 
+
+    fn get_node_reqs(
+        node_ids: &[NodeID],
+        rules: &mut Rules,
+    ) -> Vec<(NodeID, Prio, Vec<(IVec3, BlockIndex)>)> {
+        let block_reqs = vec![
+            (
+                node_ids[0],
+                vec![(ivec3(0, 0, -1))],
+                
+            ),
+        ];
+
+        let rotations = all_bvec3s();
+        let flips = all_bvec3s();
+
+        let mut permutated_block_reqs: Vec<(NodeID, Prio, Vec<(IVec3, BlockIndex)>)> = Vec::new();
+
+        for (node_id, block_reqs, prio) in block_reqs.iter() {
+            let flipped_rules = Self::flip_block_req(&node_id, block_reqs, &flips);
+
+            for (flipped_node_id, flipped_req) in flipped_rules {
+                let rotated_rules =
+                    Self::rotate_block_req(&flipped_node_id, &flipped_req, &rotations);
+
+                for (permutated_node_id, permutated_req) in rotated_rules {
+                    let node_id = rules.get_duplicate_node_id(permutated_node_id);
+
+                    let mut added = false;
+                    for (test_node_id, _, test_reqs) in permutated_block_reqs.iter() {
+                        if node_id != *test_node_id {
+                            continue;
+                        }
+
+                        if *test_reqs == permutated_req {
+                            added = true;
+                            break;
+                        }
+                    }
+
+                    if !added {
+                        permutated_block_reqs.push((node_id, *prio, permutated_req));
+                    }
+                }
+            }
+        }
+
+        permutated_block_reqs
+    }
+
+    /*
     pub fn get_matching_sides_reqs(
         node_ids: &[NodeID],
         rules: &mut Rules,
@@ -346,6 +430,8 @@ impl HullSolver {
 
         node_reqs_list
     }
+    
+     */
 
     fn block_level(&self, ship: &mut ShipData, pos: IVec3) -> Vec<(NodeID, Prio)> {
         let mut new_ids = Vec::new();

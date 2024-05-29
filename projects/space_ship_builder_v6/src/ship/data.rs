@@ -111,8 +111,8 @@ impl ShipData {
         info!("Place: {block_pos:?}");
         chunk.blocks[in_chunk_block_index] = block_index;
 
-        rules.solvers[old_block_index].push_block_affected_nodes(self, block_pos);
-        rules.solvers[block_index].push_block_affected_nodes(self, block_pos);
+        rules.solvers[old_block_index].push_block_affected_nodes(self, pos);
+        rules.solvers[block_index].push_block_affected_nodes(self, pos);
 
         self.was_reset = IndexQueue::default();
     }
