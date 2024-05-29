@@ -14,7 +14,7 @@ pub struct NodeOrderController {
 impl NodeOrderController {
     pub fn new(num_blocks: usize, nodes_length: usize) -> Self {
         let block_mask_bits = (num_blocks.ilog2() + 1) as usize;
-        let node_mask_bits = (nodes_length.trailing_zeros() + 1) as usize;
+        let node_mask_bits = nodes_length.trailing_zeros() as usize;
         let block_mask = ((1 << block_mask_bits) - 1) as usize;
         let node_mask = nodes_length - 1;
 
