@@ -1,13 +1,13 @@
 mod block_preview;
 mod hull;
 pub mod solver;
+mod empty;
 
-use crate::math::all_sides_dirs;
-use crate::node::{BlockIndex, Material, Node, NodeID, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
+use crate::node::{Material, Node, NodeID, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
 use crate::rules::block_preview::BlockPreview;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
-use octa_force::{anyhow::Result, glam::IVec3};
+use octa_force::{anyhow::Result};
 
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
 const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
@@ -35,13 +35,13 @@ impl Rules {
         let mut rules = Rules {
             materials: voxel_loader.load_materials(),
             nodes: vec![],
-            block_names: vec!["Empty".to_owned()],
-            block_previews: vec![BlockPreview::default()],
+            block_names: vec![],
+            block_previews: vec![],
             duplicate_node_ids: vec![],
-
             solvers: vec![],
         };
 
+        rules.make_empty();
         rules.make_hull(&voxel_loader)?;
 
         Ok(rules)

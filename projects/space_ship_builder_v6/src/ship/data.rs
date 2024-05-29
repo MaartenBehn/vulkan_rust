@@ -88,28 +88,9 @@ impl ShipData {
         info!("Place: {block_pos:?}");
         chunk.blocks[in_chunk_block_index] = block_index;
 
-        let mut push_blocks_changed = |block_index: BlockIndex, pos: IVec3| {
-            if block_index == BLOCK_INDEX_EMPTY {
-                return;
-            }
-
-            /*
-            for offset in rules.affected_by_block[block_index].iter() {
-                let affected_pos = pos + *offset;
-
-                let chunk_index = self.get_chunk_index_from_node_pos(affected_pos);
-
-                let node_index = self.get_node_index(affected_pos);
-
-                let node_world_index = self.to_world_node_index(chunk_index, node_index);
-                self.block_changed.push_back(node_world_index);
-            }
-             */
-        };
-
-        push_blocks_changed(old_block_index, pos);
-        push_blocks_changed(block_index, pos);
-
+        rules.solvers[old_block_index].push_block_affected_nodes(self, block_pos);
+        rules.solvers[block_index].push_block_affected_nodes(self, block_pos);
+        
         self.was_reset = IndexQueue::default();
     }
 
@@ -162,77 +143,7 @@ impl ShipData {
         let (chunk_index, node_index) = self.from_world_node_index(node_world_index);
         let pos = self.pos_from_world_node_index(chunk_index, node_index);
 
-        /*
-
-        let mut new_base_possible_node_ids = Vec::new();
-        for (i, (node_ids, block_reqs)) in rules
-            .map_rules_index_to_node_id
-            .iter()
-            .zip(rules.block_rules.iter())
-            .enumerate()
-        {
-            let node_id = node_ids[0];
-
-            let mut block_accepted = false;
-            let mut block_prio = Prio::ZERO;
-
-            // Go over all possible nodes
-            for (req, prio) in block_reqs {
-                let mut check_performed = false;
-                let mut accepted = true;
-                // Go over all offsets of the requirement
-                for (offset, id) in req.iter() {
-                    let test_pos = pos + *offset;
-
-                    // If the offset does not aling with the node just ignore it.
-                    if (test_pos % 2) != IVec3::ZERO {
-                        continue;
-                    }
-
-                    let test_chunk_index = self.get_chunk_index_from_node_pos(test_pos);
-                    let test_block_index = self.get_block_index(test_pos);
-
-                    let index = self.chunks[test_chunk_index].blocks[test_block_index].to_owned();
-
-                    // Check if the Block at the pos is in the allowed id.
-                    accepted &= *id == index;
-                    check_performed = true;
-                }
-
-                if accepted && check_performed {
-                    block_accepted = true;
-                    block_prio = max(block_prio, *prio);
-                    break;
-                }
-            }
-
-            if block_accepted {
-                new_base_possible_node_ids.push((i, node_id.to_owned(), block_prio));
-            }
-        }
-
-        let old_possible_node_ids = self.chunks[chunk_index].nodes_base[node_index].to_owned();
-        if new_base_possible_node_ids != old_possible_node_ids {
-            for node_world_index in self.get_neighbor_world_node_index(pos) {
-                self.block_changed.push_back(node_world_index);
-                self.to_collapse.push_back(node_world_index);
-            }
-
-            self.to_reset.push_back(node_world_index);
-            self.was_reset.push_back(node_world_index);
-            self.to_collapse.push_back(node_world_index);
-
-            #[cfg(debug_assertions)]
-            if debug {
-                let node_index_plus_padding =
-                    self.node_index_to_node_index_plus_padding(node_index);
-                self.chunks[chunk_index].render_nodes[node_index_plus_padding] = RenderNode(true);
-            }
-
-            self.chunks[chunk_index].nodes_base[node_index] = new_base_possible_node_ids;
-        }
-
-         */
+        
     }
 
     fn propergate_node_world_index(

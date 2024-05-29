@@ -1,14 +1,13 @@
 use crate::math::all_sides_dirs;
 use crate::node::NodeID;
-use crate::rules;
 use crate::rules::block_preview::BlockPreview;
-use crate::rules::solver::Solver;
+use crate::rules::solver::{push_in_block_affected_nodes, Solver};
 use crate::rules::Rules;
 use crate::ship::Ship;
 use crate::voxel_loader::VoxelLoader;
 use log::{debug, info};
 use octa_force::glam::IVec3;
-use std::process::id;
+use crate::ship::data::ShipData;
 
 pub struct HullSolver {
     pub node_ids: Vec<NodeID>,
@@ -90,14 +89,22 @@ pub fn get_matching_sides_reqs(
     }
 
     node_reqs_list
+    
+    
 }
 
 impl Solver for HullSolver {
-    fn block_check(&mut self, ship: &Ship, node_pos: IVec3, node_index: usize, chunk_index: usize) {
-        todo!()
+    fn push_block_affected_nodes(&mut self, ship: &mut ShipData, block_pos: IVec3) {
+        push_in_block_affected_nodes(ship, block_pos);
     }
 
-    fn node_check(&mut self, ship: &Ship, node_pos: IVec3, node_index: usize, chunk_index: usize) {
+    fn block_check(&mut self, ship: &mut ShipData, node_pos: IVec3, node_index: usize, chunk_index: usize) {
+        
+        
+        
+    }
+
+    fn node_check(&mut self, ship: &mut Ship, node_pos: IVec3, node_index: usize, chunk_index: usize) {
         todo!()
     }
 }

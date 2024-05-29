@@ -56,7 +56,7 @@ pub fn get_neighbors() -> [IVec3; 27] {
     ]
 }
 
-pub fn in_node_positions() -> [IVec3; 8] {
+pub fn oct_positions() -> [IVec3; 8] {
     [
         ivec3(0, 0, 0),
         ivec3(1, 0, 0),
