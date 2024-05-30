@@ -4,9 +4,9 @@ use crate::ship::data::{CacheIndex};
 
 #[derive(Clone, Default)]
 pub struct NodeData {
-    id: NodeID,
-    prio: Prio,
-    cache_index: CacheIndex
+    pub id: NodeID,
+    pub prio: Prio,
+    pub cache_index: CacheIndex
 }
 
 
