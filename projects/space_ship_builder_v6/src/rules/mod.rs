@@ -8,6 +8,7 @@ use crate::rules::block_preview::BlockPreview;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
+use octa_force::glam::UVec3;
 
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
 const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
@@ -98,5 +99,16 @@ impl Rules {
         self.nodes.push(node);
 
         Ok(NodeID::new(self.nodes.len() - 1, rot))
+    }
+
+    fn add_multi_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<(UVec3, Vec<NodeID>)> {
+        let (model_index, rot) = voxel_loader.find_model(name)?;
+        let (size, mut nodes) = voxel_loader.load_multi_node_model(model_index)?;
+
+        let nodes_len = self.nodes.len();
+        let node_ids: Vec<_> = (0..nodes.len()).map(|i| NodeID::new(i + nodes_len, rot)).collect();
+        self.nodes.append(&mut nodes);
+
+        Ok((size, node_ids))
     }
 }
