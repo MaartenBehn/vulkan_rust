@@ -1,9 +1,18 @@
 use crate::node::{BlockIndex, NodeID};
 use crate::rules::Prio;
+use crate::ship::data::{CacheIndex};
+
+#[derive(Clone, Default)]
+pub struct NodeData {
+    id: NodeID,
+    prio: Prio,
+    cache_index: CacheIndex
+}
+
 
 #[derive(Clone, Default)]
 pub struct PossibleNodes {
-    nodes: Vec<(BlockIndex, Vec<(NodeID, Prio)>)>,
+    nodes: Vec<(BlockIndex, Vec<NodeData>)>,
 }
 
 impl PossibleNodes {
@@ -20,7 +29,7 @@ impl PossibleNodes {
         }
     }
 
-    pub fn set_node_ids(&mut self, block: BlockIndex, node_ids: Vec<(NodeID, Prio)>) {
+    pub fn set_node_ids(&mut self, block: BlockIndex, node_ids: Vec<NodeData>) {
         let index = self.get_block_index(block);
         self.nodes[index].1 = node_ids;
     }
@@ -30,16 +39,27 @@ impl PossibleNodes {
         self.nodes[index]
             .1
             .iter()
-            .find(|(id, _)| *id == *node_id)
+            .find(|d| (*d).id == *node_id)
             .is_some()
     }
 
-    pub fn get_node_ids(&mut self, block: BlockIndex) -> &[(NodeID, Prio)] {
+    pub fn get_node_ids(&mut self, block: BlockIndex) -> &[NodeData] {
         let index = self.get_block_index(block);
         &self.nodes[index].1
     }
 
-    pub fn get_all(&self) -> impl Iterator<Item = &(NodeID, Prio)> {
+    pub fn get_all(&self) -> impl Iterator<Item = &NodeData> {
         self.nodes.iter().flat_map(|(_, ids)| ids)
+    }
+}
+
+
+impl NodeData {
+    pub fn new(id: NodeID, prio: Prio, cache_index: CacheIndex) -> Self {
+        Self {
+            id,
+            prio,
+            cache_index,
+        }
     }
 }

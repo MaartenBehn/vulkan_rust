@@ -13,8 +13,9 @@ use octa_force::glam::UVec3;
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
 const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub enum Prio {
+    #[default]
     ZERO,
     BASE,
 

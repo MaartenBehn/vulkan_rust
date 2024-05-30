@@ -1,8 +1,9 @@
 use crate::math::oct_positions;
 use crate::node::{BlockIndex, NodeID};
 use crate::rules::Prio;
-use crate::ship::data::ShipData;
+use crate::ship::data::{CacheIndex, ShipData};
 use octa_force::glam::IVec3;
+use crate::ship::possible_nodes::NodeData;
 
 pub trait Solver {
     fn push_block_affected_nodes(&self, ship: &mut ShipData, block_pos: IVec3);
@@ -12,21 +13,21 @@ pub trait Solver {
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)>;
+    ) -> Vec<NodeData>;
     fn node_check_reset(
         &self,
         ship: &mut ShipData,
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)>;
+    ) -> Vec<NodeData>;
     fn node_check(
         &self,
         ship: &mut ShipData,
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)>;
+    ) -> Vec<NodeData>;
 }
 
 pub fn push_in_block_affected_nodes(

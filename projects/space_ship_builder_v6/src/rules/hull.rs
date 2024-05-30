@@ -1,4 +1,5 @@
-use crate::math::{all_bvec3s, all_sides_dirs, get_all_poses, oct_positions, to_1d};
+use std::collections::HashMap;
+use crate::math::{all_bvec3s, all_sides_dirs, get_all_poses, get_neighbors, oct_positions, to_1d};
 use crate::node::{BlockIndex, NodeID, BLOCK_INDEX_EMPTY, NODE_VOXEL_LENGTH, VOXEL_EMPTY};
 use crate::rotation::Rot;
 use crate::rules::block_preview::BlockPreview;
@@ -7,7 +8,7 @@ use crate::rules::Prio::{
     HULL0, HULL1, HULL10, HULL2, HULL3, HULL4, HULL5, HULL6, HULL7, HULL8, HULL9,
 };
 use crate::rules::{Prio, Rules};
-use crate::ship::data::ShipData;
+use crate::ship::data::{CacheIndex, ShipData};
 use crate::voxel_loader::VoxelLoader;
 use log::debug;
 use octa_force::anyhow::bail;
@@ -16,10 +17,14 @@ use octa_force::{
     anyhow::Result,
     glam::{ivec3, BVec3, IVec3, Mat3, Mat4},
 };
+use crate::ship::possible_nodes::NodeData;
+
+const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
 
 pub struct HullSolver {
     pub block_index: usize,
-    pub block_reqs: Vec<(NodeID, Prio, Vec<(IVec3, BlockIndex)>)>,
+    pub block_reqs: Vec<(NodeID, Prio, CacheIndex, Vec<(IVec3, BlockIndex)>)>,
+    pub node_reqs: Vec<(NodeID, Vec<(IVec3, NodeID)>)>,
 }
 
 impl Rules {
@@ -32,6 +37,7 @@ impl Rules {
         let mut hull_solver = HullSolver {
             block_index: hull_block_index,
             block_reqs: vec![],
+            node_reqs: vec![],
         };
 
         hull_solver.add_base_nodes(self, voxel_loader)?;
@@ -55,7 +61,7 @@ impl Solver for HullSolver {
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)> {
+    ) -> Vec<NodeData> {
         self.block_level(ship, world_node_pos)
     }
 
@@ -65,7 +71,7 @@ impl Solver for HullSolver {
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)> {
+    ) -> Vec<NodeData> {
         ship.chunks[chunk_index].base_nodes[node_index]
             .get_node_ids(self.block_index)
             .to_owned()
@@ -77,7 +83,7 @@ impl Solver for HullSolver {
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)> {
+    ) -> Vec<NodeData> {
         ship.chunks[chunk_index].nodes[node_index]
             .get_node_ids(self.block_index)
             .to_owned()
@@ -205,7 +211,7 @@ impl HullSolver {
         let rotations = all_bvec3s();
         let flips = all_bvec3s();
 
-        let mut permutated_block_reqs: Vec<(NodeID, Prio, Vec<(IVec3, BlockIndex)>)> = Vec::new();
+        let mut permutated_block_reqs: Vec<(NodeID, Prio, CacheIndex, Vec<(IVec3, BlockIndex)>)> = Vec::new();
 
         for (node_id, block_reqs, prio) in block_reqs.iter() {
             let flipped_rules = flip_block_req(&node_id, block_reqs, &flips);
@@ -217,7 +223,7 @@ impl HullSolver {
                     let node_id = rules.get_duplicate_node_id(permutated_node_id);
 
                     let mut added = false;
-                    for (test_node_id, _, test_reqs) in permutated_block_reqs.iter() {
+                    for (test_node_id, _, _, test_reqs) in permutated_block_reqs.iter() {
                         if node_id != *test_node_id {
                             continue;
                         }
@@ -229,7 +235,7 @@ impl HullSolver {
                     }
 
                     if !added {
-                        permutated_block_reqs.push((node_id, *prio, permutated_req));
+                        permutated_block_reqs.push((node_id, *prio, HULL_CACHE_NONE, permutated_req));
                     }
                 }
             }
@@ -253,7 +259,55 @@ impl HullSolver {
             let filled = Self::get_multi_nodes_filled(size, &node_ids, rules);
             let blocks = Self::get_multi_blocks_ids(size, &filled, self.block_index);
             
-            for 
+            let mut reqs = vec![];
+            for pos in get_all_poses(size) {
+                let index = to_1d(pos, size);
+                let node_id = &node_ids[index];
+                
+                // Blocks
+                let block_pos = (pos.as_ivec3() / 2) * 2;
+                let in_block_pos = pos.as_ivec3() % 2;
+
+                let mut possible_block_neighbors = vec![];
+                for offset in get_neighbors() {
+                    let neighbor_offset = offset * 2;
+                    let neighbor_pos = block_pos + neighbor_offset;
+
+                    if neighbor_pos.is_negative_bitmask() != 0 || neighbor_pos.cmpge((size / 2).as_ivec3()).any() {
+                        continue;
+                    }
+
+                    let neighbor_block_index = to_1d(neighbor_pos.as_uvec3(), size);
+                    let neighbor_block = blocks[neighbor_block_index];
+                    
+                    let block_neigbor_offset = neighbor_offset - in_block_pos;
+                    possible_block_neighbors.push((block_neigbor_offset, neighbor_block));
+                }
+                
+                // Nodes
+                let mut possible_node_neighbors: HashMap<IVec3, Vec<NodeID>> = HashMap::default();
+                for offset in get_neighbors() {
+                    if offset == IVec3::ZERO {
+                        continue;
+                    }
+                    
+                    let neighbor_pos = pos.as_ivec3() + offset;
+
+                    if neighbor_pos.is_negative_bitmask() != 0 || neighbor_pos.cmpge(size.as_ivec3()).any() {
+                        continue;
+                    }
+
+                    let neighbor_node_id = node_ids[to_1d(neighbor_pos.as_uvec3(), size)];
+                    let ids = possible_node_neighbors.entry(offset)
+                        .or_insert(vec![]);
+
+                    if !ids.contains(&neighbor_node_id) {
+                        ids.push(neighbor_node_id);
+                    }
+                }
+
+                reqs.push((node_id.to_owned(), possible_block_neighbors, possible_node_neighbors))
+            }
         }
 
         Ok(())
@@ -284,25 +338,21 @@ impl HullSolver {
         let mut block_ids = vec![];
 
         let block_size = size / 2;
-        for x in 0..block_size.x {
-            for y in 0..block_size.y {
-                for z in 0..block_size.z {
-                    let block_pos = uvec3(x, y, z) * 2;
+        for block_pos in get_all_poses(block_size) {
+            let pos = block_pos * 2;
 
-                    let mut count = 0;
-                    for offset in oct_positions() {
-                        let node_pos = block_pos + offset.as_uvec3();
-                        let node_index = to_1d(node_pos, size);
+            let mut count = 0;
+            for offset in oct_positions() {
+                let node_pos = pos + offset.as_uvec3();
+                let node_index = to_1d(node_pos, size);
 
-                        count += u8::from(filled[node_index]);
-                    }
+                count += u8::from(filled[node_index]);
+            }
 
-                    if count >= 4 {
-                        block_ids.push(block_index);
-                    } else {
-                        block_ids.push(BLOCK_INDEX_EMPTY);
-                    }
-                }
+            if count >= 4 {
+                block_ids.push(block_index);
+            } else {
+                block_ids.push(BLOCK_INDEX_EMPTY);
             }
         }
 
@@ -311,9 +361,9 @@ impl HullSolver {
     
     
 
-    fn block_level(&self, ship: &mut ShipData, pos: IVec3) -> Vec<(NodeID, Prio)> {
+    fn block_level(&self, ship: &mut ShipData, pos: IVec3) -> Vec<NodeData> {
         let mut new_ids = Vec::new();
-        for (node_id, prio, block_reqs) in self.block_reqs.iter() {
+        for (node_id, prio, cache_index, block_reqs) in self.block_reqs.iter() {
             let mut accepted = true;
 
             for (offset, id) in block_reqs.iter() {
@@ -335,7 +385,7 @@ impl HullSolver {
             }
 
             if accepted {
-                new_ids.push((node_id.to_owned(), prio.to_owned()));
+                new_ids.push(NodeData::new(node_id.to_owned(), prio.to_owned(), cache_index.to_owned()));
             }
         }
         new_ids

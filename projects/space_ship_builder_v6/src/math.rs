@@ -1,6 +1,6 @@
-use std::iter;
-use octa_force::glam::{ivec3, uvec3, BVec3, IVec3, UVec3};
 use crate::node::{NODE_VOXEL_LENGTH, VOXEL_EMPTY};
+use octa_force::glam::{ivec3, uvec3, BVec3, IVec3, UVec3};
+use std::iter;
 
 pub fn to_1d(pos: UVec3, max: UVec3) -> usize {
     ((pos.z * max.x * max.y) + (pos.y * max.x) + pos.x) as usize
@@ -95,7 +95,7 @@ pub fn all_sides_dirs() -> [IVec3; 6] {
     ]
 }
 
-pub fn get_all_poses(size: UVec3) -> impl Iterator<Item=UVec3> {
+pub fn get_all_poses(size: UVec3) -> impl Iterator<Item = UVec3> {
     (0..size.x.to_owned())
         .zip(iter::repeat(0..size.y))
         .map(|(xv, yi)| iter::repeat(xv).zip(yi))

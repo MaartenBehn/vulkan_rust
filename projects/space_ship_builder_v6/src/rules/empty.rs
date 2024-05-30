@@ -4,6 +4,7 @@ use crate::rules::solver::{push_in_block_affected_nodes, Solver};
 use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
 use octa_force::glam::IVec3;
+use crate::ship::possible_nodes::NodeData;
 
 pub struct EmptySolver {}
 
@@ -25,7 +26,7 @@ impl Solver for EmptySolver {
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)> {
+    ) -> Vec<NodeData> {
         vec![]
     }
 
@@ -35,7 +36,7 @@ impl Solver for EmptySolver {
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)> {
+    ) -> Vec<NodeData> {
         vec![]
     }
 
@@ -45,7 +46,7 @@ impl Solver for EmptySolver {
         node_index: usize,
         chunk_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<(NodeID, Prio)> {
+    ) -> Vec<NodeData> {
         vec![]
     }
 }

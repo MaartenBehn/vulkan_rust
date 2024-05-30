@@ -17,6 +17,7 @@ use crate::ship::node_order::NodeOrderController;
 use crate::ship::possible_nodes::PossibleNodes;
 
 pub type ChunkIndex = usize;
+pub type CacheIndex = usize;
 
 #[derive(Clone)]
 pub struct ShipData {
