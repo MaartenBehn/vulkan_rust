@@ -1,4 +1,6 @@
+use std::iter;
 use octa_force::glam::{ivec3, uvec3, BVec3, IVec3, UVec3};
+use crate::node::{NODE_VOXEL_LENGTH, VOXEL_EMPTY};
 
 pub fn to_1d(pos: UVec3, max: UVec3) -> usize {
     ((pos.z * max.x * max.y) + (pos.y * max.x) + pos.x) as usize
@@ -91,6 +93,17 @@ pub fn all_sides_dirs() -> [IVec3; 6] {
         ivec3(0, 0, 1),
         ivec3(0, 0, -1),
     ]
+}
+
+pub fn get_all_poses(size: UVec3) -> impl Iterator<Item=UVec3> {
+    (0..size.x.to_owned())
+        .zip(iter::repeat(0..size.y))
+        .map(|(xv, yi)| iter::repeat(xv).zip(yi))
+        .flatten()
+        .zip(iter::repeat(0..size.z))
+        .map(|((x, y), zi)| iter::repeat((x, y)).zip(zi))
+        .flatten()
+        .map(|((x, y), z)| uvec3(x, y, z))
 }
 
 pub const PACKED_WORD_SIZE: usize = 8;

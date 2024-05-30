@@ -1,5 +1,5 @@
-use crate::math::{all_bvec3s, all_sides_dirs, oct_positions, to_1d};
-use crate::node::{BLOCK_INDEX_EMPTY, BlockIndex, NODE_VOXEL_LENGTH, NodeID, VOXEL_EMPTY};
+use crate::math::{all_bvec3s, all_sides_dirs, get_all_poses, oct_positions, to_1d};
+use crate::node::{BlockIndex, NodeID, BLOCK_INDEX_EMPTY, NODE_VOXEL_LENGTH, VOXEL_EMPTY};
 use crate::rotation::Rot;
 use crate::rules::block_preview::BlockPreview;
 use crate::rules::solver::{push_in_block_affected_nodes, Solver};
@@ -10,9 +10,12 @@ use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
 use crate::voxel_loader::VoxelLoader;
 use log::debug;
-use octa_force::{glam::{ivec3, BVec3, IVec3, Mat3, Mat4}, anyhow::Result};
 use octa_force::anyhow::bail;
-use octa_force::glam::{UVec3, uvec3};
+use octa_force::glam::{uvec3, UVec3};
+use octa_force::{
+    anyhow::Result,
+    glam::{ivec3, BVec3, IVec3, Mat3, Mat4},
+};
 
 pub struct HullSolver {
     pub block_index: usize,
@@ -23,18 +26,17 @@ impl Rules {
     pub fn make_hull(&mut self, voxel_loader: &VoxelLoader) -> Result<()> {
         debug!("Making Hull");
 
-        let hull_block_index =  self.block_names.len();
+        let hull_block_index = self.block_names.len();
         self.block_names.push("Hull".to_owned());
-        
+
         let mut hull_solver = HullSolver {
             block_index: hull_block_index,
-            block_reqs: vec![]
+            block_reqs: vec![],
         };
-        
+
         hull_solver.add_base_nodes(self, voxel_loader)?;
         hull_solver.add_multi(self, voxel_loader)?;
-        
-        
+
         self.solvers.push(Box::new(hull_solver));
 
         debug!("Making Hull Done");
@@ -83,12 +85,7 @@ impl Solver for HullSolver {
 }
 
 impl HullSolver {
-    fn add_base_nodes(
-        &mut self,
-        rules: &mut Rules,
-        voxel_loader: &VoxelLoader,
-    ) -> Result<()> {
-
+    fn add_base_nodes(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
         let mut node_ids = vec![];
         let max_hull_node = 8;
         for i in 0..=max_hull_node {
@@ -96,8 +93,10 @@ impl HullSolver {
             node_ids.push(node_id);
         }
 
-        rules.block_previews.push(BlockPreview::from_single_node_id(node_ids[0]));
-        
+        rules
+            .block_previews
+            .push(BlockPreview::from_single_node_id(node_ids[0]));
+
         let block_reqs = vec![
             (
                 node_ids[0],
@@ -201,15 +200,6 @@ impl HullSolver {
                 ],
                 HULL9,
             ),
-            (
-                node_ids[9],
-                vec![
-                    (ivec3(0, 0, -1), self.block_index),
-                    (ivec3(0, 0, -3), self.block_index),
-                    (ivec3(0, 2, -1), self.block_index),
-                ],
-                HULL10,
-            ),
         ];
 
         let rotations = all_bvec3s();
@@ -221,8 +211,7 @@ impl HullSolver {
             let flipped_rules = flip_block_req(&node_id, block_reqs, &flips);
 
             for (flipped_node_id, flipped_req) in flipped_rules {
-                let rotated_rules =
-                    rotate_block_req(&flipped_node_id, &flipped_req, &rotations);
+                let rotated_rules = rotate_block_req(&flipped_node_id, &flipped_req, &rotations);
 
                 for (permutated_node_id, permutated_req) in rotated_rules {
                     let node_id = rules.get_duplicate_node_id(permutated_node_id);
@@ -245,64 +234,55 @@ impl HullSolver {
                 }
             }
         }
-        
+
         self.block_reqs.append(&mut permutated_block_reqs);
-        
+
         Ok(())
     }
-    
-    fn add_multi(
-        &mut self,
-        rules: &mut Rules,
-        voxel_loader: &VoxelLoader
-    ) -> Result<()> {
 
-      
+    fn add_multi(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
         let max_hull_node = 0;
         for i in 0..=max_hull_node {
             let name = format!("Hull-Multi-{i}");
             let (size, node_ids) = rules.add_multi_node(&name, voxel_loader)?;
-            
+
             if (size % 2) != UVec3::ZERO {
                 bail!("The node size multi node model {name} needs to multiple of 2.")
             }
-            
+
             let filled = Self::get_multi_nodes_filled(size, &node_ids, rules);
             let blocks = Self::get_multi_blocks_ids(size, &filled, self.block_index);
             
+            for 
         }
-        
-        
+
         Ok(())
     }
-    
+
     fn get_multi_nodes_filled(size: UVec3, node_ids: &[NodeID], rules: &Rules) -> Vec<bool> {
-        
         let mut filled = vec![];
-        for x in 0..size.x {
-            for y in 0..size.y {
-                for z in 0..size.z {
-                    let index = to_1d(uvec3(x, y, z), size);
-                    let node = &rules.nodes[node_ids[index].index];
+        for pos in get_all_poses(size) {
+            let index = to_1d(pos, size);
+            let node = &rules.nodes[node_ids[index].index];
 
-                    let mut count = 0;
-                    for voxel in node.voxels {
-                        count += u8::from(voxel != VOXEL_EMPTY);
-                    }
-
-
-                    filled.push(count as usize >= NODE_VOXEL_LENGTH / 2);
-                }
+            let mut count = 0;
+            for voxel in node.voxels {
+                count += u8::from(voxel != VOXEL_EMPTY);
             }
+
+            filled.push(count as usize >= NODE_VOXEL_LENGTH / 2);
         }
-        
+
         filled
     }
 
-    fn get_multi_blocks_ids(size: UVec3, filled: &[bool], block_index: BlockIndex) -> Vec<BlockIndex> {
-
+    fn get_multi_blocks_ids(
+        size: UVec3,
+        filled: &[bool],
+        block_index: BlockIndex,
+    ) -> Vec<BlockIndex> {
         let mut block_ids = vec![];
-        
+
         let block_size = size / 2;
         for x in 0..block_size.x {
             for y in 0..block_size.y {
@@ -313,10 +293,10 @@ impl HullSolver {
                     for offset in oct_positions() {
                         let node_pos = block_pos + offset.as_uvec3();
                         let node_index = to_1d(node_pos, size);
-                      
+
                         count += u8::from(filled[node_index]);
                     }
-                    
+
                     if count >= 4 {
                         block_ids.push(block_index);
                     } else {
@@ -508,50 +488,49 @@ fn rotate_block_req(
     rotated_rules
 }
 
-
 /*
-    pub fn get_matching_sides_reqs(
-        node_ids: &[NodeID],
-        rules: &mut Rules,
-    ) -> Vec<Vec<(IVec3, Vec<NodeID>)>> {
-        let mut node_reqs_list = vec![];
+pub fn get_matching_sides_reqs(
+    node_ids: &[NodeID],
+    rules: &mut Rules,
+) -> Vec<Vec<(IVec3, Vec<NodeID>)>> {
+    let mut node_reqs_list = vec![];
 
-        for node_id in node_ids {
-            let mut node_reqs: Vec<(IVec3, Vec<NodeID>)> = vec![];
+    for node_id in node_ids {
+        let mut node_reqs: Vec<(IVec3, Vec<NodeID>)> = vec![];
 
-            let node = rules.nodes[node_id.index].to_owned();
+        let node = rules.nodes[node_id.index].to_owned();
 
-            for test_node_id in node_ids {
-                let test_node = rules.nodes[node_id.index].to_owned();
+        for test_node_id in node_ids {
+            let test_node = rules.nodes[node_id.index].to_owned();
 
-                for permutated_rot in test_node_id.rot.get_all_permutations() {
-                    for side in all_sides_dirs() {
-                        if node.shares_side_voxels(node_id.rot, &test_node, permutated_rot, side) {
-                            let new_node_id = rules.get_duplicate_node_id(NodeID::new(
-                                test_node_id.index,
-                                permutated_rot,
-                            ));
+            for permutated_rot in test_node_id.rot.get_all_permutations() {
+                for side in all_sides_dirs() {
+                    if node.shares_side_voxels(node_id.rot, &test_node, permutated_rot, side) {
+                        let new_node_id = rules.get_duplicate_node_id(NodeID::new(
+                            test_node_id.index,
+                            permutated_rot,
+                        ));
 
-                            let index = node_reqs
-                                .iter()
-                                .position(|(test_pos, ids)| *test_pos == side);
+                        let index = node_reqs
+                            .iter()
+                            .position(|(test_pos, ids)| *test_pos == side);
 
-                            if index.is_some() {
-                                if !node_reqs[index.unwrap()].1.contains(&new_node_id) {
-                                    node_reqs[index.unwrap()].1.push(new_node_id)
-                                }
-                            } else {
-                                node_reqs.push((side, vec![new_node_id]))
+                        if index.is_some() {
+                            if !node_reqs[index.unwrap()].1.contains(&new_node_id) {
+                                node_reqs[index.unwrap()].1.push(new_node_id)
                             }
+                        } else {
+                            node_reqs.push((side, vec![new_node_id]))
                         }
                     }
                 }
             }
-
-            node_reqs_list.push(node_reqs);
         }
 
-        node_reqs_list
+        node_reqs_list.push(node_reqs);
     }
-    
-     */
+
+    node_reqs_list
+}
+
+ */
