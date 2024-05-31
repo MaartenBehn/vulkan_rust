@@ -195,7 +195,7 @@ impl HullSolver {
     }
 
     fn add_multi(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let max_hull_node = 0;
+        let max_hull_node = 1;
         for i in 0..=max_hull_node {
             let name = format!("Hull-Multi-{i}");
             let (size, node_ids) = rules.load_multi_node(&name, voxel_loader)?;
@@ -241,6 +241,7 @@ impl HullSolver {
                 }
 
                 // No basic nodes except if they would not be accepted by the basic rules.
+                /*
                 let basic = self
                     .basic_block_reqs
                     .iter()
@@ -258,11 +259,12 @@ impl HullSolver {
                     }
 
                     if accepted {
-                        continue;
+                        //continue;
                     } else {
                         debug!("Basic contiune")
                     }
                 }
+                 */
 
                 block_reqs.push((
                     NodeData::new(node_id.to_owned(), HULL10, HULL_CACHE_NONE),
@@ -305,10 +307,11 @@ impl HullSolver {
             for (data, _) in permutated_block_reqs.iter_mut() {
                 // No basic nodes
 
+                let start = self.multi_node_reqs.len();
                 let mut found = false;
                 for (i, (node_id, _)) in permutated_node_reqs.iter().enumerate() {
                     if data.id == *node_id {
-                        data.cache_index = i;
+                        data.cache_index = start + i;
                         found = true;
                         break;
                     }

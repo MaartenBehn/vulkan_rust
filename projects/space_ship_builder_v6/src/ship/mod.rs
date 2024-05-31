@@ -118,22 +118,43 @@ impl ShipManager {
                 ship.builder = Some(builder);
             }
 
-            let (full, changed_chunks) = ship.data.tick(
-                self.actions_per_tick,
-                rules,
-                #[cfg(debug_assertions)]
-                false,
-            );
-            self.last_full_tick = full;
+            #[cfg(debug_assertions)]
+            let debug = debug_controller.mode == WFC;
 
-            ship.mesh.update(
-                &ship.data,
-                changed_chunks,
-                image_index,
-                context,
-                &self.renderer.chunk_descriptor_layout,
-                &self.renderer.descriptor_pool,
-            )?;
+            #[cfg(not(debug_assertions))]
+            let debug = false;
+
+            if debug {
+                if controls.t {
+                    let (full, changed_chunks) = ship.data.tick(1, rules, true);
+                    ship.mesh.update(
+                        &ship.data,
+                        changed_chunks,
+                        image_index,
+                        context,
+                        &self.renderer.chunk_descriptor_layout,
+                        &self.renderer.descriptor_pool,
+                    )?;
+                }
+            } else {
+                let (full, changed_chunks) = ship.data.tick(
+                    self.actions_per_tick,
+                    rules,
+                    #[cfg(debug_assertions)]
+                    false,
+                );
+
+                self.last_full_tick = full;
+
+                ship.mesh.update(
+                    &ship.data,
+                    changed_chunks,
+                    image_index,
+                    context,
+                    &self.renderer.chunk_descriptor_layout,
+                    &self.renderer.descriptor_pool,
+                )?;
+            }
         }
 
         self.renderer.update(camera, extent)?;

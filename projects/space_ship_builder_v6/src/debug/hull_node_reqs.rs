@@ -15,19 +15,19 @@ use std::time::Duration;
 pub const HULL_SIZE: i32 = 4;
 const NEXT_NODE_SPEED: Duration = Duration::from_millis(100);
 
-pub struct DebugHullRenderer {
+pub struct DebugHullNodeReqRenderer {
     mesh: ShipMesh,
     render_nodes: Vec<RenderNode>,
     rule_index: usize,
     last_action_time: Duration,
 }
 
-impl DebugHullRenderer {
+impl DebugHullNodeReqRenderer {
     pub fn new(image_len: usize) -> Self {
         let size = IVec3::ONE * HULL_SIZE * 4;
         let render_size = IVec3::ONE * HULL_SIZE;
         let render_nodes = Self::get_debug_render_nodes(render_size);
-        DebugHullRenderer {
+        DebugHullNodeReqRenderer {
             mesh: ShipMesh::new(image_len, size, render_size),
             render_nodes,
             rule_index: 0,
@@ -115,7 +115,7 @@ impl DebugHullRenderer {
 }
 
 impl DebugController {
-    pub fn update_hull(
+    pub fn update_hull_node_req(
         &mut self,
 
         hull_solver: &HullSolver,
@@ -127,7 +127,7 @@ impl DebugController {
         descriptor_pool: &DescriptorPool,
         total_time: Duration,
     ) -> Result<()> {
-        self.hull_renderer
+        self.hull_node_req_renderer
             .update_rule_index(controls, hull_solver, total_time);
 
         self.add_text(vec!["Node Req".to_owned()], vec3(-1.0, 0.0, 0.0));
@@ -144,13 +144,13 @@ impl DebugController {
         );
 
         let node_id_bits = self.get_node_req_node_id_bits(
-            self.hull_renderer.mesh.size,
-            self.hull_renderer.mesh.render_size,
+            self.hull_node_req_renderer.mesh.size,
+            self.hull_node_req_renderer.mesh.render_size,
             hull_solver,
-            self.hull_renderer.rule_index,
+            self.hull_node_req_renderer.rule_index,
         );
 
-        self.hull_renderer.update_renderer(
+        self.hull_node_req_renderer.update_renderer(
             &node_id_bits,
             image_index,
             context,

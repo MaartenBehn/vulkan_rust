@@ -1,9 +1,11 @@
-pub mod hull;
+pub mod hull_block_reqs;
+pub mod hull_node_reqs;
 pub mod line_renderer;
 pub mod possible_node_renderer;
 pub mod text_renderer;
 
-use crate::debug::hull::DebugHullRenderer;
+use crate::debug::hull_block_reqs::DebugHullBlockReqRenderer;
+use crate::debug::hull_node_reqs::DebugHullNodeReqRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::possible_node_renderer::DebugPossibleNodeRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
@@ -23,7 +25,8 @@ use std::time::Duration;
 pub enum DebugMode {
     OFF,
     WFC,
-    HULL,
+    HULL_BOCK,
+    HULL_NODE,
 }
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(500);
@@ -33,7 +36,8 @@ pub struct DebugController {
     pub line_renderer: DebugLineRenderer,
     pub text_renderer: DebugTextRenderer,
     pub possible_node_renderer: DebugPossibleNodeRenderer,
-    pub hull_renderer: DebugHullRenderer,
+    pub hull_block_req_renderer: DebugHullBlockReqRenderer,
+    pub hull_node_req_renderer: DebugHullNodeReqRenderer,
 
     last_mode_change: Duration,
 }
@@ -60,14 +64,16 @@ impl DebugController {
 
         let possible_node_renderer = DebugPossibleNodeRenderer::new(images_len, ship);
 
-        let hull_renderer = DebugHullRenderer::new(images_len);
+        let hull_block_req_renderer = DebugHullBlockReqRenderer::new(images_len);
+        let hull_node_req_renderer = DebugHullNodeReqRenderer::new(images_len);
 
         Ok(DebugController {
             mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
             possible_node_renderer,
-            hull_renderer,
+            hull_block_req_renderer,
+            hull_node_req_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
@@ -94,8 +100,17 @@ impl DebugController {
         if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::HULL {
-                DebugMode::HULL
+            self.mode = if self.mode != DebugMode::HULL_BOCK {
+                DebugMode::HULL_BOCK
+            } else {
+                DebugMode::OFF
+            }
+        }
+        if controls.f4 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
+            self.mode = if self.mode != DebugMode::HULL_NODE {
+                DebugMode::HULL_NODE
             } else {
                 DebugMode::OFF
             }
@@ -114,8 +129,19 @@ impl DebugController {
                     &renderer.descriptor_pool,
                 )?;
             }
-            DebugMode::HULL => {
-                self.update_hull(
+            DebugMode::HULL_BOCK => {
+                self.update_block_req_hull(
+                    rules.solvers[1].to_hull(),
+                    controls,
+                    image_index,
+                    &context,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
+                    total_time,
+                )?;
+            }
+            DebugMode::HULL_NODE => {
+                self.update_hull_node_req(
                     rules.solvers[1].to_hull(),
                     controls,
                     image_index,
@@ -151,8 +177,13 @@ impl DebugController {
                 self.possible_node_renderer
                     .render(buffer, renderer, image_index);
             }
-            DebugMode::HULL => {
-                self.hull_renderer.render(buffer, renderer, image_index);
+            DebugMode::HULL_BOCK => {
+                self.hull_block_req_renderer
+                    .render(buffer, renderer, image_index);
+            }
+            DebugMode::HULL_NODE => {
+                self.hull_node_req_renderer
+                    .render(buffer, renderer, image_index);
             }
         }
 
