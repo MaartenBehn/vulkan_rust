@@ -5,7 +5,6 @@ use crate::ship::mesh::{MeshChunk, ShipMesh};
 use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BUILD};
 use octa_force::anyhow::Result;
 use octa_force::glam::{ivec3, vec3, vec4, IVec3, Vec3};
-use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 
 pub struct DebugPossibleNodeRenderer {

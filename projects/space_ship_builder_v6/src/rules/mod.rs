@@ -1,6 +1,6 @@
-mod block_preview;
-mod empty;
-mod hull;
+pub mod block_preview;
+pub mod empty;
+pub mod hull;
 pub mod solver;
 
 use crate::node::{Material, Node, NodeID, NodeIndex, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
@@ -15,7 +15,7 @@ use std::ops::Mul;
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
 const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, Debug)]
 pub enum Prio {
     #[default]
     ZERO,
@@ -116,11 +116,11 @@ impl Rules {
 // Helper functions
 impl Rules {
     fn load_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<NodeID> {
-        let (model_index, rot) = voxel_loader.find_model(name)?;
+        let (model_index, _) = voxel_loader.find_model(name)?;
         let node = voxel_loader.load_node_model(model_index)?;
 
         let id = self.add_node(node);
-        let dup_id = self.get_duplicate_node_id(NodeID::new(id.index, id.rot.mul(rot)));
+        let dup_id = self.get_duplicate_node_id(id);
 
         Ok(dup_id)
     }
@@ -130,13 +130,13 @@ impl Rules {
         name: &str,
         voxel_loader: &VoxelLoader,
     ) -> Result<(UVec3, Vec<NodeID>)> {
-        let (model_index, rot) = voxel_loader.find_model(name)?;
+        let (model_index, _) = voxel_loader.find_model(name)?;
         let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
 
         let mut node_ids = vec![];
         for node in nodes {
             let id = self.add_node(node);
-            let dup_id = self.get_duplicate_node_id(NodeID::new(id.index, id.rot.mul(rot)));
+            let dup_id = self.get_duplicate_node_id(id);
             node_ids.push(dup_id);
         }
 

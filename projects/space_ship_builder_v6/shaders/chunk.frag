@@ -5,7 +5,7 @@
 #define NODE_SIZE 4
 #define MAX_STEPS 100
 #define RAY_POS_OFFSET 0.0001
-#define BORDER_SIZE 0.01
+#define BORDER_SIZE 0.05
 
 // Out
 layout(location = 0) out vec4 finalColor;

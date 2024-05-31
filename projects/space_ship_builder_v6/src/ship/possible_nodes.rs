@@ -2,7 +2,7 @@ use crate::node::{BlockIndex, NodeID};
 use crate::rules::Prio;
 use crate::ship::data::CacheIndex;
 
-#[derive(Clone, Default, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Clone, Default, PartialOrd, PartialEq, Ord, Eq, Debug)]
 pub struct NodeData {
     pub id: NodeID,
     pub prio: Prio,

@@ -32,7 +32,7 @@ impl ShipData {
                     continue;
                 }
 
-                let block_pos = self.block_world_pos_from_in_chunk_block_index(i, chunk.pos);
+                let block_pos = self.block_world_pos_from_in_chunk_block_index(i, chunk.pos / 2);
 
                 blocks.push((block_pos.into(), *block))
             }
