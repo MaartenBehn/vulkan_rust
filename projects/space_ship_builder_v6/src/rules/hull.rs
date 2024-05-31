@@ -41,7 +41,7 @@ impl Rules {
         };
 
         hull_solver.add_base_nodes(self, voxel_loader)?;
-        //hull_solver.add_multi(self, voxel_loader)?;
+        hull_solver.add_multi(self, voxel_loader)?;
 
         self.solvers.push(Box::new(hull_solver));
 
@@ -72,9 +72,7 @@ impl Solver for HullSolver {
         chunk_index: usize,
         world_node_pos: IVec3,
     ) -> Vec<NodeData> {
-        ship.chunks[chunk_index].base_nodes[node_index]
-            .get_node_ids(self.block_index)
-            .to_owned()
+        self.node_level(ship, node_index, chunk_index, world_node_pos, true)
     }
 
     fn node_check(
@@ -84,9 +82,7 @@ impl Solver for HullSolver {
         chunk_index: usize,
         world_node_pos: IVec3,
     ) -> Vec<NodeData> {
-        ship.chunks[chunk_index].nodes[node_index]
-            .get_node_ids(self.block_index)
-            .to_owned()
+        self.node_level(ship, node_index, chunk_index, world_node_pos, false)
     }
 }
 
@@ -275,9 +271,18 @@ impl HullSolver {
             }
 
             let mut permutated_block_reqs = permutate_block_req(&block_reqs, rules);
-            self.block_reqs.append(&mut permutated_block_reqs);
-
             let mut permutated_node_reqs = permutate_node_req(&node_reqs, rules);
+
+            // Link Node reqs in Block reqs
+            for (data, _) in permutated_block_reqs.iter_mut() {
+                for (i, (node_id, _)) in permutated_node_reqs.iter().enumerate() {
+                    if data.id == *node_id {
+                        data.cache_index = i;
+                    }
+                }
+            }
+
+            self.block_reqs.append(&mut permutated_block_reqs);
             self.node_reqs.append(&mut permutated_node_reqs);
         }
 
@@ -360,64 +365,85 @@ impl HullSolver {
         new_ids
     }
 
-    /*
-    fn node_level(&mut self, ship: &mut ShipData, pos: IVec3, reset: bool) -> Vec<NodeID> {
+    fn node_level(
+        &self,
+        ship: &mut ShipData,
+        node_index: usize,
+        chunk_index: usize,
+        pos: IVec3,
+        reset: bool,
+    ) -> Vec<NodeData> {
+        let mut node_datas = if reset {
+            ship.chunks[chunk_index].base_nodes[node_index]
+                .get_node_ids(self.block_index)
+                .to_owned()
+        } else {
+            ship.chunks[chunk_index].nodes[node_index]
+                .get_node_ids(self.block_index)
+                .to_owned()
+        };
 
-        let mut new_nodes = vec![];
-        for (node_id, node_req) in self.node_ids.iter().zip(self.node_reqs.iter()) {
-
-            let mut node_accepted = true;
-            for (offset, req_ids) in node_req.iter() {
-                let test_pos = pos + *offset;
-
-                let test_chunk_index = ship.get_chunk_index_from_node_pos(test_pos);
-                let test_node_index = ship.get_node_index(test_pos);
-
-                let mut req_ids_contains_empty = false;
-                let mut req_ids_contains_any = false;
-                for req_node in req_ids {
-                    if req_node.is_empty() {
-                        req_ids_contains_empty = true;
-                    }
-                    if req_node.is_any() {
-                        req_ids_contains_any = true;
-                    }
-                    if req_ids_contains_empty && req_ids_contains_any {
-                        break;
-                    }
+        node_datas = node_datas
+            .into_iter()
+            .filter(|data| {
+                if data.cache_index == HULL_CACHE_NONE {
+                    return true;
                 }
 
-                let test_nodes = if reset {
-                    &ship.chunks[test_chunk_index].base_nodes[test_node_index].get_node_ids(self.block_index)
-                } else {
-                    &ship.chunks[test_chunk_index].nodes[test_node_index].get_node_ids(self.block_index)
-                };
+                let (node_id, node_req) = &self.node_reqs[data.cache_index];
 
-                let mut found = false;
-                if test_nodes.is_empty() && req_ids_contains_empty {
-                    found = true;
-                } else if req_ids_contains_any {
-                    found = test_nodes.iter().any(|node| !node.is_empty())
-                } else {
-                    for test_id in test_nodes.iter() {
-                        if req_ids.contains(&test_id) {
-                            found = true;
+                let mut node_accepted = true;
+                for (offset, req_ids) in node_req.iter() {
+                    let test_pos = pos + *offset;
+
+                    let test_chunk_index = ship.get_chunk_index_from_node_pos(test_pos);
+                    let test_node_index = ship.get_node_index(test_pos);
+
+                    let mut req_ids_contains_empty = false;
+                    let mut req_ids_contains_any = false;
+                    for req_node in req_ids {
+                        if req_node.is_empty() {
+                            req_ids_contains_empty = true;
+                        }
+                        if req_node.is_any() {
+                            req_ids_contains_any = true;
+                        }
+                        if req_ids_contains_empty && req_ids_contains_any {
                             break;
                         }
                     }
+
+                    let test_nodes = if reset {
+                        ship.chunks[test_chunk_index].base_nodes[test_node_index]
+                            .get_node_ids(self.block_index)
+                    } else {
+                        ship.chunks[test_chunk_index].nodes[test_node_index]
+                            .get_node_ids(self.block_index)
+                    };
+
+                    let mut found = false;
+                    if test_nodes.is_empty() && req_ids_contains_empty {
+                        found = true;
+                    } else if req_ids_contains_any {
+                        found = test_nodes.iter().any(|data| !data.id.is_empty())
+                    } else {
+                        for test_data in test_nodes.iter() {
+                            if req_ids.contains(&test_data.id) {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    node_accepted &= found;
                 }
 
-                node_accepted &= found;
-            }
+                node_accepted
+            })
+            .collect();
 
-            if node_accepted {
-                new_nodes.push(node_id.to_owned());
-            }
-        }
-
-        new_nodes
+        node_datas
     }
-     */
 }
 
 fn flip_block_req(
