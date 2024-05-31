@@ -3,8 +3,8 @@ use crate::rules::block_preview::BlockPreview;
 use crate::rules::solver::{push_in_block_affected_nodes, Solver};
 use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
-use octa_force::glam::IVec3;
 use crate::ship::possible_nodes::NodeData;
+use octa_force::glam::IVec3;
 
 pub struct EmptySolver {}
 

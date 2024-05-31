@@ -2,8 +2,8 @@ use crate::math::oct_positions;
 use crate::node::{BlockIndex, NodeID};
 use crate::rules::Prio;
 use crate::ship::data::{CacheIndex, ShipData};
-use octa_force::glam::IVec3;
 use crate::ship::possible_nodes::NodeData;
+use octa_force::glam::IVec3;
 
 pub trait Solver {
     fn push_block_affected_nodes(&self, ship: &mut ShipData, block_pos: IVec3);

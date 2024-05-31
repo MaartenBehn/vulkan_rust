@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::math::{all_bvec3s, all_sides_dirs, get_all_poses, get_neighbors, oct_positions, to_1d};
 use crate::node::{BlockIndex, NodeID, BLOCK_INDEX_EMPTY, NODE_VOXEL_LENGTH, VOXEL_EMPTY};
 use crate::rotation::Rot;
@@ -9,6 +8,7 @@ use crate::rules::Prio::{
 };
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
+use crate::ship::possible_nodes::NodeData;
 use crate::voxel_loader::VoxelLoader;
 use log::debug;
 use octa_force::anyhow::bail;
@@ -17,14 +17,14 @@ use octa_force::{
     anyhow::Result,
     glam::{ivec3, BVec3, IVec3, Mat3, Mat4},
 };
-use crate::ship::possible_nodes::NodeData;
+use std::collections::HashMap;
 
 const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
 
 pub struct HullSolver {
     pub block_index: usize,
     pub block_reqs: Vec<(NodeData, Vec<(IVec3, BlockIndex)>)>,
-    pub node_reqs: Vec<(NodeID, Vec<(IVec3, NodeID)>)>,
+    pub node_reqs: Vec<(NodeID, Vec<(IVec3, Vec<NodeID>)>)>,
 }
 
 impl Rules {
@@ -41,7 +41,7 @@ impl Rules {
         };
 
         hull_solver.add_base_nodes(self, voxel_loader)?;
-        hull_solver.add_multi(self, voxel_loader)?;
+        //hull_solver.add_multi(self, voxel_loader)?;
 
         self.solvers.push(Box::new(hull_solver));
 
@@ -95,7 +95,7 @@ impl HullSolver {
         let mut node_ids = vec![];
         let max_hull_node = 8;
         for i in 0..=max_hull_node {
-            let node_id = rules.add_node(&format!("Hull-{i}"), voxel_loader)?;
+            let node_id = rules.load_node(&format!("Hull-{i}"), voxel_loader)?;
             node_ids.push(node_id);
         }
 
@@ -126,10 +126,10 @@ impl HullSolver {
             (
                 NodeData::new(node_ids[3], HULL3, HULL_CACHE_NONE),
                 vec![
-                    (ivec3(-2, -2, -1), self.block_index),
                     (ivec3(-2, 0, -1), self.block_index),
                     (ivec3(0, -2, -1), self.block_index),
                     (ivec3(0, 0, -1), self.block_index),
+                    (ivec3(0, 0, 1), self.block_index),
                 ],
             ),
             (
@@ -144,15 +144,6 @@ impl HullSolver {
             (
                 NodeData::new(node_ids[5], HULL5, HULL_CACHE_NONE),
                 vec![
-                    (ivec3(-2, 0, -1), self.block_index),
-                    (ivec3(0, -2, -1), self.block_index),
-                    (ivec3(0, 0, -1), self.block_index),
-                    (ivec3(0, 0, 1), self.block_index),
-                ],
-            ),
-            (
-                NodeData::new(node_ids[6], HULL6, HULL_CACHE_NONE),
-                vec![
                     (ivec3(-2, -2, -1), self.block_index),
                     (ivec3(-2, 0, -1), self.block_index),
                     (ivec3(0, -2, -1), self.block_index),
@@ -161,7 +152,7 @@ impl HullSolver {
                 ],
             ),
             (
-                NodeData::new(node_ids[7], HULL7, HULL_CACHE_NONE),
+                NodeData::new(node_ids[7], HULL6, HULL_CACHE_NONE),
                 vec![
                     (ivec3(-2, -2, -1), self.block_index),
                     (ivec3(-2, 0, -1), self.block_index),
@@ -172,7 +163,7 @@ impl HullSolver {
                 ],
             ),
             (
-                NodeData::new(node_ids[8], HULL8, HULL_CACHE_NONE),
+                NodeData::new(node_ids[8], HULL7, HULL_CACHE_NONE),
                 vec![
                     (ivec3(-2, -2, -1), self.block_index),
                     (ivec3(-2, 0, -1), self.block_index),
@@ -184,7 +175,7 @@ impl HullSolver {
                 ],
             ),
             (
-                NodeData::new(node_ids[6], HULL9, HULL_CACHE_NONE),
+                NodeData::new(node_ids[6], HULL8, HULL_CACHE_NONE),
                 vec![
                     (ivec3(-2, -2, -1), self.block_index),
                     (ivec3(-2, 0, -1), self.block_index),
@@ -197,8 +188,8 @@ impl HullSolver {
                 ],
             ),
         ];
-        
-        let mut permutated_block_reqs = Self::permutate_block_req(&block_reqs, rules);
+
+        let mut permutated_block_reqs = permutate_block_req(&block_reqs, rules);
         self.block_reqs.append(&mut permutated_block_reqs);
 
         Ok(())
@@ -208,7 +199,7 @@ impl HullSolver {
         let max_hull_node = 0;
         for i in 0..=max_hull_node {
             let name = format!("Hull-Multi-{i}");
-            let (size, node_ids) = rules.add_multi_node(&name, voxel_loader)?;
+            let (size, node_ids) = rules.load_multi_node(&name, voxel_loader)?;
 
             if (size % 2) != UVec3::ZERO {
                 bail!("The node size multi node model {name} needs to multiple of 2.")
@@ -216,63 +207,78 @@ impl HullSolver {
 
             let filled = Self::get_multi_nodes_filled(size, &node_ids, rules);
             let blocks = Self::get_multi_blocks_ids(size, &filled, self.block_index);
-            
-            
+
             let mut block_reqs = vec![];
             let mut node_reqs = vec![];
             for pos in get_all_poses(size) {
                 let index = to_1d(pos, size);
                 let node_id = &node_ids[index];
-                
+
+                if node_id.is_empty() {
+                    continue;
+                }
+
                 // Blocks
-                let block_pos = (pos.as_ivec3() / 2) * 2;
+                let block_pos = (pos.as_ivec3() / 2);
                 let in_block_pos = pos.as_ivec3() % 2;
 
                 let mut possible_block_neighbors = vec![];
                 for offset in get_neighbors() {
-                    let neighbor_offset = offset * 2;
-                    let neighbor_pos = block_pos + neighbor_offset;
+                    let neighbor_pos = block_pos + offset;
 
-                    if neighbor_pos.is_negative_bitmask() != 0 || neighbor_pos.cmpge((size / 2).as_ivec3()).any() {
+                    if neighbor_pos.is_negative_bitmask() != 0
+                        || neighbor_pos.cmpge((size / 2).as_ivec3()).any()
+                    {
                         continue;
                     }
 
-                    let neighbor_block_index = to_1d(neighbor_pos.as_uvec3(), size);
+                    let neighbor_block_index = to_1d(neighbor_pos.as_uvec3(), size / 2);
                     let neighbor_block = blocks[neighbor_block_index];
-                    
-                    let block_neigbor_offset = neighbor_offset - in_block_pos;
+
+                    let block_neigbor_offset = (offset * 2) - in_block_pos;
+
                     possible_block_neighbors.push((block_neigbor_offset, neighbor_block));
                 }
-                
+
                 // Nodes
                 let mut possible_node_neighbors: HashMap<IVec3, Vec<NodeID>> = HashMap::default();
                 for offset in get_neighbors() {
                     if offset == IVec3::ZERO {
                         continue;
                     }
-                    
+
                     let neighbor_pos = pos.as_ivec3() + offset;
 
-                    if neighbor_pos.is_negative_bitmask() != 0 || neighbor_pos.cmpge(size.as_ivec3()).any() {
+                    if neighbor_pos.is_negative_bitmask() != 0
+                        || neighbor_pos.cmpge(size.as_ivec3()).any()
+                    {
                         continue;
                     }
 
                     let neighbor_node_id = node_ids[to_1d(neighbor_pos.as_uvec3(), size)];
-                    let ids = possible_node_neighbors.entry(offset)
-                        .or_insert(vec![]);
+                    let ids = possible_node_neighbors.entry(offset).or_insert(vec![]);
 
                     if !ids.contains(&neighbor_node_id) {
                         ids.push(neighbor_node_id);
                     }
                 }
 
-                block_reqs.push((NodeData::new(node_id.to_owned(), HULL9, HULL_CACHE_NONE), possible_block_neighbors));
+                block_reqs.push((
+                    NodeData::new(node_id.to_owned(), HULL10, HULL_CACHE_NONE),
+                    possible_block_neighbors,
+                ));
+
+                node_reqs.push((
+                    node_id.to_owned(),
+                    possible_node_neighbors.into_iter().collect(),
+                ));
             }
 
-            let mut permutated_block_reqs = Self::permutate_block_req(&block_reqs, rules);
+            let mut permutated_block_reqs = permutate_block_req(&block_reqs, rules);
             self.block_reqs.append(&mut permutated_block_reqs);
-            
-            
+
+            let mut permutated_node_reqs = permutate_node_req(&node_reqs, rules);
+            self.node_reqs.append(&mut permutated_node_reqs);
         }
 
         Ok(())
@@ -323,46 +329,6 @@ impl HullSolver {
 
         block_ids
     }
-    
-    fn permutate_block_req(block_reqs: &[(NodeData, Vec<(IVec3, usize)>)], rules: &mut Rules) -> Vec<(NodeData, Vec<(IVec3, BlockIndex)>)>  {
-
-        let rotations = all_bvec3s();
-        let flips = all_bvec3s();
-
-        let mut permutated_block_reqs: Vec<(NodeData, Vec<(IVec3, BlockIndex)>)> = Vec::new();
-
-        for (data, block_reqs) in block_reqs.iter() {
-            let flipped_rules = flip_block_req(&data.id, block_reqs, &flips);
-
-            for (flipped_node_id, flipped_req) in flipped_rules {
-                let rotated_rules = rotate_block_req(&flipped_node_id, &flipped_req, &rotations);
-
-                for (permutated_node_id, permutated_req) in rotated_rules {
-                    let node_id = rules.get_duplicate_node_id(permutated_node_id);
-
-                    let mut added = false;
-                    for (test_data, test_reqs) in permutated_block_reqs.iter() {
-                        if node_id != test_data.id {
-                            continue;
-                        }
-
-                        if *test_reqs == permutated_req {
-                            added = true;
-                            break;
-                        }
-                    }
-
-                    if !added {
-                        permutated_block_reqs.push((data.to_owned(), permutated_req));
-                    }
-                }
-            }
-        }
-
-        permutated_block_reqs
-    }
-    
-    
 
     fn block_level(&self, ship: &mut ShipData, pos: IVec3) -> Vec<NodeData> {
         let mut new_ids = Vec::new();
@@ -541,11 +507,54 @@ fn rotate_block_req(
     rotated_rules
 }
 
+fn permutate_block_req(
+    block_reqs: &[(NodeData, Vec<(IVec3, BlockIndex)>)],
+    rules: &mut Rules,
+) -> Vec<(NodeData, Vec<(IVec3, BlockIndex)>)> {
+    let rotations = all_bvec3s();
+    let flips = all_bvec3s();
+
+    let mut permutated_block_reqs: Vec<(NodeData, Vec<(IVec3, BlockIndex)>)> = Vec::new();
+
+    for (data, block_reqs) in block_reqs.iter() {
+        let flipped_rules = flip_block_req(&data.id, block_reqs, &flips);
+
+        for (flipped_node_id, flipped_req) in flipped_rules {
+            let rotated_rules = rotate_block_req(&flipped_node_id, &flipped_req, &rotations);
+
+            for (permutated_node_id, permutated_req) in rotated_rules {
+                let node_id = rules.get_duplicate_node_id(permutated_node_id);
+
+                let mut added = false;
+                for (test_data, test_reqs) in permutated_block_reqs.iter() {
+                    if node_id != test_data.id {
+                        continue;
+                    }
+
+                    if *test_reqs == permutated_req {
+                        added = true;
+                        break;
+                    }
+                }
+
+                if !added {
+                    permutated_block_reqs.push((
+                        NodeData::new(permutated_node_id, data.prio, data.cache_index),
+                        permutated_req,
+                    ));
+                }
+            }
+        }
+    }
+
+    permutated_block_reqs
+}
+
 fn flip_node_req(
     node_id: &NodeID,
-    node_req: &HashMap<IVec3, Vec<NodeID>>,
-    flips: &Vec<BVec3>,
-) -> Vec<(NodeID, HashMap<IVec3, Vec<NodeID>>)> {
+    node_req: &[(IVec3, Vec<NodeID>)],
+    flips: &[BVec3],
+) -> Vec<(NodeID, Vec<(IVec3, Vec<NodeID>)>)> {
     let mut rotated_rules = Vec::new();
 
     for flip in flips.iter() {
@@ -557,7 +566,7 @@ fn flip_node_req(
 
         let flipped_rot = node_id.rot.flip(flip.to_owned());
 
-        let flippped_req: HashMap<_, _> = node_req
+        let flippped_req: Vec<_> = node_req
             .iter()
             .map(|(pos, ids)| {
                 let flipped_pos = (*pos) * flip_a;
@@ -580,9 +589,9 @@ fn flip_node_req(
 
 fn rotate_node_req(
     node_id: &NodeID,
-    node_req: &HashMap<IVec3, Vec<NodeID>>,
-    rotates: &Vec<BVec3>,
-) -> Vec<(NodeID, HashMap<IVec3, Vec<NodeID>>)> {
+    node_req: &[(IVec3, Vec<NodeID>)],
+    rotates: &[BVec3],
+) -> Vec<(NodeID, Vec<(IVec3, Vec<NodeID>)>)> {
     let mut rotated_rules = Vec::new();
 
     for &rotate in rotates {
@@ -617,7 +626,7 @@ fn rotate_node_req(
 
         let rotated_rot: Rot = Mat3::from_mat4(mat * rot_mat).into();
 
-        let rotated_req: HashMap<_, _> = node_req
+        let rotated_req: Vec<_> = node_req
             .iter()
             .map(|(pos, ids)| {
                 let rotated_pos = pos_mat.transform_point3(pos.as_vec3()).round().as_ivec3();
@@ -637,6 +646,67 @@ fn rotate_node_req(
     }
 
     rotated_rules
+}
+
+fn permutate_node_req(
+    block_reqs: &[(NodeID, Vec<(IVec3, Vec<NodeID>)>)],
+    rules: &mut Rules,
+) -> Vec<(NodeID, Vec<(IVec3, Vec<NodeID>)>)> {
+    let rotations = all_bvec3s();
+    let flips = all_bvec3s();
+
+    let mut permutated_node_reqs: Vec<(NodeID, Vec<(IVec3, Vec<NodeID>)>)> = Vec::new();
+
+    for (node_id, node_reqs) in block_reqs.iter() {
+        let flipped_rules = flip_node_req(node_id, node_reqs, &flips);
+
+        for (flipped_node_id, flipped_req) in flipped_rules {
+            let rotated_rules = rotate_node_req(&flipped_node_id, &flipped_req, &rotations);
+
+            for (permutated_node_id, mut permutated_req) in rotated_rules.into_iter() {
+                // Find node_id index
+                let permutated_node_id = rules.get_duplicate_node_id(permutated_node_id);
+
+                let mut added = false;
+                for (test_id, test_reqs) in permutated_node_reqs.iter_mut() {
+                    if permutated_node_id != *test_id {
+                        continue;
+                    }
+
+                    for (pos, ids) in permutated_req.iter() {
+                        let mut req_pos_found = false;
+                        for (test_req_pos, test_req_ids) in test_reqs.iter_mut() {
+                            if *test_req_pos == *pos {
+                                for id in ids {
+                                    let id = rules.get_duplicate_node_id(*id);
+
+                                    if !test_req_ids.contains(&id) {
+                                        test_req_ids.push(id);
+                                    }
+                                }
+
+                                req_pos_found = true;
+                                break;
+                            }
+                        }
+
+                        if !req_pos_found {
+                            test_reqs.push((pos.to_owned(), ids.to_owned()))
+                        }
+                    }
+
+                    added = true;
+                    break;
+                }
+
+                if !added {
+                    permutated_node_reqs.push((permutated_node_id, permutated_req))
+                }
+            }
+        }
+    }
+
+    permutated_node_reqs
 }
 
 /*

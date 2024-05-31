@@ -429,6 +429,6 @@ impl std::ops::Mul<Rot> for Rot {
 
 impl Default for Rot {
     fn default() -> Self {
-        Self::from(4)
+        Self::IDENTITY
     }
 }

@@ -3,12 +3,14 @@ mod empty;
 mod hull;
 pub mod solver;
 
-use crate::node::{Material, Node, NodeID, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
+use crate::node::{Material, Node, NodeID, NodeIndex, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
+use crate::rotation::Rot;
 use crate::rules::block_preview::BlockPreview;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
 use octa_force::glam::UVec3;
+use std::ops::Mul;
 
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
 const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
@@ -51,7 +53,7 @@ impl Rules {
             nodes: vec![],
             block_names: vec![],
             block_previews: vec![],
-            duplicate_node_ids: vec![],
+            duplicate_node_ids: vec![vec![vec![NodeID::default()]]],
             solvers: vec![],
         };
 
@@ -89,32 +91,54 @@ impl Rules {
 
         new_node_id.unwrap()
     }
+
+    pub fn add_node(&mut self, node: Node) -> NodeID {
+        let rots = Rot::IDENTITY.get_all_permutations();
+
+        let mut id = None;
+        for (i, test_node) in self.nodes.iter().enumerate() {
+            for rot in rots.iter() {
+                if node.is_duplicate_node_id(*rot, test_node, Rot::IDENTITY) {
+                    id = Some(NodeID::new(i, *rot));
+                }
+            }
+        }
+
+        if id.is_none() {
+            id = Some(NodeID::new(self.nodes.len(), Rot::IDENTITY));
+            self.nodes.push(node);
+        }
+
+        id.unwrap()
+    }
 }
 
 // Helper functions
 impl Rules {
-    fn add_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<NodeID> {
+    fn load_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<NodeID> {
         let (model_index, rot) = voxel_loader.find_model(name)?;
         let node = voxel_loader.load_node_model(model_index)?;
 
-        self.nodes.push(node);
+        let id = self.add_node(node);
+        let dup_id = self.get_duplicate_node_id(NodeID::new(id.index, id.rot.mul(rot)));
 
-        Ok(NodeID::new(self.nodes.len() - 1, rot))
+        Ok(dup_id)
     }
 
-    fn add_multi_node(
+    fn load_multi_node(
         &mut self,
         name: &str,
         voxel_loader: &VoxelLoader,
     ) -> Result<(UVec3, Vec<NodeID>)> {
         let (model_index, rot) = voxel_loader.find_model(name)?;
-        let (size, mut nodes) = voxel_loader.load_multi_node_model(model_index)?;
+        let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
 
-        let nodes_len = self.nodes.len();
-        let node_ids: Vec<_> = (0..nodes.len())
-            .map(|i| NodeID::new(i + nodes_len, rot))
-            .collect();
-        self.nodes.append(&mut nodes);
+        let mut node_ids = vec![];
+        for node in nodes {
+            let id = self.add_node(node);
+            let dup_id = self.get_duplicate_node_id(NodeID::new(id.index, id.rot.mul(rot)));
+            node_ids.push(dup_id);
+        }
 
         Ok((size, node_ids))
     }

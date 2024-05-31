@@ -14,7 +14,7 @@ use std::cmp::max;
 use crate::debug::DebugController;
 use crate::ship::mesh::RenderNode;
 use crate::ship::node_order::NodeOrderController;
-use crate::ship::possible_nodes::PossibleNodes;
+use crate::ship::possible_nodes::{NodeData, PossibleNodes};
 
 pub type ChunkIndex = usize;
 pub type CacheIndex = usize;
@@ -169,7 +169,7 @@ impl ShipData {
 
         let old_base_node_ids =
             self.chunks[chunk_index].base_nodes[node_index].get_node_ids(block_index);
-        if old_base_node_ids != new_base_node_ids {
+        if old_base_node_ids != new_base_node_ids.as_slice() {
             for (chunk_index, node_index) in self.get_neighbor_chunk_and_node_index(pos) {
                 self.block_changed
                     .push_back(self.order_controller.pack_order_with_block(
@@ -257,15 +257,15 @@ impl ShipData {
         let (chunk_index, node_index) = self.order_controller.unpack_order(order);
         let node_index_plus_padding = self.node_index_to_node_index_plus_padding(node_index);
 
-        let (node_id, _) = self.chunks[chunk_index].nodes[node_index]
+        let data = self.chunks[chunk_index].nodes[node_index]
             .get_all()
-            .max_by(|(_, prio1), (_, prio2)| prio1.cmp(prio2))
-            .unwrap_or(&(NodeID::empty(), Prio::ZERO))
+            .max_by(|data1, data2| data1.prio.cmp(&data2.prio))
+            .unwrap_or(&NodeData::default())
             .to_owned();
 
-        self.chunks[chunk_index].node_id_bits[node_index] = node_id.into();
+        self.chunks[chunk_index].node_id_bits[node_index] = data.id.into();
         self.chunks[chunk_index].render_nodes[node_index_plus_padding] =
-            RenderNode(!node_id.is_empty());
+            RenderNode(!data.id.is_empty());
 
         chunk_index
     }

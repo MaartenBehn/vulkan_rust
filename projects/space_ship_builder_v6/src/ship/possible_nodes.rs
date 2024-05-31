@@ -1,14 +1,13 @@
 use crate::node::{BlockIndex, NodeID};
 use crate::rules::Prio;
-use crate::ship::data::{CacheIndex};
+use crate::ship::data::CacheIndex;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialOrd, PartialEq, Ord, Eq)]
 pub struct NodeData {
     pub id: NodeID,
     pub prio: Prio,
-    pub cache_index: CacheIndex
+    pub cache_index: CacheIndex,
 }
-
 
 #[derive(Clone, Default)]
 pub struct PossibleNodes {
@@ -52,7 +51,6 @@ impl PossibleNodes {
         self.nodes.iter().flat_map(|(_, ids)| ids)
     }
 }
-
 
 impl NodeData {
     pub fn new(id: NodeID, prio: Prio, cache_index: CacheIndex) -> Self {

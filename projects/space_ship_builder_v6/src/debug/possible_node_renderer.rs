@@ -118,10 +118,10 @@ impl DebugController {
                                 let pattern_pos = ivec3(ix, iy, iz) + node_pos;
                                 let index = to_1d_i(pattern_pos, size) as usize;
 
-                                let (node_id, _) = possible_pattern[pattern_counter];
-                                node_debug_node_id_bits[index] = node_id.to_owned().into();
+                                let data = possible_pattern[pattern_counter];
+                                node_debug_node_id_bits[index] = data.id.to_owned().into();
 
-                                if node_id.is_empty() {
+                                if data.id.is_empty() {
                                     let one_cell_size = Vec3::ONE / pattern_block_size.as_vec3();
                                     let p = pattern_pos.as_vec3() * one_cell_size;
                                     self.add_cube(p, p + one_cell_size, vec4(0.0, 1.0, 0.0, 1.0));
