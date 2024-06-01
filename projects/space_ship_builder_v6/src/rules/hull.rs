@@ -195,7 +195,7 @@ impl HullSolver {
     }
 
     fn add_multi(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let max_hull_node = 1;
+        let max_hull_node = 2;
         for i in 0..=max_hull_node {
             let name = format!("Hull-Multi-{i}");
             let (size, node_ids) = rules.load_multi_node(&name, voxel_loader)?;
