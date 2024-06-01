@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="profile debug" type="ShConfigurationType">
-    <option name="SCRIPT_TEXT" value="sh ./scripts/profile_debug.sh space_ship_builder_v6" />
+    <option name="SCRIPT_TEXT" value="sh ./scripts/profile_debug.sh space_ship_builder_v7" />
     <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
     <option name="SCRIPT_PATH" value="./scripts/fmt.sh space_ship_builder_v3" />
     <option name="SCRIPT_OPTIONS" value="" />
