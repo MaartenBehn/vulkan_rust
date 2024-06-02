@@ -142,4 +142,21 @@ impl Rules {
 
         Ok((size, node_ids))
     }
+
+    fn load_node_folder(
+        &mut self,
+        name: &str,
+        voxel_loader: &VoxelLoader,
+    ) -> Result<(UVec3, Vec<NodeID>)> {
+        let (size, nodes) = voxel_loader.load_node_folder_models(name)?;
+
+        let mut node_ids = vec![];
+        for node in nodes {
+            let id = self.add_node(node);
+            let dup_id = self.get_duplicate_node_id(id);
+            node_ids.push(dup_id);
+        }
+
+        Ok((size, node_ids))
+    }
 }

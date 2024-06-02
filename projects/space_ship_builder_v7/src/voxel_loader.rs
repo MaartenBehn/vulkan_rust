@@ -3,7 +3,8 @@ use crate::node::{Material, Node, NODE_SIZE, NODE_VOXEL_LENGTH};
 use crate::rotation::Rot;
 use dot_vox::{DotVoxData, SceneNode};
 use octa_force::anyhow::{anyhow, bail, Result};
-use octa_force::glam::{uvec3, UVec3};
+use octa_force::glam::{ivec3, uvec3, IVec3, UVec3};
+use std::process::id;
 
 pub struct VoxelLoader {
     pub path: String,
@@ -80,6 +81,80 @@ impl VoxelLoader {
         }
 
         Ok((nodes_size, nodes))
+    }
+
+    pub fn load_node_folder_models(&self, name: &str) -> Result<(UVec3, Vec<Node>)> {
+        let (model_ids, rot) = self.get_folder_models(name)?;
+
+        let nodes: Vec<_> = model_ids
+            .iter()
+            .map(|(id, rot, pos)| self.load_node_model(*id))
+            .collect();
+
+        Ok((UVec3::ZERO, vec![]))
+    }
+
+    fn get_folder_models(&self, name: &str) -> Result<(Vec<(usize, Rot, IVec3)>, Rot)> {
+        self.data
+            .scenes
+            .iter()
+            .find_map(|n| match n {
+                SceneNode::Transform {
+                    attributes,
+                    child,
+                    frames,
+                    ..
+                } => {
+                    if attributes.get("_name").is_some_and(|s| s == name) {
+                        let child_ids = match &self.data.scenes[*child as usize] {
+                            SceneNode::Group { children, .. } => children
+                                .iter()
+                                .map(|child| match &self.data.scenes[*child as usize] {
+                                    SceneNode::Transform { frames, child, .. } => {
+                                        let model_id = match &self.data.scenes[*child as usize] {
+                                            SceneNode::Shape { models, .. } => {
+                                                Some(models[0].model_id as usize)
+                                            }
+                                            _ => None,
+                                        }
+                                        .unwrap();
+
+                                        let r = frames[0].attributes.get("_r");
+                                        let rot = if r.is_some() {
+                                            Rot::from(r.unwrap().as_str()).from_magica()
+                                        } else {
+                                            Rot::IDENTITY
+                                        };
+
+                                        let p = frames[0].position().unwrap();
+                                        let pos = ivec3(p.x, p.y, p.z);
+
+                                        Some((model_id, rot, pos))
+                                    }
+                                    _ => None,
+                                })
+                                .collect(),
+                            _ => None,
+                        };
+
+                        if child_ids.is_none() {
+                            return None;
+                        }
+
+                        let r = frames[0].attributes.get("_r");
+                        let rot = if r.is_some() {
+                            Rot::from(r.unwrap().as_str()).from_magica()
+                        } else {
+                            Rot::IDENTITY
+                        };
+                        Some((child_ids.unwrap(), rot))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .ok_or(anyhow!("No node or model found for {name}."))
     }
 
     pub fn find_model(&self, name: &str) -> Result<(usize, Rot)> {
