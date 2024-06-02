@@ -326,96 +326,92 @@ fn create_all_possible_blocks(
     let mut current_prio = Prio::HULL10;
     let mut blocks: Vec<(Block, _)> = vec![];
 
+    let mut n = 0;
     loop {
         let index = indices[i];
 
-        let mut accpted = false;
+        let mut accpted = true;
 
-        if current_prio >= block_reqs[index].1 {
-            accpted = true;
+        let mut reqs = vec![];
+        let mut found = vec![false; current_reqs[i].len()];
 
-            let mut reqs = vec![];
-            let mut found = vec![false; current_reqs[i].len()];
+        for (offset, id) in &block_reqs[index].2 {
+            let pos = *offset - in_block_positions[i];
 
-            for (offset, id) in &block_reqs[index].2 {
-                let pos = *offset - in_block_positions[i];
+            if pos % 2 != IVec3::ZERO {
+                accpted = false;
+                break;
+            }
 
-                if pos % 2 != IVec3::ZERO {
+            if !current_reqs[i].is_empty() {
+                let test_id = current_reqs[i]
+                    .iter()
+                    .position(|(test_offset, _)| *test_offset == pos);
+
+                if test_id.is_none() {
                     accpted = false;
                     break;
                 }
 
-                if !current_reqs[i].is_empty() {
-                    let test_id = current_reqs[i]
-                        .iter()
-                        .position(|(test_offset, _)| *test_offset == pos);
+                let req_index = test_id.unwrap();
 
-                    if test_id.is_none() {
-                        accpted = false;
-                        break;
-                    }
-
-                    let req_index = test_id.unwrap();
-
-                    if current_reqs[i][req_index].1 != *id {
-                        accpted = false;
-                        break;
-                    }
-
-                    found[req_index] = true;
-                }
-
-                reqs.push((pos, id.to_owned()))
-            }
-
-            accpted &= found.iter().all(|b| *b);
-
-            if accpted {
-                if i == 7 {
-                    current_blocks[i].node_ids[i] = block_reqs[index].0;
-
-                    let mut found = false;
-                    for (test_block, test_req) in blocks.iter() {
-                        if test_block.node_ids == current_blocks[7].node_ids {
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if !found {
-                        blocks.push((current_blocks[7], current_reqs[7].to_owned()));
-                        debug!("Added: {:?}", current_blocks[7])
-                    }
-
-                    current_blocks[7] = current_blocks[6];
-                    current_reqs[7] = current_reqs[6].to_owned();
-
-                    indices[7] -= 1;
-                } else {
-                    current_blocks[i + 1] = current_blocks[i].to_owned();
-                    current_blocks[i + 1].node_ids[i] = block_reqs[index].0;
-                    current_reqs[i + 1] = reqs;
-                    current_prio = block_reqs[index].1;
-
-                    i += 1;
-                }
-            }
-
-            if !accpted {
-                indices[i] -= 1;
-
-                if indices[0] == 0 {
+                if current_reqs[i][req_index].1 != *id {
+                    accpted = false;
                     break;
-                } else if indices[i] == 0 {
-                    if i < 9 {
-                        debug!("{:?} {}", indices, blocks.len());
-                    }
-
-                    indices[i] = block_reqs.len() - 1;
-                    indices[i - 1] -= 1;
-                    i -= 1;
                 }
+
+                found[req_index] = true;
             }
+
+            reqs.push((pos, id.to_owned()))
+        }
+
+        accpted &= found.iter().all(|b| *b);
+
+        if accpted {
+            if i == 7 {
+                current_blocks[i].node_ids[i] = block_reqs[index].0;
+
+                let mut found = false;
+                for (test_block, test_req) in blocks.iter() {
+                    if test_block.node_ids == current_blocks[7].node_ids {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if !found {
+                    blocks.push((current_blocks[7], current_reqs[7].to_owned()));
+                    debug!("Added: {:?}", current_blocks[7])
+                }
+
+                current_blocks[7] = current_blocks[6];
+                current_reqs[7] = current_reqs[6].to_owned();
+
+                indices[7] -= 1;
+            } else {
+                current_blocks[i + 1] = current_blocks[i].to_owned();
+                current_blocks[i + 1].node_ids[i] = block_reqs[index].0;
+                current_reqs[i + 1] = reqs;
+
+                i += 1;
+            }
+        } else {
+            indices[i] -= 1;
+
+            if indices[0] == 0 {
+                break;
+            } else if indices[i] == 0 {
+                indices[i] = block_reqs.len() - 1;
+                indices[i - 1] -= 1;
+                i -= 1;
+            }
+        }
+
+        n += 1;
+        if n >= 10000000 {
+            debug!("{:?} {}", indices, blocks.len());
+            n = 0;
         }
     }
 
