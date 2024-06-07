@@ -10,7 +10,7 @@ use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
 use crate::ship::possible_nodes::NodeData;
 use crate::voxel_loader::VoxelLoader;
-use log::debug;
+use log::{debug, error, warn};
 use octa_force::anyhow::bail;
 use octa_force::glam::{uvec3, UVec3};
 use octa_force::{
@@ -23,8 +23,10 @@ const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
 
 pub struct HullSolver {
     pub block_index: usize,
-    pub block_reqs: Vec<(NodeData, Vec<(IVec3, BlockIndex)>)>,
-    pub node_reqs: Vec<(NodeID, Vec<(IVec3, Vec<NodeID>)>)>,
+    pub basic_block_reqs: Vec<(NodeData, Vec<(IVec3, BlockIndex)>)>,
+
+    pub multi_block_reqs: Vec<(NodeData, Vec<(IVec3, BlockIndex)>)>,
+    pub multi_node_reqs: Vec<(NodeID, Vec<(IVec3, Vec<NodeID>)>)>,
 }
 
 impl Rules {
@@ -36,8 +38,9 @@ impl Rules {
 
         let mut hull_solver = HullSolver {
             block_index: hull_block_index,
-            block_reqs: vec![],
-            node_reqs: vec![],
+            basic_block_reqs: vec![],
+            multi_block_reqs: vec![],
+            multi_node_reqs: vec![],
         };
 
         hull_solver.add_base_nodes(self, voxel_loader)?;
@@ -186,19 +189,19 @@ impl HullSolver {
         ];
 
         let mut permutated_block_reqs = permutate_block_req(&block_reqs, rules);
-        self.block_reqs.append(&mut permutated_block_reqs);
+        self.basic_block_reqs.append(&mut permutated_block_reqs);
 
         Ok(())
     }
 
     fn add_multi(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let max_hull_node = 0;
+        let max_hull_node = 2;
         for i in 0..=max_hull_node {
             let name = format!("Hull-Multi-{i}");
             let (size, node_ids) = rules.load_multi_node(&name, voxel_loader)?;
 
             if (size % 2) != UVec3::ZERO {
-                bail!("The node size multi node model {name} needs to multiple of 2.")
+                bail!("The node size {size} of {name} needs to multiple of 2.")
             }
 
             let filled = Self::get_multi_nodes_filled(size, &node_ids, rules);
@@ -210,6 +213,7 @@ impl HullSolver {
                 let index = to_1d(pos, size);
                 let node_id = &node_ids[index];
 
+                // No empty nodes
                 if node_id.is_empty() {
                     continue;
                 }
@@ -236,6 +240,37 @@ impl HullSolver {
                     possible_block_neighbors.push((block_neigbor_offset, neighbor_block));
                 }
 
+                // No basic nodes except if they would not be accepted by the basic rules.
+                /*
+                let basic = self
+                    .basic_block_reqs
+                    .iter()
+                    .find(|(data, _)| data.id == *node_id);
+                if basic.is_some() {
+                    let (basic_data, basic_block_reqs) = basic.unwrap();
+
+                    let mut accepted = true;
+                    for (offset, id) in possible_block_neighbors.iter() {
+                        for (basic_offset, basic_id) in basic_block_reqs.iter() {
+                            if *offset == *basic_offset {
+                                accepted &= *id == *basic_id;
+                            }
+                        }
+                    }
+
+                    if accepted {
+                        //continue;
+                    } else {
+                        debug!("Basic contiune")
+                    }
+                }
+                 */
+
+                block_reqs.push((
+                    NodeData::new(node_id.to_owned(), HULL10, HULL_CACHE_NONE),
+                    possible_block_neighbors,
+                ));
+
                 // Nodes
                 let mut possible_node_neighbors: HashMap<IVec3, Vec<NodeID>> = HashMap::default();
                 for offset in get_neighbors() {
@@ -259,11 +294,6 @@ impl HullSolver {
                     }
                 }
 
-                block_reqs.push((
-                    NodeData::new(node_id.to_owned(), HULL10, HULL_CACHE_NONE),
-                    possible_block_neighbors,
-                ));
-
                 node_reqs.push((
                     node_id.to_owned(),
                     possible_node_neighbors.into_iter().collect(),
@@ -275,15 +305,25 @@ impl HullSolver {
 
             // Link Node reqs in Block reqs
             for (data, _) in permutated_block_reqs.iter_mut() {
+                // No basic nodes
+
+                let start = self.multi_node_reqs.len();
+                let mut found = false;
                 for (i, (node_id, _)) in permutated_node_reqs.iter().enumerate() {
                     if data.id == *node_id {
-                        data.cache_index = i;
+                        data.cache_index = start + i;
+                        found = true;
+                        break;
                     }
+                }
+
+                if !found {
+                    error!("Hull Multi Block No node reqs found for {:?}", data.id)
                 }
             }
 
-            self.block_reqs.append(&mut permutated_block_reqs);
-            self.node_reqs.append(&mut permutated_node_reqs);
+            self.multi_block_reqs.append(&mut permutated_block_reqs);
+            self.multi_node_reqs.append(&mut permutated_node_reqs);
         }
 
         Ok(())
@@ -337,7 +377,11 @@ impl HullSolver {
 
     fn block_level(&self, ship: &mut ShipData, pos: IVec3) -> Vec<NodeData> {
         let mut new_ids = Vec::new();
-        for (node_data, block_reqs) in self.block_reqs.iter() {
+        for (node_data, block_reqs) in self
+            .basic_block_reqs
+            .iter()
+            .chain(self.multi_block_reqs.iter())
+        {
             let mut accepted = true;
 
             for (offset, id) in block_reqs.iter() {
@@ -390,7 +434,7 @@ impl HullSolver {
                     return true;
                 }
 
-                let (node_id, node_req) = &self.node_reqs[data.cache_index];
+                let (node_id, node_req) = &self.multi_node_reqs[data.cache_index];
 
                 let mut node_accepted = true;
                 for (offset, req_ids) in node_req.iter() {
@@ -549,11 +593,11 @@ fn permutate_block_req(
             let rotated_rules = rotate_block_req(&flipped_node_id, &flipped_req, &rotations);
 
             for (permutated_node_id, permutated_req) in rotated_rules {
-                let node_id = rules.get_duplicate_node_id(permutated_node_id);
+                let permutated_node_id = rules.get_duplicate_node_id(permutated_node_id);
 
                 let mut added = false;
                 for (test_data, test_reqs) in permutated_block_reqs.iter() {
-                    if node_id != test_data.id {
+                    if permutated_node_id != test_data.id {
                         continue;
                     }
 

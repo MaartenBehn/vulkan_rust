@@ -137,7 +137,7 @@ impl ShipData {
 
         for _ in 0..actions_per_tick {
             if !self.block_changed.is_empty() {
-                self.block_changed(rules);
+                self.block_changed(rules, debug);
             } else if !self.to_reset.is_empty() {
                 self.reset(rules);
             } else if !self.to_propergate.is_empty() {
@@ -158,7 +158,7 @@ impl ShipData {
         (true, changed_chunks)
     }
 
-    fn block_changed(&mut self, rules: &Rules) {
+    fn block_changed(&mut self, rules: &Rules, debug: bool) {
         let order = self.block_changed.pop_front().unwrap();
         let (block_index, chunk_index, node_index) =
             self.order_controller.unpack_order_with_block(order);
@@ -188,6 +188,12 @@ impl ShipData {
 
             self.chunks[chunk_index].base_nodes[node_index]
                 .set_node_ids(block_index, new_base_node_ids);
+
+            if debug {
+                let node_index_plus_padding =
+                    self.node_index_to_node_index_plus_padding(node_index);
+                self.chunks[chunk_index].render_nodes[node_index_plus_padding] = RenderNode(true);
+            }
         }
     }
 
@@ -287,8 +293,8 @@ impl ShipData {
             let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
-                pos.as_vec3(),
-                pos.as_vec3() + Vec3::ONE,
+                pos.as_vec3() + vec3(0.0, 0.0, 0.0),
+                pos.as_vec3() + Vec3::ONE * 0.1 + vec3(0.0, 0.0, 0.0),
                 vec4(1.0, 0.0, 1.0, 1.0),
             );
         }
@@ -300,9 +306,9 @@ impl ShipData {
             let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
-                pos.as_vec3(),
-                pos.as_vec3() + Vec3::ONE,
-                vec4(1.0, 0.0, 0.0, 1.0),
+                pos.as_vec3() + vec3(0.1, 0.0, 0.0),
+                pos.as_vec3() + Vec3::ONE * 0.1 + vec3(0.1, 0.0, 0.0),
+                vec4(1.0, 1.0, 0.0, 1.0),
             );
         }
 
@@ -313,8 +319,8 @@ impl ShipData {
             let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
-                pos.as_vec3() + Vec3::ONE * 0.01,
-                pos.as_vec3() + Vec3::ONE * 0.99,
+                pos.as_vec3() + vec3(0.2, 0.0, 0.0),
+                pos.as_vec3() + Vec3::ONE * 0.1 + vec3(0.2, 0.0, 0.0),
                 vec4(0.0, 1.0, 0.0, 1.0),
             );
         }
@@ -326,8 +332,8 @@ impl ShipData {
             let pos = self.get_world_pos_from_chunk_and_node_index(chunk_index, node_index);
 
             debug_controller.add_cube(
-                pos.as_vec3() + Vec3::ONE * 0.02,
-                pos.as_vec3() + Vec3::ONE * 0.98,
+                pos.as_vec3() + vec3(0.3, 0.0, 0.0),
+                pos.as_vec3() + Vec3::ONE * 0.1 + vec3(0.3, 0.0, 0.0),
                 vec4(0.0, 0.0, 1.0, 1.0),
             );
         }

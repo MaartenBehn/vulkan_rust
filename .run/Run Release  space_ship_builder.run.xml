@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Run space_ship_builder_v6" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="run --package space_ship_builder_v6 --bin space_ship_builder_v6" />
-    <option name="workingDirectory" value="file://$PROJECT_DIR$/projects/space_ship_builder_v6" />
+  <configuration default="false" name="Run Release  space_ship_builder" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="run --package space_ship_builder_v7 --bin space_ship_builder_v7 --release" />
+    <option name="workingDirectory" value="file://$PROJECT_DIR$/projects/space_ship_builder_v7" />
     <envs />
     <option name="emulateTerminal" value="true" />
     <option name="channel" value="DEFAULT" />
@@ -13,7 +13,8 @@
     <option name="isRedirectInput" value="false" />
     <option name="redirectInputPath" value="" />
     <method v="2">
-      <option name="RunConfigurationTask" enabled="true" run_configuration_name="fmt" run_configuration_type="ShConfigurationType" />
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="fmt" run_configuration_type="ShConfigurationType" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="compile shaders" run_configuration_type="ShConfigurationType" />
       <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
     </method>
   </configuration>

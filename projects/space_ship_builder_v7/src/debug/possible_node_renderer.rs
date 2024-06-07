@@ -34,7 +34,7 @@ impl DebugController {
     ) -> Result<()> {
         self.add_text(vec!["WFC".to_owned()], vec3(-1.0, 0.0, 0.0));
 
-        ship.show_debug(self);
+        //ship.show_debug(self);
 
         self.possible_node_renderer.mesh.to_drop_buffers[image_index].clear();
 
@@ -95,6 +95,7 @@ impl DebugController {
         ship: &ShipData,
     ) -> Vec<u32> {
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
+        /*
         let pattern_block_size = size / ship.nodes_per_chunk;
 
         for x in 0..ship.nodes_per_chunk.x {
@@ -133,6 +134,8 @@ impl DebugController {
                 }
             }
         }
+
+         */
 
         node_debug_node_id_bits
     }

@@ -22,8 +22,8 @@ use crate::debug::{DebugController, DebugMode::WFC};
 pub mod builder;
 pub mod data;
 pub mod mesh;
-pub mod node_order;
-pub mod possible_nodes;
+pub mod order;
+pub mod possible_blocks;
 pub mod renderer;
 pub mod save;
 

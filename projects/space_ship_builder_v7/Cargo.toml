@@ -1,11 +1,11 @@
 [package]
-name = "space_ship_builder_v6"
+name = "space_ship_builder_v7"
 version = "0.1.0"
 edition = "2021"
 authors = ["Maarten Behn <maarten.behn@gmail.com>"]
 
 [profile.dev]
-opt-level = 3
+opt-level = 0
 
 [profile.release]
 opt-level = 3

@@ -1,11 +1,11 @@
-pub mod block_preview;
+pub mod block;
 pub mod empty;
 pub mod hull;
 pub mod solver;
 
 use crate::node::{Material, Node, NodeID, NodeIndex, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
 use crate::rotation::Rot;
-use crate::rules::block_preview::BlockPreview;
+use crate::rules::block::Block;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
@@ -39,7 +39,7 @@ pub struct Rules {
     pub nodes: Vec<Node>,
 
     pub block_names: Vec<String>,
-    pub block_previews: Vec<BlockPreview>,
+    pub block_previews: Vec<Block>,
 
     pub duplicate_node_ids: Vec<Vec<Vec<NodeID>>>,
 
@@ -132,6 +132,23 @@ impl Rules {
     ) -> Result<(UVec3, Vec<NodeID>)> {
         let (model_index, _) = voxel_loader.find_model(name)?;
         let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
+
+        let mut node_ids = vec![];
+        for node in nodes {
+            let id = self.add_node(node);
+            let dup_id = self.get_duplicate_node_id(id);
+            node_ids.push(dup_id);
+        }
+
+        Ok((size, node_ids))
+    }
+
+    fn load_node_folder(
+        &mut self,
+        name: &str,
+        voxel_loader: &VoxelLoader,
+    ) -> Result<(UVec3, Vec<NodeID>)> {
+        let (size, nodes) = voxel_loader.load_node_folder_models(name)?;
 
         let mut node_ids = vec![];
         for node in nodes {

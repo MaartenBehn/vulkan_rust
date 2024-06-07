@@ -1,4 +1,4 @@
-use crate::debug::hull_node_reqs::HULL_SIZE;
+use crate::debug::hull_block_reqs::HULL_SIZE;
 use crate::ship::data::{ShipData, ShipDataChunk};
 use crate::ship::renderer::Vertex;
 use crate::ship::CHUNK_SIZE;

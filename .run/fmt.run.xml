@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="fmt" type="ShConfigurationType">
-    <option name="SCRIPT_TEXT" value="sh ./scripts/fmt.sh space_ship_builder_v6" />
+    <option name="SCRIPT_TEXT" value="sh ./scripts/fmt.sh space_ship_builder_v7" />
     <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
     <option name="SCRIPT_PATH" value="./scripts/fmt.sh space_ship_builder_v3" />
     <option name="SCRIPT_OPTIONS" value="" />

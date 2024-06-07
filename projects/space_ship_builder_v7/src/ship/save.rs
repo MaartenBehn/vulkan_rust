@@ -1,4 +1,4 @@
-use crate::node::{BlockIndex, BLOCK_INDEX_EMPTY};
+use crate::rules::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::rules::Rules;
 use crate::ship::data::ShipData;
 use bitcode::{Decode, Encode};
@@ -9,7 +9,7 @@ use std::io::{Read, Write};
 
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct ShipSave {
-    blocks: Vec<([i32; 3], BlockIndex)>,
+    blocks: Vec<([i32; 3], BlockNameIndex)>,
     nodes_per_chunk: [i32; 3],
 }
 
@@ -27,7 +27,7 @@ impl ShipData {
     pub fn get_save(&self) -> ShipSave {
         let mut blocks = Vec::new();
         for chunk in self.chunks.iter() {
-            for (i, block) in chunk.blocks.iter().enumerate() {
+            for (i, block) in chunk.block_names.iter().enumerate() {
                 if *block == BLOCK_INDEX_EMPTY {
                     continue;
                 }
