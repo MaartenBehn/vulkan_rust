@@ -83,15 +83,37 @@ impl VoxelLoader {
         Ok((nodes_size, nodes))
     }
 
-    pub fn load_node_folder_models(&self, name: &str) -> Result<(UVec3, Vec<Node>)> {
+    pub fn load_node_folder_models(&self, name: &str) -> Result<(UVec3, Vec<(Node, Rot, UVec3)>)> {
         let (model_ids, rot) = self.get_folder_models(name)?;
+        if rot != Rot::default() {
+            bail!("Folder should not be rotated!")
+        }
 
-        let nodes: Vec<_> = model_ids
-            .iter()
-            .map(|(id, rot, pos)| self.load_node_model(*id))
-            .collect();
+        let mut max = IVec3::ZERO;
+        let mut min = IVec3::ZERO;
+        let mut nodes = vec![];
+        for (id, rot, pos) in model_ids.into_iter() {
+            let node = self.load_node_model(id)?;
+            nodes.push((node, rot, pos));
+            max = ivec3(
+                i32::max(max.x, pos.x),
+                i32::max(max.y, pos.y),
+                i32::max(max.z, pos.z),
+            );
+            min = ivec3(
+                i32::min(min.x, pos.x),
+                i32::min(min.y, pos.y),
+                i32::min(min.z, pos.z),
+            );
+        }
 
-        Ok((UVec3::ZERO, vec![]))
+        let size = (max - min).as_uvec3();
+        let mut final_nodes = vec![];
+        for (node, rot, pos) in nodes.into_iter() {
+            final_nodes.push((node, rot, (pos - min).as_uvec3()))
+        }
+
+        Ok((size, final_nodes))
     }
 
     fn get_folder_models(&self, name: &str) -> Result<(Vec<(usize, Rot, IVec3)>, Rot)> {

@@ -58,11 +58,9 @@ impl Solver for HullSolver {
 
 impl HullSolver {
     fn add_base_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let mut node_ids = vec![];
         let max_hull_node = 8;
         for i in 0..=max_hull_node {
-            let node_id = rules.load_node_folder(&format!("Hull-Base-{i}"), voxel_loader)?;
-            node_ids.push(node_id);
+            let block = rules.load_block_from_node_folder(&format!("Hull-Base-{i}"), voxel_loader)?;
         }
 
         Ok(())

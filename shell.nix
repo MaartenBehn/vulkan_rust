@@ -11,6 +11,8 @@ pkgs.mkShell rec {
     '';
 
   packages = with pkgs; [
+    rustup
+    clang
     pkg-config
     xorg.libX11
     xorg.libXcursor

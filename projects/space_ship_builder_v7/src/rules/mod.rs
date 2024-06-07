@@ -3,13 +3,14 @@ pub mod empty;
 pub mod hull;
 pub mod solver;
 
+use crate::math::oct_positions;
 use crate::node::{Material, Node, NodeID, NodeIndex, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
 use crate::rotation::Rot;
 use crate::rules::block::Block;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
-use octa_force::anyhow::Result;
-use octa_force::glam::UVec3;
+use octa_force::anyhow::{bail, Result};
+use octa_force::glam::{UVec3, uvec3};
 use std::ops::Mul;
 
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
@@ -143,20 +144,36 @@ impl Rules {
         Ok((size, node_ids))
     }
 
-    fn load_node_folder(
+    fn load_block_from_node_folder(
         &mut self,
         name: &str,
         voxel_loader: &VoxelLoader,
-    ) -> Result<(UVec3, Vec<NodeID>)> {
+    ) -> Result<Block> {
         let (size, nodes) = voxel_loader.load_node_folder_models(name)?;
-
-        let mut node_ids = vec![];
-        for node in nodes {
-            let id = self.add_node(node);
-            let dup_id = self.get_duplicate_node_id(id);
-            node_ids.push(dup_id);
+        if size != UVec3::ONE * 4 {
+            bail!("Node folder size is {} not (4, 4, 4)", size);
         }
+        
+        let mut node_ids = vec![];
 
-        Ok((size, node_ids))
+        for offset in oct_positions() {
+            let mut found = false;
+            for (node, rot, pos) in nodes.iter() {
+                if offset.as_uvec3() == *pos / 2 {
+                    found = true;
+
+                    let mut id = self.add_node(node.to_owned());
+                    id.rot = id.rot.mul(*rot);
+                    let dup_id = self.get_duplicate_node_id(id);
+                    node_ids.push(dup_id);
+                }
+            }
+
+            if !found {
+                bail!("Offset {} is not in node folder!", offset)
+            }
+        }
+        
+        Ok(Block::from_node_ids(node_ids.try_into().unwrap()))
     }
 }

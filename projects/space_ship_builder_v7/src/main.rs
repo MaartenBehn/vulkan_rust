@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::rules::Rules;
 use crate::voxel_loader::VoxelLoader;
-use octa_force::glam::{ivec2, uvec2, IVec2, IVec3, UVec3};
+use octa_force::glam::{ivec2, uvec2, vec2, IVec2, IVec3, UVec3};
 use octa_force::vulkan::{
     ash::vk::{self, Format},
     CommandBuffer, Context,
@@ -80,7 +80,10 @@ impl App for SpaceShipBuilder {
         )?;
 
         log::info!("Creating Camera");
-        let mut camera = Camera::base(base.swapchain.extent);
+        let mut camera = Camera::base(vec2(
+            base.swapchain.extent.width as f32,
+            base.swapchain.extent.height as f32,
+        ));
 
         camera.position = Vec3::new(1.0, -2.0, 1.0);
         camera.direction = Vec3::new(0.0, 1.0, 0.0).normalize();
@@ -168,8 +171,13 @@ impl App for SpaceShipBuilder {
             vk::AttachmentLoadOp::CLEAR,
             None,
         );
-        buffer.set_viewport(base.swapchain.extent);
-        buffer.set_scissor(base.swapchain.extent);
+
+        let size = vec2(
+            base.swapchain.extent.width as f32,
+            base.swapchain.extent.height as f32,
+        );
+        buffer.set_viewport_size(size);
+        buffer.set_scissor_size(size);
 
         #[cfg(not(debug_assertions))]
         self.ship_manager.render(buffer, image_index);
