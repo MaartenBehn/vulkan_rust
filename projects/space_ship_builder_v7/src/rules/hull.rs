@@ -19,9 +19,12 @@ use octa_force::{
 use std::collections::HashMap;
 
 const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
+const HULL_BLOCK_NAME: &str = "Hull";
+const HULL_BASE_NAME_PART: &str = "Hull-Base";
 
 pub struct HullSolver {
     pub block_name_index: usize,
+    pub base_blocks: Vec<(Vec<IVec3>, Block)>,
 }
 
 impl Rules {
@@ -29,10 +32,11 @@ impl Rules {
         debug!("Making Hull");
 
         let hull_block_name_index = self.block_names.len();
-        self.block_names.push("Hull".to_owned());
+        self.block_names.push(HULL_BLOCK_NAME.to_owned());
 
         let mut hull_solver = HullSolver {
             block_name_index: hull_block_name_index,
+            base_blocks: vec![],
         };
 
         hull_solver.add_base_blocks(self, voxel_loader)?;
@@ -58,9 +62,41 @@ impl Solver for HullSolver {
 
 impl HullSolver {
     fn add_base_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let max_hull_node = 8;
-        for i in 0..=max_hull_node {
-            let block = rules.load_block_from_node_folder(&format!("Hull-Base-{i}"), voxel_loader)?;
+        let hull_reqs = vec![
+            vec![],
+            vec![ivec3(-1, 0, 0), ivec3(1, 0, 0)],
+            vec![ivec3(1, 0, 0)],
+            vec![ivec3(-1, 0, 0), ivec3(0, -1, 0)],
+            vec![ivec3(-1, 0, 0), ivec3(0, -1, 0), ivec3(0, 0, 1)],
+            vec![ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, -1, 0)],
+            vec![
+                ivec3(-1, 0, 0),
+                ivec3(1, 0, 0),
+                ivec3(0, -1, 0),
+                ivec3(0, 0, 1),
+            ],
+            vec![
+                ivec3(-1, 0, 0),
+                ivec3(1, 0, 0),
+                ivec3(0, -1, 0),
+                ivec3(0, 1, 0),
+                ivec3(0, 0, 1),
+            ],
+            vec![
+                ivec3(-1, 0, 0),
+                ivec3(1, 0, 0),
+                ivec3(0, -1, 0),
+                ivec3(0, 1, 0),
+                ivec3(0, 0, -1),
+                ivec3(0, 0, 1),
+            ],
+        ];
+
+        for (i, req) in hull_reqs.into_iter().enumerate() {
+            let block = rules
+                .load_block_from_node_folder(&format!("{HULL_BASE_NAME_PART}-{i}"), voxel_loader)?;
+
+            self.base_blocks.push((req, block));
         }
 
         Ok(())

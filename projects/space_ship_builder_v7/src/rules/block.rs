@@ -1,5 +1,5 @@
-use octa_force::anyhow::bail;
 use crate::node::NodeID;
+use octa_force::anyhow::bail;
 
 pub type BlockNameIndex = usize;
 pub const BLOCK_INDEX_EMPTY: BlockNameIndex = 0;

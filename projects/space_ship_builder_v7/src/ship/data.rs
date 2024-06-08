@@ -118,12 +118,7 @@ impl ShipData {
         self.chunks[chunk_index].block_names[in_chunk_block_index]
     }
 
-    pub fn tick(
-        &mut self,
-        actions_per_tick: usize,
-        rules: &Rules,
-        #[cfg(debug_assertions)] debug: bool,
-    ) -> (bool, Vec<ChunkIndex>) {
+    pub fn tick(&mut self, actions_per_tick: usize, rules: &Rules) -> (bool, Vec<ChunkIndex>) {
         let mut changed_chunks = Vec::new();
 
         (true, changed_chunks)

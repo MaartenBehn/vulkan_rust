@@ -1,8 +1,6 @@
-use crate::debug::hull_block_reqs::HULL_SIZE;
 use crate::ship::data::{ShipData, ShipDataChunk};
 use crate::ship::renderer::Vertex;
 use crate::ship::CHUNK_SIZE;
-use block_mesh::ilattice::vector::Vector3;
 use block_mesh::ndshape::{ConstShape3u32, Shape};
 use block_mesh::{
     greedy_quads, Axis, AxisPermutation, GreedyQuadsBuffer, MergeVoxel, OrientedBlockFace,
@@ -25,7 +23,9 @@ use std::{iter, mem};
 const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 
 #[cfg(debug_assertions)]
-const HULL_SIZE_PLUS_PADDING: u32 = (HULL_SIZE + 2) as u32;
+use crate::debug::hull_base::HULL_BASE_DEBUG_SIZE;
+#[cfg(debug_assertions)]
+const HULL_BASE_SIZE_PLUS_PADDING: u32 = (HULL_BASE_DEBUG_SIZE + 2) as u32;
 
 pub struct ShipMesh {
     pub chunks: Vec<MeshChunk>,
@@ -431,18 +431,18 @@ impl MeshChunk {
         }
 
         #[cfg(debug_assertions)]
-        if render_size == (IVec3::ONE * HULL_SIZE) {
+        if render_size == (IVec3::ONE * HULL_BASE_DEBUG_SIZE) {
             let shape: ConstShape3u32<
-                HULL_SIZE_PLUS_PADDING,
-                HULL_SIZE_PLUS_PADDING,
-                HULL_SIZE_PLUS_PADDING,
+                HULL_BASE_SIZE_PLUS_PADDING,
+                HULL_BASE_SIZE_PLUS_PADDING,
+                HULL_BASE_SIZE_PLUS_PADDING,
             > = ConstShape3u32 {};
 
             greedy_quads(
                 render_nodes,
                 &shape,
                 [0; 3],
-                [HULL_SIZE_PLUS_PADDING - 1; 3],
+                [HULL_BASE_SIZE_PLUS_PADDING - 1; 3],
                 &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
                 &mut buffer,
             );

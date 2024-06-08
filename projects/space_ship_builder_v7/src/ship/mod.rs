@@ -17,7 +17,7 @@ use std::cmp::{max, min};
 use std::time::Duration;
 
 #[cfg(debug_assertions)]
-use crate::debug::{DebugController, DebugMode::WFC};
+use crate::debug::DebugController;
 
 pub mod builder;
 pub mod data;
@@ -94,8 +94,6 @@ impl ShipManager {
         controls: &Controls,
         camera: &Camera,
         extent: Extent2D,
-
-        #[cfg(debug_assertions)] debug_controller: &DebugController,
     ) -> Result<()> {
         if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
@@ -107,54 +105,23 @@ impl ShipManager {
             if ship.builder.is_some() {
                 let mut builder = ship.builder.take().unwrap();
 
-                #[cfg(debug_assertions)]
-                if debug_controller.mode != WFC || controls.lshift {
-                    builder.update(&mut ship.data, controls, camera, rules, total_time)?;
-                }
-
-                #[cfg(not(debug_assertions))]
                 builder.update(&mut ship.data, controls, camera, rules, total_time)?;
 
                 ship.builder = Some(builder);
             }
 
-            #[cfg(debug_assertions)]
-            let debug = debug_controller.mode == WFC;
+            let (full, changed_chunks) = ship.data.tick(self.actions_per_tick, rules);
 
-            #[cfg(not(debug_assertions))]
-            let debug = false;
+            self.last_full_tick = full;
 
-            if debug {
-                if controls.t {
-                    let (full, changed_chunks) = ship.data.tick(1, rules, true);
-                    ship.mesh.update(
-                        &ship.data,
-                        changed_chunks,
-                        image_index,
-                        context,
-                        &self.renderer.chunk_descriptor_layout,
-                        &self.renderer.descriptor_pool,
-                    )?;
-                }
-            } else {
-                let (full, changed_chunks) = ship.data.tick(
-                    self.actions_per_tick,
-                    rules,
-                    #[cfg(debug_assertions)]
-                    false,
-                );
-
-                self.last_full_tick = full;
-
-                ship.mesh.update(
-                    &ship.data,
-                    changed_chunks,
-                    image_index,
-                    context,
-                    &self.renderer.chunk_descriptor_layout,
-                    &self.renderer.descriptor_pool,
-                )?;
-            }
+            ship.mesh.update(
+                &ship.data,
+                changed_chunks,
+                image_index,
+                context,
+                &self.renderer.chunk_descriptor_layout,
+                &self.renderer.descriptor_pool,
+            )?;
         }
 
         self.renderer.update(camera, extent)?;

@@ -10,7 +10,6 @@ pub struct EmptySolver {}
 impl Rules {
     pub fn make_empty(&mut self) {
         self.block_names.push("Empty".to_owned());
-        self.block_previews.push(Block::default());
         self.solvers.push(Box::new(EmptySolver {}));
         self.nodes.push(Node::default());
     }
