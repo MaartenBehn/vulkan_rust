@@ -134,10 +134,6 @@ impl DebugLineRenderer {
     }
 
     pub(crate) fn push_lines(&mut self) -> octa_force::anyhow::Result<()> {
-        if self.vertecies.is_empty() {
-            return Ok(());
-        }
-
         self.vertex_buffer.copy_data_to_buffer_complex(
             &self.vertecies,
             0,

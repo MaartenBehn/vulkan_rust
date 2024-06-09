@@ -91,6 +91,7 @@ impl DebugController {
             DebugMode::HULL_BASE => {
                 self.update_hull_base(
                     rules.solvers[1].to_hull(),
+                    controls,
                     image_index,
                     &context,
                     &renderer.chunk_descriptor_layout,
