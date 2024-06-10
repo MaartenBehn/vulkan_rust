@@ -1,9 +1,9 @@
 use crate::math::{oct_positions, to_1d, to_1d_i};
-use crate::node::NodeID;
+use crate::node::{Node, NodeID, Voxel, NODE_SIZE};
 use crate::rotation::Rot;
 use crate::rules::Rules;
 use octa_force::anyhow::bail;
-use octa_force::glam::{BVec3, IVec3, Mat4};
+use octa_force::glam::{BVec3, EulerRot, IVec3, Mat3, Mat4, Quat, Vec3};
 use std::mem;
 use std::ops::Mul;
 
@@ -61,17 +61,18 @@ impl Block {
     pub fn rotate(&self, rot: Rot, rules: &mut Rules) -> Block {
         let mat: Mat4 = rot.into();
 
+        let rot_offset = Node::get_voxel_rot_offset(rot);
+
         let mut rotated_node_ids = [NodeID::empty(); 8];
         for (node_id, pos) in self.node_ids.iter().zip(oct_positions().iter()) {
             let rotated_node_id = NodeID::new(node_id.index, node_id.rot.mul(rot));
             let rotated_node_id = rules.get_duplicate_node_id(rotated_node_id);
 
-            let rotated_pos = mat
-                .transform_vector3((*pos - IVec3::ONE).as_vec3())
-                .round()
-                .as_ivec3()
-                + IVec3::ONE;
-            let index = to_1d_i(rotated_pos, IVec3::ONE * 2) as usize;
+            let p = *pos - IVec3::ONE;
+            let pos_f = mat.transform_vector3(p.as_vec3());
+            let rot_pos = pos_f.round().as_ivec3() + IVec3::ONE - rot_offset;
+
+            let index = to_1d_i(rot_pos, IVec3::ONE * 2) as usize;
             rotated_node_ids[index] = rotated_node_id;
         }
 

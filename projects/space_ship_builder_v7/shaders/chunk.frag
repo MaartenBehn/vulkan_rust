@@ -123,7 +123,7 @@ struct Ray{
 };
 
 ivec3 applyRot(Rot rot, ivec3 v) {
-    return ivec3(rot.mat * vec4(v, 1.0));    
+    return ivec3(rot.mat * vec4(v, 1.0));
 }
 
 bool checkHit(in Ray ray, in vec3 nodePos, in uint size, out float tMin, out float tMax) {
