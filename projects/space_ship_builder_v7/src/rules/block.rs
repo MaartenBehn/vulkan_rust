@@ -65,7 +65,7 @@ impl Block {
 
         let mut rotated_node_ids = [NodeID::empty(); 8];
         for (node_id, pos) in self.node_ids.iter().zip(oct_positions().iter()) {
-            let rotated_node_id = NodeID::new(node_id.index, node_id.rot.mul(rot));
+            let rotated_node_id = NodeID::new(node_id.index, node_id.rot * rot);
             let rotated_node_id = rules.get_duplicate_node_id(rotated_node_id);
 
             let p = *pos - IVec3::ONE;
