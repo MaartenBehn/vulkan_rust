@@ -44,6 +44,7 @@ struct SpaceShipBuilder {
     total_time: Duration,
     last_input: Duration,
 
+    voxel_loader: VoxelLoader,
     rules: Rules,
 
     ship_manager: ShipManager,
@@ -58,7 +59,7 @@ impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let voxel_loader = VoxelLoader::new(VOX_FILE_PATH)?;
 
-        let rules = Rules::new(voxel_loader)?;
+        let rules = Rules::new(&voxel_loader)?;
 
         let ship_manager = ShipManager::new(
             &base.context,
@@ -95,6 +96,7 @@ impl App for SpaceShipBuilder {
             total_time: Duration::ZERO,
             last_input: Duration::ZERO,
 
+            voxel_loader,
             rules,
             ship_manager,
             camera,
@@ -118,8 +120,8 @@ impl App for SpaceShipBuilder {
             self.last_input = self.total_time;
 
             log::info!("reloading .vox File");
-            let voxel_loader = VoxelLoader::new("./assets/space_ship.vox")?;
-            self.rules = Rules::new(voxel_loader)?;
+            self.voxel_loader.reload()?;
+            self.rules = Rules::new(&self.voxel_loader)?;
 
             self.ship_manager
                 .on_voxel_change(&base.context, base.num_frames, &mut self.rules)?;
@@ -144,6 +146,7 @@ impl App for SpaceShipBuilder {
                 &base.context,
                 &base.controls,
                 &self.ship_manager.renderer,
+                &mut self.voxel_loader,
                 self.total_time,
                 &self.ship_manager.ships[0].data,
                 image_index,

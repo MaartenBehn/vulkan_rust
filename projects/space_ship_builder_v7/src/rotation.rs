@@ -1,6 +1,8 @@
+use log::debug;
 use std::{collections::HashMap, f32::consts::PI};
 
 use crate::math::{all_bvec3s, all_sides_dirs};
+use octa_force::glam::{ivec3, EulerRot, IVec3};
 use octa_force::{
     glam::{vec3, BVec3, Mat3, Mat4, Quat, Vec3},
     log,
@@ -220,56 +222,8 @@ impl Rot {
 
     pub fn from_magica(self) -> Self {
         let mut map = HashMap::new();
-        // x rot
-        map.insert(17, 33);
-        map.insert(33, 17);
 
-        // y rot
-        map.insert(40, 72);
-        map.insert(72, 40);
-
-        // z rot
-        map.insert(22, 70);
-        map.insert(70, 22);
-
-        // x flip rot
-        map.insert(56, 88);
-        map.insert(88, 56);
-
-        // y flip rot
-        // map.insert(88, 56);
-        // map.insert(56, 88);
-
-        // z flip rot
-        map.insert(54, 102);
-        map.insert(102, 54);
-
-        // x y rot
-        map.insert(82, 105);
-        map.insert(105, 82);
-
-        // x z rot
-        map.insert(2, 9);
-        map.insert(9, 2);
-
-        // y z rot
-        map.insert(41, 66);
-        map.insert(66, 41);
-
-        map.insert(121, 114);
-        map.insert(114, 121);
-
-        map.insert(98, 57);
-        map.insert(57, 98);
-
-        map.insert(50, 89);
-        map.insert(89, 50);
-
-        map.insert(81, 97);
-        map.insert(97, 81);
-
-        map.insert(73, 18);
-        map.insert(18, 73);
+        map.insert(4, 4);
 
         let rot = if map.contains_key(&self.0) {
             Rot(map[&self.0])
@@ -278,6 +232,15 @@ impl Rot {
         };
 
         rot
+    }
+
+    pub fn rot_offset(&self) -> IVec3 {
+        let rot_bits: u8 = self.0;
+        ivec3(
+            (rot_bits & (1 << 4) != 0).into(),
+            (rot_bits & (1 << 5) != 0).into(),
+            (rot_bits & (1 << 6) != 0).into(),
+        )
     }
 }
 

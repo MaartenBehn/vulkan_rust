@@ -43,15 +43,6 @@ impl Node {
         Node { voxels }
     }
 
-    pub(crate) fn get_voxel_rot_offset(rot: Rot) -> IVec3 {
-        let rot_bits: u8 = rot.into();
-        ivec3(
-            (rot_bits & (1 << 4) != 0).into(),
-            (rot_bits & (1 << 5) != 0).into(),
-            (rot_bits & (1 << 6) != 0).into(),
-        )
-    }
-
     fn rotate_voxel_pos(pos: UVec3, mat: Mat4, rot_offset: IVec3) -> UVec3 {
         let p = pos.as_ivec3() - (NODE_SIZE / 2).as_ivec3();
         let new_pos_f = mat.transform_vector3(p.as_vec3());
@@ -60,7 +51,7 @@ impl Node {
 
     pub fn get_rotated_voxels(&self, rot: Rot) -> impl Iterator<Item = (UVec3, Voxel)> {
         let mat: Mat4 = rot.into();
-        let rot_offset = Self::get_voxel_rot_offset(rot);
+        let rot_offset = rot.rot_offset();
 
         self.voxels
             .into_iter()
@@ -102,8 +93,8 @@ impl Node {
         let mat: Mat4 = rot.into();
         let other_mat: Mat4 = other_rot.into();
 
-        let rot_offset = Self::get_voxel_rot_offset(rot);
-        let other_rot_offset = Self::get_voxel_rot_offset(other_rot);
+        let rot_offset = rot.rot_offset();
+        let other_rot_offset = other_rot.rot_offset();
 
         let (index_i, index_j, index_k, k_pos, k_neg) = if side.x == 1 {
             (1, 2, 0, 3, 0)

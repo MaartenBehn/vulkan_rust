@@ -45,7 +45,7 @@ pub struct Rules {
 }
 
 impl Rules {
-    pub fn new(voxel_loader: VoxelLoader) -> Result<Self> {
+    pub fn new(voxel_loader: &VoxelLoader) -> Result<Self> {
         let mut rules = Rules {
             materials: voxel_loader.load_materials(),
             nodes: vec![],
@@ -55,7 +55,7 @@ impl Rules {
         };
 
         rules.make_empty();
-        rules.make_hull(&voxel_loader)?;
+        rules.make_hull(voxel_loader)?;
 
         Ok(rules)
     }

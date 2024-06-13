@@ -30,6 +30,7 @@ pkgs.mkShell rec {
   LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [
    # load external libraries that you need in your rust project here
    libxkbcommon
+   wayland-scanner.out
   ];
 
   # Add precompiled library to rustc search path

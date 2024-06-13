@@ -85,6 +85,7 @@ Rot GET_ROT_FROM_NODE_ID(uint nodeID) {
     mat[index_nz1][0] = row_1_sign;
     mat[index_nz2][1] = row_2_sign;
     mat[index_nz3][2] = row_3_sign;
+    mat[3][3] = 1;
 
     Rot rot = Rot(mat, ivec3(row_1_sign == -1, row_2_sign == -1, row_3_sign == -1));
     return rot;

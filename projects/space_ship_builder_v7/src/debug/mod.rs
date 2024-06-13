@@ -1,13 +1,16 @@
 pub mod hull_base;
 pub mod line_renderer;
+pub mod rotation_debug;
 pub mod text_renderer;
 
 use crate::debug::hull_base::DebugHullBaseRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
+use crate::node::Voxel;
 use crate::rules::Rules;
 use crate::ship::data::ShipData;
 use crate::ship::renderer::ShipRenderer;
+use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
@@ -19,6 +22,7 @@ use std::time::Duration;
 #[derive(PartialEq)]
 pub enum DebugMode {
     OFF,
+    ROTATION_DEBUG,
     HULL_BASE,
 }
 
@@ -28,6 +32,7 @@ pub struct DebugController {
     pub mode: DebugMode,
     pub line_renderer: DebugLineRenderer,
     pub text_renderer: DebugTextRenderer,
+
     pub renderer_hull_base: DebugHullBaseRenderer,
 
     last_mode_change: Duration,
@@ -52,7 +57,6 @@ impl DebugController {
         )?;
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
-
         let hull_block_req_renderer = DebugHullBaseRenderer::new(images_len);
 
         Ok(DebugController {
@@ -69,12 +73,22 @@ impl DebugController {
         context: &Context,
         controls: &Controls,
         renderer: &ShipRenderer,
+        voxel_loader: &mut VoxelLoader,
         total_time: Duration,
         ship: &ShipData,
         image_index: usize,
         rules: &Rules,
     ) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
+            self.mode = if self.mode != DebugMode::ROTATION_DEBUG {
+                DebugMode::ROTATION_DEBUG
+            } else {
+                DebugMode::OFF
+            }
+        }
+        if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
             self.mode = if self.mode != DebugMode::HULL_BASE {
@@ -97,6 +111,9 @@ impl DebugController {
                     &renderer.chunk_descriptor_layout,
                     &renderer.descriptor_pool,
                 )?;
+            }
+            DebugMode::ROTATION_DEBUG => {
+                self.update_rotation_debug(voxel_loader, controls)?;
             }
         }
 
@@ -124,6 +141,7 @@ impl DebugController {
                 self.renderer_hull_base
                     .render(buffer, renderer, image_index);
             }
+            _ => {}
         }
 
         Ok(())

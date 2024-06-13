@@ -28,6 +28,18 @@ impl VoxelLoader {
         Ok(voxel_loader)
     }
 
+    pub fn reload(&mut self) -> Result<()> {
+        let r = dot_vox::load(&self.path);
+        let data = if r.is_err() {
+            bail!("Could not reload .vox file");
+        } else {
+            r.unwrap()
+        };
+        self.data = data;
+
+        Ok(())
+    }
+
     pub fn load_materials(&self) -> [Material; 256] {
         let mut mats = [Material::default(); 256];
         for (i, color) in self.data.palette.iter().enumerate() {
@@ -47,7 +59,11 @@ impl VoxelLoader {
 
         let mut voxels = [0; NODE_VOXEL_LENGTH];
         for v in model.voxels.iter() {
-            let pos = uvec3(v.x as u32, v.y as u32, v.z as u32);
+            let x = v.x as u32;
+            let y = v.z as u32;
+            let z = v.y as u32;
+
+            let pos = uvec3(x, y, z);
             voxels[to_1d(pos, NODE_SIZE)] = v.i;
         }
 
@@ -71,7 +87,11 @@ impl VoxelLoader {
             vec![Node::new([0; NODE_VOXEL_LENGTH]); nodes_size.element_product() as usize];
 
         for v in model.voxels.iter() {
-            let pos = uvec3(v.x as u32, v.y as u32, v.z as u32);
+            let x = v.x as u32;
+            let y = v.z as u32;
+            let z = v.y as u32;
+
+            let pos = uvec3(x, y, z);
             let model_pos = pos / NODE_SIZE;
             let in_model_pos = pos % NODE_SIZE;
 
@@ -149,7 +169,7 @@ impl VoxelLoader {
                                         };
 
                                         let p = frames[0].position().unwrap();
-                                        let pos = ivec3(p.x, p.y, p.z);
+                                        let pos = ivec3(p.x, p.z, p.y);
 
                                         Some((model_id, rot, pos))
                                     }
