@@ -138,24 +138,6 @@ impl DebugController {
             let node_pos_plus_padding = node_pos + 1;
             let node_index_plus_padding = to_1d_i(node_pos_plus_padding, size + 2) as usize;
             render_nodes[node_index_plus_padding] = RenderNode(true);
-
-            let mat: Mat4 = block.node_ids[j].rot.into();
-            let offset = block.node_ids[j].rot.rot_offset().as_vec3();
-
-            let x = vec3(1.0, 0.0, 0.0);
-            let y = vec3(0.0, 1.0, 0.0);
-            let z = vec3(0.0, 0.0, 1.0);
-
-            let p = node_pos.as_vec3() + offset;
-            let rx = mat.transform_vector3(x) * 0.5 + p;
-            let ry = mat.transform_vector3(y) * 0.5 + p;
-            let rz = mat.transform_vector3(z) * 0.5 + p;
-
-            self.add_lines(vec![
-                DebugLine::new(p, rx, vec4(1.0, 0.0, 0.0, 1.0)),
-                DebugLine::new(p, ry, vec4(0.0, 1.0, 0.0, 1.0)),
-                DebugLine::new(p, rz, vec4(0.0, 0.0, 1.0, 1.0)),
-            ]);
         }
 
         for req_offset in reqs {

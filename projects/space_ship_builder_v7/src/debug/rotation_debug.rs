@@ -1,26 +1,106 @@
 use crate::debug::line_renderer::DebugLine;
 use crate::debug::DebugController;
+use crate::math::{oct_positions, to_1d_i};
+use crate::node::NodeID;
+use crate::rules::hull::HullSolver;
+use crate::rules::Rules;
+use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
+use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
 use crate::voxel_loader::VoxelLoader;
-use log::debug;
+use log::{debug, info};
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
-use octa_force::glam::{vec3, vec4, Mat4, Vec3};
+use octa_force::glam::{vec3, vec4, IVec3, Mat4, Vec3};
+use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
+use std::time::{Duration, Instant};
+
+pub const ROTATION_DEBUG_SIZE: i32 = 1;
+
+pub struct RotationDebugRenderer {
+    mesh: ShipMesh,
+    node_id: NodeID,
+}
+
+impl RotationDebugRenderer {
+    pub fn new(image_len: usize, test_node_id: NodeID) -> Self {
+        let size = IVec3::ONE * crate::debug::hull_base::HULL_BASE_DEBUG_SIZE;
+
+        RotationDebugRenderer {
+            mesh: ShipMesh::new(image_len, size, size),
+            node_id: test_node_id,
+        }
+    }
+
+    fn update_renderer(
+        &mut self,
+
+        node_id_bits: &Vec<u32>,
+        render_nodes: &Vec<RenderNode>,
+
+        image_index: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+    ) -> Result<()> {
+        // Buffers from the last swapchain iteration are being dropped
+        self.mesh.to_drop_buffers[image_index].clear();
+
+        if !self.mesh.chunks.is_empty() {
+            self.mesh.chunks[0].update_from_data(
+                node_id_bits,
+                &render_nodes,
+                context,
+                &mut self.mesh.to_drop_buffers[image_index],
+            )?;
+        } else {
+            let new_chunk = MeshChunk::new_from_data(
+                IVec3::ZERO,
+                self.mesh.size,
+                self.mesh.render_size,
+                node_id_bits,
+                render_nodes,
+                self.mesh.to_drop_buffers.len(),
+                context,
+                descriptor_layout,
+                descriptor_pool,
+            )?;
+            if new_chunk.is_some() {
+                self.mesh.chunks.push(new_chunk.unwrap())
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
+        renderer.render(buffer, image_index, RENDER_MODE_BASE, &self.mesh)
+    }
+}
 
 impl DebugController {
     pub fn update_rotation_debug(
         &mut self,
-        voxel_loader: &mut VoxelLoader,
-        controls: &Controls,
+        image_index: usize,
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
-        if controls.t {
-            voxel_loader.reload();
-        }
-
-        let (_, rot) = voxel_loader.find_model("Test")?;
-        let num: u8 = rot.into();
+        let num: u8 = self.rotation_debug.node_id.rot.into();
         debug!("{:?}", num);
 
-        let mat: Mat4 = rot.into();
+        let (node_id_bits, render_nodes) =
+            self.get_rotation_debug_node_id_bits(self.rotation_debug.mesh.size);
+
+        self.rotation_debug.update_renderer(
+            &node_id_bits,
+            &render_nodes,
+            image_index,
+            context,
+            descriptor_layout,
+            descriptor_pool,
+        )?;
+
+        let mat: Mat4 = self.rotation_debug.node_id.rot.into();
 
         let x = vec3(1.0, 0.0, 0.0);
         let y = vec3(0.0, 1.0, 0.0);
@@ -40,5 +120,18 @@ impl DebugController {
         self.line_renderer.push_lines()?;
 
         Ok(())
+    }
+
+    fn get_rotation_debug_node_id_bits(&mut self, size: IVec3) -> (Vec<u32>, Vec<RenderNode>) {
+        let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
+        let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
+        let middle_pos = IVec3::ZERO;
+        let index = to_1d_i(middle_pos, size) as usize;
+        node_debug_node_id_bits[index] = self.rotation_debug.node_id.into();
+
+        let padded_index = to_1d_i(middle_pos + 1, size + 2) as usize;
+        render_nodes[padded_index] = RenderNode(true);
+
+        (node_debug_node_id_bits, render_nodes)
     }
 }

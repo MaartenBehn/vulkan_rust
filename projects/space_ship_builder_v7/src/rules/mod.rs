@@ -112,7 +112,7 @@ impl Rules {
 
 // Helper functions
 impl Rules {
-    fn load_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<NodeID> {
+    pub(crate) fn load_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<NodeID> {
         let (model_index, _) = voxel_loader.find_model(name)?;
         let node = voxel_loader.load_node_model(model_index)?;
 

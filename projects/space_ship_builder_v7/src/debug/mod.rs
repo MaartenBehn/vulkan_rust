@@ -5,8 +5,9 @@ pub mod text_renderer;
 
 use crate::debug::hull_base::DebugHullBaseRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
+use crate::debug::rotation_debug::RotationDebugRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
-use crate::node::Voxel;
+use crate::node::{NodeID, Voxel};
 use crate::rules::Rules;
 use crate::ship::data::ShipData;
 use crate::ship::renderer::ShipRenderer;
@@ -33,6 +34,7 @@ pub struct DebugController {
     pub line_renderer: DebugLineRenderer,
     pub text_renderer: DebugTextRenderer,
 
+    pub rotation_debug: RotationDebugRenderer,
     pub renderer_hull_base: DebugHullBaseRenderer,
 
     last_mode_change: Duration,
@@ -44,8 +46,8 @@ impl DebugController {
         images_len: usize,
         format: Format,
         window: &Window,
-        ship: &ShipData,
         renderer: &ShipRenderer,
+        test_node_id: NodeID,
     ) -> Result<Self> {
         let line_renderer = DebugLineRenderer::new(
             1000000,
@@ -57,12 +59,14 @@ impl DebugController {
         )?;
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
+        let rotation_debug_renderer = RotationDebugRenderer::new(images_len, test_node_id);
         let hull_block_req_renderer = DebugHullBaseRenderer::new(images_len);
 
         Ok(DebugController {
             mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
+            rotation_debug: rotation_debug_renderer,
             renderer_hull_base: hull_block_req_renderer,
             last_mode_change: Duration::ZERO,
         })
@@ -113,7 +117,12 @@ impl DebugController {
                 )?;
             }
             DebugMode::ROTATION_DEBUG => {
-                self.update_rotation_debug(voxel_loader, controls)?;
+                self.update_rotation_debug(
+                    image_index,
+                    &context,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
+                )?;
             }
         }
 
@@ -141,7 +150,7 @@ impl DebugController {
                 self.renderer_hull_base
                     .render(buffer, renderer, image_index);
             }
-            _ => {}
+            DebugMode::ROTATION_DEBUG => self.rotation_debug.render(buffer, renderer, image_index),
         }
 
         Ok(())

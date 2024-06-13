@@ -59,7 +59,10 @@ impl App for SpaceShipBuilder {
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let voxel_loader = VoxelLoader::new(VOX_FILE_PATH)?;
 
-        let rules = Rules::new(&voxel_loader)?;
+        let mut rules = Rules::new(&voxel_loader)?;
+
+        #[cfg(debug_assertions)]
+        let test_node_id = rules.load_node("Test", &voxel_loader).unwrap();
 
         let ship_manager = ShipManager::new(
             &base.context,
@@ -76,8 +79,8 @@ impl App for SpaceShipBuilder {
             base.num_frames,
             base.swapchain.format,
             &base.window,
-            &ship_manager.ships[0].data,
             &ship_manager.renderer,
+            test_node_id,
         )?;
 
         log::info!("Creating Camera");
