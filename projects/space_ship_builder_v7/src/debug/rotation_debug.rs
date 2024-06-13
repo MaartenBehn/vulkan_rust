@@ -2,6 +2,7 @@ use crate::debug::line_renderer::DebugLine;
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
 use crate::node::NodeID;
+use crate::rotation::Rot;
 use crate::rules::hull::HullSolver;
 use crate::rules::Rules;
 use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
@@ -16,9 +17,12 @@ use std::time::{Duration, Instant};
 
 pub const ROTATION_DEBUG_SIZE: i32 = 1;
 
+const INPUT_INTERVAL: Duration = Duration::from_millis(100);
+
 pub struct RotationDebugRenderer {
     mesh: ShipMesh,
     node_id: NodeID,
+    last_input: Instant,
 }
 
 impl RotationDebugRenderer {
@@ -28,11 +32,33 @@ impl RotationDebugRenderer {
         RotationDebugRenderer {
             mesh: ShipMesh::new(image_len, size, size),
             node_id: test_node_id,
+            last_input: Instant::now(),
+        }
+    }
+
+    pub fn update_controls(&mut self, controls: &Controls) {
+        if controls.t && self.last_input.elapsed() > INPUT_INTERVAL {
+            self.last_input = Instant::now();
+
+            let rot = self.node_id.rot;
+            let mut num: u8 = rot.into();
+            loop {
+                num = (num + 1) % 127;
+
+                if <u8 as TryInto<Rot>>::try_into(num).is_err() {
+                    continue;
+                }
+                self.node_id.rot = num.try_into().unwrap();
+                info!("Rot: {}", num);
+                break;
+            }
         }
     }
 
     fn update_renderer(
         &mut self,
+
+        controls: &Controls,
 
         node_id_bits: &Vec<u32>,
         render_nodes: &Vec<RenderNode>,
@@ -42,6 +68,8 @@ impl RotationDebugRenderer {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
+        self.update_controls(controls);
+
         // Buffers from the last swapchain iteration are being dropped
         self.mesh.to_drop_buffers[image_index].clear();
 
@@ -80,6 +108,9 @@ impl RotationDebugRenderer {
 impl DebugController {
     pub fn update_rotation_debug(
         &mut self,
+
+        controls: &Controls,
+
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -92,6 +123,7 @@ impl DebugController {
             self.get_rotation_debug_node_id_bits(self.rotation_debug.mesh.size);
 
         self.rotation_debug.update_renderer(
+            controls,
             &node_id_bits,
             &render_nodes,
             image_index,

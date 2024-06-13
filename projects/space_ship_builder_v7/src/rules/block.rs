@@ -12,7 +12,7 @@ pub const BLOCK_INDEX_EMPTY: BlockNameIndex = 0;
 
 pub type BlockIndex = usize;
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Block {
     pub node_ids: [NodeID; 8],
 }
@@ -38,7 +38,7 @@ impl Block {
 
         let mut rotated_node_ids = [NodeID::empty(); 8];
         for (node_id, pos) in self.node_ids.iter().zip(oct_positions().iter()) {
-            let rotated_node_id = NodeID::new(node_id.index, node_id.rot * rot);
+            let rotated_node_id = NodeID::new(node_id.index, rot * node_id.rot);
             let rotated_node_id = rules.get_duplicate_node_id(rotated_node_id);
 
             let p = *pos - IVec3::ONE;

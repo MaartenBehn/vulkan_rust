@@ -122,7 +122,17 @@ fn permutate_base_blocks(
 
             let rotated_block = block.rotate(rot, rules);
 
-            rotated_blocks.push((rotated_reqs, rotated_block))
+            let mut found = false;
+            for (_, test_block) in rotated_blocks.iter() {
+                if *test_block == rotated_block {
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                rotated_blocks.push((rotated_reqs, rotated_block))
+            }
         }
     }
 

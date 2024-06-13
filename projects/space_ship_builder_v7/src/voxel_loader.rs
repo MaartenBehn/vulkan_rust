@@ -60,8 +60,8 @@ impl VoxelLoader {
         let mut voxels = [0; NODE_VOXEL_LENGTH];
         for v in model.voxels.iter() {
             let x = v.x as u32;
-            let y = v.z as u32;
-            let z = v.y as u32;
+            let y = v.y as u32;
+            let z = v.z as u32;
 
             let pos = uvec3(x, y, z);
             voxels[to_1d(pos, NODE_SIZE)] = v.i;
@@ -88,8 +88,8 @@ impl VoxelLoader {
 
         for v in model.voxels.iter() {
             let x = v.x as u32;
-            let y = v.z as u32;
-            let z = v.y as u32;
+            let y = v.y as u32;
+            let z = v.z as u32;
 
             let pos = uvec3(x, y, z);
             let model_pos = pos / NODE_SIZE;
@@ -163,13 +163,13 @@ impl VoxelLoader {
 
                                         let r = frames[0].attributes.get("_r");
                                         let rot = if r.is_some() {
-                                            Rot::from(r.unwrap().as_str()).from_magica()
+                                            Rot::from(r.unwrap().as_str())
                                         } else {
                                             Rot::IDENTITY
                                         };
 
                                         let p = frames[0].position().unwrap();
-                                        let pos = ivec3(p.x, p.z, p.y);
+                                        let pos = ivec3(p.x, p.y, p.z);
 
                                         Some((model_id, rot, pos))
                                     }
@@ -185,7 +185,7 @@ impl VoxelLoader {
 
                         let r = frames[0].attributes.get("_r");
                         let rot = if r.is_some() {
-                            Rot::from(r.unwrap().as_str()).from_magica()
+                            Rot::from(r.unwrap().as_str())
                         } else {
                             Rot::IDENTITY
                         };
@@ -222,7 +222,7 @@ impl VoxelLoader {
 
                         let r = frames[0].attributes.get("_r");
                         let rot = if r.is_some() {
-                            Rot::from(r.unwrap().as_str()).from_magica()
+                            Rot::from(r.unwrap().as_str())
                         } else {
                             Rot::IDENTITY
                         };

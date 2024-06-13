@@ -2,6 +2,7 @@ use log::debug;
 use std::{collections::HashMap, f32::consts::PI};
 
 use crate::math::{all_bvec3s, all_sides_dirs};
+use octa_force::anyhow::{anyhow, bail};
 use octa_force::glam::{ivec3, EulerRot, IVec3};
 use octa_force::{
     glam::{vec3, BVec3, Mat3, Mat4, Quat, Vec3},
@@ -220,10 +221,37 @@ impl Rot {
         log::info!("rot z: {} {}", r[0].0, r[1].0);
     }
 
-    pub fn from_magica(self) -> Self {
+    pub fn to_glsl(self) -> Self {
         let mut map = HashMap::new();
 
-        map.insert(4, 4);
+        map.insert(2, 9);
+        map.insert(9, 2);
+        map.insert(17, 33);
+        map.insert(18, 73);
+        map.insert(22, 70);
+        map.insert(25, 34);
+        map.insert(33, 17);
+        map.insert(34, 25);
+        map.insert(40, 72);
+        map.insert(41, 66);
+        map.insert(50, 89);
+        map.insert(54, 102);
+        map.insert(56, 88);
+        map.insert(57, 98);
+        map.insert(66, 41);
+        map.insert(70, 22);
+        map.insert(72, 40);
+        map.insert(73, 18);
+        map.insert(81, 97);
+        map.insert(82, 105);
+        map.insert(88, 56);
+        map.insert(89, 50);
+        map.insert(97, 81);
+        map.insert(98, 57);
+        map.insert(102, 54);
+        map.insert(105, 82);
+        map.insert(114, 121);
+        map.insert(121, 114);
 
         let rot = if map.contains_key(&self.0) {
             Rot(map[&self.0])
@@ -244,15 +272,16 @@ impl Rot {
     }
 }
 
-impl From<u8> for Rot {
-    fn from(byte: u8) -> Self {
+impl TryFrom<u8> for Rot {
+    type Error = octa_force::anyhow::Error;
+
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
         let index_nz1 = byte & 0b11;
         let index_nz2 = (byte >> 2) & 0b11;
-        assert!(
-            (index_nz1 != index_nz2) && (index_nz1 != 0b11 && index_nz2 != 0b11),
-            "Invalid Rotation"
-        );
-        Rot(byte)
+        if !((index_nz1 != index_nz2) && (index_nz1 != 0b11 && index_nz2 != 0b11)) {
+            bail!("Invalid Rotation")
+        }
+        Ok(Rot(byte))
     }
 }
 
@@ -295,7 +324,7 @@ impl From<Mat3> for Rot {
 impl From<&str> for Rot {
     fn from(text: &str) -> Self {
         let i = text.parse::<u8>().unwrap();
-        Self::from(i)
+        Self::try_from(i).unwrap()
     }
 }
 

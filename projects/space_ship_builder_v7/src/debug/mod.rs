@@ -63,7 +63,7 @@ impl DebugController {
         let hull_block_req_renderer = DebugHullBaseRenderer::new(images_len);
 
         Ok(DebugController {
-            mode: DebugMode::OFF,
+            mode: DebugMode::HULL_BASE,
             line_renderer,
             text_renderer,
             rotation_debug: rotation_debug_renderer,
@@ -118,6 +118,7 @@ impl DebugController {
             }
             DebugMode::ROTATION_DEBUG => {
                 self.update_rotation_debug(
+                    controls,
                     image_index,
                     &context,
                     &renderer.chunk_descriptor_layout,

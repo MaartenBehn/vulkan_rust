@@ -89,20 +89,20 @@ impl Rules {
         new_node_id.unwrap()
     }
 
-    pub fn add_node(&mut self, node: Node) -> NodeID {
+    pub fn add_node(&mut self, node: Node, rot: Rot) -> NodeID {
         let rots = Rot::IDENTITY.get_all_permutations();
 
         let mut id = None;
         for (i, test_node) in self.nodes.iter().enumerate() {
-            for rot in rots.iter() {
-                if node.is_duplicate_node_id(*rot, test_node, Rot::IDENTITY) {
-                    id = Some(NodeID::new(i, *rot));
+            for test_rot in rots.iter() {
+                if node.is_duplicate_node_id(rot, test_node, *test_rot) {
+                    id = Some(NodeID::new(i, *test_rot));
                 }
             }
         }
 
         if id.is_none() {
-            id = Some(NodeID::new(self.nodes.len(), Rot::IDENTITY));
+            id = Some(NodeID::new(self.nodes.len(), rot));
             self.nodes.push(node);
         }
 
@@ -113,10 +113,10 @@ impl Rules {
 // Helper functions
 impl Rules {
     pub(crate) fn load_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<NodeID> {
-        let (model_index, _) = voxel_loader.find_model(name)?;
+        let (model_index, rot) = voxel_loader.find_model(name)?;
         let node = voxel_loader.load_node_model(model_index)?;
 
-        let id = self.add_node(node);
+        let id = self.add_node(node, rot);
         let dup_id = self.get_duplicate_node_id(id);
 
         Ok(dup_id)
@@ -127,12 +127,12 @@ impl Rules {
         name: &str,
         voxel_loader: &VoxelLoader,
     ) -> Result<(UVec3, Vec<NodeID>)> {
-        let (model_index, _) = voxel_loader.find_model(name)?;
+        let (model_index, rot) = voxel_loader.find_model(name)?;
         let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
 
         let mut node_ids = vec![];
         for node in nodes {
-            let id = self.add_node(node);
+            let id = self.add_node(node, rot);
             let dup_id = self.get_duplicate_node_id(id);
             node_ids.push(dup_id);
         }
@@ -158,8 +158,7 @@ impl Rules {
                 if offset.as_uvec3() == *pos / 4 {
                     found = true;
 
-                    let mut id = self.add_node(node.to_owned());
-                    id.rot = id.rot.mul(*rot);
+                    let id = self.add_node(node.to_owned(), *rot);
                     let dup_id = self.get_duplicate_node_id(id);
                     node_ids.push(dup_id);
                     break;

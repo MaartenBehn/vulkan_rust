@@ -69,7 +69,7 @@ impl Node {
 
         let mat: Mat3 = rot.into();
         let inv_rot: Rot = mat.inverse().into();
-        let combined_rot = other_rot.mul(inv_rot);
+        let combined_rot = inv_rot * other_rot;
 
         for (rotated_pos, voxel) in other_node.get_rotated_voxels(combined_rot) {
             let voxel_index = to_1d(rotated_pos, NODE_SIZE);
@@ -191,7 +191,7 @@ impl Into<u32> for NodeID {
         if self.is_empty() {
             0
         } else {
-            ((self.index as u32) << 7) + <Rot as Into<u8>>::into(self.rot) as u32
+            ((self.index as u32) << 7) + <Rot as Into<u8>>::into(self.rot.to_glsl()) as u32
         }
     }
 }
