@@ -87,7 +87,7 @@ impl ShipData {
             to_collapse: IndexQueue::default(),
         };
 
-        ship.place_block(IVec3::ZERO, 1, rules);
+        //ship.place_block(IVec3::ZERO, 1, rules);
 
         ship
     }
@@ -164,8 +164,6 @@ impl ShipData {
         let world_block_pos =
             self.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
 
-        debug!("Reset: {world_block_pos}");
-
         let new_cache = rules.solvers[block_name_index].block_check_reset(
             self,
             block_index,
@@ -174,6 +172,8 @@ impl ShipData {
         );
         let old_cache = self.chunks[chunk_index].blocks[block_index].get_cache(block_name_index);
         if new_cache != old_cache {
+            self.chunks[chunk_index].blocks[block_index].set_cache(block_name_index, &new_cache);
+
             for offset in get_neighbors() {
                 let neighbor_world_pos = world_block_pos + offset;
                 let neighbor_chunk_index =
@@ -208,8 +208,6 @@ impl ShipData {
         let world_block_pos =
             self.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
 
-        debug!("Propergate: {world_block_pos}");
-
         let old_cache = self.chunks[chunk_index].blocks[block_index]
             .get_cache(block_name_index)
             .to_owned();
@@ -222,6 +220,8 @@ impl ShipData {
         );
 
         if new_cache != old_cache {
+            self.chunks[chunk_index].blocks[block_index].set_cache(block_name_index, &new_cache);
+
             for offset in get_neighbors() {
                 let neighbor_world_pos = world_block_pos + offset;
                 let neighbor_chunk_index =
@@ -245,8 +245,6 @@ impl ShipData {
         let (block_index, chunk_index) = self.order_controller.unpack_collapse_order(order);
         let world_block_pos =
             self.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
-
-        debug!("Collapse: {world_block_pos}");
 
         let mut best_block = None;
         let mut best_prio = Prio::BASE;
