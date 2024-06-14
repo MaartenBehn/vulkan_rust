@@ -4,8 +4,8 @@ use crate::rotation::Rot;
 use crate::rules::block::Block;
 use crate::rules::solver::{Solver, SolverCacheIndex};
 use crate::rules::Prio::{
-    HULL10, HULL9, HULL_BASE0, HULL_BASE1, HULL_BASE2, HULL_BASE3, HULL_BASE4, HULL_BASE5,
-    HULL_BASE6, HULL_BASE7, HULL_BASE8,
+    HULL_BASE0, HULL_BASE1, HULL_BASE2, HULL_BASE3, HULL_BASE4, HULL_BASE5, HULL_BASE6, HULL_BASE7,
+    HULL_BASE8, HULL_FILL0, HULL_FILL1,
 };
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
@@ -22,6 +22,7 @@ use std::collections::HashMap;
 const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
 const HULL_BLOCK_NAME: &str = "Hull";
 const HULL_BASE_NAME_PART: &str = "Hull-Base";
+const HULL_FILL_NAME_PART: &str = "Hull-Fill";
 
 pub struct HullSolver {
     pub block_name_index: usize,
@@ -41,6 +42,7 @@ impl Rules {
         };
 
         hull_solver.add_base_blocks(self, voxel_loader)?;
+        hull_solver.add_fill_blocks(self, voxel_loader)?;
 
         self.solvers.push(Box::new(hull_solver));
 
@@ -140,6 +142,194 @@ impl HullSolver {
         for (i, (req, prio)) in hull_reqs.into_iter().enumerate() {
             let block = rules
                 .load_block_from_node_folder(&format!("{HULL_BASE_NAME_PART}-{i}"), voxel_loader)?;
+
+            base_blocks.push((req, block, prio));
+        }
+
+        let mut rotated_base_blocks = permutate_base_blocks(&base_blocks, rules);
+        self.base_blocks.append(&mut rotated_base_blocks);
+
+        Ok(())
+    }
+
+    fn add_fill_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
+        let hull_reqs = vec![
+            (
+                vec![ivec3(-1, 0, 0), ivec3(0, -1, 0), ivec3(-1, -1, 0)],
+                Prio::HULL_FILL0,
+            ),
+            (
+                vec![
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(-1, -1, 0),
+                    ivec3(1, -1, 0),
+                ],
+                Prio::HULL_FILL1,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(1, 1, 0),
+                ],
+                Prio::HULL_FILL4,
+            ),
+            (
+                vec![
+                    ivec3(-1, 0, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(-1, -1, 0),
+                    ivec3(0, 0, 1),
+                    ivec3(-1, 0, 1),
+                    ivec3(0, -1, 1),
+                    ivec3(-1, -1, 1),
+                ],
+                Prio::HULL_FILL2,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(1, 1, 0),
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                    ivec3(1, 1, -1),
+                ],
+                Prio::HULL_FILL7,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                ],
+                Prio::HULL_FILL3,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                ],
+                Prio::HULL_FILL5,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                ],
+                Prio::HULL_FILL6,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                    ivec3(1, 1, -1),
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(2, 1, 0),
+                    ivec3(-1, -1, 1),
+                    ivec3(0, -1, 1),
+                    ivec3(1, -1, 1),
+                    ivec3(-1, 0, 1),
+                    ivec3(0, 0, 1),
+                    ivec3(1, 0, 1),
+                    ivec3(-1, 1, 1),
+                    ivec3(0, 1, 1),
+                    ivec3(1, 1, 1),
+                ],
+                Prio::HULL_FILL9,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                    ivec3(1, 1, -1),
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(2, 1, 0),
+                    ivec3(-1, -1, 1),
+                    ivec3(0, -1, 1),
+                    ivec3(1, -1, 1),
+                    ivec3(-1, 0, 1),
+                    ivec3(0, 0, 1),
+                    ivec3(1, 0, 1),
+                    ivec3(-1, 1, 1),
+                    ivec3(0, 1, 1),
+                ],
+                Prio::HULL_FILL8,
+            ),
+        ];
+
+        let mut base_blocks = vec![];
+        for (i, (req, prio)) in hull_reqs.into_iter().enumerate() {
+            let block = rules
+                .load_block_from_node_folder(&format!("{HULL_FILL_NAME_PART}-{i}"), voxel_loader)?;
 
             base_blocks.push((req, block, prio));
         }

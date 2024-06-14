@@ -31,8 +31,17 @@ pub enum Prio {
     HULL_BASE6,
     HULL_BASE7,
     HULL_BASE8,
-    HULL9,
-    HULL10,
+
+    HULL_FILL0,
+    HULL_FILL1,
+    HULL_FILL2,
+    HULL_FILL3,
+    HULL_FILL4,
+    HULL_FILL5,
+    HULL_FILL6,
+    HULL_FILL7,
+    HULL_FILL8,
+    HULL_FILL9,
 }
 
 pub struct Rules {

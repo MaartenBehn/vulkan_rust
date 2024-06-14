@@ -87,7 +87,7 @@ impl ShipBuilder {
             data.place_block(pos, block_index, rules);
         }
 
-        if controls.left && (self.last_action_time + PLACE_SPEED) < total_time {
+        if controls.mouse_left && (self.last_action_time + PLACE_SPEED) < total_time {
             self.last_action_time = total_time;
             self.last_block_index = None;
         }
