@@ -1,8 +1,9 @@
-use crate::rules::block::{BlockIndex, BlockNameIndex};
+use crate::rules::block::BlockNameIndex;
+use crate::rules::solver::SolverCacheIndex;
 
 #[derive(Clone, Debug, Default)]
 pub struct PossibleBlocks {
-    blocks: Vec<(BlockNameIndex, Vec<BlockIndex>)>,
+    blocks: Vec<(BlockNameIndex, Vec<SolverCacheIndex>)>,
 }
 
 impl PossibleBlocks {
@@ -19,18 +20,14 @@ impl PossibleBlocks {
         }
     }
 
-    pub fn set_blocks(
-        &mut self,
-        block_name_index: BlockNameIndex,
-        block_indices: &[BlockNameIndex],
-    ) {
+    pub fn set_cache(&mut self, block_name_index: BlockNameIndex, cache: &[SolverCacheIndex]) {
         let index = self.get_index(block_name_index);
 
         self.blocks[index].1.clear();
-        self.blocks[index].1.extend_from_slice(block_indices);
+        self.blocks[index].1.extend_from_slice(cache);
     }
 
-    pub fn get_blocks(&mut self, block_name_index: BlockNameIndex) -> &[BlockNameIndex] {
+    pub fn get_cache(&mut self, block_name_index: BlockNameIndex) -> &[SolverCacheIndex] {
         let index = self.get_index(block_name_index);
 
         self.blocks[index].1.as_slice()

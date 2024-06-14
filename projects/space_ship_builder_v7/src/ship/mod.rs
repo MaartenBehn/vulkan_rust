@@ -58,8 +58,8 @@ impl ShipManager {
         num_frames: usize,
         rules: &Rules,
     ) -> Result<ShipManager> {
-        let mut ship = Ship::try_load_save(SHIP_SAVE_FILE_PATH, num_frames, rules);
-        // let mut ship = Ship::new(num_frames, rules);
+        // let mut ship = Ship::try_load_save(SHIP_SAVE_FILE_PATH, num_frames, rules);
+        let mut ship = Ship::new(num_frames, rules);
         ship.add_builder(rules);
 
         let renderer = ShipRenderer::new(
@@ -105,7 +105,7 @@ impl ShipManager {
             if ship.builder.is_some() {
                 let mut builder = ship.builder.take().unwrap();
 
-                builder.update(&mut ship.data, controls, camera, rules, total_time)?;
+                //builder.update(&mut ship.data, controls, camera, rules, total_time)?;
 
                 ship.builder = Some(builder);
             }

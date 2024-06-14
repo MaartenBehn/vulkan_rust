@@ -7,8 +7,8 @@ pub struct NodeOrderController {
     pub chunk_index_shift_bits: usize,
     pub chunk_index_shift_bits_with_block: usize,
 
+    pub block_name_mask: usize,
     pub block_mask: usize,
-    pub node_mask: usize,
 }
 
 impl NodeOrderController {
@@ -22,12 +22,12 @@ impl NodeOrderController {
             block_index_shift_bits: block_name_mask_bits,
             chunk_index_shift_bits: block_mask_bits,
             chunk_index_shift_bits_with_block: block_name_mask_bits + block_mask_bits,
-            block_mask: block_name_mask,
-            node_mask: block_mask,
+            block_name_mask,
+            block_mask,
         }
     }
 
-    pub fn pack_order(
+    pub fn pack_propergate_order(
         &self,
         block_name_index: BlockNameIndex,
         block_index: BlockIndex,
@@ -38,11 +38,22 @@ impl NodeOrderController {
             + (chunk_index << self.chunk_index_shift_bits_with_block)
     }
 
-    pub fn unpack_order(&self, order: usize) -> (usize, usize, usize) {
-        let block_name_index = order & self.block_mask;
-        let block_index = (order >> self.block_index_shift_bits) & self.node_mask;
+    pub fn pack_collapse_order(&self, block_index: BlockIndex, chunk_index: ChunkIndex) -> usize {
+        block_index + (chunk_index << self.chunk_index_shift_bits)
+    }
+
+    pub fn unpack_propergate_order(&self, order: usize) -> (usize, usize, usize) {
+        let block_name_index = order & self.block_name_mask;
+        let block_index = (order >> self.block_index_shift_bits) & self.block_mask;
         let chunk_index = order >> self.chunk_index_shift_bits_with_block;
 
         (block_name_index, block_index, chunk_index)
+    }
+
+    pub fn unpack_collapse_order(&self, order: usize) -> (usize, usize) {
+        let block_index = order & self.block_mask;
+        let chunk_index = order >> self.chunk_index_shift_bits;
+
+        (block_index, chunk_index)
     }
 }

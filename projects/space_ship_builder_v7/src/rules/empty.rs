@@ -1,7 +1,8 @@
-use crate::node::Node;
-use crate::rules::block::{Block, BlockNameIndex};
-use crate::rules::solver::Solver;
-use crate::rules::Rules;
+use crate::node::{Node, NodeID};
+use crate::rules::block::Block;
+use crate::rules::solver::{Solver, SolverCacheIndex};
+use crate::rules::Prio::BASE;
+use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
 use octa_force::glam::IVec3;
 
@@ -16,13 +17,35 @@ impl Rules {
 }
 
 impl Solver for EmptySolver {
+    fn block_check_reset(
+        &self,
+        ship: &mut ShipData,
+        block_index: usize,
+        chunk_index: usize,
+        world_block_pos: IVec3,
+    ) -> Vec<SolverCacheIndex> {
+        vec![]
+    }
+
     fn block_check(
         &self,
         ship: &mut ShipData,
-        node_index: usize,
         chunk_index: usize,
+        node_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<BlockNameIndex> {
+        cache: Vec<SolverCacheIndex>,
+    ) -> Vec<SolverCacheIndex> {
         vec![]
+    }
+
+    fn get_block(
+        &self,
+        ship: &mut ShipData,
+        block_index: usize,
+        chunk_index: usize,
+        world_block_pos: IVec3,
+        cache: Vec<SolverCacheIndex>,
+    ) -> (Block, Prio) {
+        (Block::from_single_node_id(NodeID::empty()), BASE)
     }
 }

@@ -1,10 +1,11 @@
-use crate::math::{all_bvec3s, all_sides_dirs, get_all_poses, get_neighbors, oct_positions, to_1d};
+use crate::math::{all_sides_dirs, get_all_poses, get_neighbors, oct_positions, to_1d};
 use crate::node::{NodeID, NODE_VOXEL_LENGTH, VOXEL_EMPTY};
 use crate::rotation::Rot;
-use crate::rules::block::{Block, BlockNameIndex};
-use crate::rules::solver::Solver;
+use crate::rules::block::Block;
+use crate::rules::solver::{Solver, SolverCacheIndex};
 use crate::rules::Prio::{
-    HULL0, HULL1, HULL10, HULL2, HULL3, HULL4, HULL5, HULL6, HULL7, HULL8, HULL9,
+    HULL10, HULL9, HULL_BASE0, HULL_BASE1, HULL_BASE2, HULL_BASE3, HULL_BASE4, HULL_BASE5,
+    HULL_BASE6, HULL_BASE7, HULL_BASE8,
 };
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
@@ -24,7 +25,7 @@ const HULL_BASE_NAME_PART: &str = "Hull-Base";
 
 pub struct HullSolver {
     pub block_name_index: usize,
-    pub base_blocks: Vec<(Vec<IVec3>, Block)>,
+    pub base_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
 }
 
 impl Rules {
@@ -49,55 +50,98 @@ impl Rules {
 }
 
 impl Solver for HullSolver {
+    fn block_check_reset(
+        &self,
+        ship: &mut ShipData,
+        block_index: usize,
+        chunk_index: usize,
+        world_block_pos: IVec3,
+    ) -> Vec<SolverCacheIndex> {
+        self.get_base_blocks(ship, world_block_pos)
+    }
+
     fn block_check(
         &self,
         ship: &mut ShipData,
-        node_index: usize,
         chunk_index: usize,
+        node_index: usize,
         world_node_pos: IVec3,
-    ) -> Vec<BlockNameIndex> {
-        todo!()
+        cache: Vec<SolverCacheIndex>,
+    ) -> Vec<SolverCacheIndex> {
+        cache
+    }
+
+    fn get_block(
+        &self,
+        ship: &mut ShipData,
+        block_index: usize,
+        chunk_index: usize,
+        world_block_pos: IVec3,
+        cache: Vec<SolverCacheIndex>,
+    ) -> (Block, Prio) {
+        let (base_block, base_prio) = if !cache.is_empty() && cache[0] < self.base_blocks.len() {
+            (self.base_blocks[cache[0]].1, self.base_blocks[cache[0]].2)
+        } else {
+            (Block::from_single_node_id(NodeID::empty()), Prio::BASE)
+        };
+
+        (base_block, base_prio)
     }
 }
 
 impl HullSolver {
     fn add_base_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
         let hull_reqs = vec![
-            vec![],
-            vec![ivec3(-1, 0, 0), ivec3(1, 0, 0)],
-            vec![ivec3(1, 0, 0)],
-            vec![ivec3(-1, 0, 0), ivec3(0, -1, 0)],
-            vec![ivec3(-1, 0, 0), ivec3(0, -1, 0), ivec3(0, 0, 1)],
-            vec![ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, -1, 0)],
-            vec![
-                ivec3(-1, 0, 0),
-                ivec3(1, 0, 0),
-                ivec3(0, -1, 0),
-                ivec3(0, 0, 1),
-            ],
-            vec![
-                ivec3(-1, 0, 0),
-                ivec3(1, 0, 0),
-                ivec3(0, -1, 0),
-                ivec3(0, 1, 0),
-                ivec3(0, 0, 1),
-            ],
-            vec![
-                ivec3(-1, 0, 0),
-                ivec3(1, 0, 0),
-                ivec3(0, -1, 0),
-                ivec3(0, 1, 0),
-                ivec3(0, 0, -1),
-                ivec3(0, 0, 1),
-            ],
+            (vec![], Prio::HULL_BASE0),
+            (vec![ivec3(-1, 0, 0), ivec3(1, 0, 0)], Prio::HULL_BASE2),
+            (vec![ivec3(1, 0, 0)], Prio::HULL_BASE1),
+            (vec![ivec3(-1, 0, 0), ivec3(0, -1, 0)], Prio::HULL_BASE3),
+            (
+                vec![ivec3(-1, 0, 0), ivec3(0, -1, 0), ivec3(0, 0, 1)],
+                Prio::HULL_BASE4,
+            ),
+            (
+                vec![ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, -1, 0)],
+                Prio::HULL_BASE5,
+            ),
+            (
+                vec![
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(0, 0, 1),
+                ],
+                Prio::HULL_BASE6,
+            ),
+            (
+                vec![
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(0, 0, 1),
+                ],
+                Prio::HULL_BASE7,
+            ),
+            (
+                vec![
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(0, 0, -1),
+                    ivec3(0, 0, 1),
+                ],
+                Prio::HULL_BASE8,
+            ),
         ];
 
         let mut base_blocks = vec![];
-        for (i, req) in hull_reqs.into_iter().enumerate() {
+        for (i, (req, prio)) in hull_reqs.into_iter().enumerate() {
             let block = rules
                 .load_block_from_node_folder(&format!("{HULL_BASE_NAME_PART}-{i}"), voxel_loader)?;
 
-            base_blocks.push((req, block));
+            base_blocks.push((req, block, prio));
         }
 
         let mut rotated_base_blocks = permutate_base_blocks(&base_blocks, rules);
@@ -105,14 +149,52 @@ impl HullSolver {
 
         Ok(())
     }
+
+    fn get_base_blocks(
+        &self,
+        ship: &mut ShipData,
+        world_block_pos: IVec3,
+    ) -> Vec<SolverCacheIndex> {
+        let block_name_index = ship.get_block_from_world_block_pos(world_block_pos);
+        if block_name_index != self.block_name_index {
+            return vec![];
+        }
+
+        let mut best_block_index = None;
+        let mut best_prio = Prio::BASE;
+
+        for (i, (reqs, _, prio)) in self.base_blocks.iter().enumerate() {
+            let mut pass = true;
+            for offset in reqs {
+                let req_world_block_pos = world_block_pos + *offset;
+                let block_name_index = ship.get_block_from_world_block_pos(req_world_block_pos);
+
+                if block_name_index != self.block_name_index {
+                    pass = false;
+                    break;
+                }
+            }
+
+            if pass && best_prio < *prio {
+                best_block_index = Some(i);
+                best_prio = *prio;
+            }
+        }
+
+        return if best_block_index.is_some() {
+            vec![best_block_index.unwrap()]
+        } else {
+            vec![]
+        };
+    }
 }
 
 fn permutate_base_blocks(
-    blocks: &[(Vec<IVec3>, Block)],
+    blocks: &[(Vec<IVec3>, Block, Prio)],
     rules: &mut Rules,
-) -> Vec<(Vec<IVec3>, Block)> {
+) -> Vec<(Vec<IVec3>, Block, Prio)> {
     let mut rotated_blocks = vec![];
-    for (reqs, block) in blocks.iter() {
+    for (reqs, block, prio) in blocks.iter() {
         for rot in Rot::IDENTITY.get_all_permutations() {
             let mat: Mat4 = rot.into();
             let rotated_reqs: Vec<_> = reqs
@@ -123,7 +205,7 @@ fn permutate_base_blocks(
             let rotated_block = block.rotate(rot, rules);
 
             let mut found = false;
-            for (_, test_block) in rotated_blocks.iter() {
+            for (_, test_block, _) in rotated_blocks.iter() {
                 if *test_block == rotated_block {
                     found = true;
                     break;
@@ -131,7 +213,7 @@ fn permutate_base_blocks(
             }
 
             if !found {
-                rotated_blocks.push((rotated_reqs, rotated_block))
+                rotated_blocks.push((rotated_reqs, rotated_block, *prio))
             }
         }
     }

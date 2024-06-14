@@ -63,7 +63,7 @@ impl DebugController {
         let hull_block_req_renderer = DebugHullBaseRenderer::new(images_len);
 
         Ok(DebugController {
-            mode: DebugMode::HULL_BASE,
+            mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
             rotation_debug: rotation_debug_renderer,
