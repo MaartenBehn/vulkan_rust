@@ -131,7 +131,7 @@ impl DebugController {
                 )?;
             }
             DebugMode::HULL_BASIC => {
-                self.update_hull_multi(
+                self.update_hull_base(
                     rules.solvers[1].to_hull(),
                     controls,
                     image_index,
