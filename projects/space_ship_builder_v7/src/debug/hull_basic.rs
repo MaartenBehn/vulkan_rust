@@ -14,16 +14,16 @@ use std::time::{Duration, Instant};
 pub const HULL_BASE_DEBUG_SIZE: i32 = 4;
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
-pub struct DebugHullBaseRenderer {
+pub struct DebugHullBasicRenderer {
     mesh: ShipMesh,
     index: usize,
     last_input: Instant,
 }
 
-impl DebugHullBaseRenderer {
+impl DebugHullBasicRenderer {
     pub fn new(image_len: usize) -> Self {
         let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
-        DebugHullBaseRenderer {
+        DebugHullBasicRenderer {
             mesh: ShipMesh::new(image_len, size, size),
             index: 0,
             last_input: Instant::now(),
@@ -34,7 +34,7 @@ impl DebugHullBaseRenderer {
         if controls.t && self.last_input.elapsed() > INPUT_INTERVAL {
             self.last_input = Instant::now();
 
-            self.index = (self.index + 1) % hull_solver.base_blocks.len();
+            self.index = (self.index + 1) % hull_solver.debug_basic_blocks.len();
 
             info!("Base Hull Block: {}", self.index)
         }
@@ -128,7 +128,7 @@ impl DebugController {
         let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
         let middle_pos = size / 2;
 
-        let (reqs, block, prio) = &hull_solver.base_blocks[self.renderer_hull_base.index];
+        let (reqs, block, prio) = &hull_solver.debug_basic_blocks[self.renderer_hull_base.index];
         for (j, offset) in oct_positions().iter().enumerate() {
             let node_pos = middle_pos + *offset;
             let node_index = to_1d_i(node_pos, size) as usize;

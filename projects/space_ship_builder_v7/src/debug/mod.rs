@@ -1,9 +1,9 @@
-pub mod hull_base;
+pub mod hull_basic;
 pub mod line_renderer;
 pub mod rotation_debug;
 pub mod text_renderer;
 
-use crate::debug::hull_base::DebugHullBaseRenderer;
+use crate::debug::hull_basic::DebugHullBasicRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::rotation_debug::RotationDebugRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
@@ -35,7 +35,7 @@ pub struct DebugController {
     pub text_renderer: DebugTextRenderer,
 
     pub rotation_debug: RotationDebugRenderer,
-    pub renderer_hull_base: DebugHullBaseRenderer,
+    pub renderer_hull_base: DebugHullBasicRenderer,
 
     last_mode_change: Duration,
 }
@@ -60,7 +60,7 @@ impl DebugController {
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
         let rotation_debug_renderer = RotationDebugRenderer::new(images_len, test_node_id);
-        let hull_block_req_renderer = DebugHullBaseRenderer::new(images_len);
+        let hull_block_req_renderer = DebugHullBasicRenderer::new(images_len);
 
         Ok(DebugController {
             mode: DebugMode::OFF,

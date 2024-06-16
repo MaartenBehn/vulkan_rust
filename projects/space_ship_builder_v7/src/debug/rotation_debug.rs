@@ -27,7 +27,7 @@ pub struct RotationDebugRenderer {
 
 impl RotationDebugRenderer {
     pub fn new(image_len: usize, test_node_id: NodeID) -> Self {
-        let size = IVec3::ONE * crate::debug::hull_base::HULL_BASE_DEBUG_SIZE;
+        let size = IVec3::ONE * crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
 
         RotationDebugRenderer {
             mesh: ShipMesh::new(image_len, size, size),

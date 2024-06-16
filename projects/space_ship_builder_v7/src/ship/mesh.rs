@@ -23,7 +23,7 @@ use std::{iter, mem};
 const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 
 #[cfg(debug_assertions)]
-use crate::debug::hull_base::HULL_BASE_DEBUG_SIZE;
+use crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
 #[cfg(debug_assertions)]
 const HULL_BASE_SIZE_PLUS_PADDING: u32 = (HULL_BASE_DEBUG_SIZE + 2) as u32;
 

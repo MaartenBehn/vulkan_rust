@@ -26,7 +26,10 @@ const HULL_FILL_NAME_PART: &str = "Hull-Fill";
 
 pub struct HullSolver {
     pub block_name_index: usize,
-    pub base_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
+    pub basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
+
+    #[cfg(debug_assertions)]
+    pub debug_basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
 }
 
 impl Rules {
@@ -38,7 +41,10 @@ impl Rules {
 
         let mut hull_solver = HullSolver {
             block_name_index: hull_block_name_index,
-            base_blocks: vec![],
+            basic_blocks: vec![],
+
+            #[cfg(debug_assertions)]
+            debug_basic_blocks: vec![],
         };
 
         hull_solver.add_base_blocks(self, voxel_loader)?;
@@ -81,8 +87,8 @@ impl Solver for HullSolver {
         world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> (Block, Prio) {
-        let (base_block, base_prio) = if !cache.is_empty() && cache[0] < self.base_blocks.len() {
-            (self.base_blocks[cache[0]].1, self.base_blocks[cache[0]].2)
+        let (base_block, base_prio) = if !cache.is_empty() && cache[0] < self.basic_blocks.len() {
+            (self.basic_blocks[cache[0]].1, self.basic_blocks[cache[0]].2)
         } else {
             (Block::from_single_node_id(NodeID::empty()), Prio::BASE)
         };
@@ -147,7 +153,10 @@ impl HullSolver {
         }
 
         let mut rotated_base_blocks = permutate_base_blocks(&base_blocks, rules);
-        self.base_blocks.append(&mut rotated_base_blocks);
+        self.basic_blocks.append(&mut rotated_base_blocks);
+
+        #[cfg(debug_assertions)]
+        self.debug_basic_blocks.append(&mut base_blocks);
 
         Ok(())
     }
@@ -213,7 +222,7 @@ impl HullSolver {
                     ivec3(0, 1, -1),
                     ivec3(1, 1, -1),
                 ],
-                Prio::HULL_FILL7,
+                Prio::HULL_FILL8,
             ),
             (
                 vec![
@@ -261,7 +270,7 @@ impl HullSolver {
                     ivec3(-1, 1, -1),
                     ivec3(0, 1, -1),
                 ],
-                Prio::HULL_FILL6,
+                Prio::HULL_FILL7,
             ),
             (
                 vec![
@@ -281,7 +290,7 @@ impl HullSolver {
                     ivec3(1, 0, 0),
                     ivec3(-1, 1, 0),
                     ivec3(0, 1, 0),
-                    ivec3(2, 1, 0),
+                    ivec3(1, 1, 0),
                     ivec3(-1, -1, 1),
                     ivec3(0, -1, 1),
                     ivec3(1, -1, 1),
@@ -292,7 +301,7 @@ impl HullSolver {
                     ivec3(0, 1, 1),
                     ivec3(1, 1, 1),
                 ],
-                Prio::HULL_FILL9,
+                Prio::HULL_FILL13,
             ),
             (
                 vec![
@@ -312,7 +321,7 @@ impl HullSolver {
                     ivec3(1, 0, 0),
                     ivec3(-1, 1, 0),
                     ivec3(0, 1, 0),
-                    ivec3(2, 1, 0),
+                    ivec3(1, 1, 0),
                     ivec3(-1, -1, 1),
                     ivec3(0, -1, 1),
                     ivec3(1, -1, 1),
@@ -322,7 +331,103 @@ impl HullSolver {
                     ivec3(-1, 1, 1),
                     ivec3(0, 1, 1),
                 ],
-                Prio::HULL_FILL8,
+                Prio::HULL_FILL12,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                    ivec3(1, 1, -1),
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(1, 1, 0),
+                    ivec3(-1, -1, 1),
+                    ivec3(0, -1, 1),
+                    ivec3(1, -1, 1),
+                    ivec3(-1, 0, 1),
+                    ivec3(0, 0, 1),
+                    ivec3(1, 0, 1),
+                ],
+                Prio::HULL_FILL11,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                    ivec3(1, 1, -1),
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(1, 1, 0),
+                    ivec3(-1, -1, 1),
+                    ivec3(0, -1, 1),
+                    ivec3(-1, 0, 1),
+                    ivec3(0, 0, 1),
+                ],
+                Prio::HULL_FILL10,
+            ),
+            (
+                vec![
+                    ivec3(-1, -1, -1),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                    ivec3(-1, -1, 0),
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(-1, -1, 1),
+                    ivec3(0, -1, 1),
+                    ivec3(-1, 0, 1),
+                    ivec3(0, 0, 1),
+                ],
+                Prio::HULL_FILL9,
+            ),
+            (
+                vec![
+                    ivec3(0, -1, 0),
+                    ivec3(1, -1, 0),
+                    ivec3(-1, 0, 0),
+                    ivec3(1, 0, 0),
+                    ivec3(-1, 1, 0),
+                    ivec3(0, 1, 0),
+                    ivec3(0, -1, -1),
+                    ivec3(1, -1, -1),
+                    ivec3(-1, 0, -1),
+                    ivec3(0, 0, -1),
+                    ivec3(1, 0, -1),
+                    ivec3(-1, 1, -1),
+                    ivec3(0, 1, -1),
+                ],
+                Prio::HULL_FILL6,
             ),
         ];
 
@@ -335,7 +440,10 @@ impl HullSolver {
         }
 
         let mut rotated_base_blocks = permutate_base_blocks(&base_blocks, rules);
-        self.base_blocks.append(&mut rotated_base_blocks);
+        self.basic_blocks.append(&mut rotated_base_blocks);
+
+        #[cfg(debug_assertions)]
+        self.debug_basic_blocks.append(&mut base_blocks);
 
         Ok(())
     }
@@ -353,7 +461,7 @@ impl HullSolver {
         let mut best_block_index = None;
         let mut best_prio = Prio::BASE;
 
-        for (i, (reqs, _, prio)) in self.base_blocks.iter().enumerate() {
+        for (i, (reqs, _, prio)) in self.basic_blocks.iter().enumerate() {
             let mut pass = true;
             for offset in reqs {
                 let req_world_block_pos = world_block_pos + *offset;
