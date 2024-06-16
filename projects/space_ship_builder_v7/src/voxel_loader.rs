@@ -11,6 +11,11 @@ pub struct VoxelLoader {
     pub data: DotVoxData,
 }
 
+enum ModelBlockKind {
+    Folder(usize),
+    Multi(usize),
+}
+
 impl VoxelLoader {
     pub fn new(path: &str) -> Result<VoxelLoader> {
         let r = dot_vox::load(path);
@@ -47,6 +52,43 @@ impl VoxelLoader {
         }
 
         mats
+    }
+
+    pub fn find_model(&self, name: &str) -> Result<(usize, Rot)> {
+        self.data
+            .scenes
+            .iter()
+            .find_map(|n| match n {
+                SceneNode::Transform {
+                    attributes,
+                    child,
+                    frames,
+                    ..
+                } => {
+                    if attributes.get("_name").is_some_and(|s| s == name) {
+                        let model_id = match &self.data.scenes[*child as usize] {
+                            SceneNode::Shape { models, .. } => Some(models[0].model_id as usize),
+                            _ => None,
+                        };
+
+                        if model_id.is_none() {
+                            return None;
+                        }
+
+                        let r = frames[0].attributes.get("_r");
+                        let rot = if r.is_some() {
+                            Rot::from(r.unwrap().as_str())
+                        } else {
+                            Rot::IDENTITY
+                        };
+                        Some((model_id.unwrap(), rot))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .ok_or(anyhow!("No node or model found for {name}."))
     }
 
     pub fn load_node_model(&self, model_index: usize) -> Result<Node> {
@@ -104,7 +146,7 @@ impl VoxelLoader {
     }
 
     pub fn load_node_folder_models(&self, name: &str) -> Result<(UVec3, Vec<(Node, Rot, UVec3)>)> {
-        let (model_ids, rot) = self.get_folder_models(name)?;
+        let (model_ids, rot) = self.get_model_folder(name)?;
         if rot != Rot::default() {
             bail!("Folder should not be rotated!")
         }
@@ -136,7 +178,7 @@ impl VoxelLoader {
         Ok((size, final_nodes))
     }
 
-    fn get_folder_models(&self, name: &str) -> Result<(Vec<(usize, Rot, IVec3)>, Rot)> {
+    pub fn get_model_folder(&self, name: &str) -> Result<(Vec<(usize, Rot, IVec3)>, Rot)> {
         self.data
             .scenes
             .iter()
@@ -152,7 +194,12 @@ impl VoxelLoader {
                             SceneNode::Group { children, .. } => children
                                 .iter()
                                 .map(|child| match &self.data.scenes[*child as usize] {
-                                    SceneNode::Transform { frames, child, .. } => {
+                                    SceneNode::Transform {
+                                        frames,
+                                        child,
+                                        attributes,
+                                        ..
+                                    } => {
                                         let model_id = match &self.data.scenes[*child as usize] {
                                             SceneNode::Shape { models, .. } => {
                                                 Some(models[0].model_id as usize)
@@ -199,7 +246,7 @@ impl VoxelLoader {
             .ok_or(anyhow!("No node or model found for {name}."))
     }
 
-    pub fn find_model(&self, name: &str) -> Result<(usize, Rot)> {
+    pub fn get_name_folder(&self, name: &str) -> Result<(Vec<(String, Rot, IVec3)>, Rot)> {
         self.data
             .scenes
             .iter()
@@ -211,12 +258,34 @@ impl VoxelLoader {
                     ..
                 } => {
                     if attributes.get("_name").is_some_and(|s| s == name) {
-                        let model_id = match &self.data.scenes[*child as usize] {
-                            SceneNode::Shape { models, .. } => Some(models[0].model_id as usize),
+                        let child_ids = match &self.data.scenes[*child as usize] {
+                            SceneNode::Group { children, .. } => children
+                                .iter()
+                                .map(|child| match &self.data.scenes[*child as usize] {
+                                    SceneNode::Transform {
+                                        frames, attributes, ..
+                                    } => {
+                                        let r = frames[0].attributes.get("_r");
+                                        let rot = if r.is_some() {
+                                            Rot::from(r.unwrap().as_str())
+                                        } else {
+                                            Rot::IDENTITY
+                                        };
+
+                                        let p = frames[0].position().unwrap();
+                                        let pos = ivec3(p.x, p.y, p.z);
+
+                                        let name = attributes.get("_name").unwrap().to_owned();
+
+                                        Some((name, rot, pos))
+                                    }
+                                    _ => None,
+                                })
+                                .collect(),
                             _ => None,
                         };
 
-                        if model_id.is_none() {
+                        if child_ids.is_none() {
                             return None;
                         }
 
@@ -226,7 +295,7 @@ impl VoxelLoader {
                         } else {
                             Rot::IDENTITY
                         };
-                        Some((model_id.unwrap(), rot))
+                        Some((child_ids.unwrap(), rot))
                     } else {
                         None
                     }

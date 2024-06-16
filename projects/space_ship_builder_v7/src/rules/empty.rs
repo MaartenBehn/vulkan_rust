@@ -6,6 +6,8 @@ use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
 use octa_force::glam::IVec3;
 
+pub const EMPTY_BLOCK_NAME_INDEX: usize = 0;
+
 pub struct EmptySolver {}
 
 impl Rules {

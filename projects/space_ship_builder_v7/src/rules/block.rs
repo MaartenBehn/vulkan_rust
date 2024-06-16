@@ -22,10 +22,23 @@ impl Block {
         Self { node_ids }
     }
 
+    pub fn from_node_ids_slice(node_ids: &[NodeID]) -> Self {
+        let mut ids = [NodeID::empty(); 8];
+        for i in 0..8 {
+            ids[i] = node_ids[i].to_owned();
+        }
+
+        Self { node_ids: ids }
+    }
+
     pub fn from_single_node_id(node_id: NodeID) -> Self {
         let mut node_ids = [NodeID::empty(); 8];
         for (i, r) in node_id.rot.get_all_flipped().into_iter().enumerate() {
-            node_ids[i] = NodeID::new(node_id.index, r);
+            if node_id.is_empty() {
+                node_ids[i] = NodeID::empty();
+            } else {
+                node_ids[i] = NodeID::new(node_id.index, r);
+            }
         }
 
         Self { node_ids }

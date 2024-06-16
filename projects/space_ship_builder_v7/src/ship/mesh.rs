@@ -25,7 +25,12 @@ const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 #[cfg(debug_assertions)]
 use crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
 #[cfg(debug_assertions)]
+use crate::debug::hull_multi::HULL_MULTI_DEBUG_SIZE;
+
+#[cfg(debug_assertions)]
 const HULL_BASE_SIZE_PLUS_PADDING: u32 = (HULL_BASE_DEBUG_SIZE + 2) as u32;
+#[cfg(debug_assertions)]
+const HULL_MULTI_SIZE_PLUS_PADDING: u32 = (HULL_MULTI_DEBUG_SIZE + 2) as u32;
 
 pub struct ShipMesh {
     pub chunks: Vec<MeshChunk>,
@@ -443,6 +448,24 @@ impl MeshChunk {
                 &shape,
                 [0; 3],
                 [HULL_BASE_SIZE_PLUS_PADDING - 1; 3],
+                &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
+                &mut buffer,
+            );
+        }
+
+        #[cfg(debug_assertions)]
+        if render_size == (IVec3::ONE * HULL_MULTI_DEBUG_SIZE) {
+            let shape: ConstShape3u32<
+                HULL_MULTI_SIZE_PLUS_PADDING,
+                HULL_MULTI_SIZE_PLUS_PADDING,
+                HULL_MULTI_SIZE_PLUS_PADDING,
+            > = ConstShape3u32 {};
+
+            greedy_quads(
+                render_nodes,
+                &shape,
+                [0; 3],
+                [HULL_MULTI_SIZE_PLUS_PADDING - 1; 3],
                 &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
                 &mut buffer,
             );

@@ -10,7 +10,7 @@ use crate::rules::block::Block;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::{bail, Result};
-use octa_force::glam::{uvec3, UVec3};
+use octa_force::glam::{uvec3, IVec2, UVec2, UVec3};
 use std::ops::Mul;
 
 const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
@@ -46,6 +46,8 @@ pub enum Prio {
     HULL_FILL11,
     HULL_FILL12,
     HULL_FILL13,
+
+    HULL_MULTI,
 }
 
 pub struct Rules {
@@ -135,13 +137,17 @@ impl Rules {
         Ok(dup_id)
     }
 
-    fn load_multi_node(
+    fn load_block_from_multi_node(
         &mut self,
         name: &str,
         voxel_loader: &VoxelLoader,
-    ) -> Result<(UVec3, Vec<NodeID>)> {
+    ) -> Result<Block> {
         let (model_index, rot) = voxel_loader.find_model(name)?;
         let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
+
+        if size != (UVec3::ONE * 2) {
+            bail!("{} not multi block Size of [2, 2, 2]", size)
+        }
 
         let mut node_ids = vec![];
         for node in nodes {
@@ -150,7 +156,7 @@ impl Rules {
             node_ids.push(dup_id);
         }
 
-        Ok((size, node_ids))
+        Ok(Block::from_node_ids_slice(&node_ids))
     }
 
     fn load_block_from_node_folder(

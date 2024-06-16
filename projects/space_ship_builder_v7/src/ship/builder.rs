@@ -80,7 +80,7 @@ impl ShipBuilder {
             // Update last
             self.last_block_to_build = self.block_to_build;
             self.last_pos = pos;
-            self.last_block_index = Some(data.get_block_from_world_block_pos(pos));
+            self.last_block_index = Some(data.get_block_name_from_world_block_pos(pos));
 
             // Place new Block
             let block_index = self.possible_blocks[self.block_to_build];

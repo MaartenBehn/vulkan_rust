@@ -1,6 +1,8 @@
 use crate::debug::line_renderer::DebugLine;
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
+use crate::node::NodeID;
+use crate::rules::block::Block;
 use crate::rules::hull::HullSolver;
 use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
 use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
@@ -11,19 +13,19 @@ use octa_force::glam::{ivec3, vec3, vec4, IVec3, Mat4, Vec3};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::time::{Duration, Instant};
 
-pub const HULL_BASE_DEBUG_SIZE: i32 = 4;
+pub const HULL_MULTI_DEBUG_SIZE: i32 = 8;
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
-pub struct DebugHullBasicRenderer {
+pub struct DebugHullMultiRenderer {
     mesh: ShipMesh,
     index: usize,
     last_input: Instant,
 }
 
-impl DebugHullBasicRenderer {
+impl DebugHullMultiRenderer {
     pub fn new(image_len: usize) -> Self {
-        let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
-        DebugHullBasicRenderer {
+        let size = IVec3::ONE * HULL_MULTI_DEBUG_SIZE;
+        DebugHullMultiRenderer {
             mesh: ShipMesh::new(image_len, size, size),
             index: 0,
             last_input: Instant::now(),
@@ -34,9 +36,9 @@ impl DebugHullBasicRenderer {
         if controls.t && self.last_input.elapsed() > INPUT_INTERVAL {
             self.last_input = Instant::now();
 
-            self.index = (self.index + 1) % hull_solver.debug_basic_blocks.len();
+            self.index = (self.index + 1) % hull_solver.debug_multi_blocks.len();
 
-            info!("Basic Hull Block: {}", self.index)
+            info!("Multi Hull Block: {}", self.index)
         }
     }
 
@@ -87,7 +89,7 @@ impl DebugHullBasicRenderer {
 }
 
 impl DebugController {
-    pub fn update_hull_base(
+    pub fn update_hull_multi(
         &mut self,
 
         hull_solver: &HullSolver,
@@ -98,13 +100,13 @@ impl DebugController {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
-        self.hull_basic_renderer
+        self.hull_multi_renderer
             .update_controls(controls, hull_solver);
 
         let (node_id_bits, render_nodes) =
-            self.get_hull_base_node_id_bits(self.hull_basic_renderer.mesh.size, hull_solver);
+            self.get_hull_multi_node_id_bits(self.hull_multi_renderer.mesh.size, hull_solver);
 
-        self.hull_basic_renderer.update_renderer(
+        self.hull_multi_renderer.update_renderer(
             &node_id_bits,
             &render_nodes,
             image_index,
@@ -119,7 +121,7 @@ impl DebugController {
         Ok(())
     }
 
-    fn get_hull_base_node_id_bits(
+    fn get_hull_multi_node_id_bits(
         &mut self,
         size: IVec3,
         hull_solver: &HullSolver,
@@ -128,7 +130,7 @@ impl DebugController {
         let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
         let middle_pos = size / 2;
 
-        let (reqs, block, prio) = &hull_solver.debug_basic_blocks[self.hull_basic_renderer.index];
+        let (reqs, block, _) = &hull_solver.debug_multi_blocks[self.hull_multi_renderer.index];
         for (j, offset) in oct_positions().iter().enumerate() {
             let node_pos = middle_pos + *offset;
             let node_index = to_1d_i(node_pos, size) as usize;
@@ -140,10 +142,23 @@ impl DebugController {
             render_nodes[node_index_plus_padding] = RenderNode(true);
         }
 
-        for req_offset in reqs {
-            let pos = middle_pos + *req_offset * 2;
+        for (req_pos, req_block) in reqs {
+            let pos = middle_pos + *req_pos * 2;
 
-            self.add_cube(pos.as_vec3(), (pos + 2).as_vec3(), vec4(0.0, 1.0, 0.0, 1.0));
+            if *req_block == Block::from_single_node_id(NodeID::empty()) {
+                self.add_cube(pos.as_vec3(), (pos + 2).as_vec3(), vec4(0.0, 1.0, 0.0, 1.0));
+            } else {
+                for (j, offset) in oct_positions().iter().enumerate() {
+                    let node_pos = pos + *offset;
+                    let node_index = to_1d_i(node_pos, size) as usize;
+
+                    node_debug_node_id_bits[node_index] = req_block.node_ids[j].into();
+
+                    let node_pos_plus_padding = node_pos + 1;
+                    let node_index_plus_padding = to_1d_i(node_pos_plus_padding, size + 2) as usize;
+                    render_nodes[node_index_plus_padding] = RenderNode(true);
+                }
+            }
         }
 
         (node_debug_node_id_bits, render_nodes)

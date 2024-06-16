@@ -7,6 +7,7 @@ use crate::ship::order::NodeOrderController;
 use crate::ship::possible_blocks::PossibleBlocks;
 
 use crate::rules::block::{BlockIndex, BlockNameIndex, BLOCK_INDEX_EMPTY};
+use crate::rules::solver::SolverCacheIndex;
 use index_queue::IndexQueue;
 use log::{debug, info};
 use octa_force::{anyhow::*, glam::*, log};
@@ -126,11 +127,25 @@ impl ShipData {
         self.was_reset = IndexQueue::default();
     }
 
-    pub fn get_block_from_world_block_pos(&mut self, world_block_pos: IVec3) -> BlockNameIndex {
+    pub fn get_block_name_from_world_block_pos(
+        &mut self,
+        world_block_pos: IVec3,
+    ) -> BlockNameIndex {
         let chunk_index = self.get_chunk_index_from_world_block_pos(world_block_pos);
         let in_chunk_block_index = self.get_block_index_from_world_block_pos(world_block_pos);
 
         self.chunks[chunk_index].block_names[in_chunk_block_index]
+    }
+
+    pub fn get_cache_from_world_block_pos(
+        &mut self,
+        world_block_pos: IVec3,
+        block_name_index: BlockNameIndex,
+    ) -> &[SolverCacheIndex] {
+        let chunk_index = self.get_chunk_index_from_world_block_pos(world_block_pos);
+        let in_chunk_block_index = self.get_block_index_from_world_block_pos(world_block_pos);
+
+        self.chunks[chunk_index].blocks[in_chunk_block_index].get_cache(block_name_index)
     }
 
     pub fn tick(&mut self, actions_per_tick: usize, rules: &Rules) -> (bool, Vec<ChunkIndex>) {

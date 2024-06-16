@@ -1,9 +1,11 @@
 pub mod hull_basic;
+pub mod hull_multi;
 pub mod line_renderer;
 pub mod rotation_debug;
 pub mod text_renderer;
 
 use crate::debug::hull_basic::DebugHullBasicRenderer;
+use crate::debug::hull_multi::DebugHullMultiRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::rotation_debug::RotationDebugRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
@@ -24,7 +26,8 @@ use std::time::Duration;
 pub enum DebugMode {
     OFF,
     ROTATION_DEBUG,
-    HULL_BASE,
+    HULL_BASIC,
+    HULL_MULTI,
 }
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(500);
@@ -35,7 +38,8 @@ pub struct DebugController {
     pub text_renderer: DebugTextRenderer,
 
     pub rotation_debug: RotationDebugRenderer,
-    pub renderer_hull_base: DebugHullBasicRenderer,
+    pub hull_basic_renderer: DebugHullBasicRenderer,
+    pub hull_multi_renderer: DebugHullMultiRenderer,
 
     last_mode_change: Duration,
 }
@@ -60,14 +64,16 @@ impl DebugController {
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
         let rotation_debug_renderer = RotationDebugRenderer::new(images_len, test_node_id);
-        let hull_block_req_renderer = DebugHullBasicRenderer::new(images_len);
+        let hull_basic_renderer = DebugHullBasicRenderer::new(images_len);
+        let hull_multi_renderer = DebugHullMultiRenderer::new(images_len);
 
         Ok(DebugController {
             mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
             rotation_debug: rotation_debug_renderer,
-            renderer_hull_base: hull_block_req_renderer,
+            hull_basic_renderer,
+            hull_multi_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
@@ -95,8 +101,17 @@ impl DebugController {
         if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::HULL_BASE {
-                DebugMode::HULL_BASE
+            self.mode = if self.mode != DebugMode::HULL_BASIC {
+                DebugMode::HULL_BASIC
+            } else {
+                DebugMode::OFF
+            }
+        }
+        if controls.f4 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
+            self.mode = if self.mode != DebugMode::HULL_MULTI {
+                DebugMode::HULL_MULTI
             } else {
                 DebugMode::OFF
             }
@@ -106,8 +121,17 @@ impl DebugController {
             DebugMode::OFF => {
                 self.line_renderer.vertecies_count = 0;
             }
-            DebugMode::HULL_BASE => {
-                self.update_hull_base(
+            DebugMode::ROTATION_DEBUG => {
+                self.update_rotation_debug(
+                    controls,
+                    image_index,
+                    &context,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
+                )?;
+            }
+            DebugMode::HULL_BASIC => {
+                self.update_hull_multi(
                     rules.solvers[1].to_hull(),
                     controls,
                     image_index,
@@ -116,8 +140,9 @@ impl DebugController {
                     &renderer.descriptor_pool,
                 )?;
             }
-            DebugMode::ROTATION_DEBUG => {
-                self.update_rotation_debug(
+            DebugMode::HULL_MULTI => {
+                self.update_hull_multi(
+                    rules.solvers[1].to_hull(),
                     controls,
                     image_index,
                     &context,
@@ -147,11 +172,15 @@ impl DebugController {
 
         match self.mode {
             DebugMode::OFF => {}
-            DebugMode::HULL_BASE => {
-                self.renderer_hull_base
+            DebugMode::ROTATION_DEBUG => self.rotation_debug.render(buffer, renderer, image_index),
+            DebugMode::HULL_BASIC => {
+                self.hull_basic_renderer
                     .render(buffer, renderer, image_index);
             }
-            DebugMode::ROTATION_DEBUG => self.rotation_debug.render(buffer, renderer, image_index),
+            DebugMode::HULL_MULTI => {
+                self.hull_multi_renderer
+                    .render(buffer, renderer, image_index);
+            }
         }
 
         Ok(())
