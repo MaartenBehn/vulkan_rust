@@ -36,7 +36,7 @@ impl DebugHullBasicRenderer {
 
             self.index = (self.index + 1) % hull_solver.debug_basic_blocks.len();
 
-            info!("Base Hull Block: {}", self.index)
+            info!("Basic Hull Block: {}", self.index)
         }
     }
 
