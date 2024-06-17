@@ -1,7 +1,7 @@
 use crate::math::to_1d;
 use crate::node::{Material, Node, NODE_SIZE, NODE_VOXEL_LENGTH};
 use crate::rotation::Rot;
-use dot_vox::{DotVoxData, SceneNode};
+use dot_vox::{DotVoxData, Position, SceneNode};
 use octa_force::anyhow::{anyhow, bail, Result};
 use octa_force::glam::{ivec3, uvec3, IVec3, UVec3};
 use std::process::id;
@@ -272,7 +272,9 @@ impl VoxelLoader {
                                             Rot::IDENTITY
                                         };
 
-                                        let p = frames[0].position().unwrap();
+                                        let p = frames[0]
+                                            .position()
+                                            .unwrap_or(Position::from((0, 0, 0)));
                                         let pos = ivec3(p.x, p.y, p.z);
 
                                         let name = attributes.get("_name").unwrap().to_owned();

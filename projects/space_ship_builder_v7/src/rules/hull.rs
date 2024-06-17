@@ -24,8 +24,8 @@ const HULL_BLOCK_NAME: &str = "Hull";
 const HULL_BASE_NAME_PART: &str = "Hull-Base";
 const HULL_MULTI_NAME_PART: &str = "Hull-Multi";
 const HULL_MULTI_BLOCK: &str = "Block";
-const HULL_MULTI_FOLDER: &str = "Folder";
-const HULL_MULTI_MULTI: &str = "Multi";
+const HULL_MULTI_FOLDER: &str = "Req-Folder";
+const HULL_MULTI_MULTI: &str = "Req-Multi";
 
 pub struct HullSolver {
     pub block_name_index: usize,
