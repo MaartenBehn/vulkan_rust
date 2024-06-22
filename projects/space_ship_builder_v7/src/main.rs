@@ -79,8 +79,8 @@ impl App for SpaceShipBuilder {
             base.num_frames,
             base.swapchain.format,
             &base.window,
-            &ship_manager.renderer,
             test_node_id,
+            &ship_manager,
         )?;
 
         log::info!("Creating Camera");
@@ -148,10 +148,9 @@ impl App for SpaceShipBuilder {
             self.debug_controller.update(
                 &base.context,
                 &base.controls,
-                &self.ship_manager.renderer,
                 &mut self.voxel_loader,
                 self.total_time,
-                &self.ship_manager.ships[0].data,
+                &mut self.ship_manager,
                 image_index,
                 &self.rules,
             )?;

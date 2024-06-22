@@ -37,7 +37,8 @@ pub struct ShipManager {
     pub ships: Vec<Ship>,
     pub renderer: ShipRenderer,
 
-    actions_per_tick: usize,
+    pub actions_per_tick: usize,
+    pub update_actions_per_tick: bool,
     last_full_tick: bool,
 
     last_input: Duration,
@@ -54,7 +55,7 @@ impl ShipManager {
         context: &Context,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
-        extent: vk::Extent2D,
+        extent: Extent2D,
         num_frames: usize,
         rules: &Rules,
     ) -> Result<ShipManager> {
@@ -76,6 +77,7 @@ impl ShipManager {
             renderer,
 
             actions_per_tick: 4,
+            update_actions_per_tick: true,
             last_full_tick: false,
 
             last_input: Duration::default(),
@@ -95,9 +97,9 @@ impl ShipManager {
         camera: &Camera,
         extent: Extent2D,
     ) -> Result<()> {
-        if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
+        if self.update_actions_per_tick && delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
-        } else if delta_time > MAX_TICK_LENGTH {
+        } else if self.update_actions_per_tick && delta_time > MAX_TICK_LENGTH {
             self.actions_per_tick = max(self.actions_per_tick / 2, 4);
         }
 

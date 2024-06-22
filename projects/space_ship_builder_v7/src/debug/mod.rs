@@ -1,9 +1,11 @@
+pub mod collapse_log;
 pub mod hull_basic;
 pub mod hull_multi;
 pub mod line_renderer;
 pub mod rotation_debug;
 pub mod text_renderer;
 
+use crate::debug::collapse_log::CollapseLogRenderer;
 use crate::debug::hull_basic::DebugHullBasicRenderer;
 use crate::debug::hull_multi::DebugHullMultiRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
@@ -21,13 +23,15 @@ use octa_force::egui_winit::winit::window::Window;
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::time::Duration;
+use crate::ship::ShipManager;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum DebugMode {
     OFF,
     ROTATION_DEBUG,
     HULL_BASIC,
     HULL_MULTI,
+    COLLAPSE_LOG,
 }
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(500);
@@ -40,6 +44,7 @@ pub struct DebugController {
     pub rotation_debug: RotationDebugRenderer,
     pub hull_basic_renderer: DebugHullBasicRenderer,
     pub hull_multi_renderer: DebugHullMultiRenderer,
+    pub collapse_log_renderer: CollapseLogRenderer,
 
     last_mode_change: Duration,
 }
@@ -50,8 +55,8 @@ impl DebugController {
         images_len: usize,
         format: Format,
         window: &Window,
-        renderer: &ShipRenderer,
         test_node_id: NodeID,
+        ship_manager: &ShipManager
     ) -> Result<Self> {
         let line_renderer = DebugLineRenderer::new(
             1000000,
@@ -59,13 +64,14 @@ impl DebugController {
             images_len as u32,
             format,
             Format::D32_SFLOAT,
-            &renderer,
+            &ship_manager.renderer,
         )?;
 
         let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
         let rotation_debug_renderer = RotationDebugRenderer::new(images_len, test_node_id);
         let hull_basic_renderer = DebugHullBasicRenderer::new(images_len);
         let hull_multi_renderer = DebugHullMultiRenderer::new(images_len);
+        let collapse_log_renderer = CollapseLogRenderer::new(images_len, &ship_manager.ships[0].data);
 
         Ok(DebugController {
             mode: DebugMode::OFF,
@@ -74,6 +80,7 @@ impl DebugController {
             rotation_debug: rotation_debug_renderer,
             hull_basic_renderer,
             hull_multi_renderer,
+            collapse_log_renderer,
             last_mode_change: Duration::ZERO,
         })
     }
@@ -82,13 +89,14 @@ impl DebugController {
         &mut self,
         context: &Context,
         controls: &Controls,
-        renderer: &ShipRenderer,
         voxel_loader: &mut VoxelLoader,
         total_time: Duration,
-        ship: &ShipData,
+        ship_manager: &mut ShipManager,
         image_index: usize,
         rules: &Rules,
     ) -> Result<()> {
+        let last_mode = self.mode;
+
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
@@ -116,6 +124,19 @@ impl DebugController {
                 DebugMode::OFF
             }
         }
+        if controls.f5 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
+            self.mode = if self.mode != DebugMode::COLLAPSE_LOG {
+                DebugMode::HULL_MULTI
+            } else {
+                DebugMode::OFF
+            }
+        }
+
+        if last_mode == DebugMode::COLLAPSE_LOG || self.mode != DebugMode::COLLAPSE_LOG {
+            self.collapse_log_renderer.on_enable(ship_manager);
+        }
 
         match self.mode {
             DebugMode::OFF => {
@@ -126,8 +147,8 @@ impl DebugController {
                     controls,
                     image_index,
                     &context,
-                    &renderer.chunk_descriptor_layout,
-                    &renderer.descriptor_pool,
+                    &ship_manager.renderer.chunk_descriptor_layout,
+                    &ship_manager.renderer.descriptor_pool,
                 )?;
             }
             DebugMode::HULL_BASIC => {
@@ -136,8 +157,8 @@ impl DebugController {
                     controls,
                     image_index,
                     &context,
-                    &renderer.chunk_descriptor_layout,
-                    &renderer.descriptor_pool,
+                    &ship_manager.renderer.chunk_descriptor_layout,
+                    &ship_manager.renderer.descriptor_pool,
                 )?;
             }
             DebugMode::HULL_MULTI => {
@@ -146,8 +167,18 @@ impl DebugController {
                     controls,
                     image_index,
                     &context,
-                    &renderer.chunk_descriptor_layout,
-                    &renderer.descriptor_pool,
+                    &ship_manager.renderer.chunk_descriptor_layout,
+                    &ship_manager.renderer.descriptor_pool,
+                )?;
+            }
+            DebugMode::COLLAPSE_LOG => {
+                self.update_collapse_log_debug(
+                    &ship_manager.ships[0].data,
+                    controls,
+                    image_index,
+                    &context,
+                    &ship_manager.renderer.chunk_descriptor_layout,
+                    &ship_manager.renderer.descriptor_pool,
                 )?;
             }
         }
@@ -179,6 +210,10 @@ impl DebugController {
             }
             DebugMode::HULL_MULTI => {
                 self.hull_multi_renderer
+                    .render(buffer, renderer, image_index);
+            }
+            DebugMode::COLLAPSE_LOG => {
+                self.collapse_log_renderer
                     .render(buffer, renderer, image_index);
             }
         }
