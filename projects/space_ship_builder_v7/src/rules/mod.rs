@@ -128,7 +128,7 @@ impl Rules {
 // Helper functions
 impl Rules {
     pub(crate) fn load_node(&mut self, name: &str, voxel_loader: &VoxelLoader) -> Result<NodeID> {
-        let (model_index, rot) = voxel_loader.find_model(name)?;
+        let (model_index, rot) = voxel_loader.find_model_by_name(name)?;
         let node = voxel_loader.load_node_model(model_index)?;
 
         let id = self.add_node(node, rot);
@@ -137,12 +137,12 @@ impl Rules {
         Ok(dup_id)
     }
 
-    fn load_block_from_multi_node(
+    fn load_block_from_multi_node_by_name(
         &mut self,
         name: &str,
         voxel_loader: &VoxelLoader,
     ) -> Result<Block> {
-        let (model_index, rot) = voxel_loader.find_model(name)?;
+        let (model_index, _) = voxel_loader.find_model_by_name(name)?;
         let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
 
         if size != (UVec3::ONE * 2) {
@@ -151,7 +151,29 @@ impl Rules {
 
         let mut node_ids = vec![];
         for node in nodes {
-            let id = self.add_node(node, rot);
+            let id = self.add_node(node, Rot::IDENTITY);
+            let dup_id = self.get_duplicate_node_id(id);
+            node_ids.push(dup_id);
+        }
+
+        Ok(Block::from_node_ids_slice(&node_ids))
+    }
+
+    fn load_block_from_multi_node_by_index(
+        &mut self,
+        index: usize,
+        voxel_loader: &VoxelLoader,
+    ) -> Result<Block> {
+        let (model_index, _) = voxel_loader.find_model_by_index(index)?;
+        let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
+
+        if size != (UVec3::ONE * 2) {
+            bail!("{} not multi block Size of [2, 2, 2]", size)
+        }
+
+        let mut node_ids = vec![];
+        for node in nodes {
+            let id = self.add_node(node, Rot::IDENTITY);
             let dup_id = self.get_duplicate_node_id(id);
             node_ids.push(dup_id);
         }

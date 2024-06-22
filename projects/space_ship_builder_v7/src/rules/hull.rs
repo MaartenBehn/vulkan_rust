@@ -18,6 +18,7 @@ use octa_force::{
     anyhow::Result,
     glam::{ivec3, BVec3, IVec3, Mat3, Mat4},
 };
+use std::ops::Deref;
 
 const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
 const HULL_BLOCK_NAME: &str = "Hull";
@@ -30,13 +31,13 @@ const HULL_MULTI_MULTI: &str = "Req-Multi";
 pub struct HullSolver {
     pub block_name_index: usize,
     pub basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
-    pub multi_blocks: Vec<(Vec<(IVec3, Block)>, Block, Prio)>,
+    pub multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)>,
 
     #[cfg(debug_assertions)]
     pub debug_basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
 
     #[cfg(debug_assertions)]
-    pub debug_multi_blocks: Vec<(Vec<(IVec3, Block)>, Block, Prio)>,
+    pub debug_multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)>,
 }
 
 impl Rules {
@@ -169,9 +170,9 @@ impl HullSolver {
                 bail!("Multi Block Rot should be IDENTITY");
             }
 
-            for (name, rot, pos) in models {
+            for (name, index, rot, pos) in models {
                 if name.contains(HULL_MULTI_BLOCK) {
-                    let block = rules.load_block_from_multi_node(&name, voxel_loader)?;
+                    let block = rules.load_block_from_multi_node_by_index(index, voxel_loader)?;
                     let rotated_block = block.rotate(rot, rules);
                     blocks.push((rotated_block, pos))
                 } else if name.contains(HULL_MULTI_FOLDER) {
@@ -179,7 +180,8 @@ impl HullSolver {
                     let rotated_block = req_block.rotate(rot, rules);
                     multi_req_block.push((rotated_block, pos))
                 } else if name.contains(HULL_MULTI_MULTI) {
-                    let req_block = rules.load_block_from_multi_node(&name, voxel_loader)?;
+                    let req_block =
+                        rules.load_block_from_multi_node_by_index(index, voxel_loader)?;
                     let rotated_block = req_block.rotate(rot, rules);
                     multi_req_block.push((rotated_block, pos))
                 } else {
@@ -188,20 +190,50 @@ impl HullSolver {
             }
         }
 
-        let mut multi_blocks = vec![];
+        let mut multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)> = vec![];
         for (block, pos) in blocks {
-            let mut reqs = vec![];
+            let mut empty_reqs = vec![];
+            let mut add = false;
+            let reqs = multi_blocks
+                .iter_mut()
+                .find_map(|(reqs, test_block, _)| {
+                    if *test_block == block {
+                        Some(reqs)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| {
+                    add = true;
+                    &mut empty_reqs
+                });
+
             for offset in get_neighbors() {
                 let neighbor_pos = pos + offset * 8;
 
                 for (block, test_pos) in multi_req_block.iter() {
                     if neighbor_pos == *test_pos {
-                        reqs.push((offset, *block));
+                        let blocks = reqs.iter_mut().find_map(|(test_offset, blocks)| {
+                            let add_blocks = false;
+                            if *test_offset == offset {
+                                Some(blocks)
+                            } else {
+                                None
+                            }
+                        });
+
+                        if blocks.is_some() {
+                            blocks.unwrap().push(*block);
+                        } else {
+                            reqs.push((offset, vec![*block]));
+                        }
                     }
                 }
             }
 
-            multi_blocks.push((reqs, block, Prio::HULL_MULTI))
+            if add {
+                multi_blocks.push((empty_reqs, block, Prio::HULL_MULTI))
+            }
         }
 
         let mut rotated_multi_blocks = permutate_multi_blocks(&multi_blocks, rules);
@@ -260,18 +292,26 @@ impl HullSolver {
         let mut cache = vec![];
         for (i, (reqs, _, _)) in self.multi_blocks.iter().enumerate() {
             let mut pass = true;
-            for (req_pos, req_block) in reqs {
+            for (req_pos, req_blocks) in reqs {
                 let req_world_block_pos = world_block_pos + *req_pos;
                 let block_name_index =
                     ship.get_block_name_from_world_block_pos(req_world_block_pos);
 
-                let req_empty = *req_block == Block::from_single_node_id(NodeID::empty());
+                let mut ok = false;
+                for req_block in req_blocks {
+                    let req_empty = *req_block == Block::from_single_node_id(NodeID::empty());
 
-                if !req_empty && block_name_index != self.block_name_index {
-                    pass = false;
-                    break;
+                    if !req_empty && block_name_index == self.block_name_index {
+                        ok = true;
+                        break;
+                    }
+                    if req_empty && block_name_index == EMPTY_BLOCK_NAME_INDEX {
+                        ok = true;
+                        break;
+                    }
                 }
-                if req_empty && block_name_index != EMPTY_BLOCK_NAME_INDEX {
+
+                if !ok {
                     pass = false;
                     break;
                 }
@@ -294,22 +334,30 @@ impl HullSolver {
         let (reqs, _, _) = &self.multi_blocks[cache_index - self.basic_blocks.len()];
 
         let mut pass = true;
-        for (req_pos, req_block) in reqs {
+        for (req_pos, req_blocks) in reqs {
             let req_world_block_pos = world_block_pos + *req_pos;
             let cache =
                 ship.get_cache_from_world_block_pos(req_world_block_pos, self.block_name_index);
 
-            if *req_block == Block::from_single_node_id(NodeID::empty()) {
-                continue;
+            let mut ok = false;
+            for req_block in req_blocks {
+                if *req_block == Block::from_single_node_id(NodeID::empty()) {
+                    continue;
+                }
+
+                for index in cache {
+                    let test_block = self.get_block_from_cache_index(*index);
+
+                    if *req_block == test_block {
+                        ok = true;
+                        break;
+                    }
+                }
             }
 
-            for index in cache {
-                let test_block = self.get_block_from_cache_index(*index);
-
-                if *req_block != test_block {
-                    pass = false;
-                    break;
-                }
+            if !ok {
+                pass = false;
+                break;
             }
         }
 
@@ -358,22 +406,22 @@ fn permutate_base_blocks(
 }
 
 fn permutate_multi_blocks(
-    blocks: &[(Vec<(IVec3, Block)>, Block, Prio)],
+    blocks: &[(Vec<(IVec3, Vec<Block>)>, Block, Prio)],
     rules: &mut Rules,
-) -> Vec<(Vec<(IVec3, Block)>, Block, Prio)> {
+) -> Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)> {
     let mut rotated_blocks = vec![];
     for (reqs, block, prio) in blocks.iter() {
         for rot in Rot::IDENTITY.get_all_permutations() {
             let mat: Mat4 = rot.into();
             let rotated_reqs: Vec<_> = reqs
                 .iter()
-                .map(|(req_pos, req_block)| {
-                    let p = mat
+                .map(|(req_pos, req_blocks)| {
+                    let rotated_pos = mat
                         .transform_vector3((*req_pos).as_vec3())
                         .round()
                         .as_ivec3();
-                    let b = req_block.rotate(rot, rules);
-                    (p, b)
+                    let rotated_blocks = req_blocks.iter().map(|b| b.rotate(rot, rules)).collect();
+                    (rotated_pos, rotated_blocks)
                 })
                 .collect();
 
