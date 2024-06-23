@@ -15,6 +15,7 @@ use crate::node::{NodeID, Voxel};
 use crate::rules::Rules;
 use crate::ship::data::ShipData;
 use crate::ship::renderer::ShipRenderer;
+use crate::ship::ShipManager;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
@@ -23,7 +24,6 @@ use octa_force::egui_winit::winit::window::Window;
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::time::Duration;
-use crate::ship::ShipManager;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum DebugMode {
@@ -56,7 +56,7 @@ impl DebugController {
         format: Format,
         window: &Window,
         test_node_id: NodeID,
-        ship_manager: &ShipManager
+        ship_manager: &ShipManager,
     ) -> Result<Self> {
         let line_renderer = DebugLineRenderer::new(
             1000000,
@@ -71,7 +71,8 @@ impl DebugController {
         let rotation_debug_renderer = RotationDebugRenderer::new(images_len, test_node_id);
         let hull_basic_renderer = DebugHullBasicRenderer::new(images_len);
         let hull_multi_renderer = DebugHullMultiRenderer::new(images_len);
-        let collapse_log_renderer = CollapseLogRenderer::new(images_len, &ship_manager.ships[0].data);
+        let collapse_log_renderer =
+            CollapseLogRenderer::new(images_len, &ship_manager.ships[0].data);
 
         Ok(DebugController {
             mode: DebugMode::OFF,
@@ -134,8 +135,12 @@ impl DebugController {
             }
         }
 
-        if last_mode == DebugMode::COLLAPSE_LOG || self.mode != DebugMode::COLLAPSE_LOG {
+        if last_mode == DebugMode::COLLAPSE_LOG && self.mode != DebugMode::COLLAPSE_LOG {
             self.collapse_log_renderer.on_enable(ship_manager);
+        }
+
+        if last_mode != DebugMode::COLLAPSE_LOG && self.mode == DebugMode::COLLAPSE_LOG {
+            self.collapse_log_renderer.on_disable(ship_manager);
         }
 
         match self.mode {

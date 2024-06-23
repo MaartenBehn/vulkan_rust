@@ -1,3 +1,4 @@
+use std::iter;
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
 use crate::rules::hull::HullSolver;
@@ -5,18 +6,24 @@ use crate::ship::data::ShipData;
 use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
 use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
 use crate::ship::ShipManager;
-use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
-use octa_force::glam::{ivec3, vec3, vec4, IVec3, Mat4, Vec3};
+use octa_force::glam::{IVec3, ivec3};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::time::{Duration, Instant};
+use crate::rules::block::{BlockNameIndex};
+use crate::ship::possible_blocks::PossibleBlocks;
 
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct CollapseLogRenderer {
     mesh: ShipMesh,
     last_input: Instant,
+    
+    last_blocks_names: Vec<BlockNameIndex>,
+    block_log: Vec<Vec<PossibleBlocks>>,
+    log_index: usize,
+    cache_index: usize,
 }
 
 impl CollapseLogRenderer {
@@ -28,6 +35,10 @@ impl CollapseLogRenderer {
                 ship_data.nodes_per_chunk,
             ),
             last_input: Instant::now(),
+            last_blocks_names: vec![],
+            block_log: vec![],
+            log_index: 0,
+            cache_index: 0,
         }
     }
 
@@ -40,9 +51,15 @@ impl CollapseLogRenderer {
         ship_manager.update_actions_per_tick = true;
         ship_manager.actions_per_tick = 4;
     }
-
-    pub fn update_controls(&mut self, controls: &Controls) {
-        if controls.t && self.last_input.elapsed() > INPUT_INTERVAL {}
+    
+    pub fn update_log(&mut self, ship_data: &ShipData) {
+        if ship_data.chunks[0].block_names != self.last_blocks_names {
+            self.block_log = vec![];
+        }
+        
+        if ship_data.chunks[0].blocks != *self.block_log.last().unwrap() {
+            self.block_log.push(ship_data.chunks[0].blocks.to_owned());
+        }
     }
 
     fn update_renderer(
@@ -103,13 +120,12 @@ impl DebugController {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<()> {
-        self.collapse_log_renderer.update_controls(controls);
-
-        /*
+        self.collapse_log_renderer.update_log(ship_data);
+        
         let (node_id_bits, render_nodes) =
-            self.get_hull_base_node_id_bits(self.hull_basic_renderer.mesh.size, hull_solver);
+            self.get_collapse_log_node_id_bits(self.collapse_log_renderer.mesh.size, ship_data);
 
-        self.hull_basic_renderer.update_renderer(
+        self.collapse_log_renderer.update_renderer(
             &node_id_bits,
             &render_nodes,
             image_index,
@@ -121,41 +137,38 @@ impl DebugController {
         self.text_renderer.push_texts()?;
         self.line_renderer.push_lines()?;
         
-         */
-
         Ok(())
     }
 
     fn get_collapse_log_node_id_bits(
         &mut self,
         size: IVec3,
-        hull_solver: &HullSolver,
+        ship_data: &ShipData,
     ) -> (Vec<u32>, Vec<RenderNode>) {
-        
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
         let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
         
-        /*
-        let middle_pos = size / 2;
-
-        let (reqs, block, prio) = &hull_solver.debug_basic_blocks[self.collapse_log_renderer.index];
-        for (j, offset) in oct_positions().iter().enumerate() {
-            let node_pos = middle_pos + *offset;
-            let node_index = to_1d_i(node_pos, size) as usize;
-
-            node_debug_node_id_bits[node_index] = block.node_ids[j].into();
-
-            let node_pos_plus_padding = node_pos + 1;
-            let node_index_plus_padding = to_1d_i(node_pos_plus_padding, size + 2) as usize;
-            render_nodes[node_index_plus_padding] = RenderNode(true);
+        for x in 0..size.x {
+            for y in 0..size.y {
+                for z in 0..size.z {
+                    let index = ship_data.get_node_index_from_node_pos(ivec3(x, y, z));
+                    
+                    let caches: Vec<_> = self.collapse_log_renderer.block_log[self.collapse_log_renderer.log_index][index]
+                        .get_all_caches()
+                        .into_iter()
+                        .map(|(block_name, cache)| {
+                            iter::repeat(block_name).zip(cache.into_iter())
+                        })
+                        .flatten()
+                        .collect();
+                    
+                    let (block_name, cache_index) = caches[self.collapse_log_renderer.cache_index % caches.len()];
+                    
+                    
+                }
+            }
         }
-
-        for req_offset in reqs {
-            let pos = middle_pos + *req_offset * 2;
-
-            self.add_cube(pos.as_vec3(), (pos + 2).as_vec3(), vec4(0.0, 1.0, 0.0, 1.0));
-        }
-         */
+        
 
         (node_debug_node_id_bits, render_nodes)
     }

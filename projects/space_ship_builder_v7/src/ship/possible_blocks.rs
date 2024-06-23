@@ -1,7 +1,7 @@
 use crate::rules::block::BlockNameIndex;
 use crate::rules::solver::SolverCacheIndex;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PossibleBlocks {
     blocks: Vec<(BlockNameIndex, Vec<SolverCacheIndex>)>,
 }
@@ -31,5 +31,9 @@ impl PossibleBlocks {
         let index = self.get_index(block_name_index);
 
         self.blocks[index].1.as_slice()
+    }
+
+    pub fn get_all_caches(&mut self) -> Vec<(BlockNameIndex, Vec<SolverCacheIndex>)> {
+        self.blocks.to_owned()
     }
 }
