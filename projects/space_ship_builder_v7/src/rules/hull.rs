@@ -364,7 +364,7 @@ impl HullSolver {
         pass
     }
 
-    fn get_block_from_cache_index(&self, index: usize) -> Block {
+    pub fn get_block_from_cache_index(&self, index: usize) -> Block {
         return if index < self.basic_blocks.len() {
             self.basic_blocks[index].1
         } else {

@@ -2,6 +2,7 @@ use crate::rules::block::Block;
 use crate::rules::hull::HullSolver;
 use crate::rules::Prio;
 use crate::ship::data::ShipData;
+use octa_force::anyhow::{bail, Result};
 use octa_force::glam::IVec3;
 use std::any::Any;
 
@@ -44,11 +45,11 @@ pub trait Solver: ToAny {
         cache: Vec<SolverCacheIndex>,
     ) -> (Block, Prio);
 
-    fn to_hull(&self) -> &HullSolver {
+    fn to_hull(&self) -> Result<&HullSolver> {
         let a = self.as_any();
         match a.downcast_ref::<HullSolver>() {
-            Some(hull_solver) => hull_solver,
-            None => panic!(),
+            Some(hull_solver) => Ok(hull_solver),
+            None => bail!("Not Hull Solver"),
         }
     }
 }

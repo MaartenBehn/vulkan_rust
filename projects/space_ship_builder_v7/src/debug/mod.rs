@@ -129,17 +129,17 @@ impl DebugController {
             self.last_mode_change = total_time;
 
             self.mode = if self.mode != DebugMode::COLLAPSE_LOG {
-                DebugMode::HULL_MULTI
+                DebugMode::COLLAPSE_LOG
             } else {
                 DebugMode::OFF
             }
         }
 
-        if last_mode == DebugMode::COLLAPSE_LOG && self.mode != DebugMode::COLLAPSE_LOG {
+        if last_mode != DebugMode::COLLAPSE_LOG && self.mode == DebugMode::COLLAPSE_LOG {
             self.collapse_log_renderer.on_enable(ship_manager);
         }
 
-        if last_mode != DebugMode::COLLAPSE_LOG && self.mode == DebugMode::COLLAPSE_LOG {
+        if last_mode == DebugMode::COLLAPSE_LOG && self.mode != DebugMode::COLLAPSE_LOG {
             self.collapse_log_renderer.on_disable(ship_manager);
         }
 
@@ -158,7 +158,7 @@ impl DebugController {
             }
             DebugMode::HULL_BASIC => {
                 self.update_hull_base(
-                    rules.solvers[1].to_hull(),
+                    rules.solvers[1].to_hull()?,
                     controls,
                     image_index,
                     &context,
@@ -168,7 +168,7 @@ impl DebugController {
             }
             DebugMode::HULL_MULTI => {
                 self.update_hull_multi(
-                    rules.solvers[1].to_hull(),
+                    rules.solvers[1].to_hull()?,
                     controls,
                     image_index,
                     &context,
@@ -180,6 +180,7 @@ impl DebugController {
                 self.update_collapse_log_debug(
                     &ship_manager.ships[0].data,
                     controls,
+                    rules,
                     image_index,
                     &context,
                     &ship_manager.renderer.chunk_descriptor_layout,
