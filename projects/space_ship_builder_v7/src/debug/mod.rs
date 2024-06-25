@@ -21,6 +21,7 @@ use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::egui_winit::winit::window::Window;
+use octa_force::glam::{IVec2, IVec3};
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::time::Duration;
@@ -95,6 +96,8 @@ impl DebugController {
         ship_manager: &mut ShipManager,
         image_index: usize,
         rules: &Rules,
+        camera: &Camera,
+        extent: Extent2D,
     ) -> Result<()> {
         let last_mode = self.mode;
 
@@ -135,13 +138,7 @@ impl DebugController {
             }
         }
 
-        if last_mode != DebugMode::COLLAPSE_LOG && self.mode == DebugMode::COLLAPSE_LOG {
-            self.collapse_log_renderer.on_enable(ship_manager);
-        }
-
-        if last_mode == DebugMode::COLLAPSE_LOG && self.mode != DebugMode::COLLAPSE_LOG {
-            self.collapse_log_renderer.on_disable(ship_manager);
-        }
+        ship_manager.renderer.update(camera, extent)?;
 
         match self.mode {
             DebugMode::OFF => {
@@ -178,9 +175,10 @@ impl DebugController {
             }
             DebugMode::COLLAPSE_LOG => {
                 self.update_collapse_log_debug(
-                    &ship_manager.ships[0].data,
+                    &mut ship_manager.ships[0].data,
                     controls,
                     rules,
+                    camera,
                     image_index,
                     &context,
                     &ship_manager.renderer.chunk_descriptor_layout,

@@ -6,6 +6,7 @@ use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
 use crate::ship::save::ShipSave;
 use crate::voxel_loader::VoxelLoader;
 use crate::INPUT_INTERVALL;
+use log::info;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
@@ -38,7 +39,6 @@ pub struct ShipManager {
     pub renderer: ShipRenderer,
 
     pub actions_per_tick: usize,
-    pub update_actions_per_tick: bool,
     last_full_tick: bool,
 
     last_input: Duration,
@@ -77,7 +77,6 @@ impl ShipManager {
             renderer,
 
             actions_per_tick: 4,
-            update_actions_per_tick: true,
             last_full_tick: false,
 
             last_input: Duration::default(),
@@ -97,9 +96,9 @@ impl ShipManager {
         camera: &Camera,
         extent: Extent2D,
     ) -> Result<()> {
-        if self.update_actions_per_tick && delta_time < MIN_TICK_LENGTH && self.last_full_tick {
+        if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
-        } else if self.update_actions_per_tick && delta_time > MAX_TICK_LENGTH {
+        } else if delta_time > MAX_TICK_LENGTH {
             self.actions_per_tick = max(self.actions_per_tick / 2, 4);
         }
 
@@ -113,6 +112,9 @@ impl ShipManager {
             }
 
             let (full, changed_chunks) = ship.data.tick(self.actions_per_tick, rules);
+            if full {
+                info!("Full Tick: {}", self.actions_per_tick);
+            }
 
             self.last_full_tick = full;
 

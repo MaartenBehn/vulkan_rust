@@ -132,6 +132,35 @@ impl App for SpaceShipBuilder {
             log::info!(".vox File loaded");
         }
 
+        #[cfg(debug_assertions)]
+        {
+            if self.debug_controller.mode == OFF {
+                self.ship_manager.update(
+                    &mut self.rules,
+                    self.total_time,
+                    delta_time,
+                    image_index,
+                    &base.context,
+                    &base.controls,
+                    &self.camera,
+                    base.swapchain.extent,
+                )?;
+            }
+
+            self.debug_controller.update(
+                &base.context,
+                &base.controls,
+                &mut self.voxel_loader,
+                self.total_time,
+                &mut self.ship_manager,
+                image_index,
+                &self.rules,
+                &self.camera,
+                base.swapchain.extent,
+            )?;
+        }
+
+        #[cfg(not(debug_assertions))]
         self.ship_manager.update(
             &mut self.rules,
             self.total_time,
@@ -142,19 +171,6 @@ impl App for SpaceShipBuilder {
             &self.camera,
             base.swapchain.extent,
         )?;
-
-        #[cfg(debug_assertions)]
-        {
-            self.debug_controller.update(
-                &base.context,
-                &base.controls,
-                &mut self.voxel_loader,
-                self.total_time,
-                &mut self.ship_manager,
-                image_index,
-                &self.rules,
-            )?;
-        }
 
         Ok(())
     }

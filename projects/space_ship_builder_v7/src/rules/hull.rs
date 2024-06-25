@@ -138,7 +138,7 @@ impl Solver for HullSolver {
 
 impl HullSolver {
     fn add_base_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let hull_reqs = vec![(vec![], Prio::HULL_BASE0)];
+        let hull_reqs = vec![(vec![], HULL_BASE0)];
 
         let mut base_blocks = vec![];
         for (i, (req, prio)) in hull_reqs.into_iter().enumerate() {
@@ -300,6 +300,7 @@ impl HullSolver {
                 let mut ok = false;
                 for req_block in req_blocks {
                     let req_empty = *req_block == Block::from_single_node_id(NodeID::empty());
+                    //let req_base = *req_block == self.basic_blocks[0].1;
 
                     if !req_empty && block_name_index == self.block_name_index {
                         ok = true;

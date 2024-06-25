@@ -167,8 +167,6 @@ impl ShipData {
             }
         }
 
-        info!("Full Tick: {actions_per_tick}");
-
         (true, changed_chunks)
     }
 
