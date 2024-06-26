@@ -47,7 +47,11 @@ impl Solver for EmptySolver {
         chunk_index: usize,
         world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
-    ) -> (Block, Prio) {
-        (Block::from_single_node_id(NodeID::empty()), BASE)
+    ) -> (Block, Prio, usize) {
+        (Block::from_single_node_id(NodeID::empty()), BASE, 0)
+    }
+
+    fn get_block_from_cache_index(&self, index: usize) -> Block {
+        Block::from_single_node_id(NodeID::empty())
     }
 }

@@ -7,6 +7,7 @@ use crate::ship::order::NodeOrderController;
 use crate::ship::possible_blocks::PossibleBlocks;
 
 use crate::rules::block::{BlockIndex, BlockNameIndex, BLOCK_INDEX_EMPTY};
+use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::SolverCacheIndex;
 use index_queue::IndexQueue;
 use log::{debug, info};
@@ -37,6 +38,7 @@ pub struct ShipData {
     pub was_reset: IndexQueue,
     pub to_propergate: IndexQueue,
     pub to_collapse: IndexQueue,
+    pub is_collapsed: IndexQueue,
 }
 
 #[derive(Clone)]
@@ -86,6 +88,7 @@ impl ShipData {
             was_reset: IndexQueue::default(),
             to_propergate: IndexQueue::default(),
             to_collapse: IndexQueue::default(),
+            is_collapsed: IndexQueue::default(),
         };
 
         //ship.place_block(IVec3::ZERO, 1, rules);
@@ -125,6 +128,7 @@ impl ShipData {
         self.to_reset.push_back(new_order);
 
         self.was_reset = IndexQueue::default();
+        self.is_collapsed = IndexQueue::default();
     }
 
     pub fn get_block_name_from_world_block_pos(
@@ -187,6 +191,9 @@ impl ShipData {
         if new_cache != old_cache {
             self.chunks[chunk_index].blocks[block_index].set_cache(block_name_index, &new_cache);
 
+            self.to_propergate.push_back(order);
+            self.was_reset.push_back(order);
+
             for offset in get_neighbors() {
                 let neighbor_world_pos = world_block_pos + offset;
                 let neighbor_chunk_index =
@@ -203,9 +210,6 @@ impl ShipData {
                     self.to_reset.push_back(neighbor_order);
                 }
             }
-
-            self.to_propergate.push_back(order);
-            self.was_reset.push_back(order);
 
             let collapse_order = self
                 .order_controller
@@ -235,21 +239,37 @@ impl ShipData {
         if new_cache != old_cache {
             self.chunks[chunk_index].blocks[block_index].set_cache(block_name_index, &new_cache);
 
-            for offset in get_neighbors() {
-                let neighbor_world_pos = world_block_pos + offset;
-                let neighbor_chunk_index =
-                    self.get_chunk_index_from_world_block_pos(neighbor_world_pos);
-                let neighbor_block_index =
-                    self.get_block_index_from_world_block_pos(neighbor_world_pos);
-                let neighbor_order = self.order_controller.pack_propergate_order(
-                    block_name_index,
-                    neighbor_block_index,
-                    neighbor_chunk_index,
-                );
-                self.to_propergate.push_back(neighbor_order);
+            self.propergate_neigbors(block_name_index, block_index, chunk_index, world_block_pos);
+        }
+    }
+
+    fn propergate_neigbors(
+        &mut self,
+        block_name_index: BlockNameIndex,
+        block_index: BlockIndex,
+        chunk_index: ChunkIndex,
+        world_block_pos: IVec3,
+    ) {
+        for offset in get_neighbors() {
+            let neighbor_world_pos = world_block_pos + offset;
+            let neighbor_chunk_index =
+                self.get_chunk_index_from_world_block_pos(neighbor_world_pos);
+            let neighbor_block_index =
+                self.get_block_index_from_world_block_pos(neighbor_world_pos);
+
+            let collapse_order = self
+                .order_controller
+                .pack_collapse_order(neighbor_block_index, neighbor_chunk_index);
+            if self.is_collapsed.contains(collapse_order) {
+                continue;
             }
 
-            self.to_propergate.push_back(order);
+            let propergate_order = self.order_controller.pack_propergate_order(
+                block_name_index,
+                neighbor_block_index,
+                neighbor_chunk_index,
+            );
+            self.to_propergate.push_back(propergate_order);
         }
     }
 
@@ -259,21 +279,31 @@ impl ShipData {
         let world_block_pos =
             self.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
 
+        // Get best Block
         let mut best_block = None;
         let mut best_prio = Prio::BASE;
-        for (i, solver) in rules.solvers.iter().enumerate() {
+        let mut best_block_name_index = EMPTY_BLOCK_NAME_INDEX;
+        let mut best_cache_index = 0;
+        for (block_name_index, solver) in rules.solvers.iter().enumerate() {
             let old_cache = self.chunks[chunk_index].blocks[block_index]
-                .get_cache(i)
+                .get_cache(block_name_index)
                 .to_owned();
-            let (block, prio) =
+            let (block, prio, cache_index) =
                 solver.get_block(self, block_index, chunk_index, world_block_pos, old_cache);
 
             if best_prio < prio {
                 best_prio = prio;
                 best_block = Some(block);
+                best_block_name_index = block_name_index;
+                best_cache_index = cache_index;
             }
         }
 
+        // Update Cache to the chosen index
+        self.chunks[chunk_index].blocks[block_index]
+            .set_all_caches_with_one(best_block_name_index, best_cache_index);
+
+        // Set node_id and render nodes
         let node_pos = self.get_node_pos_from_block_index(block_index);
         let indices: Vec<_> = oct_positions()
             .into_iter()
@@ -287,7 +317,6 @@ impl ShipData {
 
         if best_block.is_some() {
             let block = best_block.unwrap();
-
             for (node_id, (index, index_with_padding)) in
                 block.node_ids.into_iter().zip(indices.into_iter())
             {
@@ -301,6 +330,14 @@ impl ShipData {
                 self.chunks[chunk_index].render_nodes[index_with_padding] = RenderNode(false);
             }
         }
+
+        self.is_collapsed.push_back(order);
+        self.propergate_neigbors(
+            best_block_name_index,
+            block_index,
+            chunk_index,
+            world_block_pos,
+        );
 
         chunk_index
     }
@@ -373,6 +410,16 @@ impl ShipData {
         let block_pos = to_3d_i(block_index as i32, self.blocks_per_chunk);
 
         chunk_pos + block_pos
+    }
+
+    pub fn get_world_node_pos_from_chunk_and_block_index(
+        &self,
+        block_index: usize,
+        chunk_index: usize,
+    ) -> IVec3 {
+        self.get_node_pos_from_block_pos(
+            self.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index),
+        )
     }
 
     pub fn get_node_pos_from_block_pos(&self, block_pos: IVec3) -> IVec3 {

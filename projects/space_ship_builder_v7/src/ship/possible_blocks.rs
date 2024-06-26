@@ -27,6 +27,14 @@ impl PossibleBlocks {
         self.blocks[index].1.extend_from_slice(cache);
     }
 
+    pub fn set_all_caches_with_one(
+        &mut self,
+        block_name_index: BlockNameIndex,
+        index: SolverCacheIndex,
+    ) {
+        self.blocks = vec![(block_name_index, vec![index])];
+    }
+
     pub fn get_cache(&mut self, block_name_index: BlockNameIndex) -> &[SolverCacheIndex] {
         let index = self.get_index(block_name_index);
 

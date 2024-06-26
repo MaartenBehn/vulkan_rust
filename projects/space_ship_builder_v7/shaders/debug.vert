@@ -14,7 +14,7 @@ layout(binding = 0) uniform RenderBuffer {
 
 void main() {
     uint data = floatBitsToUint(vData.w);
-    vec4 color = vec4(255.0 / (data & 7), 255.0 / ((data >> 8) & 7), 255.0 / ((data >> 16) & 7), 255.0 / ((data >> 24) & 7));
+    vec4 color = vec4(255.0 / float(data & 7), 255.0 / float((data >> 8) & 7), 255.0 / float((data >> 16) & 7), 255.0 / float((data >> 24) & 7));
 
     gl_Position = ubo.proj_mat * ubo.view_mat * vec4(POSITION, 1.0);
     oColor = color;

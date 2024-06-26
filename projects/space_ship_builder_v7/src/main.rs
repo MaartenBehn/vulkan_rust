@@ -29,8 +29,8 @@ pub mod rules;
 pub mod ship;
 pub mod voxel_loader;
 
-const WIDTH: u32 = 1024;
-const HEIGHT: u32 = 576;
+const WIDTH: u32 = 2200;
+const HEIGHT: u32 = 1250;
 const APP_NAME: &str = "Space ship builder";
 const INPUT_INTERVALL: Duration = Duration::from_secs(1);
 

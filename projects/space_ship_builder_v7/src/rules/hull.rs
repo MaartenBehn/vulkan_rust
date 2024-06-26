@@ -10,8 +10,9 @@ use crate::rules::Prio::{
 };
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
+use crate::ship::possible_blocks::PossibleBlocks;
 use crate::voxel_loader::VoxelLoader;
-use log::{debug, error, warn};
+use log::{debug, error, set_boxed_logger, warn};
 use octa_force::anyhow::bail;
 use octa_force::glam::{uvec3, UVec3};
 use octa_force::{
@@ -83,12 +84,22 @@ impl Solver for HullSolver {
         cache
     }
 
+    fn debug_block_check_reset(
+        &self,
+        ship: &mut ShipData,
+        block_index: usize,
+        chunk_index: usize,
+        world_block_pos: IVec3,
+    ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
+        self.get_multi_blocks_reset_debug(ship, world_block_pos)
+    }
+
     fn block_check(
         &self,
         ship: &mut ShipData,
         chunk_index: usize,
         node_index: usize,
-        world_node_pos: IVec3,
+        world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> Vec<SolverCacheIndex> {
         let mut new_cache = vec![];
@@ -96,9 +107,34 @@ impl Solver for HullSolver {
             if index < self.basic_blocks.len() {
                 new_cache.push(index);
             } else {
-                if self.keep_multi_block(ship, world_node_pos, index) {
+                if self.keep_multi_block(ship, world_block_pos, index) {
                     new_cache.push(index);
                 }
+            }
+        }
+
+        new_cache
+    }
+
+    fn debug_block_check(
+        &self,
+        ship: &mut ShipData,
+        block_index: usize,
+        chunk_index: usize,
+        world_block_pos: IVec3,
+        blocks: &[PossibleBlocks],
+    ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
+        let mut new_cache = vec![];
+        let cache = blocks[block_index]
+            .to_owned()
+            .get_cache(self.block_name_index)
+            .to_owned();
+        for index in cache {
+            if index < self.basic_blocks.len() {
+                // new_cache.push((index, vec![]));
+            } else {
+                let req_result = self.keep_multi_block_debug(ship, world_block_pos, index, blocks);
+                new_cache.push((index, req_result));
             }
         }
 
@@ -112,9 +148,10 @@ impl Solver for HullSolver {
         chunk_index: usize,
         world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
-    ) -> (Block, Prio) {
+    ) -> (Block, Prio, usize) {
         let mut best_block = Block::from_single_node_id(NodeID::empty());
         let mut best_prio = Prio::BASE;
+        let mut best_index = 0;
 
         for index in cache {
             if index < self.basic_blocks.len() {
@@ -122,17 +159,27 @@ impl Solver for HullSolver {
                 if best_prio < *prio {
                     best_block = *block;
                     best_prio = *prio;
+                    best_index = index;
                 }
             } else {
                 let (_, block, prio) = &self.multi_blocks[index - self.basic_blocks.len()];
                 if best_prio < *prio {
                     best_block = *block;
                     best_prio = *prio;
+                    best_index = index;
                 }
             }
         }
 
-        (best_block, best_prio)
+        (best_block, best_prio, best_index)
+    }
+
+    fn get_block_from_cache_index(&self, index: usize) -> Block {
+        return if index < self.basic_blocks.len() {
+            self.basic_blocks[index].1
+        } else {
+            self.multi_blocks[index - self.basic_blocks.len()].1
+        };
     }
 }
 
@@ -291,7 +338,53 @@ impl HullSolver {
     ) -> Vec<SolverCacheIndex> {
         let mut cache = vec![];
         for (i, (reqs, _, _)) in self.multi_blocks.iter().enumerate() {
-            let mut pass = true;
+            let block_name_index = ship.get_block_name_from_world_block_pos(world_block_pos);
+            let mut pass = block_name_index == self.block_name_index;
+
+            if pass {
+                for (req_pos, req_blocks) in reqs {
+                    let req_world_block_pos = world_block_pos + *req_pos;
+                    let block_name_index =
+                        ship.get_block_name_from_world_block_pos(req_world_block_pos);
+
+                    let mut ok = false;
+                    for req_block in req_blocks {
+                        let req_empty = *req_block == Block::from_single_node_id(NodeID::empty());
+                        //let req_base = *req_block == self.basic_blocks[0].1;
+
+                        if !req_empty && block_name_index == self.block_name_index {
+                            ok = true;
+                            break;
+                        }
+                        if req_empty && block_name_index == EMPTY_BLOCK_NAME_INDEX {
+                            ok = true;
+                            break;
+                        }
+                    }
+
+                    if !ok {
+                        pass = false;
+                        break;
+                    }
+                }
+            }
+
+            if pass {
+                cache.push(i + self.basic_blocks.len())
+            }
+        }
+
+        cache
+    }
+
+    fn get_multi_blocks_reset_debug(
+        &self,
+        ship: &mut ShipData,
+        world_block_pos: IVec3,
+    ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
+        let mut cache = vec![];
+        for (i, (reqs, _, _)) in self.multi_blocks.iter().enumerate() {
+            let mut req_results = vec![];
             for (req_pos, req_blocks) in reqs {
                 let req_world_block_pos = world_block_pos + *req_pos;
                 let block_name_index =
@@ -312,15 +405,10 @@ impl HullSolver {
                     }
                 }
 
-                if !ok {
-                    pass = false;
-                    break;
-                }
+                req_results.push((req_world_block_pos, ok))
             }
 
-            if pass {
-                cache.push(i + self.basic_blocks.len())
-            }
+            cache.push((i + self.basic_blocks.len(), req_results))
         }
 
         cache
@@ -341,17 +429,18 @@ impl HullSolver {
                 ship.get_cache_from_world_block_pos(req_world_block_pos, self.block_name_index);
 
             let mut ok = false;
-            for req_block in req_blocks {
+            'iter: for req_block in req_blocks {
                 if *req_block == Block::from_single_node_id(NodeID::empty()) {
-                    continue;
+                    ok = true;
+                    break 'iter;
                 }
 
-                for index in cache {
+                for index in cache.iter() {
                     let test_block = self.get_block_from_cache_index(*index);
 
                     if *req_block == test_block {
                         ok = true;
-                        break;
+                        break 'iter;
                     }
                 }
             }
@@ -365,12 +454,46 @@ impl HullSolver {
         pass
     }
 
-    pub fn get_block_from_cache_index(&self, index: usize) -> Block {
-        return if index < self.basic_blocks.len() {
-            self.basic_blocks[index].1
-        } else {
-            self.multi_blocks[index - self.basic_blocks.len()].1
-        };
+    fn keep_multi_block_debug(
+        &self,
+        ship: &mut ShipData,
+        world_block_pos: IVec3,
+        cache_index: CacheIndex,
+        blocks: &[PossibleBlocks],
+    ) -> Vec<(IVec3, bool)> {
+        let (reqs, _, _) = &self.multi_blocks[cache_index - self.basic_blocks.len()];
+
+        let mut reqs_result = vec![];
+        for (req_pos, req_blocks) in reqs {
+            let req_world_block_pos = world_block_pos + *req_pos;
+            let in_chunk_block_index =
+                ship.get_block_index_from_world_block_pos(req_world_block_pos);
+            let cache = blocks[in_chunk_block_index]
+                .to_owned()
+                .get_cache(self.block_name_index)
+                .to_owned();
+
+            let mut ok = false;
+            'iter: for req_block in req_blocks {
+                if *req_block == Block::from_single_node_id(NodeID::empty()) {
+                    ok = true;
+                    break 'iter;
+                }
+
+                for index in cache.iter() {
+                    let test_block = self.get_block_from_cache_index(*index);
+
+                    if *req_block == test_block {
+                        ok = true;
+                        break 'iter;
+                    }
+                }
+            }
+
+            reqs_result.push((req_world_block_pos, ok))
+        }
+
+        reqs_result
     }
 }
 
