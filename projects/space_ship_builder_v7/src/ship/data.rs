@@ -9,6 +9,7 @@ use crate::ship::possible_blocks::PossibleBlocks;
 use crate::rules::block::{BlockIndex, BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::SolverCacheIndex;
+use crate::ship::collapse::Collapser;
 use index_queue::IndexQueue;
 use log::{debug, info};
 use octa_force::{anyhow::*, glam::*, log};
@@ -37,7 +38,8 @@ pub struct ShipData {
     pub to_reset: IndexQueue,
     pub was_reset: IndexQueue,
     pub to_propergate: IndexQueue,
-    pub to_collapse: IndexQueue,
+
+    pub collapser: Collapser,
     pub is_collapsed: IndexQueue,
 }
 
@@ -87,7 +89,7 @@ impl ShipData {
             to_reset: IndexQueue::default(),
             was_reset: IndexQueue::default(),
             to_propergate: IndexQueue::default(),
-            to_collapse: IndexQueue::default(),
+            collapser: Collapser::new(),
             is_collapsed: IndexQueue::default(),
         };
 
@@ -160,7 +162,7 @@ impl ShipData {
                 self.reset(rules);
             } else if !self.to_propergate.is_empty() {
                 self.propergate(rules);
-            } else if !self.to_collapse.is_empty() {
+            } else if !self.collapser.is_empty() {
                 let changed_chunk = self.collapse(rules);
 
                 if !changed_chunks.contains(&changed_chunk) {
@@ -214,7 +216,11 @@ impl ShipData {
             let collapse_order = self
                 .order_controller
                 .pack_collapse_order(block_index, chunk_index);
-            self.to_collapse.push_back(collapse_order);
+
+            self.collapser.push_order(
+                collapse_order,
+                self.chunks[chunk_index].blocks[block_index].get_num_caches(),
+            );
         }
     }
 
@@ -274,7 +280,7 @@ impl ShipData {
     }
 
     fn collapse(&mut self, rules: &Rules) -> ChunkIndex {
-        let order = self.to_collapse.pop_front().unwrap();
+        let order = self.collapser.pop_order();
         let (block_index, chunk_index) = self.order_controller.unpack_collapse_order(order);
         let world_block_pos =
             self.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);

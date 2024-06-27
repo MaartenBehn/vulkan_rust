@@ -21,6 +21,7 @@ use std::time::Duration;
 use crate::debug::DebugController;
 
 pub mod builder;
+pub mod collapse;
 pub mod data;
 pub mod mesh;
 pub mod order;

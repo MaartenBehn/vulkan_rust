@@ -5,6 +5,7 @@ use crate::rules::block::BlockNameIndex;
 use crate::rules::hull::HullSolver;
 use crate::rules::solver::Solver;
 use crate::rules::Rules;
+use crate::ship::collapse::Collapser;
 use crate::ship::data::ShipData;
 use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
 use crate::ship::possible_blocks::PossibleBlocks;
@@ -34,7 +35,7 @@ pub struct LogEntry {
     pub to_reset: IndexQueue,
     pub was_reset: IndexQueue,
     pub to_propergate: IndexQueue,
-    pub to_collapse: IndexQueue,
+    pub collapser: Collapser,
     pub is_collapsed: IndexQueue,
 }
 
@@ -155,7 +156,7 @@ impl CollapseLogRenderer {
                 to_reset: ship_data.to_reset.to_owned(),
                 was_reset: ship_data.was_reset.to_owned(),
                 to_propergate: ship_data.to_propergate.to_owned(),
-                to_collapse: ship_data.to_collapse.to_owned(),
+                collapser: ship_data.collapser.to_owned(),
                 is_collapsed: ship_data.is_collapsed.to_owned(),
             }];
             self.log_index = 0;
@@ -172,7 +173,7 @@ impl CollapseLogRenderer {
                 to_reset: ship_data.to_reset.to_owned(),
                 was_reset: ship_data.was_reset.to_owned(),
                 to_propergate: ship_data.to_propergate.to_owned(),
-                to_collapse: ship_data.to_collapse.to_owned(),
+                collapser: ship_data.collapser.to_owned(),
                 is_collapsed: ship_data.is_collapsed.to_owned(),
             };
 
@@ -360,10 +361,10 @@ impl DebugController {
 
         let mut to_collapse = self.collapse_log_renderer.block_log
             [self.collapse_log_renderer.log_index - self.collapse_log_renderer.log_end]
-            .to_collapse
+            .collapser
             .to_owned();
         while !to_collapse.is_empty() {
-            let order = to_collapse.pop_front().unwrap();
+            let order = to_collapse.pop_order();
             let (block_index, chunk_index) =
                 ship_data.order_controller.unpack_collapse_order(order);
             let pos =
@@ -561,11 +562,11 @@ impl DebugController {
 
         let mut to_collapse = self.collapse_log_renderer.block_log
             [self.collapse_log_renderer.log_index - self.collapse_log_renderer.log_end]
-            .to_collapse
+            .collapser
             .to_owned();
         if !to_collapse.is_empty() {
             // Querry Result
-            let order = to_collapse.pop_front().unwrap();
+            let order = to_collapse.pop_order();
             let (block_index, chunk_index) =
                 ship_data.order_controller.unpack_collapse_order(order);
 
@@ -654,34 +655,4 @@ impl DebugController {
 
         (node_id_bits, render_nodes)
     }
-}
-
-impl PartialEq for LogEntry {
-    fn eq(&self, other: &Self) -> bool {
-        self.blocks == other.blocks
-            && index_queue_eg(&self.to_reset, &other.to_reset)
-            && index_queue_eg(&self.was_reset, &other.was_reset)
-            && index_queue_eg(&self.to_propergate, &other.to_propergate)
-            && index_queue_eg(&self.to_collapse, &other.to_collapse)
-    }
-}
-
-fn index_queue_eg(q1: &IndexQueue, q2: &IndexQueue) -> bool {
-    let mut q1_copy = q1.to_owned();
-    while !q1_copy.is_empty() {
-        let elem = q1_copy.pop_front();
-        if !q2.contains(elem.unwrap()) {
-            return false;
-        }
-    }
-
-    let mut q2_copy = q1.to_owned();
-    while !q2_copy.is_empty() {
-        let elem = q2_copy.pop_front();
-        if !q1.contains(elem.unwrap()) {
-            return false;
-        }
-    }
-
-    true
 }

@@ -1,5 +1,6 @@
 use crate::rules::block::BlockNameIndex;
 use crate::rules::solver::SolverCacheIndex;
+use bitcode::__private::invalid_enum_variant;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PossibleBlocks {
@@ -43,5 +44,15 @@ impl PossibleBlocks {
 
     pub fn get_all_caches(&mut self) -> Vec<(BlockNameIndex, Vec<SolverCacheIndex>)> {
         self.blocks.to_owned()
+    }
+
+    pub fn get_num_caches(&self) -> usize {
+        let mut num = 0;
+
+        for (_, cache) in self.blocks.iter() {
+            num += cache.len();
+        }
+
+        num
     }
 }
