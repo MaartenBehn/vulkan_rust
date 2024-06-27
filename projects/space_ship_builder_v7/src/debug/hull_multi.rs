@@ -38,11 +38,24 @@ impl DebugHullMultiRenderer {
     }
 
     pub fn update_controls(&mut self, controls: &Controls, hull_solver: &HullSolver) {
-        if controls.t && self.last_input.elapsed() > INPUT_INTERVAL {
+        if controls.rigth && self.last_input.elapsed() > INPUT_INTERVAL {
             self.last_input = Instant::now();
             self.last_req_change = Instant::now();
 
             self.index = (self.index + 1) % hull_solver.debug_multi_blocks.len();
+
+            info!("Multi Hull Block: {}", self.index)
+        }
+
+        if controls.left && self.last_input.elapsed() > INPUT_INTERVAL {
+            self.last_input = Instant::now();
+            self.last_req_change = Instant::now();
+
+            self.index = if self.index == 0 {
+                hull_solver.debug_multi_blocks.len() - 1
+            } else {
+                self.index - 1
+            };
 
             info!("Multi Hull Block: {}", self.index)
         }
@@ -140,6 +153,12 @@ impl DebugController {
         let mut node_debug_node_id_bits = vec![0; size.element_product() as usize];
         let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
         let middle_pos = size / 2;
+
+        self.add_cube(
+            middle_pos.as_vec3(),
+            (middle_pos + 2).as_vec3(),
+            vec4(0.0, 0.0, 0.0, 1.0),
+        );
 
         let (reqs, block, _) = &hull_solver.debug_multi_blocks[self.hull_multi_renderer.index];
         for (j, offset) in oct_positions().iter().enumerate() {

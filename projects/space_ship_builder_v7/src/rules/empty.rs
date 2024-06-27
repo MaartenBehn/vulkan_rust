@@ -1,7 +1,7 @@
 use crate::node::{Node, NodeID};
 use crate::rules::block::Block;
 use crate::rules::solver::{Solver, SolverCacheIndex};
-use crate::rules::Prio::BASE;
+use crate::rules::Prio::EMPTY;
 use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
 use octa_force::glam::IVec3;
@@ -48,7 +48,7 @@ impl Solver for EmptySolver {
         world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> (Block, Prio, usize) {
-        (Block::from_single_node_id(NodeID::empty()), BASE, 0)
+        (Block::from_single_node_id(NodeID::empty()), EMPTY, 0)
     }
 
     fn get_block_from_cache_index(&self, index: usize) -> Block {

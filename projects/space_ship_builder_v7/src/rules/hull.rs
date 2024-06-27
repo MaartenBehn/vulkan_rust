@@ -4,10 +4,7 @@ use crate::rotation::Rot;
 use crate::rules::block::Block;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::{Solver, SolverCacheIndex};
-use crate::rules::Prio::{
-    HULL_BASE0, HULL_BASE1, HULL_BASE2, HULL_BASE3, HULL_BASE4, HULL_BASE5, HULL_BASE6, HULL_BASE7,
-    HULL_BASE8, HULL_FILL0, HULL_FILL1,
-};
+use crate::rules::Prio::HULL_BASE;
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
 use crate::ship::possible_blocks::PossibleBlocks;
@@ -26,8 +23,9 @@ const HULL_BLOCK_NAME: &str = "Hull";
 const HULL_BASE_NAME_PART: &str = "Hull-Base";
 const HULL_MULTI_NAME_PART: &str = "Hull-Multi";
 const HULL_MULTI_BLOCK: &str = "Block";
-const HULL_MULTI_FOLDER: &str = "Req-Folder";
-const HULL_MULTI_MULTI: &str = "Req-Multi";
+const HULL_MULTI_REQ: &str = "Req";
+const BLOCK_MODEL_IDENTIFIER: &str = "B";
+const FOLDER_MODEL_IDENTIFIER: &str = "F";
 
 pub struct HullSolver {
     pub block_name_index: usize,
@@ -150,7 +148,7 @@ impl Solver for HullSolver {
         cache: Vec<SolverCacheIndex>,
     ) -> (Block, Prio, usize) {
         let mut best_block = Block::from_single_node_id(NodeID::empty());
-        let mut best_prio = Prio::BASE;
+        let mut best_prio = Prio::EMPTY;
         let mut best_index = 0;
 
         for index in cache {
@@ -185,7 +183,7 @@ impl Solver for HullSolver {
 
 impl HullSolver {
     fn add_base_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let hull_reqs = vec![(vec![], HULL_BASE0)];
+        let hull_reqs = vec![(vec![], HULL_BASE)];
 
         let mut base_blocks = vec![];
         for (i, (req, prio)) in hull_reqs.into_iter().enumerate() {
@@ -205,11 +203,13 @@ impl HullSolver {
     }
 
     fn add_multi_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let mut blocks = vec![];
-        let mut multi_req_block = vec![];
+        let mut multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)> = vec![];
 
-        let num = 1;
+        let num = 2;
         for i in 0..num {
+            let mut blocks = vec![];
+            let mut req_blocks = vec![];
+
             let (models, rot) =
                 voxel_loader.get_name_folder(&format!("{HULL_MULTI_NAME_PART}-{i}"))?;
 
@@ -218,68 +218,74 @@ impl HullSolver {
             }
 
             for (name, index, rot, pos) in models {
-                if name.contains(HULL_MULTI_BLOCK) {
-                    let block = rules.load_block_from_multi_node_by_index(index, voxel_loader)?;
-                    let rotated_block = block.rotate(rot, rules);
-                    blocks.push((rotated_block, pos))
-                } else if name.contains(HULL_MULTI_FOLDER) {
-                    let req_block = rules.load_block_from_node_folder(&name, voxel_loader)?;
-                    let rotated_block = req_block.rotate(rot, rules);
-                    multi_req_block.push((rotated_block, pos))
-                } else if name.contains(HULL_MULTI_MULTI) {
-                    let req_block =
-                        rules.load_block_from_multi_node_by_index(index, voxel_loader)?;
-                    let rotated_block = req_block.rotate(rot, rules);
-                    multi_req_block.push((rotated_block, pos))
+                let name_parts: Vec<_> = name.split('-').collect();
+
+                let block = if name_parts[1] == BLOCK_MODEL_IDENTIFIER {
+                    rules.load_block_from_block_model_by_index(index, voxel_loader)?
+                } else if name_parts[1] == FOLDER_MODEL_IDENTIFIER {
+                    rules.load_block_from_node_folder(&name, voxel_loader)?
                 } else {
-                    error!("{} not reconized", name)
+                    bail!("Part 1 of {name} is not identified.");
+                };
+                let block = block.rotate(rot, rules);
+
+                if name_parts[0] == HULL_MULTI_BLOCK {
+                    let prio = name_parts[2].parse::<usize>()?;
+                    blocks.push((block, pos, Prio::HULL_MULTI(prio)))
+                } else if name_parts[0] == HULL_MULTI_REQ {
+                    req_blocks.push((block, pos))
+                } else {
+                    bail!("Part 0 of {name} is not identified.");
                 }
             }
-        }
 
-        let mut multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)> = vec![];
-        for (block, pos) in blocks {
-            let mut empty_reqs = vec![];
-            let mut add = false;
-            let reqs = multi_blocks
-                .iter_mut()
-                .find_map(|(reqs, test_block, _)| {
-                    if *test_block == block {
-                        Some(reqs)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_else(|| {
-                    add = true;
-                    &mut empty_reqs
-                });
-
-            for offset in get_neighbors() {
-                let neighbor_pos = pos + offset * 8;
-
-                for (block, test_pos) in multi_req_block.iter() {
-                    if neighbor_pos == *test_pos {
-                        let blocks = reqs.iter_mut().find_map(|(test_offset, blocks)| {
-                            let add_blocks = false;
-                            if *test_offset == offset {
-                                Some(blocks)
-                            } else {
-                                None
-                            }
-                        });
-
-                        if blocks.is_some() {
-                            blocks.unwrap().push(*block);
+            for (block, pos, prio) in blocks.to_owned().into_iter() {
+                let mut empty_reqs = vec![];
+                let mut add = false;
+                let reqs = multi_blocks
+                    .iter_mut()
+                    .find_map(|(reqs, test_block, _)| {
+                        if *test_block == block {
+                            Some(reqs)
                         } else {
-                            reqs.push((offset, vec![*block]));
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| {
+                        add = true;
+                        &mut empty_reqs
+                    });
+
+                for offset in get_neighbors() {
+                    let neighbor_pos = pos + offset * 8;
+
+                    for (block, test_pos) in req_blocks.to_owned().into_iter().chain(
+                        blocks
+                            .to_owned()
+                            .into_iter()
+                            .map(|(block, pos, _)| (block.to_owned(), pos.to_owned())),
+                    ) {
+                        if neighbor_pos == test_pos {
+                            let blocks = reqs.iter_mut().find_map(|(test_offset, blocks)| {
+                                if *test_offset == offset {
+                                    Some(blocks)
+                                } else {
+                                    None
+                                }
+                            });
+
+                            if blocks.is_some() {
+                                blocks.unwrap().push(block);
+                            } else {
+                                reqs.push((offset, vec![block]));
+                            }
                         }
                     }
                 }
-            }
 
-            if add {
-                multi_blocks.push((empty_reqs, block, Prio::HULL_MULTI))
+                if add {
+                    multi_blocks.push((empty_reqs, block, prio))
+                }
             }
         }
 
@@ -303,7 +309,7 @@ impl HullSolver {
         }
 
         let mut best_block_index = None;
-        let mut best_prio = Prio::BASE;
+        let mut best_prio = Prio::ZERO;
 
         for (i, (reqs, _, prio)) in self.basic_blocks.iter().enumerate() {
             let mut pass = true;

@@ -53,6 +53,8 @@ pub struct CollapseLogRenderer {
     build_hull: bool,
     pos: IVec3,
     preview_index: usize,
+
+    show_orders: bool,
 }
 
 impl CollapseLogRenderer {
@@ -74,6 +76,8 @@ impl CollapseLogRenderer {
             build_hull: true,
             pos: IVec3::ZERO,
             preview_index: 0,
+
+            show_orders: true,
         }
     }
 
@@ -116,6 +120,11 @@ impl CollapseLogRenderer {
             self.last_input = Instant::now();
 
             info!("Preview Index: {}", self.preview_index);
+        }
+
+        if self.last_input.elapsed() > INPUT_INTERVAL && controls.r {
+            self.last_input = Instant::now();
+            self.show_orders = !self.show_orders;
         }
 
         // Update Cache
@@ -177,8 +186,8 @@ impl CollapseLogRenderer {
             info!("Added Log {}", self.block_log.len() - 1 + self.log_end);
         }
 
-        if self.log_index >= self.log_end + LOG_SIZE {
-            self.log_index = self.log_end + LOG_SIZE - 1;
+        if self.log_index >= self.log_end + self.block_log.len() {
+            self.log_index = self.log_end + self.block_log.len() - 1;
         }
 
         if self.log_index < self.log_end {
@@ -250,7 +259,10 @@ impl DebugController {
             .update(ship_data, controls, rules, camera);
 
         self.draw_selected(ship_data);
-        self.draw_orders(ship_data);
+
+        if self.collapse_log_renderer.show_orders {
+            self.draw_orders(ship_data);
+        }
 
         let (mut node_id_bits, mut render_nodes) = self.get_collapse_log_node_id_bits(
             self.collapse_log_renderer.mesh.size,

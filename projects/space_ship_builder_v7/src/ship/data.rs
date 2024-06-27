@@ -281,7 +281,7 @@ impl ShipData {
 
         // Get best Block
         let mut best_block = None;
-        let mut best_prio = Prio::BASE;
+        let mut best_prio = Prio::ZERO;
         let mut best_block_name_index = EMPTY_BLOCK_NAME_INDEX;
         let mut best_cache_index = 0;
         for (block_name_index, solver) in rules.solvers.iter().enumerate() {

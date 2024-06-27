@@ -20,34 +20,9 @@ const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
 pub enum Prio {
     #[default]
     ZERO,
-    BASE,
-
-    HULL_BASE0,
-    HULL_BASE1,
-    HULL_BASE2,
-    HULL_BASE3,
-    HULL_BASE4,
-    HULL_BASE5,
-    HULL_BASE6,
-    HULL_BASE7,
-    HULL_BASE8,
-
-    HULL_FILL0,
-    HULL_FILL1,
-    HULL_FILL2,
-    HULL_FILL3,
-    HULL_FILL4,
-    HULL_FILL5,
-    HULL_FILL6,
-    HULL_FILL7,
-    HULL_FILL8,
-    HULL_FILL9,
-    HULL_FILL10,
-    HULL_FILL11,
-    HULL_FILL12,
-    HULL_FILL13,
-
-    HULL_MULTI,
+    EMPTY,
+    HULL_BASE,
+    HULL_MULTI(usize),
 }
 
 pub struct Rules {
@@ -159,7 +134,7 @@ impl Rules {
         Ok(Block::from_node_ids_slice(&node_ids))
     }
 
-    fn load_block_from_multi_node_by_index(
+    fn load_block_from_block_model_by_index(
         &mut self,
         index: usize,
         voxel_loader: &VoxelLoader,
