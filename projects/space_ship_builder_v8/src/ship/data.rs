@@ -349,7 +349,9 @@ impl ShipData {
             );
             self.to_propergate.push_back(propergate_order);
 
-            if !self.was_reset.contains(propergate_order) {
+            if self.get_block_name_from_world_block_pos(neighbor_world_pos)
+                == EMPTY_BLOCK_NAME_INDEX
+            {
                 continue;
             }
 

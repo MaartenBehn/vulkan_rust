@@ -47,6 +47,7 @@ pub struct CollapseLogRenderer {
     log_end: usize,
 
     log_index: usize,
+    last_log_index: usize,
     last_input: Instant,
     cache_index: usize,
     last_index_update: Instant,
@@ -71,6 +72,7 @@ impl CollapseLogRenderer {
             block_log: vec![],
             log_end: 0,
             log_index: 0,
+            last_log_index: 0,
             cache_index: 0,
             last_index_update: Instant::now(),
 
@@ -193,6 +195,65 @@ impl CollapseLogRenderer {
 
         if self.log_index < self.log_end {
             self.log_index = self.log_end;
+        }
+
+        if self.last_log_index != self.log_index {
+            self.print_next_action(ship_data);
+        }
+
+        self.last_log_index = self.log_index;
+    }
+
+    fn print_next_action(&mut self, ship_data: &mut ShipData) {
+        let mut to_reset = self.block_log[self.log_index - self.log_end]
+            .to_reset
+            .to_owned();
+        if !to_reset.is_empty() {
+            // Querry Result
+            let order = to_reset.pop_front().unwrap();
+            let (block_name_index, block_index, chunk_index) =
+                ship_data.order_controller.unpack_propergate_order(order);
+
+            let block_pos =
+                ship_data.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
+
+            info!("Rest Block Name {} at {}", block_name_index, block_pos);
+            return;
+        }
+
+        let mut to_propergate = self.block_log[self.log_index - self.log_end]
+            .to_propergate
+            .to_owned();
+        if !to_propergate.is_empty() {
+            // Querry Result
+            let order = to_propergate.pop_front().unwrap();
+            let (block_name_index, block_index, chunk_index) =
+                ship_data.order_controller.unpack_propergate_order(order);
+
+            let block_pos =
+                ship_data.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
+
+            info!(
+                "Propergate Block Name {} at {}",
+                block_name_index, block_pos
+            );
+            return;
+        }
+
+        let mut collapser = self.block_log[self.log_index - self.log_end]
+            .collapser
+            .to_owned();
+        if !collapser.is_empty() {
+            // Querry Result
+            let order = collapser.pop_order();
+            let (block_index, chunk_index) =
+                ship_data.order_controller.unpack_collapse_order(order);
+
+            let block_pos =
+                ship_data.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
+
+            info!("Collapse at {}", block_pos);
+            return;
         }
     }
 
