@@ -5,6 +5,8 @@ use octa_force::{anyhow::Result, camera::Camera, controls::Controls};
 use std::time::Duration;
 
 use crate::ship::data::ShipData;
+use crate::ship::profile::ShipProfile;
+use crate::ship::ENABLE_SHIP_PROFILING;
 
 const SCROLL_SPEED: f32 = 0.01;
 const PLACE_SPEED: Duration = Duration::from_millis(100);
@@ -59,6 +61,8 @@ impl ShipBuilder {
         camera: &Camera,
         rules: &Rules,
         total_time: Duration,
+
+        ship_profile: &mut ShipProfile,
     ) -> Result<()> {
         if controls.e && (self.last_action_time + PLACE_SPEED) < total_time {
             self.last_action_time = total_time;
@@ -85,6 +89,10 @@ impl ShipBuilder {
             // Place new Block
             let block_index = self.possible_blocks[self.block_to_build];
             data.place_block(pos, block_index, rules);
+
+            if ENABLE_SHIP_PROFILING {
+                ship_profile.reset();
+            }
         }
 
         if controls.mouse_left && (self.last_action_time + PLACE_SPEED) < total_time {

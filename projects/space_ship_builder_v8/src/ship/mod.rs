@@ -19,6 +19,7 @@ use std::time::Duration;
 
 #[cfg(debug_assertions)]
 use crate::debug::DebugController;
+use crate::ship::profile::ShipProfile;
 
 pub mod builder;
 pub mod collapse;
@@ -26,6 +27,7 @@ pub mod data;
 pub mod mesh;
 pub mod order;
 pub mod possible_blocks;
+mod profile;
 pub mod renderer;
 pub mod save;
 
@@ -35,6 +37,8 @@ const SHIP_SAVE_FILE_PATH: &str = "./assets/ship.bin";
 pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
 pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 
+pub const ENABLE_SHIP_PROFILING: bool = true;
+
 pub struct ShipManager {
     pub ships: Vec<Ship>,
     pub renderer: ShipRenderer,
@@ -43,6 +47,8 @@ pub struct ShipManager {
     last_full_tick: bool,
 
     last_input: Duration,
+
+    ship_profile: ShipProfile,
 }
 
 pub struct Ship {
@@ -81,6 +87,8 @@ impl ShipManager {
             last_full_tick: false,
 
             last_input: Duration::default(),
+
+            ship_profile: ShipProfile::new(),
         })
     }
 
@@ -107,14 +115,34 @@ impl ShipManager {
             if ship.builder.is_some() {
                 let mut builder = ship.builder.take().unwrap();
 
-                builder.update(&mut ship.data, controls, camera, rules, total_time)?;
+                builder.update(
+                    &mut ship.data,
+                    controls,
+                    camera,
+                    rules,
+                    total_time,
+                    &mut self.ship_profile,
+                )?;
 
                 ship.builder = Some(builder);
+            }
+
+            if ENABLE_SHIP_PROFILING {
+                self.ship_profile
+                    .ship_computing_start(self.actions_per_tick);
             }
 
             let (full, changed_chunks) = ship.data.tick(self.actions_per_tick, rules);
             if full {
                 info!("Full Tick: {}", self.actions_per_tick);
+            }
+
+            if ENABLE_SHIP_PROFILING {
+                self.ship_profile.ship_computing_done();
+
+                if self.last_full_tick && !full {
+                    self.ship_profile.print_state();
+                }
             }
 
             self.last_full_tick = full;
