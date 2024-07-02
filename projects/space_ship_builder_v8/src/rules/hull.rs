@@ -205,13 +205,14 @@ impl HullSolver {
     fn add_multi_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
         let mut multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)> = vec![];
 
-        let num = 2;
+        let num = 4;
         for i in 0..num {
             let mut blocks = vec![];
             let mut req_blocks = vec![];
 
             let (models, rot) =
                 voxel_loader.get_name_folder(&format!("{HULL_MULTI_NAME_PART}-{i}"))?;
+            let mat: Mat4 = rot.into();
 
             if rot != Rot::IDENTITY {
                 bail!("Multi Block Rot should be IDENTITY");
@@ -242,42 +243,50 @@ impl HullSolver {
             for (block, pos, prio) in blocks.to_owned().into_iter() {
                 let mut empty_reqs = vec![];
                 let mut add = false;
-                let reqs = multi_blocks
+
+                let (reqs, rot) = multi_blocks
                     .iter_mut()
                     .find_map(|(reqs, test_block, _)| {
-                        if *test_block == block {
-                            Some(reqs)
+                        let r = test_block.is_duplicate(&block, rules);
+
+                        if r.is_some() {
+                            Some((reqs, r.unwrap()))
                         } else {
                             None
                         }
                     })
                     .unwrap_or_else(|| {
                         add = true;
-                        &mut empty_reqs
+                        (&mut empty_reqs, Rot::IDENTITY)
                     });
 
                 for offset in get_neighbors() {
                     let neighbor_pos = pos + offset * 8;
 
-                    for (block, test_pos) in req_blocks.to_owned().into_iter().chain(
+                    for (req_block, test_pos) in req_blocks.to_owned().into_iter().chain(
                         blocks
                             .to_owned()
                             .into_iter()
                             .map(|(block, pos, _)| (block.to_owned(), pos.to_owned())),
                     ) {
                         if neighbor_pos == test_pos {
+                            let req_offset =
+                                mat.transform_point3(offset.as_vec3()).round().as_ivec3();
+
                             let blocks = reqs.iter_mut().find_map(|(test_offset, blocks)| {
-                                if *test_offset == offset {
+                                if *test_offset == req_offset {
                                     Some(blocks)
                                 } else {
                                     None
                                 }
                             });
 
+                            let req_block = req_block.rotate(rot, rules);
+
                             if blocks.is_some() {
-                                blocks.unwrap().push(block);
+                                blocks.unwrap().push(req_block);
                             } else {
-                                reqs.push((offset, vec![block]));
+                                reqs.push((req_offset, vec![req_block]));
                             }
                         }
                     }

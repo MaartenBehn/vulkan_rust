@@ -64,4 +64,16 @@ impl Block {
 
         Block::from_node_ids(rotated_node_ids)
     }
+
+    pub fn is_duplicate(&self, other_block: &Block, rules: &mut Rules) -> Option<Rot> {
+        for rot in Rot::default().get_all_permutations() {
+            let rotated_block = self.rotate(rot, rules);
+
+            if rotated_block == *other_block {
+                return Some(rot);
+            }
+        }
+
+        return None;
+    }
 }
