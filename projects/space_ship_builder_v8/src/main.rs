@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use crate::rules::Rules;
 use crate::voxel_loader::VoxelLoader;
+use octa_force::egui_winit::winit::event::WindowEvent;
 use octa_force::glam::{ivec2, uvec2, vec2, IVec2, IVec3, UVec3};
 use octa_force::vulkan::{
     ash::vk::{self, Format},
@@ -12,6 +13,7 @@ use octa_force::{
     camera::Camera,
     controls::Controls,
     glam::{uvec3, vec3, Vec3},
+    EngineConfig, EngineFeatureValue,
 };
 use octa_force::{log, App, BaseApp};
 
@@ -37,7 +39,13 @@ const INPUT_INTERVALL: Duration = Duration::from_secs(1);
 const VOX_FILE_PATH: &str = "./assets/space_ship.vox";
 
 fn main() -> Result<()> {
-    octa_force::run::<SpaceShipBuilder>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
+    octa_force::run::<SpaceShipBuilder>(EngineConfig {
+        name: APP_NAME.to_string(),
+        start_size: uvec2(WIDTH, HEIGHT),
+        ray_tracing: EngineFeatureValue::NotUsed,
+        validation_layers: EngineFeatureValue::Needed,
+        shader_debug_printing: EngineFeatureValue::Needed,
+    })
 }
 
 struct SpaceShipBuilder {
@@ -68,7 +76,7 @@ impl App for SpaceShipBuilder {
             &base.context,
             base.swapchain.format,
             Format::D32_SFLOAT,
-            base.swapchain.extent,
+            base.swapchain.size,
             base.num_frames,
             &rules,
         )?;
@@ -78,16 +86,14 @@ impl App for SpaceShipBuilder {
             &base.context,
             base.num_frames,
             base.swapchain.format,
+            base.swapchain.depth_format,
             &base.window,
             test_node_id,
             &ship_manager,
         )?;
 
         log::info!("Creating Camera");
-        let mut camera = Camera::base(vec2(
-            base.swapchain.extent.width as f32,
-            base.swapchain.extent.height as f32,
-        ));
+        let mut camera = Camera::base(base.swapchain.size.as_vec2());
 
         camera.position = Vec3::new(1.0, -2.0, 1.0);
         camera.direction = Vec3::new(0.0, 1.0, 0.0).normalize();
@@ -143,7 +149,7 @@ impl App for SpaceShipBuilder {
                     &base.context,
                     &base.controls,
                     &self.camera,
-                    base.swapchain.extent,
+                    base.swapchain.size,
                 )?;
             }
 
@@ -156,7 +162,7 @@ impl App for SpaceShipBuilder {
                 image_index,
                 &self.rules,
                 &self.camera,
-                base.swapchain.extent,
+                base.swapchain.size,
             )?;
         }
 
@@ -175,6 +181,13 @@ impl App for SpaceShipBuilder {
         Ok(())
     }
 
+    fn on_window_event(&mut self, base: &mut BaseApp<Self>, event: &WindowEvent) -> Result<()> {
+        #[cfg(debug_assertions)]
+        self.debug_controller.on_event(&base.window, event);
+
+        Ok(())
+    }
+
     fn record_render_commands(
         &mut self,
         base: &mut BaseApp<Self>,
@@ -182,21 +195,18 @@ impl App for SpaceShipBuilder {
     ) -> Result<()> {
         let buffer = &base.command_buffers[image_index];
 
-        buffer.swapchain_image_render_barrier(&base.swapchain.images[image_index])?;
+        buffer
+            .swapchain_image_render_barrier(&base.swapchain.images_and_views[image_index].image)?;
         buffer.begin_rendering(
-            &base.swapchain.views[image_index],
-            Some(&self.ship_manager.renderer.depth_image_view),
-            base.swapchain.extent,
+            &base.swapchain.images_and_views[image_index].view,
+            &self.ship_manager.renderer.depth_image_view,
+            base.swapchain.size,
             vk::AttachmentLoadOp::CLEAR,
             None,
         );
 
-        let size = vec2(
-            base.swapchain.extent.width as f32,
-            base.swapchain.extent.height as f32,
-        );
-        buffer.set_viewport_size(size);
-        buffer.set_scissor_size(size);
+        buffer.set_viewport_size(base.swapchain.size.as_vec2());
+        buffer.set_scissor_size(base.swapchain.size.as_vec2());
 
         #[cfg(not(debug_assertions))]
         self.ship_manager.render(buffer, image_index);
@@ -208,10 +218,12 @@ impl App for SpaceShipBuilder {
             }
 
             self.debug_controller.render(
+                &base.context,
+                &base.window,
                 buffer,
                 image_index,
+                base.swapchain.size,
                 &self.camera,
-                base.swapchain.extent,
                 &self.ship_manager.renderer,
             )?;
         }
@@ -224,7 +236,7 @@ impl App for SpaceShipBuilder {
     fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
         self.ship_manager
             .renderer
-            .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
+            .on_recreate_swapchain(&base.context, base.swapchain.size)?;
 
         Ok(())
     }

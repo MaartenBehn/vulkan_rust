@@ -10,7 +10,7 @@ use log::info;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::IVec3;
+use octa_force::glam::{IVec3, UVec2};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::ash::vk::Extent2D;
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
@@ -62,7 +62,7 @@ impl ShipManager {
         context: &Context,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
-        extent: Extent2D,
+        res: UVec2,
         num_frames: usize,
         rules: &Rules,
     ) -> Result<ShipManager> {
@@ -75,7 +75,7 @@ impl ShipManager {
             num_frames as u32,
             color_attachment_format,
             depth_attachment_format,
-            extent,
+            res,
             rules,
         )?;
 
@@ -103,7 +103,7 @@ impl ShipManager {
 
         controls: &Controls,
         camera: &Camera,
-        extent: Extent2D,
+        res: UVec2,
     ) -> Result<()> {
         if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
@@ -157,7 +157,7 @@ impl ShipManager {
             )?;
         }
 
-        self.renderer.update(camera, extent)?;
+        self.renderer.update(camera, res)?;
 
         if controls.f12 && self.last_input + INPUT_INTERVALL < total_time {
             self.last_input = total_time;

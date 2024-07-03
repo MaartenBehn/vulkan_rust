@@ -1,4 +1,6 @@
-use crate::math::{all_sides_dirs, get_all_poses, get_neighbors, oct_positions, to_1d};
+use crate::math::{
+    all_sides_dirs, get_all_poses, get_neighbors, get_neighbors_without_zero, oct_positions, to_1d,
+};
 use crate::node::{NodeID, NODE_VOXEL_LENGTH, VOXEL_EMPTY};
 use crate::rotation::Rot;
 use crate::rules::block::Block;
@@ -212,7 +214,6 @@ impl HullSolver {
 
             let (models, rot) =
                 voxel_loader.get_name_folder(&format!("{HULL_MULTI_NAME_PART}-{i}"))?;
-            let mat: Mat4 = rot.into();
 
             if rot != Rot::IDENTITY {
                 bail!("Multi Block Rot should be IDENTITY");
@@ -244,7 +245,10 @@ impl HullSolver {
                 let mut empty_reqs = vec![];
                 let mut add = false;
 
-                let (reqs, rot) = multi_blocks
+                // We check if this kind of block has already been added as a multi block.
+                // If our block is rotated we want to add at to the req but have to account for the rotation.
+                // req_rot is the rotation the reqs have to be rotated to be added to the reqs
+                let (reqs, req_rot) = multi_blocks
                     .iter_mut()
                     .find_map(|(reqs, test_block, _)| {
                         let r = test_block.is_duplicate(&block, rules);
@@ -259,9 +263,16 @@ impl HullSolver {
                         add = true;
                         (&mut empty_reqs, Rot::IDENTITY)
                     });
+                let req_mat: Mat4 = req_rot.into();
 
-                for offset in get_neighbors() {
+                for offset in get_neighbors_without_zero() {
                     let neighbor_pos = pos + offset * 8;
+
+                    // Map rotate the pos we check to account for req rotation.
+                    let neighbor_pos = req_mat
+                        .transform_vector3(neighbor_pos.as_vec3())
+                        .round()
+                        .as_ivec3();
 
                     for (req_block, test_pos) in req_blocks.to_owned().into_iter().chain(
                         blocks
@@ -270,23 +281,22 @@ impl HullSolver {
                             .map(|(block, pos, _)| (block.to_owned(), pos.to_owned())),
                     ) {
                         if neighbor_pos == test_pos {
-                            let req_offset =
-                                mat.transform_point3(offset.as_vec3()).round().as_ivec3();
-
                             let blocks = reqs.iter_mut().find_map(|(test_offset, blocks)| {
-                                if *test_offset == req_offset {
+                                if *test_offset == offset {
                                     Some(blocks)
                                 } else {
                                     None
                                 }
                             });
 
-                            let req_block = req_block.rotate(rot, rules);
-
                             if blocks.is_some() {
-                                blocks.unwrap().push(req_block);
+                                let blocks = blocks.unwrap();
+
+                                if !blocks.contains(&req_block) {
+                                    blocks.push(req_block);
+                                }
                             } else {
-                                reqs.push((req_offset, vec![req_block]));
+                                reqs.push((offset, vec![req_block]));
                             }
                         }
                     }

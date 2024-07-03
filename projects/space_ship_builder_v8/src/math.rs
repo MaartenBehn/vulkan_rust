@@ -58,6 +58,37 @@ pub fn get_neighbors() -> [IVec3; 27] {
     ]
 }
 
+pub fn get_neighbors_without_zero() -> [IVec3; 26] {
+    [
+        ivec3(-1, -1, -1),
+        ivec3(0, -1, -1),
+        ivec3(1, -1, -1),
+        ivec3(-1, 0, -1),
+        ivec3(0, 0, -1),
+        ivec3(1, 0, -1),
+        ivec3(-1, 1, -1),
+        ivec3(0, 1, -1),
+        ivec3(1, 1, -1),
+        ivec3(-1, -1, 0),
+        ivec3(0, -1, 0),
+        ivec3(1, -1, 0),
+        ivec3(-1, 0, 0),
+        ivec3(1, 0, 0),
+        ivec3(-1, 1, 0),
+        ivec3(0, 1, 0),
+        ivec3(1, 1, 0),
+        ivec3(-1, -1, 1),
+        ivec3(0, -1, 1),
+        ivec3(1, -1, 1),
+        ivec3(-1, 0, 1),
+        ivec3(0, 0, 1),
+        ivec3(1, 0, 1),
+        ivec3(-1, 1, 1),
+        ivec3(0, 1, 1),
+        ivec3(1, 1, 1),
+    ]
+}
+
 pub fn oct_positions() -> [IVec3; 8] {
     [
         ivec3(0, 0, 0),
