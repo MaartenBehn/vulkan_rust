@@ -5,7 +5,7 @@
     <option name="SCRIPT_PATH" value="_builder_v5" />
     <option name="SCRIPT_OPTIONS" value="" />
     <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
-    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/vulkan_rust" />
     <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
     <option name="INTERPRETER_PATH" value="/run/current-system/sw/bin/fish" />
     <option name="INTERPRETER_OPTIONS" value="" />
