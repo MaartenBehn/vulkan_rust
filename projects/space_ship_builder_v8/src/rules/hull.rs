@@ -6,7 +6,7 @@ use crate::rotation::Rot;
 use crate::rules::block::Block;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::{Solver, SolverCacheIndex};
-use crate::rules::Prio::HULL_BASE;
+use crate::rules::Prio::{HULL_BASE, HULL_MULTI};
 use crate::rules::ReqTree::BroadReqTree;
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
@@ -268,6 +268,10 @@ impl HullSolver {
             for (block, pos, prio) in blocks.to_owned().into_iter() {
                 let mut empty_reqs = vec![];
                 let mut add = false;
+
+                if prio == HULL_MULTI(22) {
+                    debug!("Break")
+                }
 
                 // We check if this kind of block has already been added as a multi block.
                 // If our block is rotated we want to add at to the req but have to account for the rotation.

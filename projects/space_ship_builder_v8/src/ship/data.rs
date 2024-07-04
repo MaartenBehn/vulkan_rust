@@ -105,6 +105,9 @@ impl ShipData {
         new_block_name_index: BlockNameIndex,
         rules: &Rules,
     ) {
+        #[cfg(debug_assertions)]
+        puffin::profile_function!();
+
         let chunk_index = self.get_chunk_index_from_world_block_pos(world_block_pos);
         let block_index = self.get_block_index_from_world_block_pos(world_block_pos);
         let chunk = &mut self.chunks[chunk_index];
@@ -127,11 +130,20 @@ impl ShipData {
             block_index,
             chunk_index,
         );
+
         self.to_reset.push_back(old_order);
         self.to_reset.push_back(new_order);
 
-        self.was_reset = IndexQueue::default();
-        self.is_collapsed = IndexQueue::default();
+        // Resetting was_reset and is_collapsed
+        {
+            // Two Options: setting = new empty Queue or drain via while loop
+            // A new empty Queue has long allocation times in later ticks so draining is better.
+            #[cfg(debug_assertions)]
+            puffin::profile_scope!("Drain_was_reset_and_is_collapsed");
+
+            while self.was_reset.pop_front().is_some() {}
+            while self.is_collapsed.pop_front().is_some() {}
+        }
 
         let collapse_order = self
             .order_controller

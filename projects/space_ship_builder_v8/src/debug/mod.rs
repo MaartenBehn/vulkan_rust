@@ -2,6 +2,7 @@ pub mod collapse_log;
 pub mod hull_basic;
 pub mod hull_multi;
 pub mod line_renderer;
+pub mod nodes;
 pub mod rotation_debug;
 pub mod text_renderer;
 
@@ -9,7 +10,8 @@ use crate::debug::collapse_log::CollapseLogRenderer;
 use crate::debug::hull_basic::DebugHullBasicRenderer;
 use crate::debug::hull_multi::DebugHullMultiRenderer;
 use crate::debug::line_renderer::DebugLineRenderer;
-use crate::debug::rotation_debug::RotationDebugRenderer;
+use crate::debug::nodes::DebugNodesRenderer;
+use crate::debug::rotation_debug::RotationRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
 use crate::node::{NodeID, Voxel};
 use crate::rules::Rules;
@@ -33,13 +35,15 @@ use std::time::Duration;
 pub enum DebugMode {
     OFF,
     ROTATION_DEBUG,
+    NODES,
     HULL_BASIC,
     HULL_MULTI,
     COLLAPSE_LOG,
 }
 
-pub const SELECTABE_DEBUG_MODES: [DebugMode; 4] = [
+pub const SELECTABE_DEBUG_MODES: [DebugMode; 5] = [
     DebugMode::ROTATION_DEBUG,
+    DebugMode::NODES,
     DebugMode::HULL_BASIC,
     DebugMode::HULL_MULTI,
     DebugMode::COLLAPSE_LOG,
@@ -52,7 +56,8 @@ pub struct DebugController {
     pub line_renderer: DebugLineRenderer,
     pub text_renderer: DebugTextRenderer,
 
-    pub rotation_debug: RotationDebugRenderer,
+    pub rotation_renderer: RotationRenderer,
+    pub nodes_renderer: DebugNodesRenderer,
     pub hull_basic_renderer: DebugHullBasicRenderer,
     pub hull_multi_renderer: DebugHullMultiRenderer,
     pub collapse_log_renderer: CollapseLogRenderer,
@@ -83,7 +88,8 @@ impl DebugController {
 
         let text_renderer =
             DebugTextRenderer::new(context, format, depth_format, window, images_len)?;
-        let rotation_debug_renderer = RotationDebugRenderer::new(images_len, test_node_id);
+        let rotation_renderer = RotationRenderer::new(images_len, test_node_id);
+        let nodes_renderer = DebugNodesRenderer::new(images_len);
         let hull_basic_renderer = DebugHullBasicRenderer::new(images_len);
         let hull_multi_renderer = DebugHullMultiRenderer::new(images_len);
         let collapse_log_renderer =
@@ -95,7 +101,8 @@ impl DebugController {
             mode: DebugMode::OFF,
             line_renderer,
             text_renderer,
-            rotation_debug: rotation_debug_renderer,
+            rotation_renderer,
+            nodes_renderer,
             hull_basic_renderer,
             hull_multi_renderer,
             collapse_log_renderer,
@@ -128,13 +135,22 @@ impl DebugController {
         if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
+            self.mode = if self.mode != DebugMode::NODES {
+                DebugMode::NODES
+            } else {
+                DebugMode::OFF
+            }
+        }
+        if controls.f4 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+            self.last_mode_change = total_time;
+
             self.mode = if self.mode != DebugMode::HULL_BASIC {
                 DebugMode::HULL_BASIC
             } else {
                 DebugMode::OFF
             }
         }
-        if controls.f4 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+        if controls.f5 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
             self.mode = if self.mode != DebugMode::HULL_MULTI {
@@ -143,7 +159,7 @@ impl DebugController {
                 DebugMode::OFF
             }
         }
-        if controls.f5 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
+        if controls.f6 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
             self.mode = if self.mode != DebugMode::COLLAPSE_LOG {
@@ -161,6 +177,16 @@ impl DebugController {
             }
             DebugMode::ROTATION_DEBUG => {
                 self.update_rotation_debug(
+                    controls,
+                    image_index,
+                    &context,
+                    &ship_manager.renderer.chunk_descriptor_layout,
+                    &ship_manager.renderer.descriptor_pool,
+                )?;
+            }
+            DebugMode::NODES => {
+                self.update_nodes(
+                    rules,
                     controls,
                     image_index,
                     &context,
@@ -228,7 +254,12 @@ impl DebugController {
 
         match self.mode {
             DebugMode::OFF => {}
-            DebugMode::ROTATION_DEBUG => self.rotation_debug.render(buffer, renderer, image_index),
+            DebugMode::ROTATION_DEBUG => {
+                self.rotation_renderer.render(buffer, renderer, image_index)
+            }
+            DebugMode::NODES => {
+                self.nodes_renderer.render(buffer, renderer, image_index);
+            }
             DebugMode::HULL_BASIC => {
                 self.hull_basic_renderer
                     .render(buffer, renderer, image_index);
