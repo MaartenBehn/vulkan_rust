@@ -91,10 +91,10 @@ impl Solver for StoneSolver {
         let mut best_index = 0;
 
         for index in cache {
-            let (_, block) = &self.basic_blocks.get_block(index);
-            if best_prio < Prio::Basic {
+            let (_, block, prio) = &self.basic_blocks.get_block(index);
+            if best_prio < *prio {
                 best_block = *block;
-                best_prio = Prio::Basic;
+                best_prio = *prio;
                 best_index = index;
             }
         }

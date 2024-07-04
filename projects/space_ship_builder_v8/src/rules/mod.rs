@@ -25,7 +25,7 @@ pub enum Prio {
     #[default]
     Zero,
     Empty,
-    Basic,
+    Basic(usize),
     Multi(usize),
 }
 

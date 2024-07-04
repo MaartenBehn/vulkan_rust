@@ -17,10 +17,10 @@ use octa_force::puffin_egui::puffin;
 
 #[derive(Clone, Debug)]
 pub struct BasicBlocks {
-    blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block)>,
+    blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block, Prio)>,
 
     #[cfg(debug_assertions)]
-    pub debug_basic_blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block)>,
+    pub debug_basic_blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block, Prio)>,
 }
 
 impl BasicBlocks {
@@ -30,7 +30,7 @@ impl BasicBlocks {
         folder_name_part: &str,
         folder_amount: usize,
     ) -> Result<Self> {
-        let mut basic_blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block)> = vec![];
+        let mut basic_blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block, Prio)> = vec![];
 
         for i in 0..folder_amount {
             let (blocks, req_blocks) = load_basic_block_req_folder(
@@ -39,7 +39,7 @@ impl BasicBlocks {
                 rules,
             )?;
 
-            for (block, pos) in blocks.to_owned().into_iter() {
+            for (block, pos, prio) in blocks.to_owned().into_iter() {
                 let mut reqs = vec![];
 
                 for offset in get_neighbors_without_zero() {
@@ -52,7 +52,7 @@ impl BasicBlocks {
                     }
                 }
 
-                basic_blocks.push((reqs, block))
+                basic_blocks.push((reqs, block, prio))
             }
         }
 
@@ -73,7 +73,7 @@ impl BasicBlocks {
         index < self.blocks.len()
     }
 
-    pub fn get_block(&self, index: usize) -> &(Vec<(IVec3, BlockNameIndex)>, Block) {
+    pub fn get_block(&self, index: usize) -> &(Vec<(IVec3, BlockNameIndex)>, Block, Prio) {
         &self.blocks[index]
     }
 
@@ -91,7 +91,7 @@ impl BasicBlocks {
             return vec![];
         }
 
-        for (i, (reqs, _)) in self.blocks.iter().enumerate() {
+        for (i, (reqs, _, _)) in self.blocks.iter().enumerate() {
             let mut pass = true;
             for (offset, block_name_index) in reqs {
                 let req_world_block_pos = world_block_pos + *offset;
@@ -117,7 +117,7 @@ fn load_basic_block_req_folder(
     folder_name: &str,
     voxel_loader: &VoxelLoader,
     rules: &mut Rules,
-) -> Result<(Vec<(Block, IVec3)>, Vec<(usize, IVec3)>)> {
+) -> Result<(Vec<(Block, IVec3, Prio)>, Vec<(usize, IVec3)>)> {
     let mut blocks = vec![];
     let mut req_blocks = vec![];
 
@@ -140,7 +140,9 @@ fn load_basic_block_req_folder(
             };
             let block = block.rotate(rot, rules);
 
-            blocks.push((block, pos))
+            let prio = name_parts[2].parse::<usize>()?;
+
+            blocks.push((block, pos, Prio::Basic(prio)))
         } else {
             let req_block_name = name_parts[0];
             let index = rules
@@ -159,11 +161,11 @@ fn load_basic_block_req_folder(
 }
 
 fn permutate_basic_blocks(
-    blocks: &[(Vec<(IVec3, BlockNameIndex)>, Block)],
+    blocks: &[(Vec<(IVec3, BlockNameIndex)>, Block, Prio)],
     rules: &mut Rules,
-) -> Vec<(Vec<(IVec3, BlockNameIndex)>, Block)> {
+) -> Vec<(Vec<(IVec3, BlockNameIndex)>, Block, Prio)> {
     let mut rotated_blocks = vec![];
-    for (reqs, block) in blocks.iter() {
+    for (reqs, block, prio) in blocks.iter() {
         for rot in Rot::IDENTITY.get_all_permutations() {
             let mat: Mat4 = rot.into();
             let rotated_reqs: Vec<_> = reqs
@@ -181,7 +183,7 @@ fn permutate_basic_blocks(
             let rotated_block = block.rotate(rot, rules);
 
             let mut found = false;
-            for (_, test_block) in rotated_blocks.iter() {
+            for (_, test_block, _) in rotated_blocks.iter() {
                 if *test_block == rotated_block {
                     found = true;
                     break;
@@ -189,7 +191,7 @@ fn permutate_basic_blocks(
             }
 
             if !found {
-                rotated_blocks.push((rotated_reqs, rotated_block))
+                rotated_blocks.push((rotated_reqs, rotated_block, *prio))
             }
         }
     }

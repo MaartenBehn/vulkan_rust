@@ -180,10 +180,10 @@ impl Solver for HullSolver {
 
         for index in cache {
             if self.basic_blocks.has_index(index) {
-                let (_, block) = &self.basic_blocks.get_block(index);
-                if best_prio < Prio::Basic {
+                let (_, block, prio) = &self.basic_blocks.get_block(index);
+                if best_prio < *prio {
                     best_block = *block;
-                    best_prio = Prio::Basic;
+                    best_prio = *prio;
                     best_index = index;
                 }
             } else {
