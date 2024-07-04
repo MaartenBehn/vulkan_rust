@@ -6,8 +6,11 @@ use crate::rules::block::Block;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::req_tree::BroadReqTree;
 use crate::rules::solver::{Solver, SolverCacheIndex};
-use crate::rules::Prio::{HullBase, HullMulti};
-use crate::rules::{Prio, Rules};
+use crate::rules::Prio::Multi;
+use crate::rules::{
+    Prio, Rules, BLOCK_MODEL_IDENTIFIER, BLOCK_TYPE_IDENTIFIER, FOLDER_MODEL_IDENTIFIER,
+    REQ_TYPE_IDENTIFIER,
+};
 use crate::ship::data::{CacheIndex, ShipData};
 use crate::ship::possible_blocks::PossibleBlocks;
 use crate::voxel_loader::VoxelLoader;
@@ -25,10 +28,6 @@ const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
 const HULL_BLOCK_NAME: &str = "Hull";
 const HULL_BASE_NAME_PART: &str = "Hull-Base";
 const HULL_MULTI_NAME_PART: &str = "Hull-Multi";
-const HULL_MULTI_BLOCK: &str = "Block";
-const HULL_MULTI_REQ: &str = "Req";
-const BLOCK_MODEL_IDENTIFIER: &str = "B";
-const FOLDER_MODEL_IDENTIFIER: &str = "F";
 
 pub struct HullSolver {
     pub block_name_index: usize,
@@ -52,7 +51,7 @@ impl Rules {
         let hull_block_name_index = self.block_names.len();
         self.block_names.push(HULL_BLOCK_NAME.to_owned());
 
-        let basic_blocks = BasicBlocks::new(self, voxel_loader, HULL_BASE_NAME_PART, true)?;
+        let basic_blocks = BasicBlocks::new(self, voxel_loader, HULL_BASE_NAME_PART, 1)?;
         let mut hull_solver = HullSolver {
             block_name_index: hull_block_name_index,
 
@@ -181,10 +180,10 @@ impl Solver for HullSolver {
 
         for index in cache {
             if self.basic_blocks.has_index(index) {
-                let (_, block, prio) = &self.basic_blocks.get_block(index);
-                if best_prio < *prio {
+                let (_, block) = &self.basic_blocks.get_block(index);
+                if best_prio < Prio::Basic {
                     best_block = *block;
-                    best_prio = *prio;
+                    best_prio = Prio::Basic;
                     best_index = index;
                 }
             } else {
@@ -215,45 +214,15 @@ impl HullSolver {
 
         let num = 4;
         for i in 0..num {
-            let mut blocks = vec![];
-            let mut req_blocks = vec![];
-
-            let (models, rot) =
-                voxel_loader.get_name_folder(&format!("{HULL_MULTI_NAME_PART}-{i}"))?;
-
-            if rot != Rot::IDENTITY {
-                bail!("Multi Block Rot should be IDENTITY");
-            }
-
-            for (name, index, rot, pos) in models {
-                let name_parts: Vec<_> = name.split('-').collect();
-
-                let block = if name_parts[1] == BLOCK_MODEL_IDENTIFIER {
-                    rules.load_block_from_block_model_by_index(index, voxel_loader)?
-                } else if name_parts[1] == FOLDER_MODEL_IDENTIFIER {
-                    rules.load_block_from_node_folder(&name, voxel_loader)?
-                } else {
-                    bail!("Part 1 of {name} is not identified.");
-                };
-                let block = block.rotate(rot, rules);
-
-                if name_parts[0] == HULL_MULTI_BLOCK {
-                    let prio = name_parts[2].parse::<usize>()?;
-                    blocks.push((block, pos, Prio::HullMulti(prio)))
-                } else if name_parts[0] == HULL_MULTI_REQ {
-                    req_blocks.push((block, pos))
-                } else {
-                    bail!("Part 0 of {name} is not identified.");
-                }
-            }
+            let (blocks, req_blocks) = load_multi_block_req_folder(
+                &format!("{HULL_MULTI_NAME_PART}-{i}"),
+                voxel_loader,
+                rules,
+            )?;
 
             for (block, pos, prio) in blocks.to_owned().into_iter() {
                 let mut empty_reqs = vec![];
                 let mut add = false;
-
-                if prio == HullMulti(22) {
-                    debug!("Break")
-                }
 
                 // We check if this kind of block has already been added as a multi block.
                 // If our block is rotated we want to add at to the req but have to account for the rotation.
@@ -541,6 +510,45 @@ impl HullSolver {
 
         reqs_result
     }
+}
+
+pub fn load_multi_block_req_folder(
+    folder_name: &str,
+    voxel_loader: &VoxelLoader,
+    rules: &mut Rules,
+) -> Result<(Vec<(Block, IVec3, Prio)>, Vec<(Block, IVec3)>)> {
+    let mut blocks = vec![];
+    let mut req_blocks = vec![];
+
+    let (models, rot) = voxel_loader.get_name_folder(folder_name)?;
+
+    if rot != Rot::IDENTITY {
+        bail!("Block Req Folder {} Rot should be IDENTITY", folder_name);
+    }
+
+    for (name, index, rot, pos) in models {
+        let name_parts: Vec<_> = name.split('-').collect();
+
+        let block = if name_parts[1] == BLOCK_MODEL_IDENTIFIER {
+            rules.load_block_from_block_model_by_index(index, voxel_loader)?
+        } else if name_parts[1] == FOLDER_MODEL_IDENTIFIER {
+            rules.load_block_from_node_folder(&name, voxel_loader)?
+        } else {
+            bail!("Part 1 of {name} is not identified.");
+        };
+        let block = block.rotate(rot, rules);
+
+        if name_parts[0] == BLOCK_TYPE_IDENTIFIER {
+            let prio = name_parts[2].parse::<usize>()?;
+            blocks.push((block, pos, Multi(prio)))
+        } else if name_parts[0] == REQ_TYPE_IDENTIFIER {
+            req_blocks.push((block, pos))
+        } else {
+            bail!("Part 0 of {name} is not identified.");
+        }
+    }
+
+    Ok((blocks, req_blocks))
 }
 
 fn permutate_multi_blocks(

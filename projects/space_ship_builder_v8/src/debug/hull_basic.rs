@@ -127,7 +127,7 @@ impl DebugController {
         let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
         let middle_pos = size / 2;
 
-        let (reqs, block, _) =
+        let (reqs, block) =
             &hull_solver.basic_blocks.debug_basic_blocks[self.hull_basic_renderer.index];
         for (j, offset) in oct_positions().iter().enumerate() {
             let node_pos = middle_pos + *offset;
@@ -140,7 +140,7 @@ impl DebugController {
             render_nodes[node_index_plus_padding] = RenderNode(true);
         }
 
-        for req_offset in reqs {
+        for (req_offset, _) in reqs {
             let pos = middle_pos + *req_offset * 2;
 
             self.add_cube(pos.as_vec3(), (pos + 2).as_vec3(), vec4(0.0, 1.0, 0.0, 1.0));

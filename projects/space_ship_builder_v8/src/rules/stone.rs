@@ -6,7 +6,6 @@ use crate::rules::block::Block;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::req_tree::BroadReqTree;
 use crate::rules::solver::{Solver, SolverCacheIndex};
-use crate::rules::Prio::{HullBase, HullMulti};
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
 use crate::ship::possible_blocks::PossibleBlocks;
@@ -34,7 +33,7 @@ impl Rules {
         let stone_block_name_index = self.block_names.len();
         self.block_names.push(STONE_BLOCK_NAME.to_owned());
 
-        let basic_blocks = BasicBlocks::new(self, voxel_loader, STONE_BASE_NAME_PART, false)?;
+        let basic_blocks = BasicBlocks::new(self, voxel_loader, STONE_BASE_NAME_PART, 1)?;
         let stone_solver = StoneSolver {
             block_name_index: stone_block_name_index,
             basic_blocks,
@@ -92,10 +91,10 @@ impl Solver for StoneSolver {
         let mut best_index = 0;
 
         for index in cache {
-            let (_, block, prio) = &self.basic_blocks.get_block(index);
-            if best_prio < *prio {
+            let (_, block) = &self.basic_blocks.get_block(index);
+            if best_prio < Prio::Basic {
                 best_block = *block;
-                best_prio = *prio;
+                best_prio = Prio::Basic;
                 best_index = index;
             }
         }

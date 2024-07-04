@@ -15,13 +15,18 @@ use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::{IVec3, UVec3};
 
+const BLOCK_MODEL_IDENTIFIER: &str = "B";
+const FOLDER_MODEL_IDENTIFIER: &str = "F";
+const BLOCK_TYPE_IDENTIFIER: &str = "Block";
+const REQ_TYPE_IDENTIFIER: &str = "Req";
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, Debug)]
 pub enum Prio {
     #[default]
     Zero,
     Empty,
-    HullBase,
-    HullMulti(usize),
+    Basic,
+    Multi(usize),
 }
 
 pub struct Rules {
