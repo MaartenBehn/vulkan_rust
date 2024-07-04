@@ -28,14 +28,7 @@ impl DebugTextRenderer {
         in_flight_frames: usize,
     ) -> Result<Self> {
         Ok(Self {
-            gui: Gui::new(
-                context,
-                format,
-                depth_format,
-                window,
-                in_flight_frames,
-                None,
-            )?,
+            gui: Gui::new(context, format, depth_format, window, in_flight_frames)?,
             texts: Vec::new(),
             render_texts: Vec::new(),
         })

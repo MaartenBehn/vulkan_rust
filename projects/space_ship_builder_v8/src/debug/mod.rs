@@ -89,7 +89,7 @@ impl DebugController {
         let collapse_log_renderer =
             CollapseLogRenderer::new(images_len, &ship_manager.ships[0].data);
 
-        let gui = Gui::new(context, format, depth_format, window, images_len, Some(0.5))?;
+        let gui = Gui::new(context, format, depth_format, window, images_len)?;
 
         Ok(DebugController {
             mode: DebugMode::OFF,

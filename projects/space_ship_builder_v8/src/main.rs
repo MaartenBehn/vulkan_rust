@@ -175,7 +175,7 @@ impl App for SpaceShipBuilder {
             &base.context,
             &base.controls,
             &self.camera,
-            base.swapchain.extent,
+            base.swapchain.size,
         )?;
 
         Ok(())

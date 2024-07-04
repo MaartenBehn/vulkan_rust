@@ -12,6 +12,7 @@ use crate::rules::solver::SolverCacheIndex;
 use crate::ship::collapse::Collapser;
 use index_queue::IndexQueue;
 use log::{debug, info};
+use octa_force::puffin_egui::puffin;
 use octa_force::{anyhow::*, glam::*, log};
 
 pub type ChunkIndex = usize;
@@ -113,7 +114,7 @@ impl ShipData {
             return;
         }
 
-        info!("Place: {world_block_pos:?}");
+        debug!("Place: {world_block_pos:?}");
         chunk.block_names[block_index] = new_block_name_index;
 
         let old_order = self.order_controller.pack_propergate_order(
@@ -145,6 +146,8 @@ impl ShipData {
         &mut self,
         world_block_pos: IVec3,
     ) -> BlockNameIndex {
+        // puffin::profile_function!();
+
         let chunk_index = self.get_chunk_index_from_world_block_pos(world_block_pos);
         let in_chunk_block_index = self.get_block_index_from_world_block_pos(world_block_pos);
 
@@ -163,6 +166,8 @@ impl ShipData {
     }
 
     pub fn tick(&mut self, actions_per_tick: usize, rules: &Rules) -> (bool, Vec<ChunkIndex>) {
+        puffin::profile_function!();
+
         let mut changed_chunks = Vec::new();
 
         for _ in 0..actions_per_tick {
@@ -185,6 +190,8 @@ impl ShipData {
     }
 
     fn reset(&mut self, rules: &Rules) {
+        puffin::profile_function!();
+
         let order = self.to_reset.pop_front().unwrap();
         let (block_name_index, block_index, chunk_index) =
             self.order_controller.unpack_propergate_order(order);
@@ -224,6 +231,8 @@ impl ShipData {
     }
 
     fn propergate(&mut self, rules: &Rules) {
+        puffin::profile_function!();
+
         let order = self.to_propergate.pop_front().unwrap();
         let (block_name_index, block_index, chunk_index) =
             self.order_controller.unpack_propergate_order(order);
@@ -269,6 +278,8 @@ impl ShipData {
     }
 
     fn collapse(&mut self, rules: &Rules) -> ChunkIndex {
+        puffin::profile_function!();
+
         let order = self.collapser.pop_order();
         let (block_index, chunk_index) = self.order_controller.unpack_collapse_order(order);
         let world_block_pos =

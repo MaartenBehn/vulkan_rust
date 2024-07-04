@@ -7,13 +7,15 @@ use crate::rules::block::Block;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::{Solver, SolverCacheIndex};
 use crate::rules::Prio::HULL_BASE;
+use crate::rules::ReqTree::BroadReqTree;
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
 use crate::ship::possible_blocks::PossibleBlocks;
 use crate::voxel_loader::VoxelLoader;
-use log::{debug, error, set_boxed_logger, warn};
+use log::{debug, error, info, set_boxed_logger, warn};
 use octa_force::anyhow::bail;
 use octa_force::glam::{uvec3, UVec3};
+use octa_force::puffin_egui::puffin;
 use octa_force::{
     anyhow::Result,
     glam::{ivec3, BVec3, IVec3, Mat3, Mat4},
@@ -33,17 +35,21 @@ pub struct HullSolver {
     pub block_name_index: usize,
     pub basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
     pub multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)>,
+    pub multi_broad_req_tree: BroadReqTree,
 
     #[cfg(debug_assertions)]
     pub debug_basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
 
     #[cfg(debug_assertions)]
     pub debug_multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)>,
+
+    #[cfg(debug_assertions)]
+    pub use_req_tree: bool,
 }
 
 impl Rules {
     pub fn make_hull(&mut self, voxel_loader: &VoxelLoader) -> Result<()> {
-        debug!("Making Hull");
+        info!("Making Hull");
 
         let hull_block_name_index = self.block_names.len();
         self.block_names.push(HULL_BLOCK_NAME.to_owned());
@@ -53,11 +59,15 @@ impl Rules {
             basic_blocks: vec![],
             multi_blocks: vec![],
 
+            multi_broad_req_tree: BroadReqTree::default(),
             #[cfg(debug_assertions)]
             debug_basic_blocks: vec![],
 
             #[cfg(debug_assertions)]
             debug_multi_blocks: vec![],
+
+            #[cfg(debug_assertions)]
+            use_req_tree: false,
         };
 
         hull_solver.add_base_blocks(self, voxel_loader)?;
@@ -65,7 +75,7 @@ impl Rules {
 
         self.solvers.push(Box::new(hull_solver));
 
-        debug!("Making Hull Done");
+        info!("Making Hull Done");
         Ok(())
     }
 }
@@ -78,9 +88,18 @@ impl Solver for HullSolver {
         chunk_index: usize,
         world_block_pos: IVec3,
     ) -> Vec<SolverCacheIndex> {
+        #[cfg(debug_assertions)]
+        puffin::profile_function!();
+
         let mut cache = vec![];
         cache.append(&mut self.get_basic_blocks(ship, world_block_pos));
-        cache.append(&mut self.get_multi_blocks_reset(ship, world_block_pos));
+
+        if cfg!(debug_assertions) && self.use_req_tree {
+            cache.append(&mut self.get_multi_blocks_reset_with_req_tree(ship, world_block_pos));
+        } else {
+            cache.append(&mut self.get_multi_blocks_reset(ship, world_block_pos));
+        }
+
         cache
     }
 
@@ -314,6 +333,11 @@ impl HullSolver {
         #[cfg(debug_assertions)]
         self.debug_multi_blocks.append(&mut multi_blocks);
 
+        info!("Added {} Hull Multi Blocks", self.multi_blocks.len());
+
+        let broad_req_tree = BroadReqTree::new(&self.multi_blocks);
+        self.multi_broad_req_tree = broad_req_tree;
+
         Ok(())
     }
 
@@ -322,6 +346,9 @@ impl HullSolver {
         ship: &mut ShipData,
         world_block_pos: IVec3,
     ) -> Vec<SolverCacheIndex> {
+        #[cfg(debug_assertions)]
+        puffin::profile_function!();
+
         let block_name_index = ship.get_block_name_from_world_block_pos(world_block_pos);
         if block_name_index != self.block_name_index {
             return vec![];
@@ -361,12 +388,19 @@ impl HullSolver {
         ship: &mut ShipData,
         world_block_pos: IVec3,
     ) -> Vec<SolverCacheIndex> {
+        #[cfg(debug_assertions)]
+        puffin::profile_function!();
+
         let mut cache = vec![];
         for (i, (reqs, _, _)) in self.multi_blocks.iter().enumerate() {
+            // puffin::profile_scope!("Iteration");
+
             let block_name_index = ship.get_block_name_from_world_block_pos(world_block_pos);
             let mut pass = block_name_index == self.block_name_index;
 
             if pass {
+                // puffin::profile_scope!("Pass");
+
                 for (req_pos, req_blocks) in reqs {
                     let req_world_block_pos = world_block_pos + *req_pos;
                     let block_name_index =
@@ -437,6 +471,42 @@ impl HullSolver {
         }
 
         cache
+    }
+
+    fn get_multi_blocks_reset_with_req_tree(
+        &self,
+        ship: &mut ShipData,
+        world_block_pos: IVec3,
+    ) -> Vec<SolverCacheIndex> {
+        #[cfg(debug_assertions)]
+        puffin::profile_function!();
+
+        let block_name_index = ship.get_block_name_from_world_block_pos(world_block_pos);
+        if block_name_index != self.block_name_index {
+            return vec![];
+        }
+
+        let mut node_index = 0;
+        loop {
+            let node = self.multi_broad_req_tree.nodes[node_index];
+
+            let req_world_block_pos = world_block_pos + node.offset;
+            let block_name_index = ship.get_block_name_from_world_block_pos(req_world_block_pos);
+
+            if block_name_index == self.block_name_index {
+                if node.positive_leaf {
+                    return self.multi_broad_req_tree.leafs[node.positive_child].to_owned();
+                }
+
+                node_index = node.positive_child;
+            } else if block_name_index == EMPTY_BLOCK_NAME_INDEX {
+                if node.negative_leaf {
+                    return self.multi_broad_req_tree.leafs[node.negative_child].to_owned();
+                }
+
+                node_index = node.negative_child;
+            }
+        }
     }
 
     fn keep_multi_block(
