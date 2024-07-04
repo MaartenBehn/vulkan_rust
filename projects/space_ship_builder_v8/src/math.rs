@@ -1,4 +1,3 @@
-use crate::node::{NODE_VOXEL_LENGTH, VOXEL_EMPTY};
 use octa_force::glam::{ivec3, uvec3, BVec3, IVec3, UVec3};
 use std::iter;
 
@@ -6,8 +5,8 @@ pub fn to_1d(pos: UVec3, max: UVec3) -> usize {
     ((pos.z * max.x * max.y) + (pos.y * max.x) + pos.x) as usize
 }
 
-pub fn to_1d_i(pos: IVec3, max: IVec3) -> isize {
-    ((pos.z * max.x * max.y) + (pos.y * max.x) + pos.x) as isize
+pub fn to_1d_i(pos: IVec3, max: IVec3) -> usize {
+    ((pos.z * max.x * max.y) + (pos.y * max.x) + pos.x) as usize
 }
 
 pub fn to_3d(mut i: u32, max: UVec3) -> UVec3 {

@@ -1,29 +1,27 @@
-pub mod ReqTree;
+mod basic_blocks;
 pub mod block;
 pub mod empty;
 pub mod hull;
+pub mod req_tree;
 pub mod solver;
+pub mod stone;
 
 use crate::math::oct_positions;
-use crate::node::{Material, Node, NodeID, NodeIndex, NODE_INDEX_ANY, NODE_INDEX_EMPTY};
+use crate::node::{Material, Node, NodeID};
 use crate::rotation::Rot;
 use crate::rules::block::Block;
 use crate::rules::solver::Solver;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::{bail, Result};
-use octa_force::glam::{uvec3, IVec2, UVec2, UVec3};
-use std::ops::Mul;
-
-const NODE_ID_MAP_INDEX_NONE: usize = NODE_INDEX_EMPTY;
-const NODE_ID_MAP_INDEX_ANY: usize = NODE_INDEX_ANY;
+use octa_force::glam::{IVec3, UVec3};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, Debug)]
 pub enum Prio {
     #[default]
-    ZERO,
-    EMPTY,
-    HULL_BASE,
-    HULL_MULTI(usize),
+    Zero,
+    Empty,
+    HullBase,
+    HullMulti(usize),
 }
 
 pub struct Rules {
@@ -47,6 +45,7 @@ impl Rules {
 
         rules.make_empty();
         rules.make_hull(voxel_loader)?;
+        rules.make_stone(voxel_loader)?;
 
         Ok(rules)
     }
@@ -113,6 +112,7 @@ impl Rules {
         Ok(dup_id)
     }
 
+    #[allow(unused)]
     fn load_block_from_multi_node_by_name(
         &mut self,
         name: &str,
@@ -121,7 +121,7 @@ impl Rules {
         let (model_index, _) = voxel_loader.find_model_by_name(name)?;
         let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
 
-        if size != (UVec3::ONE * 2) {
+        if size != (IVec3::ONE * 2) {
             bail!("{} not multi block Size of [2, 2, 2]", size)
         }
 
@@ -143,7 +143,7 @@ impl Rules {
         let (model_index, _) = voxel_loader.find_model_by_index(index)?;
         let (size, nodes) = voxel_loader.load_multi_node_model(model_index)?;
 
-        if size != (UVec3::ONE * 2) {
+        if size != (IVec3::ONE * 2) {
             bail!("{} not multi block Size of [2, 2, 2]", size)
         }
 

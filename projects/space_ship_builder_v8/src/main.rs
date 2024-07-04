@@ -3,29 +3,25 @@ use std::time::Duration;
 use crate::rules::Rules;
 use crate::voxel_loader::VoxelLoader;
 use octa_force::egui_winit::winit::event::WindowEvent;
-use octa_force::glam::{ivec2, uvec2, vec2, IVec2, IVec3, UVec3};
-use octa_force::vulkan::{
-    ash::vk::{self, Format},
-    CommandBuffer, Context,
-};
+use octa_force::vulkan::ash::vk::{self, Format};
 use octa_force::{
     anyhow::Result,
     camera::Camera,
-    controls::Controls,
-    glam::{uvec3, vec3, Vec3},
+    glam::{uvec2, vec3, Vec3},
     EngineConfig, EngineFeatureValue,
 };
 use octa_force::{log, App, BaseApp};
 
 #[cfg(debug_assertions)]
-use crate::debug::{DebugController, DebugMode::OFF};
-use crate::ship::renderer::RENDER_MODE_BASE;
-use crate::ship::{Ship, ShipManager, CHUNK_SIZE};
+use crate::debug::{DebugController, DebugMode::Off};
+use crate::ship::ShipManager;
 
+pub mod asteroid;
 #[cfg(debug_assertions)]
 pub mod debug;
 pub mod math;
 pub mod node;
+pub mod render;
 pub mod rotation;
 pub mod rules;
 pub mod ship;
@@ -140,7 +136,7 @@ impl App for SpaceShipBuilder {
 
         #[cfg(debug_assertions)]
         {
-            if self.debug_controller.mode == OFF {
+            if self.debug_controller.mode == Off {
                 self.ship_manager.update(
                     &mut self.rules,
                     self.total_time,
@@ -156,7 +152,6 @@ impl App for SpaceShipBuilder {
             self.debug_controller.update(
                 &base.context,
                 &base.controls,
-                &mut self.voxel_loader,
                 self.total_time,
                 &mut self.ship_manager,
                 image_index,
@@ -213,7 +208,7 @@ impl App for SpaceShipBuilder {
 
         #[cfg(debug_assertions)]
         {
-            if self.debug_controller.mode == OFF {
+            if self.debug_controller.mode == Off {
                 self.ship_manager.render(buffer, image_index);
             }
 

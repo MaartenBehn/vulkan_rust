@@ -1,19 +1,22 @@
 use crate::rotation::Rot;
 use dot_vox::Color;
-use octa_force::glam::{ivec3, uvec3, vec4, IVec3, Mat4, UVec3};
+use octa_force::glam::{ivec3, uvec3, IVec3, Mat4, UVec3};
 
-use crate::math::{to_1d, to_3d};
-use crate::rules::block::BlockNameIndex;
+use crate::math::{to_1d, to_1d_i, to_3d, to_3d_i};
 use octa_force::glam::Mat3;
 use std::hash::Hash;
 use std::iter::repeat;
-use std::ops::Mul;
 
 pub type NodeIndex = usize;
 pub type Voxel = u8;
 
 pub const VOXEL_EMPTY: Voxel = 0;
-pub const NODE_SIZE: UVec3 = uvec3(4, 4, 4);
+pub const VOXEL_PER_NODE_SIDE: i32 = 4;
+pub const NODE_SIZE: IVec3 = ivec3(
+    VOXEL_PER_NODE_SIDE,
+    VOXEL_PER_NODE_SIDE,
+    VOXEL_PER_NODE_SIDE,
+);
 pub const NODE_VOXEL_LENGTH: usize = (NODE_SIZE.x * NODE_SIZE.y * NODE_SIZE.z) as usize;
 
 pub const NODE_INDEX_EMPTY: NodeIndex = 0;
@@ -43,13 +46,13 @@ impl Node {
         Node { voxels }
     }
 
-    fn rotate_voxel_pos(pos: UVec3, mat: Mat4, rot_offset: IVec3) -> UVec3 {
-        let p = pos.as_ivec3() - (NODE_SIZE / 2).as_ivec3();
+    fn rotate_voxel_pos(pos: IVec3, mat: Mat4, rot_offset: IVec3) -> IVec3 {
+        let p = pos - (NODE_SIZE / 2);
         let new_pos_f = mat.transform_vector3(p.as_vec3());
-        (new_pos_f.round().as_ivec3() + (NODE_SIZE / 2).as_ivec3() - rot_offset).as_uvec3()
+        new_pos_f.round().as_ivec3() + (NODE_SIZE / 2) - rot_offset
     }
 
-    pub fn get_rotated_voxels(&self, rot: Rot) -> impl Iterator<Item = (UVec3, Voxel)> {
+    pub fn get_rotated_voxels(&self, rot: Rot) -> impl Iterator<Item = (IVec3, Voxel)> {
         let mat: Mat4 = rot.into();
         let rot_offset = rot.rot_offset();
 
@@ -58,7 +61,7 @@ impl Node {
             .enumerate()
             .zip(repeat((mat, rot_offset)))
             .map(|((i, v), (mat, rot_offset))| {
-                let pos = to_3d(i as u32, NODE_SIZE);
+                let pos = to_3d_i(i as i32, NODE_SIZE);
                 let new_pos = Self::rotate_voxel_pos(pos, mat, rot_offset);
                 (new_pos, v)
             })
@@ -72,7 +75,7 @@ impl Node {
         let combined_rot = inv_rot * other_rot;
 
         for (rotated_pos, voxel) in other_node.get_rotated_voxels(combined_rot) {
-            let voxel_index = to_1d(rotated_pos, NODE_SIZE);
+            let voxel_index = to_1d_i(rotated_pos, NODE_SIZE) as usize;
 
             if self.voxels[voxel_index] != voxel {
                 same = false;
@@ -119,16 +122,16 @@ impl Node {
                 p[index_i] = i;
                 p[index_j] = j;
                 p[index_k] = k_pos;
-                let pos = UVec3::from(p);
+                let pos = IVec3::from(p);
 
                 p[index_k] = k_neg;
-                let other_pos = UVec3::from(p);
+                let other_pos = IVec3::from(p);
 
                 let rotated_pos = Self::rotate_voxel_pos(pos, mat, rot_offset);
                 let rotated_other_pos =
                     Self::rotate_voxel_pos(other_pos, other_mat, other_rot_offset);
-                let voxel = self.voxels[to_1d(rotated_pos, NODE_SIZE)];
-                let other_voxel = other_node.voxels[to_1d(rotated_other_pos, NODE_SIZE)];
+                let voxel = self.voxels[to_1d_i(rotated_pos, NODE_SIZE)];
+                let other_voxel = other_node.voxels[to_1d_i(rotated_other_pos, NODE_SIZE)];
 
                 if voxel != other_voxel {
                     same = false;

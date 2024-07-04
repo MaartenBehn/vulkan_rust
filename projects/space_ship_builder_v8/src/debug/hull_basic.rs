@@ -1,13 +1,12 @@
-use crate::debug::line_renderer::DebugLine;
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
+use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
+use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
 use crate::rules::hull::HullSolver;
-use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
-use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
-use octa_force::glam::{ivec3, vec3, vec4, IVec3, Mat4, Vec3};
+use octa_force::glam::{vec4, IVec3};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::time::{Duration, Instant};
 
@@ -15,7 +14,7 @@ pub const HULL_BASE_DEBUG_SIZE: i32 = 4;
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct DebugHullBasicRenderer {
-    mesh: ShipMesh,
+    mesh: Mesh,
     index: usize,
     last_input: Instant,
 }
@@ -24,7 +23,7 @@ impl DebugHullBasicRenderer {
     pub fn new(image_len: usize) -> Self {
         let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
         DebugHullBasicRenderer {
-            mesh: ShipMesh::new(image_len, size, size),
+            mesh: Mesh::new(image_len, size, size),
             index: 0,
             last_input: Instant::now(),
         }
@@ -34,7 +33,7 @@ impl DebugHullBasicRenderer {
         if controls.t && self.last_input.elapsed() > INPUT_INTERVAL {
             self.last_input = Instant::now();
 
-            self.index = (self.index + 1) % hull_solver.debug_basic_blocks.len();
+            self.index = (self.index + 1) % hull_solver.basic_blocks.debug_basic_blocks.len();
 
             info!("Basic Hull Block: {}", self.index)
         }
@@ -81,7 +80,7 @@ impl DebugHullBasicRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
+    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &MeshRenderer, image_index: usize) {
         renderer.render(buffer, image_index, RENDER_MODE_BASE, &self.mesh)
     }
 }
@@ -128,7 +127,8 @@ impl DebugController {
         let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
         let middle_pos = size / 2;
 
-        let (reqs, block, prio) = &hull_solver.debug_basic_blocks[self.hull_basic_renderer.index];
+        let (reqs, block, _) =
+            &hull_solver.basic_blocks.debug_basic_blocks[self.hull_basic_renderer.index];
         for (j, offset) in oct_positions().iter().enumerate() {
             let node_pos = middle_pos + *offset;
             let node_index = to_1d_i(node_pos, size) as usize;

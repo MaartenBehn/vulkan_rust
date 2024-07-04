@@ -1,6 +1,5 @@
 use crate::rules::block::BlockNameIndex;
 use crate::rules::solver::SolverCacheIndex;
-use bitcode::__private::invalid_enum_variant;
 use octa_force::puffin_egui::puffin;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

@@ -1,6 +1,5 @@
 use crate::node::NodeID;
-use crate::rules::block::{Block, BlockNameIndex};
-use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
+use crate::rules::block::Block;
 use crate::rules::Prio;
 use log::{debug, info};
 use octa_force::glam::IVec3;
@@ -23,7 +22,6 @@ pub struct BroadReqTreeNode {
 #[derive(Clone)]
 struct BuildNode {
     ids: Vec<usize>,
-    parent: Option<usize>,
     positive_child: Option<usize>,
     negative_child: Option<usize>,
     level: usize,
@@ -35,7 +33,6 @@ impl BroadReqTree {
 
         let mut build_nodes = vec![BuildNode {
             ids: (0..req_list.len()).collect(),
-            parent: None,
             negative_child: None,
             positive_child: None,
             level: 0,
@@ -98,7 +95,6 @@ impl BroadReqTree {
                 build_nodes[current_build_node].negative_child = Some(build_nodes.len());
                 build_nodes.push(BuildNode {
                     ids: empty_ids,
-                    parent: Some(current_build_node),
                     positive_child: None,
                     negative_child: None,
                     level: build_node.level + 1,
@@ -107,7 +103,6 @@ impl BroadReqTree {
                 build_nodes[current_build_node].positive_child = Some(build_nodes.len());
                 build_nodes.push(BuildNode {
                     ids: some_ids,
-                    parent: Some(current_build_node),
                     positive_child: None,
                     negative_child: None,
                     level: build_node.level + 1,

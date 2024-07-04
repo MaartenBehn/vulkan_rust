@@ -60,7 +60,7 @@ impl ShipData {
         let mut ship = ShipData::new(save.nodes_per_chunk[0], rules);
 
         for (pos, block) in save.blocks {
-            ship.place_block(pos.into(), block, rules);
+            ship.place_block(pos.into(), block);
         }
 
         ship

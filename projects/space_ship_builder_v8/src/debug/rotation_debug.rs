@@ -1,13 +1,10 @@
 use crate::debug::line_renderer::DebugLine;
 use crate::debug::DebugController;
-use crate::math::{oct_positions, to_1d_i};
+use crate::math::to_1d_i;
 use crate::node::NodeID;
+use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
+use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
 use crate::rotation::Rot;
-use crate::rules::hull::HullSolver;
-use crate::rules::Rules;
-use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
-use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
-use crate::voxel_loader::VoxelLoader;
 use log::{debug, info};
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
@@ -20,7 +17,7 @@ pub const ROTATION_DEBUG_SIZE: i32 = 1;
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct RotationRenderer {
-    mesh: ShipMesh,
+    mesh: Mesh,
     node_id: NodeID,
     last_input: Instant,
 }
@@ -30,7 +27,7 @@ impl RotationRenderer {
         let size = IVec3::ONE * crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
 
         RotationRenderer {
-            mesh: ShipMesh::new(image_len, size, size),
+            mesh: Mesh::new(image_len, size, size),
             node_id: test_node_id,
             last_input: Instant::now(),
         }
@@ -100,7 +97,7 @@ impl RotationRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
+    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &MeshRenderer, image_index: usize) {
         renderer.render(buffer, image_index, RENDER_MODE_BASE, &self.mesh)
     }
 }

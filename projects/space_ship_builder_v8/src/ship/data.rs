@@ -1,19 +1,19 @@
+use crate::math::to_1d_i;
 use crate::math::{get_neighbors, oct_positions, to_3d_i};
-use crate::math::{to_1d, to_1d_i, to_3d};
-use crate::node::{NodeID, NodeIndex};
+use crate::node::NodeID;
 use crate::rules::{Prio, Rules};
-use crate::ship::mesh::RenderNode;
 use crate::ship::order::NodeOrderController;
 use crate::ship::possible_blocks::PossibleBlocks;
 
-use crate::rules::block::{BlockIndex, BlockNameIndex, BLOCK_INDEX_EMPTY};
+use crate::render::mesh::RenderNode;
+use crate::rules::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::SolverCacheIndex;
 use crate::ship::collapse::Collapser;
 use index_queue::IndexQueue;
-use log::{debug, info};
+use log::debug;
 use octa_force::puffin_egui::puffin;
-use octa_force::{anyhow::*, glam::*, log};
+use octa_force::{glam::*, log};
 
 pub type ChunkIndex = usize;
 pub type CacheIndex = usize;
@@ -70,7 +70,7 @@ impl ShipData {
 
         let node_order_controller = NodeOrderController::new(rules.block_names.len(), nodes_length);
 
-        let mut ship = ShipData {
+        let ship = ShipData {
             chunks: Vec::new(),
 
             blocks_per_chunk,
@@ -99,12 +99,7 @@ impl ShipData {
         ship
     }
 
-    pub fn place_block(
-        &mut self,
-        world_block_pos: IVec3,
-        new_block_name_index: BlockNameIndex,
-        rules: &Rules,
-    ) {
+    pub fn place_block(&mut self, world_block_pos: IVec3, new_block_name_index: BlockNameIndex) {
         #[cfg(debug_assertions)]
         puffin::profile_function!();
 
@@ -158,8 +153,6 @@ impl ShipData {
         &mut self,
         world_block_pos: IVec3,
     ) -> BlockNameIndex {
-        // puffin::profile_function!();
-
         let chunk_index = self.get_chunk_index_from_world_block_pos(world_block_pos);
         let in_chunk_block_index = self.get_block_index_from_world_block_pos(world_block_pos);
 
@@ -324,7 +317,7 @@ impl ShipData {
 
         // Get best Block
         let mut best_block = None;
-        let mut best_prio = Prio::ZERO;
+        let mut best_prio = Prio::Zero;
         let mut best_block_name_index = EMPTY_BLOCK_NAME_INDEX;
         let mut best_cache_index = 0;
         for (block_name_index, solver) in rules.solvers.iter().enumerate() {

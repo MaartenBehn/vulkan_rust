@@ -4,7 +4,7 @@ use octa_force::camera::Camera;
 use octa_force::egui_winit::winit::window::Window;
 use octa_force::glam::{UVec2, Vec3};
 use octa_force::gui::Gui;
-use octa_force::vulkan::ash::vk::{Extent2D, Format};
+use octa_force::vulkan::ash::vk::Format;
 use octa_force::vulkan::{CommandBuffer, Context};
 
 pub struct DebugTextRenderer {
@@ -62,9 +62,9 @@ impl DebugTextRenderer {
 
     pub(crate) fn render(
         &mut self,
-        buffer: &CommandBuffer,
-        camera: &Camera,
-        res: UVec2,
+        _: &CommandBuffer,
+        _: &Camera,
+        _: UVec2,
     ) -> octa_force::anyhow::Result<()> {
         if self.render_texts.is_empty() {
             return Ok(());

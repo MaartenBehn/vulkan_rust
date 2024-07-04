@@ -30,10 +30,10 @@ pub trait Solver: ToAny {
 
     fn debug_block_check_reset(
         &self,
-        ship: &mut ShipData,
-        block_index: usize,
-        chunk_index: usize,
-        world_block_pos: IVec3,
+        _: &mut ShipData,
+        _: usize,
+        _: usize,
+        _: IVec3,
     ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
         vec![]
     }
@@ -49,11 +49,11 @@ pub trait Solver: ToAny {
 
     fn debug_block_check(
         &self,
-        ship: &mut ShipData,
-        block_index: usize,
-        chunk_index: usize,
-        world_block_pos: IVec3,
-        blocks: &[PossibleBlocks],
+        _: &mut ShipData,
+        _: usize,
+        _: usize,
+        _: IVec3,
+        _: &[PossibleBlocks],
     ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
         vec![]
     }

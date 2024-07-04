@@ -13,11 +13,10 @@ use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::nodes::DebugNodesRenderer;
 use crate::debug::rotation_debug::RotationRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
-use crate::node::{NodeID, Voxel};
+use crate::node::NodeID;
+use crate::render::mesh_renderer::MeshRenderer;
 use crate::rules::Rules;
-use crate::ship::renderer::ShipRenderer;
 use crate::ship::ShipManager;
-use crate::voxel_loader::VoxelLoader;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
@@ -25,28 +24,28 @@ use octa_force::egui;
 use octa_force::egui::Widget;
 use octa_force::egui_winit::winit::event::WindowEvent;
 use octa_force::egui_winit::winit::window::Window;
-use octa_force::glam::{IVec2, IVec3, UVec2};
+use octa_force::glam::UVec2;
 use octa_force::gui::Gui;
-use octa_force::vulkan::ash::vk::{Extent2D, Format};
+use octa_force::vulkan::ash::vk::Format;
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::time::Duration;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum DebugMode {
-    OFF,
-    ROTATION_DEBUG,
-    NODES,
-    HULL_BASIC,
-    HULL_MULTI,
-    COLLAPSE_LOG,
+    Off,
+    RotationDebug,
+    Nodes,
+    HullBasic,
+    HullMulti,
+    CollapseLog,
 }
 
 pub const SELECTABE_DEBUG_MODES: [DebugMode; 5] = [
-    DebugMode::ROTATION_DEBUG,
-    DebugMode::NODES,
-    DebugMode::HULL_BASIC,
-    DebugMode::HULL_MULTI,
-    DebugMode::COLLAPSE_LOG,
+    DebugMode::RotationDebug,
+    DebugMode::Nodes,
+    DebugMode::HullBasic,
+    DebugMode::HullMulti,
+    DebugMode::CollapseLog,
 ];
 
 const DEBUG_MODE_CHANGE_SPEED: Duration = Duration::from_millis(500);
@@ -98,7 +97,7 @@ impl DebugController {
         let gui = Gui::new(context, format, depth_format, window, images_len)?;
 
         Ok(DebugController {
-            mode: DebugMode::OFF,
+            mode: DebugMode::Off,
             line_renderer,
             text_renderer,
             rotation_renderer,
@@ -115,7 +114,6 @@ impl DebugController {
         &mut self,
         context: &Context,
         controls: &Controls,
-        voxel_loader: &mut VoxelLoader,
         total_time: Duration,
         ship_manager: &mut ShipManager,
         image_index: usize,
@@ -126,56 +124,56 @@ impl DebugController {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::ROTATION_DEBUG {
-                DebugMode::ROTATION_DEBUG
+            self.mode = if self.mode != DebugMode::RotationDebug {
+                DebugMode::RotationDebug
             } else {
-                DebugMode::OFF
+                DebugMode::Off
             }
         }
         if controls.f3 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::NODES {
-                DebugMode::NODES
+            self.mode = if self.mode != DebugMode::Nodes {
+                DebugMode::Nodes
             } else {
-                DebugMode::OFF
+                DebugMode::Off
             }
         }
         if controls.f4 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::HULL_BASIC {
-                DebugMode::HULL_BASIC
+            self.mode = if self.mode != DebugMode::HullBasic {
+                DebugMode::HullBasic
             } else {
-                DebugMode::OFF
+                DebugMode::Off
             }
         }
         if controls.f5 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::HULL_MULTI {
-                DebugMode::HULL_MULTI
+            self.mode = if self.mode != DebugMode::HullMulti {
+                DebugMode::HullMulti
             } else {
-                DebugMode::OFF
+                DebugMode::Off
             }
         }
         if controls.f6 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
 
-            self.mode = if self.mode != DebugMode::COLLAPSE_LOG {
-                DebugMode::COLLAPSE_LOG
+            self.mode = if self.mode != DebugMode::CollapseLog {
+                DebugMode::CollapseLog
             } else {
-                DebugMode::OFF
+                DebugMode::Off
             }
         }
 
         ship_manager.renderer.update(camera, res)?;
 
         match self.mode {
-            DebugMode::OFF => {
+            DebugMode::Off => {
                 self.line_renderer.vertecies_count = 0;
             }
-            DebugMode::ROTATION_DEBUG => {
+            DebugMode::RotationDebug => {
                 self.update_rotation_debug(
                     controls,
                     image_index,
@@ -184,7 +182,7 @@ impl DebugController {
                     &ship_manager.renderer.descriptor_pool,
                 )?;
             }
-            DebugMode::NODES => {
+            DebugMode::Nodes => {
                 self.update_nodes(
                     rules,
                     controls,
@@ -194,7 +192,7 @@ impl DebugController {
                     &ship_manager.renderer.descriptor_pool,
                 )?;
             }
-            DebugMode::HULL_BASIC => {
+            DebugMode::HullBasic => {
                 self.update_hull_base(
                     rules.solvers[1].to_hull()?,
                     controls,
@@ -204,7 +202,7 @@ impl DebugController {
                     &ship_manager.renderer.descriptor_pool,
                 )?;
             }
-            DebugMode::HULL_MULTI => {
+            DebugMode::HullMulti => {
                 self.update_hull_multi(
                     rules.solvers[1].to_hull()?,
                     controls,
@@ -214,7 +212,7 @@ impl DebugController {
                     &ship_manager.renderer.descriptor_pool,
                 )?;
             }
-            DebugMode::COLLAPSE_LOG => {
+            DebugMode::CollapseLog => {
                 self.update_collapse_log_debug(
                     &mut ship_manager.ships[0].data,
                     controls,
@@ -243,9 +241,9 @@ impl DebugController {
         image_index: usize,
         res: UVec2,
         camera: &Camera,
-        renderer: &ShipRenderer,
+        renderer: &MeshRenderer,
     ) -> Result<()> {
-        if self.mode == DebugMode::OFF {
+        if self.mode == DebugMode::Off {
             return Ok(());
         }
 
@@ -253,22 +251,22 @@ impl DebugController {
         self.line_renderer.render(buffer, image_index);
 
         match self.mode {
-            DebugMode::OFF => {}
-            DebugMode::ROTATION_DEBUG => {
+            DebugMode::Off => {}
+            DebugMode::RotationDebug => {
                 self.rotation_renderer.render(buffer, renderer, image_index)
             }
-            DebugMode::NODES => {
+            DebugMode::Nodes => {
                 self.nodes_renderer.render(buffer, renderer, image_index);
             }
-            DebugMode::HULL_BASIC => {
+            DebugMode::HullBasic => {
                 self.hull_basic_renderer
                     .render(buffer, renderer, image_index);
             }
-            DebugMode::HULL_MULTI => {
+            DebugMode::HullMulti => {
                 self.hull_multi_renderer
                     .render(buffer, renderer, image_index);
             }
-            DebugMode::COLLAPSE_LOG => {
+            DebugMode::CollapseLog => {
                 self.collapse_log_renderer
                     .render(buffer, renderer, image_index);
             }
@@ -292,7 +290,7 @@ impl DebugController {
                             });
 
                         if egui::Button::new("quit").ui(ui).clicked() {
-                            self.mode = DebugMode::OFF;
+                            self.mode = DebugMode::Off;
                         };
                     });
             })?;

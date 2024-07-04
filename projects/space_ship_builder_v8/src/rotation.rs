@@ -1,9 +1,8 @@
-use log::debug;
 use std::{collections::HashMap, f32::consts::PI};
 
-use crate::math::{all_bvec3s, all_sides_dirs};
-use octa_force::anyhow::{anyhow, bail};
-use octa_force::glam::{ivec3, EulerRot, IVec3};
+use crate::math::all_bvec3s;
+use octa_force::anyhow::bail;
+use octa_force::glam::{ivec3, IVec3};
 use octa_force::{
     glam::{vec3, BVec3, Mat3, Mat4, Quat, Vec3},
     log,

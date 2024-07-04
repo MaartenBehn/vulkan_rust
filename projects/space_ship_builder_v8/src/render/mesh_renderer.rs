@@ -1,19 +1,15 @@
 use crate::node::Node;
+use crate::render::mesh::Mesh;
 use crate::rules::Rules;
-use crate::ship::builder::ShipBuilder;
-use crate::ship::mesh::ShipMesh;
-use crate::voxel_loader::VoxelLoader;
-use log::debug;
 use octa_force::glam::{IVec3, UVec2, UVec3};
 use octa_force::vulkan::ash::vk::IndexType;
 use octa_force::{
     anyhow::Result,
     camera::Camera,
-    glam::{vec2, BVec3, Mat4, Vec2, Vec3},
-    log,
+    glam::{Mat4, Vec2, Vec3},
     vulkan::{
-        ash::vk::{self, ImageUsageFlags, PushConstantRange, ShaderStageFlags},
-        gpu_allocator::{self, MemoryLocation},
+        ash::vk::{self, ImageUsageFlags, ShaderStageFlags},
+        gpu_allocator::MemoryLocation,
         push_constant::create_push_constant_range,
         Buffer, CommandBuffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout,
         GraphicsPipeline, GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, Image, ImageView,
@@ -26,7 +22,7 @@ type RenderMode = u32;
 pub const RENDER_MODE_BASE: RenderMode = 0;
 pub const RENDER_MODE_BUILD: RenderMode = 1;
 
-pub struct ShipRenderer {
+pub struct MeshRenderer {
     pub render_buffer: Buffer,
     pub node_buffer: Buffer,
     pub mat_buffer: Buffer,
@@ -70,7 +66,7 @@ pub struct PushConstant {
     data: u32,
 }
 
-impl ShipRenderer {
+impl MeshRenderer {
     pub fn new(
         context: &Context,
         images_len: u32,
@@ -226,7 +222,7 @@ impl ShipRenderer {
 
         let depth_image_view = depth_image.create_image_view(true)?;
 
-        Ok(ShipRenderer {
+        Ok(MeshRenderer {
             render_buffer,
             node_buffer,
             mat_buffer,
@@ -275,7 +271,7 @@ impl ShipRenderer {
         buffer: &CommandBuffer,
         image_index: usize,
         render_mode: RenderMode,
-        ship_mesh: &ShipMesh,
+        mesh: &Mesh,
     ) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
@@ -285,7 +281,7 @@ impl ShipRenderer {
             &[&self.static_descriptor_sets[image_index]],
         );
 
-        for chunk in ship_mesh.chunks.iter() {
+        for chunk in mesh.chunks.iter() {
             if chunk.index_count == 0 {
                 continue;
             }
@@ -304,9 +300,9 @@ impl ShipRenderer {
                 &self.pipeline_layout,
                 ShaderStageFlags::FRAGMENT | ShaderStageFlags::VERTEX,
                 &PushConstant::new(
-                    chunk.pos / ship_mesh.render_size,
-                    ship_mesh.size.x as u32,
-                    (ship_mesh.size.x / ship_mesh.render_size.x) as u32,
+                    chunk.pos / mesh.render_size,
+                    mesh.size.x as u32,
+                    (mesh.size.x / mesh.render_size.x) as u32,
                     render_mode,
                 ),
             );

@@ -1,34 +1,26 @@
+use crate::render::mesh::Mesh;
+use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
 use crate::rules::Rules;
 use crate::ship::builder::ShipBuilder;
 use crate::ship::data::ShipData;
-use crate::ship::mesh::ShipMesh;
-use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
-use crate::ship::save::ShipSave;
-use crate::voxel_loader::VoxelLoader;
+use crate::ship::profile::ShipProfile;
 use crate::INPUT_INTERVALL;
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::{IVec3, UVec2};
+use octa_force::glam::UVec2;
 use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::ash::vk::Extent2D;
-use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
+use octa_force::vulkan::{CommandBuffer, Context};
 use std::cmp::{max, min};
 use std::time::Duration;
-
-#[cfg(debug_assertions)]
-use crate::debug::DebugController;
-use crate::ship::profile::ShipProfile;
 
 pub mod builder;
 pub mod collapse;
 pub mod data;
-pub mod mesh;
 pub mod order;
 pub mod possible_blocks;
 mod profile;
-pub mod renderer;
 pub mod save;
 
 pub const CHUNK_SIZE: i32 = 32;
@@ -41,7 +33,7 @@ pub const ENABLE_SHIP_PROFILING: bool = true;
 
 pub struct ShipManager {
     pub ships: Vec<Ship>,
-    pub renderer: ShipRenderer,
+    pub renderer: MeshRenderer,
 
     pub actions_per_tick: usize,
     last_full_tick: bool,
@@ -53,7 +45,7 @@ pub struct ShipManager {
 
 pub struct Ship {
     pub data: ShipData,
-    pub mesh: ShipMesh,
+    pub mesh: Mesh,
     pub builder: Option<ShipBuilder>,
 }
 
@@ -70,7 +62,7 @@ impl ShipManager {
         // let mut ship = Ship::new(num_frames, rules);
         ship.add_builder(rules);
 
-        let renderer = ShipRenderer::new(
+        let renderer = MeshRenderer::new(
             context,
             num_frames as u32,
             color_attachment_format,
@@ -204,9 +196,9 @@ impl ShipManager {
 
 impl Ship {
     pub fn new(num_frames: usize, rules: &Rules) -> Ship {
-        let mut data = ShipData::new(CHUNK_SIZE, rules);
+        let data = ShipData::new(CHUNK_SIZE, rules);
 
-        let mesh = ShipMesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
+        let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
 
         Ship {
             data,
@@ -223,7 +215,7 @@ impl Ship {
             ShipData::new(CHUNK_SIZE, rules)
         };
 
-        let mesh = ShipMesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
+        let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
 
         Ship {
             data,

@@ -40,9 +40,16 @@ impl ShipBuilder {
                 .position(|name| name == "Hull")
                 .unwrap(),
         );
+        possible_blocks.push(
+            rules
+                .block_names
+                .iter()
+                .position(|name| name == "Stone")
+                .unwrap(),
+        );
 
         ShipBuilder {
-            block_to_build: 1,
+            block_to_build: 2,
             possible_blocks,
             distance: 3.0,
 
@@ -59,7 +66,7 @@ impl ShipBuilder {
 
         controls: &Controls,
         camera: &Camera,
-        rules: &Rules,
+        _: &Rules,
         total_time: Duration,
 
         ship_profile: &mut ShipProfile,
@@ -78,7 +85,7 @@ impl ShipBuilder {
 
         if self.last_pos != pos || self.last_block_to_build != self.block_to_build {
             if self.last_block_index.is_some() {
-                data.place_block(self.last_pos, self.last_block_index.unwrap(), rules);
+                data.place_block(self.last_pos, self.last_block_index.unwrap());
             }
 
             // Update last
@@ -88,7 +95,7 @@ impl ShipBuilder {
 
             // Place new Block
             let block_index = self.possible_blocks[self.block_to_build];
-            data.place_block(pos, block_index, rules);
+            data.place_block(pos, block_index);
 
             if ENABLE_SHIP_PROFILING {
                 ship_profile.reset();

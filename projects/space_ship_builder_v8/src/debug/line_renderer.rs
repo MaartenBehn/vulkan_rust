@@ -1,5 +1,5 @@
 use crate::debug::DebugController;
-use crate::ship::renderer::ShipRenderer;
+use crate::render::mesh_renderer::MeshRenderer;
 use octa_force::glam::{vec3, Vec3, Vec4};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
@@ -47,7 +47,7 @@ impl DebugLineRenderer {
         images_len: u32,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
-        renderer: &ShipRenderer,
+        renderer: &MeshRenderer,
     ) -> octa_force::anyhow::Result<Self> {
         let vertex_buffer = context.create_buffer(
             vk::BufferUsageFlags::VERTEX_BUFFER,

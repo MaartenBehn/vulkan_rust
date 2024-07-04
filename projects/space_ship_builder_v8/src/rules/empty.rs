@@ -1,7 +1,7 @@
 use crate::node::{Node, NodeID};
 use crate::rules::block::Block;
 use crate::rules::solver::{Solver, SolverCacheIndex};
-use crate::rules::Prio::EMPTY;
+use crate::rules::Prio::Empty;
 use crate::rules::{Prio, Rules};
 use crate::ship::data::ShipData;
 use octa_force::glam::IVec3;
@@ -21,37 +21,37 @@ impl Rules {
 impl Solver for EmptySolver {
     fn block_check_reset(
         &self,
-        ship: &mut ShipData,
-        block_index: usize,
-        chunk_index: usize,
-        world_block_pos: IVec3,
+        _: &mut ShipData,
+        _: usize,
+        _: usize,
+        _: IVec3,
     ) -> Vec<SolverCacheIndex> {
         vec![]
     }
 
     fn block_check(
         &self,
-        ship: &mut ShipData,
-        chunk_index: usize,
-        node_index: usize,
-        world_node_pos: IVec3,
-        cache: Vec<SolverCacheIndex>,
+        _: &mut ShipData,
+        _: usize,
+        _: usize,
+        _: IVec3,
+        _: Vec<SolverCacheIndex>,
     ) -> Vec<SolverCacheIndex> {
         vec![]
     }
 
     fn get_block(
         &self,
-        ship: &mut ShipData,
-        block_index: usize,
-        chunk_index: usize,
-        world_block_pos: IVec3,
-        cache: Vec<SolverCacheIndex>,
+        _: &mut ShipData,
+        _: usize,
+        _: usize,
+        _: IVec3,
+        _: Vec<SolverCacheIndex>,
     ) -> (Block, Prio, usize) {
-        (Block::from_single_node_id(NodeID::empty()), EMPTY, 0)
+        (Block::from_single_node_id(NodeID::empty()), Empty, 0)
     }
 
-    fn get_block_from_cache_index(&self, index: usize) -> Block {
+    fn get_block_from_cache_index(&self, _: usize) -> Block {
         Block::from_single_node_id(NodeID::empty())
     }
 }

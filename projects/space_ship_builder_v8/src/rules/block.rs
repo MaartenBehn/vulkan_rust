@@ -1,16 +1,14 @@
-use crate::math::{oct_positions, to_1d, to_1d_i};
-use crate::node::{Node, NodeID, Voxel, NODE_SIZE};
+use crate::math::{oct_positions, to_1d_i};
+use crate::node::NodeID;
 use crate::rotation::Rot;
 use crate::rules::Rules;
-use octa_force::anyhow::bail;
-use octa_force::glam::{BVec3, EulerRot, IVec3, Mat3, Mat4, Quat, Vec3};
-use std::mem;
-use std::ops::Mul;
+use octa_force::glam::{IVec3, Mat4};
 
 pub type BlockNameIndex = usize;
 pub const BLOCK_INDEX_EMPTY: BlockNameIndex = 0;
 
 pub type BlockIndex = usize;
+pub const VOXEL_PER_BLOCK_SIDE: i32 = 8;
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Block {

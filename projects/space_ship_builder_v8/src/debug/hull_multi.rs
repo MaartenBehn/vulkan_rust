@@ -1,15 +1,14 @@
-use crate::debug::line_renderer::DebugLine;
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
 use crate::node::NodeID;
+use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
+use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
 use crate::rules::block::Block;
 use crate::rules::hull::HullSolver;
-use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
-use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
-use octa_force::glam::{ivec3, vec3, vec4, IVec3, Mat4, Vec3};
+use octa_force::glam::{vec4, IVec3};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::time::{Duration, Instant};
 
@@ -18,7 +17,7 @@ const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 const REQCYCLE_INTERVAL: Duration = Duration::from_millis(1000);
 
 pub struct DebugHullMultiRenderer {
-    mesh: ShipMesh,
+    mesh: Mesh,
     index: usize,
     req_index: usize,
     last_input: Instant,
@@ -29,7 +28,7 @@ impl DebugHullMultiRenderer {
     pub fn new(image_len: usize) -> Self {
         let size = IVec3::ONE * HULL_MULTI_DEBUG_SIZE;
         DebugHullMultiRenderer {
-            mesh: ShipMesh::new(image_len, size, size),
+            mesh: Mesh::new(image_len, size, size),
             index: 0,
             req_index: 0,
             last_input: Instant::now(),
@@ -107,7 +106,7 @@ impl DebugHullMultiRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
+    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &MeshRenderer, image_index: usize) {
         renderer.render(buffer, image_index, RENDER_MODE_BASE, &self.mesh)
     }
 }

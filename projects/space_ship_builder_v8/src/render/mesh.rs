@@ -1,7 +1,6 @@
 use crate::ship::data::{ShipData, ShipDataChunk};
-use crate::ship::renderer::Vertex;
 use crate::ship::CHUNK_SIZE;
-use block_mesh::ndshape::{ConstShape3u32, Shape};
+use block_mesh::ndshape::ConstShape3u32;
 use block_mesh::{
     greedy_quads, Axis, AxisPermutation, GreedyQuadsBuffer, MergeVoxel, OrientedBlockFace,
     QuadCoordinateConfig, Voxel, VoxelVisibility,
@@ -26,13 +25,14 @@ const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
 use crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
 #[cfg(debug_assertions)]
 use crate::debug::hull_multi::HULL_MULTI_DEBUG_SIZE;
+use crate::render::mesh_renderer::Vertex;
 
 #[cfg(debug_assertions)]
 const HULL_BASE_SIZE_PLUS_PADDING: u32 = (HULL_BASE_DEBUG_SIZE + 2) as u32;
 #[cfg(debug_assertions)]
 const HULL_MULTI_SIZE_PLUS_PADDING: u32 = (HULL_MULTI_DEBUG_SIZE + 2) as u32;
 
-pub struct ShipMesh {
+pub struct Mesh {
     pub chunks: Vec<MeshChunk>,
     pub to_drop_buffers: Vec<Vec<Buffer>>,
     pub size: IVec3,
@@ -55,14 +55,14 @@ pub struct MeshChunk {
 #[derive(Copy, Clone, Default, Debug)]
 pub struct RenderNode(pub bool);
 
-impl ShipMesh {
-    pub fn new(images_len: usize, size: IVec3, render_size: IVec3) -> ShipMesh {
+impl Mesh {
+    pub fn new(images_len: usize, size: IVec3, render_size: IVec3) -> Mesh {
         let mut to_drop_buffers = Vec::new();
         for _ in 0..images_len {
             to_drop_buffers.push(vec![])
         }
 
-        ShipMesh {
+        Mesh {
             chunks: Vec::new(),
             to_drop_buffers,
             size,
@@ -71,12 +71,12 @@ impl ShipMesh {
     }
 
     pub fn new_from_mesh(
-        other_mesh: &ShipMesh,
+        other_mesh: &Mesh,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
-    ) -> Result<ShipMesh> {
-        let mut new_mesh = ShipMesh::new(
+    ) -> Result<Mesh> {
+        let mut new_mesh = Mesh::new(
             other_mesh.to_drop_buffers.len(),
             other_mesh.size,
             other_mesh.render_size,
@@ -131,7 +131,7 @@ impl ShipMesh {
 
     pub fn update_from_mesh(
         &mut self,
-        other_mesh: &ShipMesh,
+        other_mesh: &Mesh,
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,

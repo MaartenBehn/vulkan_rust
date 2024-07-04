@@ -1,25 +1,21 @@
 use crate::debug::DebugController;
-use crate::math::{oct_positions, to_1d_i};
-use crate::node::NodeID;
+use crate::math::oct_positions;
+use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
+use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
 use crate::rules::block::BlockNameIndex;
-use crate::rules::hull::HullSolver;
 use crate::rules::solver::Solver;
 use crate::rules::Rules;
 use crate::ship::collapse::Collapser;
 use crate::ship::data::ShipData;
-use crate::ship::mesh::{MeshChunk, RenderNode, ShipMesh};
 use crate::ship::possible_blocks::PossibleBlocks;
-use crate::ship::renderer::{ShipRenderer, RENDER_MODE_BASE};
-use crate::ship::ShipManager;
 use index_queue::IndexQueue;
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::{ivec3, ivec4, vec3, vec4, IVec3, Vec3};
+use octa_force::glam::{ivec3, vec3, vec4, IVec3, Vec3};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::iter;
-use std::ptr::slice_from_raw_parts_mut;
 use std::time::{Duration, Instant};
 
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
@@ -40,7 +36,7 @@ pub struct LogEntry {
 }
 
 pub struct CollapseLogRenderer {
-    mesh: ShipMesh,
+    mesh: Mesh,
 
     last_blocks_names: Vec<BlockNameIndex>,
     block_log: Vec<LogEntry>,
@@ -52,7 +48,6 @@ pub struct CollapseLogRenderer {
     cache_index: usize,
     last_index_update: Instant,
 
-    build_hull: bool,
     pos: IVec3,
     preview_index: usize,
 
@@ -62,7 +57,7 @@ pub struct CollapseLogRenderer {
 impl CollapseLogRenderer {
     pub fn new(image_len: usize, ship_data: &ShipData) -> Self {
         CollapseLogRenderer {
-            mesh: ShipMesh::new(
+            mesh: Mesh::new(
                 image_len,
                 ship_data.nodes_per_chunk,
                 ship_data.nodes_per_chunk,
@@ -76,7 +71,6 @@ impl CollapseLogRenderer {
             cache_index: 0,
             last_index_update: Instant::now(),
 
-            build_hull: true,
             pos: IVec3::ZERO,
             preview_index: 0,
 
@@ -148,7 +142,7 @@ impl CollapseLogRenderer {
             let new_block_name_index = if block_name_index == 0 { 1 } else { 0 };
 
             info!("Place {}", new_block_name_index);
-            ship_data.place_block(self.pos, new_block_name_index, rules);
+            ship_data.place_block(self.pos, new_block_name_index);
         }
 
         // Rest
@@ -298,7 +292,7 @@ impl CollapseLogRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &ShipRenderer, image_index: usize) {
+    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &MeshRenderer, image_index: usize) {
         renderer.render(buffer, image_index, RENDER_MODE_BASE, &self.mesh)
     }
 }

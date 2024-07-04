@@ -1,27 +1,26 @@
-use crate::math::{
-    all_sides_dirs, get_all_poses, get_neighbors, get_neighbors_without_zero, oct_positions, to_1d,
-};
-use crate::node::{NodeID, NODE_VOXEL_LENGTH, VOXEL_EMPTY};
+use crate::math::get_neighbors_without_zero;
+use crate::node::NodeID;
 use crate::rotation::Rot;
+use crate::rules::basic_blocks::BasicBlocks;
 use crate::rules::block::Block;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
+use crate::rules::req_tree::BroadReqTree;
 use crate::rules::solver::{Solver, SolverCacheIndex};
-use crate::rules::Prio::{HULL_BASE, HULL_MULTI};
-use crate::rules::ReqTree::BroadReqTree;
+use crate::rules::Prio::{HullBase, HullMulti};
 use crate::rules::{Prio, Rules};
 use crate::ship::data::{CacheIndex, ShipData};
 use crate::ship::possible_blocks::PossibleBlocks;
 use crate::voxel_loader::VoxelLoader;
-use log::{debug, error, info, set_boxed_logger, warn};
+use log::{debug, info};
 use octa_force::anyhow::bail;
-use octa_force::glam::{uvec3, UVec3};
 use octa_force::puffin_egui::puffin;
 use octa_force::{
     anyhow::Result,
-    glam::{ivec3, BVec3, IVec3, Mat3, Mat4},
+    glam::{IVec3, Mat4},
+    run,
 };
-use std::ops::Deref;
 
+#[allow(unused)]
 const HULL_CACHE_NONE: CacheIndex = CacheIndex::MAX;
 const HULL_BLOCK_NAME: &str = "Hull";
 const HULL_BASE_NAME_PART: &str = "Hull-Base";
@@ -33,12 +32,11 @@ const FOLDER_MODEL_IDENTIFIER: &str = "F";
 
 pub struct HullSolver {
     pub block_name_index: usize,
-    pub basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
+
+    pub basic_blocks: BasicBlocks,
+
     pub multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)>,
     pub multi_broad_req_tree: BroadReqTree,
-
-    #[cfg(debug_assertions)]
-    pub debug_basic_blocks: Vec<(Vec<IVec3>, Block, Prio)>,
 
     #[cfg(debug_assertions)]
     pub debug_multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)>,
@@ -54,15 +52,16 @@ impl Rules {
         let hull_block_name_index = self.block_names.len();
         self.block_names.push(HULL_BLOCK_NAME.to_owned());
 
+        let basic_blocks = BasicBlocks::new(self, voxel_loader, HULL_BASE_NAME_PART, true)?;
         let mut hull_solver = HullSolver {
             block_name_index: hull_block_name_index,
-            basic_blocks: vec![],
+
+            basic_blocks,
+
             multi_blocks: vec![],
 
             multi_broad_req_tree: BroadReqTree::default(),
             #[cfg(debug_assertions)]
-            debug_basic_blocks: vec![],
-
             #[cfg(debug_assertions)]
             debug_multi_blocks: vec![],
 
@@ -70,7 +69,6 @@ impl Rules {
             use_req_tree: true,
         };
 
-        hull_solver.add_base_blocks(self, voxel_loader)?;
         hull_solver.add_multi_blocks(self, voxel_loader)?;
 
         self.solvers.push(Box::new(hull_solver));
@@ -84,15 +82,19 @@ impl Solver for HullSolver {
     fn block_check_reset(
         &self,
         ship: &mut ShipData,
-        block_index: usize,
-        chunk_index: usize,
+        _: usize,
+        _: usize,
         world_block_pos: IVec3,
     ) -> Vec<SolverCacheIndex> {
         #[cfg(debug_assertions)]
         puffin::profile_function!();
 
         let mut cache = vec![];
-        cache.append(&mut self.get_basic_blocks(ship, world_block_pos));
+        cache.append(&mut self.basic_blocks.get_possible_blocks(
+            ship,
+            world_block_pos,
+            self.block_name_index,
+        ));
 
         #[cfg(debug_assertions)]
         {
@@ -111,8 +113,8 @@ impl Solver for HullSolver {
     fn debug_block_check_reset(
         &self,
         ship: &mut ShipData,
-        block_index: usize,
-        chunk_index: usize,
+        _: usize,
+        _: usize,
         world_block_pos: IVec3,
     ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
         self.get_multi_blocks_reset_debug(ship, world_block_pos)
@@ -121,14 +123,14 @@ impl Solver for HullSolver {
     fn block_check(
         &self,
         ship: &mut ShipData,
-        chunk_index: usize,
-        node_index: usize,
+        _: usize,
+        _: usize,
         world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> Vec<SolverCacheIndex> {
         let mut new_cache = vec![];
         for index in cache {
-            if index < self.basic_blocks.len() {
+            if self.basic_blocks.has_index(index) {
                 new_cache.push(index);
             } else {
                 if self.keep_multi_block(ship, world_block_pos, index) {
@@ -144,7 +146,7 @@ impl Solver for HullSolver {
         &self,
         ship: &mut ShipData,
         block_index: usize,
-        chunk_index: usize,
+        _: usize,
         world_block_pos: IVec3,
         blocks: &[PossibleBlocks],
     ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
@@ -154,7 +156,7 @@ impl Solver for HullSolver {
             .get_cache(self.block_name_index)
             .to_owned();
         for index in cache {
-            if index < self.basic_blocks.len() {
+            if self.basic_blocks.has_index(index) {
                 // new_cache.push((index, vec![]));
             } else {
                 let req_result = self.keep_multi_block_debug(ship, world_block_pos, index, blocks);
@@ -167,19 +169,19 @@ impl Solver for HullSolver {
 
     fn get_block(
         &self,
-        ship: &mut ShipData,
-        block_index: usize,
-        chunk_index: usize,
-        world_block_pos: IVec3,
+        _: &mut ShipData,
+        _: usize,
+        _: usize,
+        _: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> (Block, Prio, usize) {
         let mut best_block = Block::from_single_node_id(NodeID::empty());
-        let mut best_prio = Prio::EMPTY;
+        let mut best_prio = Prio::Empty;
         let mut best_index = 0;
 
         for index in cache {
-            if index < self.basic_blocks.len() {
-                let (_, block, prio) = &self.basic_blocks[index];
+            if self.basic_blocks.has_index(index) {
+                let (_, block, prio) = &self.basic_blocks.get_block(index);
                 if best_prio < *prio {
                     best_block = *block;
                     best_prio = *prio;
@@ -199,8 +201,8 @@ impl Solver for HullSolver {
     }
 
     fn get_block_from_cache_index(&self, index: usize) -> Block {
-        return if index < self.basic_blocks.len() {
-            self.basic_blocks[index].1
+        return if self.basic_blocks.has_index(index) {
+            self.basic_blocks.get_block(index).1
         } else {
             self.multi_blocks[index - self.basic_blocks.len()].1
         };
@@ -208,26 +210,6 @@ impl Solver for HullSolver {
 }
 
 impl HullSolver {
-    fn add_base_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
-        let hull_reqs = vec![(vec![], HULL_BASE)];
-
-        let mut base_blocks = vec![];
-        for (i, (req, prio)) in hull_reqs.into_iter().enumerate() {
-            let block = rules
-                .load_block_from_node_folder(&format!("{HULL_BASE_NAME_PART}-{i}"), voxel_loader)?;
-
-            base_blocks.push((req, block, prio));
-        }
-
-        let mut rotated_base_blocks = permutate_base_blocks(&base_blocks, rules);
-        self.basic_blocks.append(&mut rotated_base_blocks);
-
-        #[cfg(debug_assertions)]
-        self.debug_basic_blocks.append(&mut base_blocks);
-
-        Ok(())
-    }
-
     fn add_multi_blocks(&mut self, rules: &mut Rules, voxel_loader: &VoxelLoader) -> Result<()> {
         let mut multi_blocks: Vec<(Vec<(IVec3, Vec<Block>)>, Block, Prio)> = vec![];
 
@@ -257,7 +239,7 @@ impl HullSolver {
 
                 if name_parts[0] == HULL_MULTI_BLOCK {
                     let prio = name_parts[2].parse::<usize>()?;
-                    blocks.push((block, pos, Prio::HULL_MULTI(prio)))
+                    blocks.push((block, pos, Prio::HullMulti(prio)))
                 } else if name_parts[0] == HULL_MULTI_REQ {
                     req_blocks.push((block, pos))
                 } else {
@@ -269,7 +251,7 @@ impl HullSolver {
                 let mut empty_reqs = vec![];
                 let mut add = false;
 
-                if prio == HULL_MULTI(22) {
+                if prio == HullMulti(22) {
                     debug!("Break")
                 }
 
@@ -348,48 +330,6 @@ impl HullSolver {
         self.multi_broad_req_tree = broad_req_tree;
 
         Ok(())
-    }
-
-    fn get_basic_blocks(
-        &self,
-        ship: &mut ShipData,
-        world_block_pos: IVec3,
-    ) -> Vec<SolverCacheIndex> {
-        #[cfg(debug_assertions)]
-        puffin::profile_function!();
-
-        let block_name_index = ship.get_block_name_from_world_block_pos(world_block_pos);
-        if block_name_index != self.block_name_index {
-            return vec![];
-        }
-
-        let mut best_block_index = None;
-        let mut best_prio = Prio::ZERO;
-
-        for (i, (reqs, _, prio)) in self.basic_blocks.iter().enumerate() {
-            let mut pass = true;
-            for offset in reqs {
-                let req_world_block_pos = world_block_pos + *offset;
-                let block_name_index =
-                    ship.get_block_name_from_world_block_pos(req_world_block_pos);
-
-                if block_name_index != self.block_name_index {
-                    pass = false;
-                    break;
-                }
-            }
-
-            if pass && best_prio < *prio {
-                best_block_index = Some(i);
-                best_prio = *prio;
-            }
-        }
-
-        return if best_block_index.is_some() {
-            vec![best_block_index.unwrap()]
-        } else {
-            vec![]
-        };
     }
 
     fn get_multi_blocks_reset(
@@ -514,6 +454,8 @@ impl HullSolver {
                 }
 
                 node_index = node.negative_child;
+            } else {
+                return vec![];
             }
         }
     }
@@ -599,38 +541,6 @@ impl HullSolver {
 
         reqs_result
     }
-}
-
-fn permutate_base_blocks(
-    blocks: &[(Vec<IVec3>, Block, Prio)],
-    rules: &mut Rules,
-) -> Vec<(Vec<IVec3>, Block, Prio)> {
-    let mut rotated_blocks = vec![];
-    for (reqs, block, prio) in blocks.iter() {
-        for rot in Rot::IDENTITY.get_all_permutations() {
-            let mat: Mat4 = rot.into();
-            let rotated_reqs: Vec<_> = reqs
-                .iter()
-                .map(|req| mat.transform_vector3((*req).as_vec3()).round().as_ivec3())
-                .collect();
-
-            let rotated_block = block.rotate(rot, rules);
-
-            let mut found = false;
-            for (_, test_block, _) in rotated_blocks.iter() {
-                if *test_block == rotated_block {
-                    found = true;
-                    break;
-                }
-            }
-
-            if !found {
-                rotated_blocks.push((rotated_reqs, rotated_block, *prio))
-            }
-        }
-    }
-
-    rotated_blocks
 }
 
 fn permutate_multi_blocks(
