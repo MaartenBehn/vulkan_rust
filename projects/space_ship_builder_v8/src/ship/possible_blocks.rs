@@ -1,6 +1,7 @@
 use crate::rules::block::BlockNameIndex;
 use crate::rules::solver::SolverCacheIndex;
 use bitcode::__private::invalid_enum_variant;
+use octa_force::puffin_egui::puffin;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PossibleBlocks {
@@ -9,6 +10,9 @@ pub struct PossibleBlocks {
 
 impl PossibleBlocks {
     fn get_index(&mut self, block_name_index: BlockNameIndex) -> usize {
+        #[cfg(debug_assertions)]
+        puffin::profile_function!();
+
         let res = self
             .blocks
             .binary_search_by(|(test_index, _)| test_index.cmp(&block_name_index));
@@ -22,6 +26,9 @@ impl PossibleBlocks {
     }
 
     pub fn set_cache(&mut self, block_name_index: BlockNameIndex, cache: &[SolverCacheIndex]) {
+        #[cfg(debug_assertions)]
+        puffin::profile_function!();
+
         let index = self.get_index(block_name_index);
 
         self.blocks[index].1.clear();

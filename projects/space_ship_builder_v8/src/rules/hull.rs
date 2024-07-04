@@ -67,7 +67,7 @@ impl Rules {
             debug_multi_blocks: vec![],
 
             #[cfg(debug_assertions)]
-            use_req_tree: false,
+            use_req_tree: true,
         };
 
         hull_solver.add_base_blocks(self, voxel_loader)?;
@@ -94,11 +94,16 @@ impl Solver for HullSolver {
         let mut cache = vec![];
         cache.append(&mut self.get_basic_blocks(ship, world_block_pos));
 
-        if cfg!(debug_assertions) && self.use_req_tree {
-            cache.append(&mut self.get_multi_blocks_reset_with_req_tree(ship, world_block_pos));
-        } else {
-            cache.append(&mut self.get_multi_blocks_reset(ship, world_block_pos));
+        #[cfg(debug_assertions)]
+        {
+            if self.use_req_tree {
+                cache.append(&mut self.get_multi_blocks_reset_with_req_tree(ship, world_block_pos));
+            } else {
+                cache.append(&mut self.get_multi_blocks_reset(ship, world_block_pos));
+            }
         }
+        #[cfg(not(debug_assertions))]
+        cache.append(&mut self.get_multi_blocks_reset_with_req_tree(ship, world_block_pos));
 
         cache
     }
@@ -335,7 +340,7 @@ impl HullSolver {
 
         info!("Added {} Hull Multi Blocks", self.multi_blocks.len());
 
-        let broad_req_tree = BroadReqTree::new(&self.multi_blocks);
+        let broad_req_tree = BroadReqTree::new(&self.multi_blocks, self.basic_blocks.len());
         self.multi_broad_req_tree = broad_req_tree;
 
         Ok(())

@@ -30,7 +30,7 @@ struct BuildNode {
 }
 
 impl BroadReqTree {
-    pub fn new(req_list: &[(Vec<(IVec3, Vec<Block>)>, Block, Prio)]) -> Self {
+    pub fn new(req_list: &[(Vec<(IVec3, Vec<Block>)>, Block, Prio)], index_offset: usize) -> Self {
         let offset_usage = Self::get_offset_usage(req_list);
 
         let mut build_nodes = vec![BuildNode {
@@ -148,12 +148,18 @@ impl BroadReqTree {
                 if negative_build_node.ids.is_empty() {
                     nodes[current_node].negative_child = 0;
                 } else {
-                    let leaf_index = leafs.iter().position(|l| **l == negative_build_node.ids);
+                    let new_leaf: Vec<usize> = negative_build_node
+                        .ids
+                        .iter()
+                        .map(|i| i + index_offset)
+                        .collect();
+
+                    let leaf_index = leafs.iter().position(|l| **l == new_leaf);
                     if leaf_index.is_some() {
                         nodes[current_node].negative_child = leaf_index.unwrap();
                     } else {
                         nodes[current_node].negative_child = leafs.len();
-                        leafs.push(negative_build_node.ids.to_owned());
+                        leafs.push(new_leaf);
                     }
                 }
             } else {
@@ -171,12 +177,18 @@ impl BroadReqTree {
                 if positive_build_node.ids.is_empty() {
                     nodes[current_node].positive_child = 0;
                 } else {
-                    let leaf_index = leafs.iter().position(|l| **l == positive_build_node.ids);
+                    let new_leaf: Vec<usize> = positive_build_node
+                        .ids
+                        .iter()
+                        .map(|i| i + index_offset)
+                        .collect();
+
+                    let leaf_index = leafs.iter().position(|l| **l == new_leaf);
                     if leaf_index.is_some() {
                         nodes[current_node].positive_child = leaf_index.unwrap();
                     } else {
                         nodes[current_node].positive_child = leafs.len();
-                        leafs.push(positive_build_node.ids.to_owned());
+                        leafs.push(new_leaf);
                     }
                 }
             } else {

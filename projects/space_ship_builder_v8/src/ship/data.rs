@@ -166,6 +166,7 @@ impl ShipData {
     }
 
     pub fn tick(&mut self, actions_per_tick: usize, rules: &Rules) -> (bool, Vec<ChunkIndex>) {
+        #[cfg(debug_assertions)]
         puffin::profile_function!();
 
         let mut changed_chunks = Vec::new();
@@ -190,6 +191,7 @@ impl ShipData {
     }
 
     fn reset(&mut self, rules: &Rules) {
+        #[cfg(debug_assertions)]
         puffin::profile_function!();
 
         let order = self.to_reset.pop_front().unwrap();
@@ -206,12 +208,33 @@ impl ShipData {
         );
         let old_cache = self.chunks[chunk_index].blocks[block_index].get_cache(block_name_index);
         if new_cache != old_cache {
+            #[cfg(debug_assertions)]
+            puffin::profile_scope!("Cache_was_changed");
+
             self.chunks[chunk_index].blocks[block_index].set_cache(block_name_index, &new_cache);
 
-            self.to_propergate.push_back(order);
-            self.was_reset.push_back(order);
+            if cfg!(debug_assertions) {
+                {
+                    #[cfg(debug_assertions)]
+                    puffin::profile_scope!("Push_propergate_order");
+                    self.to_propergate.push_back(order);
+                }
+                {
+                    #[cfg(debug_assertions)]
+                    puffin::profile_scope!("Push_was_reset_order");
+
+                    // Takes sometimes very long
+                    self.was_reset.push_back(order);
+                }
+            } else {
+                self.to_propergate.push_back(order);
+                self.was_reset.push_back(order);
+            }
 
             for offset in get_neighbors() {
+                #[cfg(debug_assertions)]
+                puffin::profile_scope!("Push_Neighbor_Rest");
+
                 let neighbor_world_pos = world_block_pos + offset;
                 let neighbor_chunk_index =
                     self.get_chunk_index_from_world_block_pos(neighbor_world_pos);
@@ -231,6 +254,7 @@ impl ShipData {
     }
 
     fn propergate(&mut self, rules: &Rules) {
+        #[cfg(debug_assertions)]
         puffin::profile_function!();
 
         let order = self.to_propergate.pop_front().unwrap();
@@ -278,6 +302,7 @@ impl ShipData {
     }
 
     fn collapse(&mut self, rules: &Rules) -> ChunkIndex {
+        #[cfg(debug_assertions)]
         puffin::profile_function!();
 
         let order = self.collapser.pop_order();
