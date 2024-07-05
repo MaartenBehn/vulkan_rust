@@ -127,7 +127,7 @@ impl DebugController {
         let mut render_nodes = vec![RenderNode(false); (size + 2).element_product() as usize];
         let middle_pos = size / 2;
 
-        let (reqs, block) =
+        let (reqs, block, _) =
             &hull_solver.basic_blocks.debug_basic_blocks[self.hull_basic_renderer.index];
         for (j, offset) in oct_positions().iter().enumerate() {
             let node_pos = middle_pos + *offset;

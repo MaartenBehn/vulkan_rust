@@ -1,7 +1,7 @@
+use crate::math::rotation::Rot;
 use crate::math::{oct_positions, to_1d_i};
-use crate::node::NodeID;
-use crate::rotation::Rot;
 use crate::rules::Rules;
+use crate::world::data::node::NodeID;
 use octa_force::glam::{IVec3, Mat4};
 
 pub type BlockNameIndex = usize;

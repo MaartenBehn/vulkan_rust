@@ -1,15 +1,14 @@
 use crate::math::get_neighbors_without_zero;
-use crate::node::{NodeID, NODE_INDEX_EMPTY};
-use crate::rotation::Rot;
-use crate::rules::block::{Block, BlockIndex, BlockNameIndex};
+use crate::math::rotation::Rot;
 use crate::rules::req_tree::BroadReqTree;
 use crate::rules::solver::SolverCacheIndex;
 use crate::rules::{
     Prio, Rules, BLOCK_MODEL_IDENTIFIER, BLOCK_TYPE_IDENTIFIER, FOLDER_MODEL_IDENTIFIER,
     REQ_TYPE_IDENTIFIER,
 };
-use crate::ship::data::ShipData;
-use crate::voxel_loader::VoxelLoader;
+use crate::world::block_object::BlockObject;
+use crate::world::data::block::{Block, BlockIndex, BlockNameIndex};
+use crate::world::data::voxel_loader::VoxelLoader;
 use log::{debug, info};
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::{IVec3, Mat4};
@@ -79,14 +78,15 @@ impl BasicBlocks {
 
     pub fn get_possible_blocks(
         &self,
-        ship: &mut ShipData,
+        block_object: &mut BlockObject,
         world_block_pos: IVec3,
         block_name_index: BlockIndex,
     ) -> Vec<SolverCacheIndex> {
         #[cfg(debug_assertions)]
         puffin::profile_function!();
 
-        let test_block_name_index = ship.get_block_name_from_world_block_pos(world_block_pos);
+        let test_block_name_index =
+            block_object.get_block_name_from_world_block_pos(world_block_pos);
         if test_block_name_index != block_name_index {
             return vec![];
         }
@@ -96,7 +96,7 @@ impl BasicBlocks {
             for (offset, block_name_index) in reqs {
                 let req_world_block_pos = world_block_pos + *offset;
                 let test_block_name_index =
-                    ship.get_block_name_from_world_block_pos(req_world_block_pos);
+                    block_object.get_block_name_from_world_block_pos(req_world_block_pos);
 
                 if test_block_name_index != *block_name_index {
                     pass = false;

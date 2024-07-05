@@ -1,5 +1,4 @@
-use crate::ship::data::{ShipData, ShipDataChunk};
-use crate::ship::CHUNK_SIZE;
+use crate::world::ship::CHUNK_SIZE;
 use block_mesh::ndshape::ConstShape3u32;
 use block_mesh::{
     greedy_quads, Axis, AxisPermutation, GreedyQuadsBuffer, MergeVoxel, OrientedBlockFace,
@@ -26,6 +25,7 @@ use crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
 #[cfg(debug_assertions)]
 use crate::debug::hull_multi::HULL_MULTI_DEBUG_SIZE;
 use crate::render::mesh_renderer::Vertex;
+use crate::world::block_object::{BlockChunk, BlockObject};
 
 #[cfg(debug_assertions)]
 const HULL_BASE_SIZE_PLUS_PADDING: u32 = (HULL_BASE_DEBUG_SIZE + 2) as u32;
@@ -89,7 +89,7 @@ impl Mesh {
 
     pub fn update(
         &mut self,
-        ship: &ShipData,
+        block_object: &BlockObject,
         changed_chunks: Vec<usize>,
         image_index: usize,
         context: &Context,
@@ -100,7 +100,7 @@ impl Mesh {
         self.to_drop_buffers[image_index].clear();
 
         for chunk_index in changed_chunks.iter() {
-            let chunk = &ship.chunks[*chunk_index];
+            let chunk = &block_object.chunks[*chunk_index];
 
             let mesh_chunk_index = self.chunks.iter().position(|c| c.pos == chunk.pos);
             if mesh_chunk_index.is_some() {
@@ -170,7 +170,7 @@ impl MeshChunk {
         pos: IVec3,
         size: IVec3,
         render_size: IVec3,
-        ship_chunk: &ShipDataChunk,
+        ship_chunk: &BlockChunk,
         images_len: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -301,7 +301,7 @@ impl MeshChunk {
     pub fn update(
         &mut self,
 
-        ship_chunk: &ShipDataChunk,
+        ship_chunk: &BlockChunk,
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {

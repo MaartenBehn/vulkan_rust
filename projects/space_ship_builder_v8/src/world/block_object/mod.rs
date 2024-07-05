@@ -1,26 +1,30 @@
 use crate::math::to_1d_i;
 use crate::math::{get_neighbors, oct_positions, to_3d_i};
-use crate::node::NodeID;
 use crate::rules::{Prio, Rules};
-use crate::ship::order::NodeOrderController;
-use crate::ship::possible_blocks::PossibleBlocks;
+use order::NodeOrderController;
+use possible_blocks::PossibleBlocks;
 
 use crate::render::mesh::RenderNode;
-use crate::rules::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::SolverCacheIndex;
-use crate::ship::collapse::Collapser;
+use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
+use crate::world::data::node::NodeID;
+use collapse::Collapser;
 use index_queue::IndexQueue;
 use log::debug;
 use octa_force::puffin_egui::puffin;
 use octa_force::{glam::*, log};
 
+pub mod collapse;
+pub mod order;
+pub mod possible_blocks;
+
 pub type ChunkIndex = usize;
 pub type CacheIndex = usize;
 
 #[derive(Clone)]
-pub struct ShipData {
-    pub chunks: Vec<ShipDataChunk>,
+pub struct BlockObject {
+    pub chunks: Vec<BlockChunk>,
 
     pub blocks_per_chunk: IVec3,
     pub block_length: usize,
@@ -45,7 +49,7 @@ pub struct ShipData {
 }
 
 #[derive(Clone)]
-pub struct ShipDataChunk {
+pub struct BlockChunk {
     pub pos: IVec3,
     pub block_names: Vec<BlockNameIndex>,
     pub blocks: Vec<PossibleBlocks>,
@@ -53,16 +57,16 @@ pub struct ShipDataChunk {
     pub render_nodes: Vec<RenderNode>,
 }
 
-impl ShipData {
-    pub fn new(node_size: i32, rules: &Rules) -> ShipData {
-        let block_size = node_size / 2;
+impl BlockObject {
+    pub fn new(nodes_per_chunk_side: i32, rules: &Rules) -> BlockObject {
+        let block_size = nodes_per_chunk_side / 2;
         let blocks_per_chunk = IVec3::ONE * block_size;
         let block_length = blocks_per_chunk.element_product() as usize;
 
-        let nodes_per_chunk = IVec3::ONE * node_size;
+        let nodes_per_chunk = IVec3::ONE * nodes_per_chunk_side;
         let nodes_length = nodes_per_chunk.element_product() as usize;
 
-        let nodes_per_chunk_with_padding = IVec3::ONE * (node_size + 2);
+        let nodes_per_chunk_with_padding = IVec3::ONE * (nodes_per_chunk_side + 2);
         let nodes_length_with_padding = nodes_per_chunk_with_padding.element_product() as usize;
 
         let chunk_pos_mask = IVec3::ONE * !(block_size - 1);
@@ -70,7 +74,7 @@ impl ShipData {
 
         let node_order_controller = NodeOrderController::new(rules.block_names.len(), nodes_length);
 
-        let ship = ShipData {
+        let ship = BlockObject {
             chunks: Vec::new(),
 
             blocks_per_chunk,
@@ -410,7 +414,7 @@ impl ShipData {
     }
 
     pub fn add_chunk(&mut self, chunk_pos: IVec3) {
-        let chunk = ShipDataChunk {
+        let chunk = BlockChunk {
             pos: chunk_pos,
             block_names: vec![BLOCK_INDEX_EMPTY; self.block_length],
             blocks: vec![PossibleBlocks::default(); self.block_length],

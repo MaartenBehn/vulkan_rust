@@ -1,8 +1,8 @@
-use crate::rules::block::Block;
 use crate::rules::hull::HullSolver;
 use crate::rules::Prio;
-use crate::ship::data::ShipData;
-use crate::ship::possible_blocks::PossibleBlocks;
+use crate::world::block_object::possible_blocks::PossibleBlocks;
+use crate::world::block_object::BlockObject;
+use crate::world::data::block::Block;
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::IVec3;
 use std::any::Any;
@@ -22,7 +22,7 @@ impl<T: 'static> ToAny for T {
 pub trait Solver: ToAny {
     fn block_check_reset(
         &self,
-        ship: &mut ShipData,
+        block_object: &mut BlockObject,
         block_index: usize,
         chunk_index: usize,
         world_block_pos: IVec3,
@@ -30,7 +30,7 @@ pub trait Solver: ToAny {
 
     fn debug_block_check_reset(
         &self,
-        _: &mut ShipData,
+        _: &mut BlockObject,
         _: usize,
         _: usize,
         _: IVec3,
@@ -40,7 +40,7 @@ pub trait Solver: ToAny {
 
     fn block_check(
         &self,
-        ship: &mut ShipData,
+        ship: &mut BlockObject,
         block_index: usize,
         chunk_index: usize,
         world_block_pos: IVec3,
@@ -49,7 +49,7 @@ pub trait Solver: ToAny {
 
     fn debug_block_check(
         &self,
-        _: &mut ShipData,
+        _: &mut BlockObject,
         _: usize,
         _: usize,
         _: IVec3,
@@ -60,7 +60,7 @@ pub trait Solver: ToAny {
 
     fn get_block(
         &self,
-        ship: &mut ShipData,
+        ship: &mut BlockObject,
         block_index: usize,
         chunk_index: usize,
         world_block_pos: IVec3,

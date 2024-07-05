@@ -1,6 +1,6 @@
-use crate::node::Node;
 use crate::render::mesh::Mesh;
 use crate::rules::Rules;
+use crate::world::data::node::Node;
 use octa_force::glam::{IVec3, UVec2, UVec3};
 use octa_force::vulkan::ash::vk::IndexType;
 use octa_force::{
@@ -96,7 +96,7 @@ impl MeshRenderer {
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 24,
+            images_len * 1000,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,

@@ -1,15 +1,14 @@
 use crate::math::get_neighbors_without_zero;
-use crate::node::NodeID;
-use crate::rotation::Rot;
 use crate::rules::basic_blocks::BasicBlocks;
-use crate::rules::block::Block;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::req_tree::BroadReqTree;
 use crate::rules::solver::{Solver, SolverCacheIndex};
 use crate::rules::{Prio, Rules};
-use crate::ship::data::{CacheIndex, ShipData};
-use crate::ship::possible_blocks::PossibleBlocks;
-use crate::voxel_loader::VoxelLoader;
+use crate::world::block_object::possible_blocks::PossibleBlocks;
+use crate::world::block_object::BlockObject;
+use crate::world::data::block::Block;
+use crate::world::data::node::NodeID;
+use crate::world::data::voxel_loader::VoxelLoader;
 use log::{debug, info};
 use octa_force::anyhow::bail;
 use octa_force::puffin_egui::puffin;
@@ -49,7 +48,7 @@ impl Rules {
 impl Solver for StoneSolver {
     fn block_check_reset(
         &self,
-        ship: &mut ShipData,
+        block_object: &mut BlockObject,
         _: usize,
         _: usize,
         world_block_pos: IVec3,
@@ -59,7 +58,7 @@ impl Solver for StoneSolver {
 
         let mut cache = vec![];
         cache.append(&mut self.basic_blocks.get_possible_blocks(
-            ship,
+            block_object,
             world_block_pos,
             self.block_name_index,
         ));
@@ -69,7 +68,7 @@ impl Solver for StoneSolver {
 
     fn block_check(
         &self,
-        _: &mut ShipData,
+        _: &mut BlockObject,
         _: usize,
         _: usize,
         _: IVec3,
@@ -80,7 +79,7 @@ impl Solver for StoneSolver {
 
     fn get_block(
         &self,
-        _: &mut ShipData,
+        _: &mut BlockObject,
         _: usize,
         _: usize,
         _: IVec3,

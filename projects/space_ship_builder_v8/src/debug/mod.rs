@@ -13,10 +13,10 @@ use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::nodes::DebugNodesRenderer;
 use crate::debug::rotation_debug::RotationRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
-use crate::node::NodeID;
 use crate::render::mesh_renderer::MeshRenderer;
 use crate::rules::Rules;
-use crate::ship::ShipManager;
+use crate::world::data::node::NodeID;
+use crate::world::ship::ShipManager;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
@@ -75,6 +75,7 @@ impl DebugController {
         window: &Window,
         test_node_id: NodeID,
         ship_manager: &ShipManager,
+        renderer: &MeshRenderer,
     ) -> Result<Self> {
         let line_renderer = DebugLineRenderer::new(
             1000000,
@@ -82,7 +83,7 @@ impl DebugController {
             images_len as u32,
             format,
             Format::D32_SFLOAT,
-            &ship_manager.renderer,
+            &renderer,
         )?;
 
         let text_renderer =
@@ -92,7 +93,7 @@ impl DebugController {
         let hull_basic_renderer = DebugHullBasicRenderer::new(images_len);
         let hull_multi_renderer = DebugHullMultiRenderer::new(images_len);
         let collapse_log_renderer =
-            CollapseLogRenderer::new(images_len, &ship_manager.ships[0].data);
+            CollapseLogRenderer::new(images_len, &ship_manager.ships[0].block_objects);
 
         let gui = Gui::new(context, format, depth_format, window, images_len)?;
 
@@ -120,6 +121,7 @@ impl DebugController {
         rules: &Rules,
         camera: &Camera,
         res: UVec2,
+        renderer: &MeshRenderer,
     ) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
@@ -167,8 +169,6 @@ impl DebugController {
             }
         }
 
-        ship_manager.renderer.update(camera, res)?;
-
         match self.mode {
             DebugMode::Off => {
                 self.line_renderer.vertecies_count = 0;
@@ -178,8 +178,8 @@ impl DebugController {
                     controls,
                     image_index,
                     &context,
-                    &ship_manager.renderer.chunk_descriptor_layout,
-                    &ship_manager.renderer.descriptor_pool,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
                 )?;
             }
             DebugMode::Nodes => {
@@ -188,8 +188,8 @@ impl DebugController {
                     controls,
                     image_index,
                     &context,
-                    &ship_manager.renderer.chunk_descriptor_layout,
-                    &ship_manager.renderer.descriptor_pool,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
                 )?;
             }
             DebugMode::HullBasic => {
@@ -198,8 +198,8 @@ impl DebugController {
                     controls,
                     image_index,
                     &context,
-                    &ship_manager.renderer.chunk_descriptor_layout,
-                    &ship_manager.renderer.descriptor_pool,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
                 )?;
             }
             DebugMode::HullMulti => {
@@ -208,20 +208,20 @@ impl DebugController {
                     controls,
                     image_index,
                     &context,
-                    &ship_manager.renderer.chunk_descriptor_layout,
-                    &ship_manager.renderer.descriptor_pool,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
                 )?;
             }
             DebugMode::CollapseLog => {
                 self.update_collapse_log_debug(
-                    &mut ship_manager.ships[0].data,
+                    &mut ship_manager.ships[0].block_objects,
                     controls,
                     rules,
                     camera,
                     image_index,
                     &context,
-                    &ship_manager.renderer.chunk_descriptor_layout,
-                    &ship_manager.renderer.descriptor_pool,
+                    &renderer.chunk_descriptor_layout,
+                    &renderer.descriptor_pool,
                 )?;
             }
         }

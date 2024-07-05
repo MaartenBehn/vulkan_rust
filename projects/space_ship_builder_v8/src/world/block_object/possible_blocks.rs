@@ -1,5 +1,5 @@
-use crate::rules::block::BlockNameIndex;
 use crate::rules::solver::SolverCacheIndex;
+use crate::world::data::block::BlockNameIndex;
 use octa_force::puffin_egui::puffin;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

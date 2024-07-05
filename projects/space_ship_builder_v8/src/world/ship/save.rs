@@ -1,6 +1,6 @@
-use crate::rules::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::rules::Rules;
-use crate::ship::data::ShipData;
+use crate::world::block_object::BlockObject;
+use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use bitcode::{Decode, Encode};
 use octa_force::anyhow::Result;
 use std::fs;
@@ -13,7 +13,7 @@ pub struct ShipSave {
     nodes_per_chunk: [i32; 3],
 }
 
-impl ShipData {
+impl BlockObject {
     pub fn save(&self, path: &str) -> Result<()> {
         let save = self.get_save();
 
@@ -57,7 +57,7 @@ impl ShipData {
     }
 
     pub fn new_from_save(save: ShipSave, rules: &Rules) -> Self {
-        let mut ship = ShipData::new(save.nodes_per_chunk[0], rules);
+        let mut ship = BlockObject::new(save.nodes_per_chunk[0], rules);
 
         for (pos, block) in save.blocks {
             ship.place_block(pos.into(), block);

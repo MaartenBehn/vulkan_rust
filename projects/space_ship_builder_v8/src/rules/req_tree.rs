@@ -1,6 +1,6 @@
-use crate::node::NodeID;
-use crate::rules::block::Block;
 use crate::rules::Prio;
+use crate::world::data::block::Block;
+use crate::world::data::node::NodeID;
 use log::{debug, info};
 use octa_force::glam::IVec3;
 

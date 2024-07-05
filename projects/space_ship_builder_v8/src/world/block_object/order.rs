@@ -1,5 +1,5 @@
-use crate::rules::block::{BlockIndex, BlockNameIndex};
-use crate::ship::data::ChunkIndex;
+use crate::world::block_object::ChunkIndex;
+use crate::world::data::block::{BlockIndex, BlockNameIndex};
 
 #[derive(Clone, Debug)]
 pub struct NodeOrderController {

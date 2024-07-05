@@ -1,7 +1,7 @@
-use crate::rotation::Rot;
 use dot_vox::Color;
 use octa_force::glam::{ivec3, uvec3, IVec3, Mat4, UVec3};
 
+use crate::math::rotation::Rot;
 use crate::math::{to_1d, to_1d_i, to_3d, to_3d_i};
 use octa_force::glam::Mat3;
 use std::hash::Hash;

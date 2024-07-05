@@ -2,12 +2,12 @@ use crate::debug::DebugController;
 use crate::math::oct_positions;
 use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
 use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
-use crate::rules::block::BlockNameIndex;
 use crate::rules::solver::Solver;
 use crate::rules::Rules;
-use crate::ship::collapse::Collapser;
-use crate::ship::data::ShipData;
-use crate::ship::possible_blocks::PossibleBlocks;
+use crate::world::block_object::collapse::Collapser;
+use crate::world::block_object::possible_blocks::PossibleBlocks;
+use crate::world::block_object::BlockObject;
+use crate::world::data::block::BlockNameIndex;
 use index_queue::IndexQueue;
 use log::info;
 use octa_force::anyhow::Result;
@@ -55,7 +55,7 @@ pub struct CollapseLogRenderer {
 }
 
 impl CollapseLogRenderer {
-    pub fn new(image_len: usize, ship_data: &ShipData) -> Self {
+    pub fn new(image_len: usize, ship_data: &BlockObject) -> Self {
         CollapseLogRenderer {
             mesh: Mesh::new(
                 image_len,
@@ -80,7 +80,7 @@ impl CollapseLogRenderer {
 
     fn update(
         &mut self,
-        ship_data: &mut ShipData,
+        ship_data: &mut BlockObject,
         controls: &Controls,
         rules: &Rules,
         camera: &Camera,
@@ -198,7 +198,7 @@ impl CollapseLogRenderer {
         self.last_log_index = self.log_index;
     }
 
-    fn print_next_action(&mut self, ship_data: &mut ShipData) {
+    fn print_next_action(&mut self, ship_data: &mut BlockObject) {
         let mut to_reset = self.block_log[self.log_index - self.log_end]
             .to_reset
             .to_owned();
@@ -301,7 +301,7 @@ impl DebugController {
     pub fn update_collapse_log_debug(
         &mut self,
 
-        ship_data: &mut ShipData,
+        ship_data: &mut BlockObject,
         controls: &Controls,
         rules: &Rules,
         camera: &Camera,
@@ -343,7 +343,7 @@ impl DebugController {
         Ok(())
     }
 
-    fn draw_selected(&mut self, ship_data: &ShipData) {
+    fn draw_selected(&mut self, ship_data: &BlockObject) {
         let node_pos = ship_data.get_node_pos_from_block_pos(self.collapse_log_renderer.pos);
 
         self.add_cube(
@@ -353,7 +353,7 @@ impl DebugController {
         )
     }
 
-    fn draw_orders(&mut self, ship_data: &ShipData) {
+    fn draw_orders(&mut self, ship_data: &BlockObject) {
         self.add_cube(
             Vec3::ZERO,
             ship_data.nodes_per_chunk.as_vec3(),
@@ -453,7 +453,7 @@ impl DebugController {
 
     fn draw_next_action(
         &mut self,
-        ship_data: &mut ShipData,
+        ship_data: &mut BlockObject,
         rules: &Rules,
         node_id_bits: &mut Vec<u32>,
         render_nodes: &mut Vec<RenderNode>,
@@ -642,7 +642,7 @@ impl DebugController {
     fn get_collapse_log_node_id_bits(
         &mut self,
         size: IVec3,
-        ship_data: &ShipData,
+        ship_data: &BlockObject,
         rules: &Rules,
     ) -> (Vec<u32>, Vec<RenderNode>) {
         let mut node_id_bits = vec![0; size.element_product() as usize];

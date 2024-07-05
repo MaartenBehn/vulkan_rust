@@ -1,0 +1,123 @@
+use crate::render::mesh::Mesh;
+use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
+use crate::rules::Rules;
+use crate::world::block_object::BlockObject;
+use crate::world::data::block::BlockNameIndex;
+use crate::world::data::node::VOXEL_PER_NODE_SIDE;
+use crate::world::ship::{MAX_TICK_LENGTH, MIN_TICK_LENGTH};
+use log::info;
+use octa_force::anyhow::Result;
+use octa_force::glam::{ivec3, IVec3};
+use octa_force::vulkan::{CommandBuffer, Context};
+use std::cmp::{max, min};
+use std::time::Duration;
+
+const ASTEROID_CHUNK_SIZE: IVec3 = ivec3(32, 32, 32);
+const ASTEROID_CHUNK_VOXEL_SIZE: IVec3 = ivec3(
+    ASTEROID_CHUNK_SIZE.x * VOXEL_PER_NODE_SIDE,
+    ASTEROID_CHUNK_SIZE.y * VOXEL_PER_NODE_SIDE,
+    ASTEROID_CHUNK_SIZE.z * VOXEL_PER_NODE_SIDE,
+);
+
+pub struct AsteroidManager {
+    pub asteroids: Vec<Asteroid>,
+    pub asteroid_block_name_index: BlockNameIndex,
+
+    pub actions_per_tick: usize,
+    last_full_tick: bool,
+}
+
+pub struct Asteroid {
+    pub mesh: Mesh,
+    pub block_object: BlockObject,
+}
+
+impl AsteroidManager {
+    pub fn new(num_frames: usize, rules: &Rules) -> Self {
+        let asteroid_block_name_index = rules.get_block_name_index("Stone");
+
+        let asteroid = Asteroid::new(asteroid_block_name_index, num_frames, rules);
+
+        AsteroidManager {
+            asteroids: vec![asteroid],
+            asteroid_block_name_index,
+            actions_per_tick: 4,
+            last_full_tick: false,
+        }
+    }
+
+    pub fn update(
+        &mut self,
+        context: &Context,
+        image_index: usize,
+        delta_time: Duration,
+        rules: &Rules,
+        renderer: &MeshRenderer,
+    ) -> Result<()> {
+        if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
+            self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
+        } else if delta_time > MAX_TICK_LENGTH {
+            self.actions_per_tick = max(self.actions_per_tick / 2, 4);
+        }
+
+        for asteroid in self.asteroids.iter_mut() {
+            let (full, changed_chunks) = asteroid.block_object.tick(self.actions_per_tick, rules);
+            if full {
+                info!("Asteroid Full Tick: {}", self.actions_per_tick);
+            }
+            self.last_full_tick = full;
+
+            asteroid.mesh.update(
+                &asteroid.block_object,
+                changed_chunks,
+                image_index,
+                context,
+                &renderer.chunk_descriptor_layout,
+                &renderer.descriptor_pool,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn render(&self, buffer: &CommandBuffer, image_index: usize, renderer: &MeshRenderer) {
+        for asteroid in self.asteroids.iter() {
+            renderer.render(buffer, image_index, RENDER_MODE_BASE, &asteroid.mesh);
+        }
+    }
+}
+
+impl Asteroid {
+    pub fn new(
+        asteroid_block_name_index: BlockNameIndex,
+        num_frames: usize,
+        rules: &Rules,
+    ) -> Self {
+        let mesh = Mesh::new(num_frames, ASTEROID_CHUNK_SIZE, ASTEROID_CHUNK_SIZE);
+        let block_object = BlockObject::new(ASTEROID_CHUNK_SIZE.x, rules);
+
+        let mut asteroid = Asteroid { mesh, block_object };
+        asteroid.generate(asteroid_block_name_index);
+
+        asteroid
+    }
+
+    fn generate(&mut self, asteroid_block_name_index: BlockNameIndex) {
+        let sphere_radius = 30;
+        let sphere_radius_squared = sphere_radius * sphere_radius;
+
+        for x in (-sphere_radius)..sphere_radius {
+            for y in (-sphere_radius)..sphere_radius {
+                for z in (-sphere_radius)..sphere_radius {
+                    let world_block_pos = ivec3(x, y, z);
+                    let dist_squared = world_block_pos.length_squared();
+
+                    if dist_squared < sphere_radius_squared {
+                        self.block_object
+                            .place_block(world_block_pos, asteroid_block_name_index)
+                    }
+                }
+            }
+        }
+    }
+}

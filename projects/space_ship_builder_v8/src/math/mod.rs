@@ -1,6 +1,8 @@
 use octa_force::glam::{ivec3, uvec3, BVec3, IVec3, UVec3};
 use std::iter;
 
+pub mod rotation;
+
 pub fn to_1d(pos: UVec3, max: UVec3) -> usize {
     ((pos.z * max.x * max.y) + (pos.y * max.x) + pos.x) as usize
 }

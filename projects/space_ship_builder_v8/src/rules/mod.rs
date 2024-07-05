@@ -1,5 +1,4 @@
 mod basic_blocks;
-pub mod block;
 pub mod empty;
 pub mod hull;
 pub mod req_tree;
@@ -7,11 +6,11 @@ pub mod solver;
 pub mod stone;
 
 use crate::math::oct_positions;
-use crate::node::{Material, Node, NodeID};
-use crate::rotation::Rot;
-use crate::rules::block::Block;
+use crate::math::rotation::Rot;
 use crate::rules::solver::Solver;
-use crate::voxel_loader::VoxelLoader;
+use crate::world::data::block::{Block, BlockNameIndex};
+use crate::world::data::node::{Material, Node, NodeID};
+use crate::world::data::voxel_loader::VoxelLoader;
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::{IVec3, UVec3};
 
@@ -102,6 +101,13 @@ impl Rules {
         }
 
         id.unwrap()
+    }
+
+    pub fn get_block_name_index(&self, name: &str) -> BlockNameIndex {
+        self.block_names
+            .iter()
+            .position(|test_name| test_name == name)
+            .unwrap()
     }
 }
 

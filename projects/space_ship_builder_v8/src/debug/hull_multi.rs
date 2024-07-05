@@ -1,10 +1,10 @@
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
-use crate::node::NodeID;
 use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
 use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
-use crate::rules::block::Block;
 use crate::rules::hull::HullSolver;
+use crate::world::data::block::Block;
+use crate::world::data::node::NodeID;
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;

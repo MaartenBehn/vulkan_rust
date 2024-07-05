@@ -1,14 +1,15 @@
 use crate::render::mesh::Mesh;
 use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
 use crate::rules::Rules;
-use crate::ship::builder::ShipBuilder;
-use crate::ship::data::ShipData;
-use crate::ship::profile::ShipProfile;
+use crate::world::block_object::BlockObject;
+use crate::world::ship::builder::ShipBuilder;
+use crate::world::ship::profile::ShipProfile;
 use crate::INPUT_INTERVALL;
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
+use octa_force::egui_ash_renderer::Renderer;
 use octa_force::glam::UVec2;
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{CommandBuffer, Context};
@@ -16,10 +17,6 @@ use std::cmp::{max, min};
 use std::time::Duration;
 
 pub mod builder;
-pub mod collapse;
-pub mod data;
-pub mod order;
-pub mod possible_blocks;
 mod profile;
 pub mod save;
 
@@ -33,7 +30,6 @@ pub const ENABLE_SHIP_PROFILING: bool = true;
 
 pub struct ShipManager {
     pub ships: Vec<Ship>,
-    pub renderer: MeshRenderer,
 
     pub actions_per_tick: usize,
     last_full_tick: bool,
@@ -44,36 +40,19 @@ pub struct ShipManager {
 }
 
 pub struct Ship {
-    pub data: ShipData,
+    pub block_objects: BlockObject,
     pub mesh: Mesh,
     pub builder: Option<ShipBuilder>,
 }
 
 impl ShipManager {
-    pub fn new(
-        context: &Context,
-        color_attachment_format: vk::Format,
-        depth_attachment_format: vk::Format,
-        res: UVec2,
-        num_frames: usize,
-        rules: &Rules,
-    ) -> Result<ShipManager> {
+    pub fn new(num_frames: usize, rules: &Rules) -> Result<ShipManager> {
         let mut ship = Ship::try_load_save(SHIP_SAVE_FILE_PATH, num_frames, rules);
         // let mut ship = Ship::new(num_frames, rules);
         ship.add_builder(rules);
 
-        let renderer = MeshRenderer::new(
-            context,
-            num_frames as u32,
-            color_attachment_format,
-            depth_attachment_format,
-            res,
-            rules,
-        )?;
-
         Ok(ShipManager {
             ships: vec![ship],
-            renderer,
 
             actions_per_tick: 4,
             last_full_tick: false,
@@ -95,7 +74,7 @@ impl ShipManager {
 
         controls: &Controls,
         camera: &Camera,
-        res: UVec2,
+        renderer: &MeshRenderer,
     ) -> Result<()> {
         if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
@@ -108,7 +87,7 @@ impl ShipManager {
                 let mut builder = ship.builder.take().unwrap();
 
                 builder.update(
-                    &mut ship.data,
+                    &mut ship.block_objects,
                     controls,
                     camera,
                     rules,
@@ -124,7 +103,7 @@ impl ShipManager {
                     .ship_computing_start(self.actions_per_tick);
             }
 
-            let (full, changed_chunks) = ship.data.tick(self.actions_per_tick, rules);
+            let (full, changed_chunks) = ship.block_objects.tick(self.actions_per_tick, rules);
             if full {
                 info!("Full Tick: {}", self.actions_per_tick);
             }
@@ -140,16 +119,14 @@ impl ShipManager {
             self.last_full_tick = full;
 
             ship.mesh.update(
-                &ship.data,
+                &ship.block_objects,
                 changed_chunks,
                 image_index,
                 context,
-                &self.renderer.chunk_descriptor_layout,
-                &self.renderer.descriptor_pool,
+                &renderer.chunk_descriptor_layout,
+                &renderer.descriptor_pool,
             )?;
         }
-
-        self.renderer.update(camera, res)?;
 
         if controls.f12 && self.last_input + INPUT_INTERVALL < total_time {
             self.last_input = total_time;
@@ -162,22 +139,16 @@ impl ShipManager {
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer, image_index: usize) {
+    pub fn render(&self, buffer: &CommandBuffer, image_index: usize, renderer: &MeshRenderer) {
         for ship in self.ships.iter() {
-            self.renderer
-                .render(buffer, image_index, RENDER_MODE_BASE, &ship.mesh);
+            renderer.render(buffer, image_index, RENDER_MODE_BASE, &ship.mesh);
         }
     }
 
-    pub fn on_voxel_change(
-        &mut self,
-        context: &Context,
-        num_frames: usize,
-        rules: &mut Rules,
-    ) -> Result<()> {
+    pub fn on_voxel_change(&mut self, rules: &mut Rules) -> Result<()> {
         for ship in self.ships.iter_mut() {
-            let save = ship.data.get_save();
-            ship.data = ShipData::new_from_save(save, rules);
+            let save = ship.block_objects.get_save();
+            ship.block_objects = BlockObject::new_from_save(save, rules);
 
             if ship.has_builder() {
                 let mut builder = ship.builder.take().unwrap();
@@ -188,44 +159,42 @@ impl ShipManager {
             }
         }
 
-        self.renderer.on_rules_changed(rules, context, num_frames)?;
-
         Ok(())
     }
 }
 
 impl Ship {
     pub fn new(num_frames: usize, rules: &Rules) -> Ship {
-        let data = ShipData::new(CHUNK_SIZE, rules);
+        let data = BlockObject::new(CHUNK_SIZE, rules);
 
         let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
 
         Ship {
-            data,
+            block_objects: data,
             mesh,
             builder: None,
         }
     }
 
     pub fn try_load_save(path: &str, num_frames: usize, rules: &Rules) -> Ship {
-        let r = ShipData::load(path, rules);
+        let r = BlockObject::load(path, rules);
         let data = if r.is_ok() {
             r.unwrap()
         } else {
-            ShipData::new(CHUNK_SIZE, rules)
+            BlockObject::new(CHUNK_SIZE, rules)
         };
 
         let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
 
         Ship {
-            data,
+            block_objects: data,
             mesh,
             builder: None,
         }
     }
 
     pub fn save(&self, path: &str) -> Result<()> {
-        self.data.save(path)?;
+        self.block_objects.save(path)?;
         Ok(())
     }
 
