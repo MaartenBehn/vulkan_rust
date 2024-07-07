@@ -91,30 +91,6 @@ impl VoxelLoader {
             .ok_or(anyhow!("No node or model found for {name}."))
     }
 
-    pub fn find_model_by_index(&self, index: usize) -> Result<(usize, Rot)> {
-        match &self.data.scenes[index] {
-            SceneNode::Transform { child, frames, .. } => {
-                let model_id = match &self.data.scenes[*child as usize] {
-                    SceneNode::Shape { models, .. } => Some(models[0].model_id as usize),
-                    _ => None,
-                };
-
-                if model_id.is_none() {
-                    bail!("No model id found")
-                }
-
-                let r = frames[0].attributes.get("_r");
-                let rot = if r.is_some() {
-                    Rot::from(r.unwrap().as_str())
-                } else {
-                    Rot::IDENTITY
-                };
-                Ok((model_id.unwrap(), rot))
-            }
-            _ => bail!("Index is not transform node"),
-        }
-    }
-
     pub fn load_node_model(&self, model_index: usize) -> Result<Node> {
         let model = &self.data.models[model_index];
 

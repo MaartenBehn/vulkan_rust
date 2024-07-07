@@ -4,6 +4,7 @@ pub mod hull;
 pub mod req_tree;
 pub mod solver;
 pub mod stone;
+mod marching_cubes;
 
 use crate::math::oct_positions;
 use crate::math::rotation::Rot;
@@ -199,6 +200,28 @@ impl Rules {
         }
 
         Ok(Block::from_node_ids(node_ids.try_into().unwrap()))
+    }
+
+    fn load_nodes_in_folder(
+        &mut self,
+        name: &str,
+        voxel_loader: &VoxelLoader,
+    ) -> Result<Vec<(NodeID, IVec3, String)>> {
+        let (models, rot)= voxel_loader.get_name_folder(name)?;
+        if rot != Rot::IDENTITY {
+            bail!("Node Folder needs to be IDENTITY");
+        }
+
+        let mut nodes = vec![];
+        for (name, model_index, rot, pos) in models.into_iter() {
+            let node = voxel_loader.load_node_model(model_index)?;
+
+            let id = self.add_node(node, rot);
+            let dup_id = self.get_duplicate_node_id(id);
+            nodes.push((dup_id, pos, name))
+        }
+        
+        Ok(nodes)
     }
 }
 

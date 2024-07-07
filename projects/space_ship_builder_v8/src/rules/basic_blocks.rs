@@ -64,6 +64,47 @@ impl BasicBlocks {
         })
     }
 
+    pub fn new_marching_cubes(
+        rules: &mut Rules,
+        voxel_loader: &VoxelLoader,
+        folder_name: &str,
+    ) -> Result<Self> {
+        let mut basic_blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block, Prio)> = vec![];
+        let nodes = rules.load_nodes_in_folder(folder_name, voxel_loader)?;
+        
+        let configs = [
+            ("01", [0, 0, 0, 0, 0, 0, 0, 0]),
+            ("11", [0, 0, 0, 1, 0, 0, 0, 0]),
+            ("21", [0, 0, 1, 1, 0, 0, 0, 0]),
+            ("22", [0, 1, 0, 1, 0, 0, 0, 0]),
+            ("22", [0, 1, 0, 0, 0, 1, 0, 0]),
+            ("23", [0, 1, 1, 1, 0, 0, 0, 0]),
+            ("31", [0, 0, 1, 1, 0, 1, 0, 0]),
+            ("32", [0, 0, 1, 1, 0, 1, 0, 0]),
+            ("41", [1, 1, 1, 1, 0, 0, 0, 0]),
+            ("42", [1, 0, 1, 1, 0, 1, 0, 0]),
+            ("43", [0, 1, 1, 1, 0, 0, 0, 1]),
+            ("44", [0, 0, 1, 1, 1, 1, 0, 0]),
+            ("51", [1, 1, 1, 1, 0, 1, 0, 0]),
+            ("52", [0, 1, 1, 1, 0, 1, 1, 0]),
+            ("61", [1, 1, 1, 1, 0, 0, 1, 1]),
+            ("71", [1, 1, 1, 1, 0, 1, 1, 1]),
+            ("81", [1, 1, 1, 1, 1, 1, 1, 1]),
+        ];
+
+        for (node_id, pos, name) in nodes.into_iter() {
+            
+        }
+
+        let mut rotated_basic_blocks = permutate_basic_blocks(&basic_blocks, rules);
+
+        Ok(BasicBlocks {
+            blocks: rotated_basic_blocks,
+            #[cfg(debug_assertions)]
+            debug_basic_blocks: basic_blocks,
+        })
+    }
+
     pub fn len(&self) -> usize {
         self.blocks.len()
     }
