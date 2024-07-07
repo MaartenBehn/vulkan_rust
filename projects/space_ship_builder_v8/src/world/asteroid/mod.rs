@@ -1,13 +1,17 @@
+mod metaball;
+
 use crate::render::mesh::Mesh;
 use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
 use crate::rules::Rules;
+use crate::world::asteroid::metaball::Metaball;
 use crate::world::block_object::BlockObject;
 use crate::world::data::block::BlockNameIndex;
 use crate::world::data::node::VOXEL_PER_NODE_SIDE;
 use crate::world::ship::{MAX_TICK_LENGTH, MIN_TICK_LENGTH};
+use fastnoise_lite::{FastNoiseLite, NoiseType};
 use log::info;
 use octa_force::anyhow::Result;
-use octa_force::glam::{ivec3, IVec3};
+use octa_force::glam::{ivec3, IVec3, Vec3};
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::cmp::{max, min};
 use std::time::Duration;
@@ -103,16 +107,26 @@ impl Asteroid {
     }
 
     fn generate(&mut self, asteroid_block_name_index: BlockNameIndex) {
-        let sphere_radius = 30;
-        let sphere_radius_squared = sphere_radius * sphere_radius;
+        let size = 10;
+        let num_points = 10;
+        let gravity_merge_strength = 0.3;
+        let cut_off_dist = 10.0;
 
-        for x in (-sphere_radius)..sphere_radius {
-            for y in (-sphere_radius)..sphere_radius {
-                for z in (-sphere_radius)..sphere_radius {
+        let mut metaball = Metaball::new();
+        metaball.add_random_points_in_area(
+            Vec3::NEG_ONE * size as f32,
+            Vec3::ONE * size as f32,
+            num_points,
+        );
+        metaball.gravity_merge(gravity_merge_strength);
+
+        let size_twice = size * 2;
+        for x in (-size_twice)..size_twice {
+            for y in (-size_twice)..size_twice {
+                for z in (-size_twice)..size_twice {
                     let world_block_pos = ivec3(x, y, z);
-                    let dist_squared = world_block_pos.length_squared();
 
-                    if dist_squared < sphere_radius_squared {
+                    if metaball.get_field(world_block_pos.as_vec3(), cut_off_dist) > 0.5 {
                         self.block_object
                             .place_block(world_block_pos, asteroid_block_name_index)
                     }
