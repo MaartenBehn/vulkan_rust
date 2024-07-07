@@ -91,7 +91,7 @@ impl Solver for StoneSolver {
 
         for index in cache {
             let (_, block, prio) = &self.basic_blocks.get_block(index);
-            if best_prio < *prio {
+            if best_prio.is_less(prio) {
                 best_block = *block;
                 best_prio = *prio;
                 best_index = index;

@@ -201,3 +201,19 @@ impl Rules {
         Ok(Block::from_node_ids(node_ids.try_into().unwrap()))
     }
 }
+
+impl Prio {
+    pub fn is_less(&self, other: &Prio) -> bool {
+        match self {
+            Prio::Basic(a) => match other {
+                Prio::Basic(b) => a < b,
+                _ => self < other,
+            },
+            Prio::Multi(a) => match other {
+                Prio::Multi(b) => a < b,
+                _ => self < other,
+            },
+            _ => self < other,
+        }
+    }
+}
