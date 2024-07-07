@@ -116,7 +116,7 @@ impl BlockObject {
             return;
         }
 
-        debug!("Place: {world_block_pos:?}");
+        //debug!("Place: {world_block_pos:?}");
         chunk.block_names[block_index] = new_block_name_index;
 
         let old_order = self.order_controller.pack_propergate_order(
