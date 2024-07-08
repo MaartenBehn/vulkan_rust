@@ -1,5 +1,6 @@
-use crate::math::get_neighbors_without_zero;
 use crate::math::rotation::Rot;
+use crate::math::{get_neighbors_without_zero, oct_positions};
+use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::req_tree::BroadReqTree;
 use crate::rules::solver::SolverCacheIndex;
 use crate::rules::{
@@ -8,11 +9,13 @@ use crate::rules::{
 };
 use crate::world::block_object::BlockObject;
 use crate::world::data::block::{Block, BlockIndex, BlockNameIndex};
+use crate::world::data::node::NodeID;
 use crate::world::data::voxel_loader::VoxelLoader;
 use log::{debug, info};
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::{IVec3, Mat4};
 use octa_force::puffin_egui::puffin;
+use std::ops::Mul;
 
 #[derive(Clone, Debug)]
 pub struct BasicBlocks {
@@ -64,47 +67,6 @@ impl BasicBlocks {
         })
     }
 
-    pub fn new_marching_cubes(
-        rules: &mut Rules,
-        voxel_loader: &VoxelLoader,
-        folder_name: &str,
-    ) -> Result<Self> {
-        let mut basic_blocks: Vec<(Vec<(IVec3, BlockNameIndex)>, Block, Prio)> = vec![];
-        let nodes = rules.load_nodes_in_folder(folder_name, voxel_loader)?;
-        
-        let configs = [
-            ("01", [0, 0, 0, 0, 0, 0, 0, 0]),
-            ("11", [0, 0, 0, 1, 0, 0, 0, 0]),
-            ("21", [0, 0, 1, 1, 0, 0, 0, 0]),
-            ("22", [0, 1, 0, 1, 0, 0, 0, 0]),
-            ("22", [0, 1, 0, 0, 0, 1, 0, 0]),
-            ("23", [0, 1, 1, 1, 0, 0, 0, 0]),
-            ("31", [0, 0, 1, 1, 0, 1, 0, 0]),
-            ("32", [0, 0, 1, 1, 0, 1, 0, 0]),
-            ("41", [1, 1, 1, 1, 0, 0, 0, 0]),
-            ("42", [1, 0, 1, 1, 0, 1, 0, 0]),
-            ("43", [0, 1, 1, 1, 0, 0, 0, 1]),
-            ("44", [0, 0, 1, 1, 1, 1, 0, 0]),
-            ("51", [1, 1, 1, 1, 0, 1, 0, 0]),
-            ("52", [0, 1, 1, 1, 0, 1, 1, 0]),
-            ("61", [1, 1, 1, 1, 0, 0, 1, 1]),
-            ("71", [1, 1, 1, 1, 0, 1, 1, 1]),
-            ("81", [1, 1, 1, 1, 1, 1, 1, 1]),
-        ];
-
-        for (node_id, pos, name) in nodes.into_iter() {
-            
-        }
-
-        let mut rotated_basic_blocks = permutate_basic_blocks(&basic_blocks, rules);
-
-        Ok(BasicBlocks {
-            blocks: rotated_basic_blocks,
-            #[cfg(debug_assertions)]
-            debug_basic_blocks: basic_blocks,
-        })
-    }
-
     pub fn len(&self) -> usize {
         self.blocks.len()
     }
@@ -121,7 +83,7 @@ impl BasicBlocks {
         &self,
         block_object: &mut BlockObject,
         world_block_pos: IVec3,
-        block_name_index: BlockIndex,
+        block_name_index: BlockNameIndex,
     ) -> Vec<SolverCacheIndex> {
         #[cfg(debug_assertions)]
         puffin::profile_function!();
@@ -158,7 +120,7 @@ fn load_basic_block_req_folder(
     folder_name: &str,
     voxel_loader: &VoxelLoader,
     rules: &mut Rules,
-) -> Result<(Vec<(Block, IVec3, Prio)>, Vec<(usize, IVec3)>)> {
+) -> Result<(Vec<(Block, IVec3, Prio)>, Vec<(BlockNameIndex, IVec3)>)> {
     let mut blocks = vec![];
     let mut req_blocks = vec![];
 
@@ -194,7 +156,7 @@ fn load_basic_block_req_folder(
                 bail!("{req_block_name} is not a valid Block name!");
             }
 
-            req_blocks.push((index.unwrap(), pos))
+            req_blocks.push((index.unwrap() as u8, pos))
         }
     }
 

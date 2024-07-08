@@ -104,6 +104,19 @@ pub fn oct_positions() -> [IVec3; 8] {
     ]
 }
 
+pub fn oct_positions_with_minus() -> [IVec3; 8] {
+    [
+        ivec3(-1, -1, -1),
+        ivec3(1, -1, -1),
+        ivec3(-1, 1, -1),
+        ivec3(1, 1, -1),
+        ivec3(-1, -1, 1),
+        ivec3(1, -1, 1),
+        ivec3(-1, 1, 1),
+        ivec3(1, 1, 1),
+    ]
+}
+
 pub fn all_bvec3s() -> [BVec3; 8] {
     [
         BVec3::new(false, false, false),

@@ -11,7 +11,7 @@ use crate::rules::{
 };
 use crate::world::block_object::possible_blocks::PossibleBlocks;
 use crate::world::block_object::{BlockObject, CacheIndex};
-use crate::world::data::block::Block;
+use crate::world::data::block::{Block, BlockNameIndex};
 use crate::world::data::node::NodeID;
 use crate::world::data::voxel_loader::VoxelLoader;
 use log::{debug, info};
@@ -30,7 +30,7 @@ const HULL_BASE_NAME_PART: &str = "Hull-Base";
 const HULL_MULTI_NAME_PART: &str = "Hull-Multi";
 
 pub struct HullSolver {
-    pub block_name_index: usize,
+    pub block_name_index: BlockNameIndex,
 
     pub basic_blocks: BasicBlocks,
 
@@ -48,7 +48,7 @@ impl Rules {
     pub fn make_hull(&mut self, voxel_loader: &VoxelLoader) -> Result<()> {
         info!("Making Hull");
 
-        let hull_block_name_index = self.block_names.len();
+        let hull_block_name_index = self.block_names.len() as BlockNameIndex;
         self.block_names.push(HULL_BLOCK_NAME.to_owned());
 
         let basic_blocks = BasicBlocks::new(self, voxel_loader, HULL_BASE_NAME_PART, 1)?;

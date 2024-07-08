@@ -1,10 +1,10 @@
 mod basic_blocks;
 pub mod empty;
 pub mod hull;
+pub mod marching_cubes;
 pub mod req_tree;
 pub mod solver;
 pub mod stone;
-mod marching_cubes;
 
 use crate::math::oct_positions;
 use crate::math::rotation::Rot;
@@ -12,7 +12,8 @@ use crate::rules::solver::Solver;
 use crate::world::data::block::{Block, BlockNameIndex};
 use crate::world::data::node::{Material, Node, NodeID};
 use crate::world::data::voxel_loader::VoxelLoader;
-use octa_force::anyhow::{bail, Result};
+use dot_vox::SceneNode;
+use octa_force::anyhow::{bail, Ok, Result};
 use octa_force::glam::{IVec3, UVec3};
 
 const BLOCK_MODEL_IDENTIFIER: &str = "B";
@@ -25,6 +26,7 @@ pub enum Prio {
     #[default]
     Zero,
     Empty,
+    MarchingCubes,
     Basic(usize),
     Multi(usize),
 }
@@ -108,7 +110,7 @@ impl Rules {
         self.block_names
             .iter()
             .position(|test_name| test_name == name)
-            .unwrap()
+            .unwrap() as BlockNameIndex
     }
 }
 
@@ -207,20 +209,22 @@ impl Rules {
         name: &str,
         voxel_loader: &VoxelLoader,
     ) -> Result<Vec<(NodeID, IVec3, String)>> {
-        let (models, rot)= voxel_loader.get_name_folder(name)?;
+        let (models, rot) = voxel_loader.get_name_folder(name)?;
         if rot != Rot::IDENTITY {
             bail!("Node Folder needs to be IDENTITY");
         }
 
         let mut nodes = vec![];
-        for (name, model_index, rot, pos) in models.into_iter() {
+        for (name, index, rot, pos) in models.into_iter() {
+            let (model_index, _) = voxel_loader.find_model_by_index(index)?;
+
             let node = voxel_loader.load_node_model(model_index)?;
 
             let id = self.add_node(node, rot);
             let dup_id = self.get_duplicate_node_id(id);
             nodes.push((dup_id, pos, name))
         }
-        
+
         Ok(nodes)
     }
 }

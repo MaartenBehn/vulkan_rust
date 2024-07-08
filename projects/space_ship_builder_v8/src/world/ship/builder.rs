@@ -13,14 +13,14 @@ const PLACE_SPEED: Duration = Duration::from_millis(100);
 
 pub struct ShipBuilder {
     possible_blocks: Vec<BlockNameIndex>,
-    block_to_build: usize,
+    block_to_build: BlockNameIndex,
     distance: f32,
 
     last_action_time: Duration,
 
     last_pos: IVec3,
-    last_block_to_build: usize,
-    last_block_index: Option<usize>,
+    last_block_to_build: BlockNameIndex,
+    last_block_index: Option<BlockNameIndex>,
 }
 
 impl ShipBuilder {
@@ -56,7 +56,8 @@ impl ShipBuilder {
         if controls.e && (self.last_action_time + PLACE_SPEED) < total_time {
             self.last_action_time = total_time;
 
-            self.block_to_build = (self.block_to_build + 1) % self.possible_blocks.len();
+            self.block_to_build =
+                (self.block_to_build + 1) % self.possible_blocks.len() as BlockNameIndex;
         }
         self.distance -= controls.scroll_delta * SCROLL_SPEED;
 
@@ -76,7 +77,7 @@ impl ShipBuilder {
             self.last_block_index = Some(block_object.get_block_name_from_world_block_pos(pos));
 
             // Place new Block
-            let block_index = self.possible_blocks[self.block_to_build];
+            let block_index = self.possible_blocks[self.block_to_build as usize];
             block_object.place_block(pos, block_index);
 
             if ENABLE_SHIP_PROFILING {

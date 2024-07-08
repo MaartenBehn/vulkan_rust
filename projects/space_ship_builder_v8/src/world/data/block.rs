@@ -4,7 +4,7 @@ use crate::rules::Rules;
 use crate::world::data::node::NodeID;
 use octa_force::glam::{IVec3, Mat4};
 
-pub type BlockNameIndex = usize;
+pub type BlockNameIndex = u8;
 pub const BLOCK_INDEX_EMPTY: BlockNameIndex = 0;
 
 pub type BlockIndex = usize;

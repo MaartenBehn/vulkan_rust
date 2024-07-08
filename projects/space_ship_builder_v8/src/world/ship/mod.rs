@@ -165,7 +165,7 @@ impl ShipManager {
 
 impl Ship {
     pub fn new(num_frames: usize, rules: &Rules) -> Ship {
-        let data = BlockObject::new(CHUNK_SIZE, rules);
+        let data = BlockObject::new(CHUNK_SIZE, rules.block_names.len());
 
         let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
 
@@ -181,7 +181,7 @@ impl Ship {
         let data = if r.is_ok() {
             r.unwrap()
         } else {
-            BlockObject::new(CHUNK_SIZE, rules)
+            BlockObject::new(CHUNK_SIZE, rules.block_names.len())
         };
 
         let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);

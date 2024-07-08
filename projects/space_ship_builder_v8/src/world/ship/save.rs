@@ -32,7 +32,8 @@ impl BlockObject {
                     continue;
                 }
 
-                let block_pos = self.block_world_pos_from_in_chunk_block_index(i, chunk.pos / 2);
+                let block_pos =
+                    self.get_block_world_pos_from_block_index_and_chunk_pos(i, chunk.pos / 2);
 
                 blocks.push((block_pos.into(), *block))
             }
@@ -57,7 +58,7 @@ impl BlockObject {
     }
 
     pub fn new_from_save(save: ShipSave, rules: &Rules) -> Self {
-        let mut ship = BlockObject::new(save.nodes_per_chunk[0], rules);
+        let mut ship = BlockObject::new(save.nodes_per_chunk[0], rules.block_names.len());
 
         for (pos, block) in save.blocks {
             ship.place_block(pos.into(), block);

@@ -33,6 +33,8 @@ const INPUT_INTERVALL: Duration = Duration::from_secs(1);
 
 const VOX_FILE_PATH: &str = "./assets/space_ship.vox";
 
+const SHOW_ASTEROID: bool = true;
+
 fn main() -> Result<()> {
     octa_force::run::<SpaceShipBuilder>(EngineConfig {
         name: APP_NAME.to_string(),
@@ -97,7 +99,8 @@ impl App for SpaceShipBuilder {
         log::info!("Creating Camera");
         let mut camera = Camera::base(base.swapchain.size.as_vec2());
 
-        camera.position = Vec3::new(1.0, -100.0, 1.0);
+        camera.position = Vec3::new(1.0, 1.0, 1.0);
+        //camera.position = Vec3::new(1.0, -100.0, 1.0);
         camera.direction = Vec3::new(0.0, 1.0, 0.0).normalize();
         camera.speed = 10.0;
         camera.z_far = 100.0;
@@ -147,27 +150,26 @@ impl App for SpaceShipBuilder {
         #[cfg(debug_assertions)]
         {
             if self.debug_controller.mode == Off {
-                /*
-                self.ship_manager.update(
-                    &mut self.rules,
-                    self.total_time,
-                    delta_time,
-                    image_index,
-                    &base.context,
-                    &base.controls,
-                    &self.camera,
-                    &self.renderer,
-                )?;
-
-                 */
-
-                self.asteroid_manager.update(
-                    &base.context,
-                    image_index,
-                    delta_time,
-                    &self.rules,
-                    &self.renderer,
-                )?;
+                if !SHOW_ASTEROID {
+                    self.ship_manager.update(
+                        &mut self.rules,
+                        self.total_time,
+                        delta_time,
+                        image_index,
+                        &base.context,
+                        &base.controls,
+                        &self.camera,
+                        &self.renderer,
+                    )?;
+                } else {
+                    self.asteroid_manager.update(
+                        &base.context,
+                        image_index,
+                        delta_time,
+                        &self.rules,
+                        &self.renderer,
+                    )?;
+                }
             }
 
             self.debug_controller.update(
@@ -185,27 +187,26 @@ impl App for SpaceShipBuilder {
 
         #[cfg(not(debug_assertions))]
         {
-            /*
-            self.ship_manager.update(
-                &mut self.rules,
-                self.total_time,
-                delta_time,
-                image_index,
-                &base.context,
-                &base.controls,
-                &self.camera,
-                &self.renderer,
-            )?;
-
-             */
-
-            self.asteroid_manager.update(
-                &base.context,
-                image_index,
-                delta_time,
-                &self.rules,
-                &self.renderer,
-            )?;
+            if !SHOW_ASTEROID {
+                self.ship_manager.update(
+                    &mut self.rules,
+                    self.total_time,
+                    delta_time,
+                    image_index,
+                    &base.context,
+                    &base.controls,
+                    &self.camera,
+                    &self.renderer,
+                )?;
+            } else {
+                self.asteroid_manager.update(
+                    &base.context,
+                    image_index,
+                    delta_time,
+                    &self.rules,
+                    &self.renderer,
+                )?;
+            }
         }
 
         Ok(())

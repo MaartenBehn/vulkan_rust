@@ -1,41 +1,39 @@
-use crate::math::get_neighbors_without_zero;
-use crate::rules::basic_blocks::BasicBlocks;
-use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
-use crate::rules::req_tree::BroadReqTree;
+use crate::rules::marching_cubes::MarchingCubes;
 use crate::rules::solver::{Solver, SolverCacheIndex};
 use crate::rules::{Prio, Rules};
-use crate::world::block_object::possible_blocks::PossibleBlocks;
-use crate::world::block_object::BlockObject;
-use crate::world::data::block::Block;
+use crate::world::block_object::{BlockObject, ChunkIndex};
+use crate::world::data::block::{Block, BlockIndex, BlockNameIndex};
 use crate::world::data::node::NodeID;
 use crate::world::data::voxel_loader::VoxelLoader;
-use log::{debug, info};
-use octa_force::anyhow::bail;
-use octa_force::puffin_egui::puffin;
-use octa_force::{
-    anyhow::Result,
-    glam::{IVec3, Mat4},
-};
+use log::info;
+use octa_force::{anyhow::Result, glam::IVec3};
 
 const STONE_BLOCK_NAME: &str = "Stone";
-const STONE_BASE_NAME_PART: &str = "Stone-Base";
+const STONE_MARCHING_CUBES_NAME: &str = "Stone-Marching-Cubes";
+
+const MARCHING_CUBES_CACHE_INDEX: usize = 0;
 
 pub struct StoneSolver {
-    pub block_name_index: usize,
-    pub basic_blocks: BasicBlocks,
+    pub block_name_index: BlockNameIndex,
+    pub marching_cubes: MarchingCubes,
 }
 
 impl Rules {
     pub fn make_stone(&mut self, voxel_loader: &VoxelLoader) -> Result<()> {
         info!("Making Stone");
 
-        let stone_block_name_index = self.block_names.len();
+        let stone_block_name_index = self.block_names.len() as BlockNameIndex;
         self.block_names.push(STONE_BLOCK_NAME.to_owned());
 
-        let basic_blocks = BasicBlocks::new(self, voxel_loader, STONE_BASE_NAME_PART, 1)?;
+        let marching_cubes = MarchingCubes::new(
+            self,
+            voxel_loader,
+            STONE_MARCHING_CUBES_NAME,
+            stone_block_name_index,
+        )?;
         let stone_solver = StoneSolver {
             block_name_index: stone_block_name_index,
-            basic_blocks,
+            marching_cubes,
         };
 
         self.solvers.push(Box::new(stone_solver));
@@ -49,28 +47,22 @@ impl Solver for StoneSolver {
     fn block_check_reset(
         &self,
         block_object: &mut BlockObject,
-        _: usize,
-        _: usize,
-        world_block_pos: IVec3,
+        block_index: BlockIndex,
+        chunk_index: ChunkIndex,
+        _: IVec3,
     ) -> Vec<SolverCacheIndex> {
-        #[cfg(debug_assertions)]
-        puffin::profile_function!();
-
-        let mut cache = vec![];
-        cache.append(&mut self.basic_blocks.get_possible_blocks(
-            block_object,
-            world_block_pos,
-            self.block_name_index,
-        ));
-
-        cache
+        if block_object.chunks[chunk_index].block_names[block_index] == self.block_name_index {
+            vec![MARCHING_CUBES_CACHE_INDEX]
+        } else {
+            vec![]
+        }
     }
 
     fn block_check(
         &self,
         _: &mut BlockObject,
-        _: usize,
-        _: usize,
+        _: BlockIndex,
+        _: ChunkIndex,
         _: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> Vec<SolverCacheIndex> {
@@ -79,29 +71,21 @@ impl Solver for StoneSolver {
 
     fn get_block(
         &self,
-        _: &mut BlockObject,
-        _: usize,
-        _: usize,
-        _: IVec3,
-        cache: Vec<SolverCacheIndex>,
+        block_object: &mut BlockObject,
+        block_index: BlockIndex,
+        chunk_index: ChunkIndex,
+        pos: IVec3,
+        _: Vec<SolverCacheIndex>,
     ) -> (Block, Prio, usize) {
-        let mut best_block = Block::from_single_node_id(NodeID::empty());
-        let mut best_prio = Prio::Empty;
-        let mut best_index = 0;
-
-        for index in cache {
-            let (_, block, prio) = &self.basic_blocks.get_block(index);
-            if best_prio.is_less(prio) {
-                best_block = *block;
-                best_prio = *prio;
-                best_index = index;
-            }
+        if block_object.chunks[chunk_index].block_names[block_index] != self.block_name_index {
+            return (Block::from_single_node_id(NodeID::empty()), Prio::Empty, 0);
         }
 
-        (best_block, best_prio, best_index)
+        let block = self.marching_cubes.get_block(block_object, pos);
+        (block, Prio::MarchingCubes, MARCHING_CUBES_CACHE_INDEX)
     }
 
-    fn get_block_from_cache_index(&self, index: usize) -> Block {
-        self.basic_blocks.get_block(index).1
+    fn get_block_from_cache_index(&self, _: usize) -> Block {
+        Block::from_single_node_id(NodeID::empty())
     }
 }

@@ -9,6 +9,7 @@ use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::SolverCacheIndex;
 use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::world::data::node::NodeID;
+use crate::world::data::voxel_loader::VoxelLoader;
 use collapse::Collapser;
 use index_queue::IndexQueue;
 use log::debug;
@@ -58,7 +59,7 @@ pub struct BlockChunk {
 }
 
 impl BlockObject {
-    pub fn new(nodes_per_chunk_side: i32, rules: &Rules) -> BlockObject {
+    pub fn new(nodes_per_chunk_side: i32, num_block_names: usize) -> BlockObject {
         let block_size = nodes_per_chunk_side / 2;
         let blocks_per_chunk = IVec3::ONE * block_size;
         let block_length = blocks_per_chunk.element_product() as usize;
@@ -72,7 +73,7 @@ impl BlockObject {
         let chunk_pos_mask = IVec3::ONE * !(block_size - 1);
         let in_chunk_pos_mask = IVec3::ONE * (block_size - 1);
 
-        let node_order_controller = NodeOrderController::new(rules.block_names.len(), nodes_length);
+        let node_order_controller = NodeOrderController::new(num_block_names, nodes_length);
 
         let ship = BlockObject {
             chunks: Vec::new(),
@@ -116,7 +117,7 @@ impl BlockObject {
             return;
         }
 
-        //debug!("Place: {world_block_pos:?}");
+        debug!("Place: {world_block_pos:?}");
         chunk.block_names[block_index] = new_block_name_index;
 
         let old_order = self.order_controller.pack_propergate_order(
@@ -209,7 +210,7 @@ impl BlockObject {
         let world_block_pos =
             self.get_world_block_pos_from_chunk_and_block_index(block_index, chunk_index);
 
-        let new_cache = rules.solvers[block_name_index].block_check_reset(
+        let new_cache = rules.solvers[block_name_index as usize].block_check_reset(
             self,
             block_index,
             chunk_index,
@@ -275,7 +276,7 @@ impl BlockObject {
         let old_cache = self.chunks[chunk_index].blocks[block_index]
             .get_cache(block_name_index)
             .to_owned();
-        let new_cache = rules.solvers[block_name_index].block_check(
+        let new_cache = rules.solvers[block_name_index as usize].block_check(
             self,
             block_index,
             chunk_index,
@@ -325,6 +326,8 @@ impl BlockObject {
         let mut best_block_name_index = EMPTY_BLOCK_NAME_INDEX;
         let mut best_cache_index = 0;
         for (block_name_index, solver) in rules.solvers.iter().enumerate() {
+            let block_name_index = block_name_index as BlockNameIndex;
+
             let old_cache = self.chunks[chunk_index].blocks[block_index]
                 .get_cache(block_name_index)
                 .to_owned();
@@ -430,7 +433,7 @@ impl BlockObject {
     }
 
     pub fn get_chunk_index_from_world_block_pos(&mut self, world_block_pos: IVec3) -> usize {
-        let chunk_pos = self.get_chunk_pos_from_world_block_pos(world_block_pos);
+        let chunk_pos = self.get_chunk_node_pos_from_world_block_pos(world_block_pos);
 
         let r = self.chunks.iter().position(|c| c.pos == chunk_pos);
         let index = if r.is_none() {
@@ -443,7 +446,7 @@ impl BlockObject {
         index
     }
 
-    pub fn get_chunk_pos_from_world_block_pos(&self, world_block_pos: IVec3) -> IVec3 {
+    pub fn get_chunk_node_pos_from_world_block_pos(&self, world_block_pos: IVec3) -> IVec3 {
         ((world_block_pos / self.blocks_per_chunk)
             - ivec3(
                 (world_block_pos.x < 0) as i32,
@@ -453,7 +456,7 @@ impl BlockObject {
             * self.nodes_per_chunk
     }
 
-    pub fn get_chunk_pos_from_world_node_pos(&self, world_block_pos: IVec3) -> IVec3 {
+    pub fn get_chunk_node_pos_from_world_node_pos(&self, world_block_pos: IVec3) -> IVec3 {
         ((world_block_pos / self.nodes_per_chunk)
             - ivec3(
                 (world_block_pos.x < 0) as i32,
@@ -463,13 +466,53 @@ impl BlockObject {
             * self.nodes_per_chunk
     }
 
-    pub fn get_block_index_from_world_block_pos(&self, world_block_pos: IVec3) -> usize {
-        let block_pos = self.get_block_pos_from_world_block_pos(world_block_pos);
-        to_1d_i(block_pos, self.blocks_per_chunk) as usize
+    pub fn get_chunk_block_pos_from_world_node_pos(&self, world_block_pos: IVec3) -> IVec3 {
+        ((world_block_pos / self.nodes_per_chunk)
+            - ivec3(
+                (world_block_pos.x < 0) as i32,
+                (world_block_pos.y < 0) as i32,
+                (world_block_pos.z < 0) as i32,
+            ))
+            * self.blocks_per_chunk
+    }
+
+    pub fn get_chunk_block_pos_from_world_block_pos(&self, world_block_pos: IVec3) -> IVec3 {
+        ((world_block_pos / self.blocks_per_chunk)
+            - ivec3(
+                (world_block_pos.x < 0) as i32,
+                (world_block_pos.y < 0) as i32,
+                (world_block_pos.z < 0) as i32,
+            ))
+            * self.blocks_per_chunk
     }
 
     pub fn get_block_pos_from_world_block_pos(&self, pos: IVec3) -> IVec3 {
-        pos & self.in_chunk_block_pos_mask
+        // TODO Clean up
+        ivec3(
+            if pos.x < 0 {
+                (self.blocks_per_chunk.x + (pos.x % self.blocks_per_chunk.x))
+                    % self.blocks_per_chunk.x
+            } else {
+                pos.x & self.in_chunk_block_pos_mask.x
+            },
+            if pos.y < 0 {
+                (self.blocks_per_chunk.y + (pos.y % self.blocks_per_chunk.y))
+                    % self.blocks_per_chunk.y
+            } else {
+                pos.y & self.in_chunk_block_pos_mask.y
+            },
+            if pos.z < 0 {
+                (self.blocks_per_chunk.z + (pos.z % self.blocks_per_chunk.z))
+                    % self.blocks_per_chunk.z
+            } else {
+                pos.z & self.in_chunk_block_pos_mask.z
+            },
+        )
+    }
+
+    pub fn get_block_index_from_world_block_pos(&self, world_block_pos: IVec3) -> usize {
+        let block_pos = self.get_block_pos_from_world_block_pos(world_block_pos);
+        to_1d_i(block_pos, self.blocks_per_chunk) as usize
     }
 
     pub fn get_world_block_pos_from_chunk_and_block_index(
@@ -497,6 +540,16 @@ impl BlockObject {
         block_pos * 2
     }
 
+    pub fn get_block_pos_from_node_pos(&self, node_pos: IVec3) -> IVec3 {
+        (node_pos / 2)
+            + (node_pos % 2)
+                * ivec3(
+                    (node_pos.x < 0) as i32,
+                    (node_pos.y < 0) as i32,
+                    (node_pos.z < 0) as i32,
+                )
+    }
+
     pub fn get_node_pos_from_block_index(&self, block_index: usize) -> IVec3 {
         let block_pos = to_3d_i(block_index as i32, self.blocks_per_chunk);
         let node_pos = self.get_node_pos_from_block_pos(block_pos);
@@ -522,33 +575,158 @@ impl BlockObject {
         chunk_pos + node_pos
     }
 
-    pub fn node_index_to_node_index_plus_padding(&self, node_index: usize) -> usize {
+    pub fn get_node_index_plus_padding_from_node_index(&self, node_index: usize) -> usize {
         let node_pos = to_3d_i(node_index as i32, self.nodes_per_chunk);
         to_1d_i(node_pos + IVec3::ONE, self.nodes_per_chunk_with_padding) as usize
     }
 
-    pub fn block_world_pos_from_in_chunk_block_index(
+    pub fn get_block_world_pos_from_block_index_and_chunk_pos(
         &self,
         block_index: usize,
         chunk_pos: IVec3,
     ) -> IVec3 {
         to_3d_i(block_index as i32, self.blocks_per_chunk) + chunk_pos
     }
+}
 
-    /*
-    fn get_neighbor_chunk_and_node_index(
-        &mut self,
-        pos: IVec3,
-    ) -> impl Iterator<Item = (usize, usize)> {
-        get_neighbors()
-            .map(|offset| {
-                let neighbor_pos = pos + offset;
-                let chunk_index = self.get_chunk_index_from_node_pos(neighbor_pos);
-                let node_index = self.get_node_index_from_node_pos(neighbor_pos);
+#[test]
+pub fn test_math() {
+    let block_object = BlockObject::new(16, 3);
 
-                (chunk_index, node_index)
-            })
-            .into_iter()
-    }
-     */
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_block_pos(ivec3(17, 17, 17)),
+        ivec3(32, 32, 32)
+    );
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_block_pos(ivec3(-1, -1, -1)),
+        ivec3(-16, -16, -16)
+    );
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_block_pos(ivec3(-8, -8, -8)),
+        ivec3(-32, -32, -32)
+    );
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_block_pos(ivec3(0, 0, 0)),
+        ivec3(0, 0, 0)
+    );
+
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_node_pos(ivec3(17, 17, 17)),
+        ivec3(16, 16, 16)
+    );
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_node_pos(ivec3(-1, -1, -1)),
+        ivec3(-16, -16, -16)
+    );
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_node_pos(ivec3(-16, -16, -16)),
+        ivec3(-32, -32, -32)
+    );
+    assert_eq!(
+        block_object.get_chunk_node_pos_from_world_node_pos(ivec3(0, 0, 0)),
+        ivec3(0, 0, 0)
+    );
+
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_block_pos(ivec3(17, 17, 17)),
+        ivec3(16, 16, 16)
+    );
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_block_pos(ivec3(-1, -1, -1)),
+        ivec3(-8, -8, -8)
+    );
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_block_pos(ivec3(-8, -8, -8)),
+        ivec3(-16, -16, -16)
+    );
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_block_pos(ivec3(0, 0, 0)),
+        ivec3(0, 0, 0)
+    );
+
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_node_pos(ivec3(17, 17, 17)),
+        ivec3(8, 8, 8)
+    );
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_node_pos(ivec3(-1, -1, -1)),
+        ivec3(-8, -8, -8)
+    );
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_node_pos(ivec3(-16, -16, -16)),
+        ivec3(-16, -16, -16)
+    );
+    assert_eq!(
+        block_object.get_chunk_block_pos_from_world_node_pos(ivec3(0, 0, 0)),
+        ivec3(0, 0, 0)
+    );
+
+    assert_eq!(
+        block_object.get_block_pos_from_world_block_pos(ivec3(0, 0, 0)),
+        ivec3(0, 0, 0)
+    );
+    assert_eq!(
+        block_object.get_block_pos_from_world_block_pos(ivec3(8, 8, 8)),
+        ivec3(0, 0, 0)
+    );
+    assert_eq!(
+        block_object.get_block_pos_from_world_block_pos(ivec3(-1, -1, -1)),
+        ivec3(7, 7, 7)
+    );
+    assert_eq!(
+        block_object.get_block_pos_from_world_block_pos(ivec3(-8, -8, -8)),
+        ivec3(0, 0, 0)
+    );
+    assert_eq!(
+        block_object.get_block_pos_from_world_block_pos(ivec3(-16, -16, -16)),
+        ivec3(0, 0, 0)
+    );
+    assert_eq!(
+        block_object.get_block_pos_from_world_block_pos(ivec3(-15, -15, -15)),
+        ivec3(1, 1, 1)
+    );
+
+    assert_eq!(
+        block_object.get_block_index_from_world_block_pos(ivec3(0, 0, 0)),
+        0
+    );
+    assert_eq!(
+        block_object.get_block_index_from_world_block_pos(ivec3(8, 8, 8)),
+        0
+    );
+    assert_eq!(
+        block_object.get_block_index_from_world_block_pos(ivec3(-8, -8, -8)),
+        0
+    );
+
+    assert_eq!(
+        block_object.get_block_index_from_world_block_pos(ivec3(1, 1, 1)),
+        block_object.get_block_index_from_world_block_pos(ivec3(-7, -7, -7)),
+    );
+
+    assert_eq!(
+        block_object.get_node_pos_from_block_pos(ivec3(0, 0, 0)),
+        ivec3(0, 0, 0)
+    );
+    assert_eq!(
+        block_object.get_node_pos_from_block_pos(ivec3(1, 1, 1)),
+        ivec3(2, 2, 2)
+    );
+    assert_eq!(
+        block_object.get_node_pos_from_block_pos(ivec3(-1, -1, -1)),
+        ivec3(-2, -2, -2)
+    );
+
+    assert_eq!(
+        block_object.get_block_pos_from_node_pos(ivec3(0, 0, 0)),
+        ivec3(0, 0, 0)
+    );
+    assert_eq!(
+        block_object.get_block_pos_from_node_pos(ivec3(1, 2, 3)),
+        ivec3(0, 1, 1)
+    );
+    assert_eq!(
+        block_object.get_block_pos_from_node_pos(ivec3(-1, -2, -3)),
+        ivec3(-1, -1, -2)
+    );
 }

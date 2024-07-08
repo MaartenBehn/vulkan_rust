@@ -33,7 +33,7 @@ impl NodeOrderController {
         block_index: BlockIndex,
         chunk_index: ChunkIndex,
     ) -> usize {
-        block_name_index
+        block_name_index as usize
             + (block_index << self.block_index_shift_bits)
             + (chunk_index << self.chunk_index_shift_bits_with_block)
     }
@@ -42,8 +42,11 @@ impl NodeOrderController {
         block_index + (chunk_index << self.chunk_index_shift_bits)
     }
 
-    pub fn unpack_propergate_order(&self, order: usize) -> (usize, usize, usize) {
-        let block_name_index = order & self.block_name_mask;
+    pub fn unpack_propergate_order(
+        &self,
+        order: usize,
+    ) -> (BlockNameIndex, BlockIndex, ChunkIndex) {
+        let block_name_index = (order & self.block_name_mask) as BlockNameIndex;
         let block_index = (order >> self.block_index_shift_bits) & self.block_mask;
         let chunk_index = order >> self.chunk_index_shift_bits_with_block;
 

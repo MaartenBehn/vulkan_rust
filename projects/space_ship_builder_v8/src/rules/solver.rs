@@ -1,8 +1,8 @@
 use crate::rules::hull::HullSolver;
 use crate::rules::Prio;
 use crate::world::block_object::possible_blocks::PossibleBlocks;
-use crate::world::block_object::BlockObject;
-use crate::world::data::block::Block;
+use crate::world::block_object::{BlockObject, ChunkIndex};
+use crate::world::data::block::{Block, BlockIndex};
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::IVec3;
 use std::any::Any;
@@ -23,16 +23,16 @@ pub trait Solver: ToAny {
     fn block_check_reset(
         &self,
         block_object: &mut BlockObject,
-        block_index: usize,
-        chunk_index: usize,
+        block_index: BlockIndex,
+        chunk_index: ChunkIndex,
         world_block_pos: IVec3,
     ) -> Vec<SolverCacheIndex>;
 
     fn debug_block_check_reset(
         &self,
         _: &mut BlockObject,
-        _: usize,
-        _: usize,
+        _: BlockIndex,
+        _: ChunkIndex,
         _: IVec3,
     ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
         vec![]
@@ -41,8 +41,8 @@ pub trait Solver: ToAny {
     fn block_check(
         &self,
         ship: &mut BlockObject,
-        block_index: usize,
-        chunk_index: usize,
+        block_index: BlockIndex,
+        chunk_index: ChunkIndex,
         world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> Vec<SolverCacheIndex>;
@@ -50,8 +50,8 @@ pub trait Solver: ToAny {
     fn debug_block_check(
         &self,
         _: &mut BlockObject,
-        _: usize,
-        _: usize,
+        _: BlockIndex,
+        _: ChunkIndex,
         _: IVec3,
         _: &[PossibleBlocks],
     ) -> Vec<(SolverCacheIndex, Vec<(IVec3, bool)>)> {
@@ -61,8 +61,8 @@ pub trait Solver: ToAny {
     fn get_block(
         &self,
         ship: &mut BlockObject,
-        block_index: usize,
-        chunk_index: usize,
+        block_index: BlockIndex,
+        chunk_index: ChunkIndex,
         world_block_pos: IVec3,
         cache: Vec<SolverCacheIndex>,
     ) -> (Block, Prio, usize);

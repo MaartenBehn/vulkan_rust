@@ -106,11 +106,11 @@ impl Asteroid {
         rules: &Rules,
     ) -> Self {
         let mesh = Mesh::new(num_frames, ASTEROID_CHUNK_SIZE, ASTEROID_CHUNK_SIZE);
-        let block_object = BlockObject::new(ASTEROID_CHUNK_SIZE.x, rules);
+        let block_object = BlockObject::new(ASTEROID_CHUNK_SIZE.x, rules.block_names.len());
 
         let mut asteroid = Asteroid { mesh, block_object };
 
-        let config = get_config_from_size(50).unwrap();
+        let config = get_config_from_size(11).unwrap();
         info!("Asteroid Config: {:?}", config);
 
         asteroid.generate_from_config(asteroid_block_name_index, config);
@@ -133,6 +133,7 @@ impl Asteroid {
         );
         metaball.gravity_merge(config.gravity_merge_strength);
 
+        /*
         metaball.add_random_points_in_area_at_field_value(
             Vec3::NEG_ONE * config.size as f32,
             Vec3::ONE * config.size as f32,
@@ -143,6 +144,7 @@ impl Asteroid {
             3.0,
             300,
         );
+         */
 
         let size_twice = config.size * 2;
         for x in (-size_twice)..size_twice {

@@ -482,7 +482,7 @@ impl DebugController {
                 return;
             }
 
-            let cache = rules.solvers[block_name_index].debug_block_check_reset(
+            let cache = rules.solvers[block_name_index as usize].debug_block_check_reset(
                 ship_data,
                 block_index,
                 chunk_index,
@@ -496,7 +496,8 @@ impl DebugController {
             let (cache_index, req_results) =
                 &cache[self.collapse_log_renderer.preview_index % cache.len()];
 
-            let block = rules.solvers[block_name_index].get_block_from_cache_index(*cache_index);
+            let block =
+                rules.solvers[block_name_index as usize].get_block_from_cache_index(*cache_index);
 
             // Draw Block
             let node_pos = ship_data.get_node_pos_from_block_pos(block_pos);
@@ -559,7 +560,7 @@ impl DebugController {
                 return;
             }
 
-            let debug_cache = rules.solvers[block_name_index].debug_block_check(
+            let debug_cache = rules.solvers[block_name_index as usize].debug_block_check(
                 ship_data,
                 block_index,
                 chunk_index,
@@ -576,7 +577,8 @@ impl DebugController {
             let (cache_index, req_results) =
                 &debug_cache[self.collapse_log_renderer.preview_index % debug_cache.len()];
 
-            let block = rules.solvers[block_name_index].get_block_from_cache_index(*cache_index);
+            let block =
+                rules.solvers[block_name_index as usize].get_block_from_cache_index(*cache_index);
 
             // Draw Block
             let node_pos = ship_data.get_node_pos_from_block_pos(block_pos);
@@ -678,7 +680,7 @@ impl DebugController {
 
                     let mut block = None;
 
-                    let hull_solver = rules.solvers[block_name_index].to_hull();
+                    let hull_solver = rules.solvers[block_name_index as usize].to_hull();
                     if hull_solver.is_ok() {
                         block = Some(hull_solver.unwrap().get_block_from_cache_index(cache_index));
                     }

@@ -2,11 +2,11 @@ use crate::rules::solver::{Solver, SolverCacheIndex};
 use crate::rules::Prio::Empty;
 use crate::rules::{Prio, Rules};
 use crate::world::block_object::BlockObject;
-use crate::world::data::block::Block;
+use crate::world::data::block::{Block, BlockNameIndex};
 use crate::world::data::node::{Node, NodeID};
 use octa_force::glam::IVec3;
 
-pub const EMPTY_BLOCK_NAME_INDEX: usize = 0;
+pub const EMPTY_BLOCK_NAME_INDEX: BlockNameIndex = 0;
 
 pub struct EmptySolver {}
 
