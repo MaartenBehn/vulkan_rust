@@ -130,7 +130,7 @@ impl MarchingCubes {
             let pos = node_pos + offset;
 
             /*
-                      |             
+                      |
                       |
                   X---x---X
                   |   |   |
@@ -142,10 +142,9 @@ impl MarchingCubes {
              */
 
             let test_reqs = oct_positions().map(|offset| {
-                let req_pos = pos + offset;
+                let req_pos = pos + offset - 1;
 
-                let modulo = req_pos % 2;
-                let in_block = modulo.cmpne(IVec3::ZERO);
+                let in_block = (req_pos % 2).cmpeq(IVec3::ZERO);
 
                 if in_block.all() {
                     let block_pos = req_pos / 2;
@@ -161,71 +160,42 @@ impl MarchingCubes {
                         req_block_name_index != EMPTY_BLOCK_NAME_INDEX
                     };
 
-                    if in_block.x {
-                        // Y or Z - Axis
-
-                        if in_block.y {
-                            // Z - Axis
-
-                            return test_offset(ivec3(0, 0, -1)) && test_offset(ivec3(0, 0, 1));
-                        } else {
-                            if in_block.z {
-                                // Y - Axis
-
-                                return test_offset(ivec3(0, -1, 0)) && test_offset(ivec3(0, 1, 0));
-                            } else {
-                                // Y and Z - Axis
-
-                                return test_offset(ivec3(0, -1, -1))
-                                    && test_offset(ivec3(0, 1, -1))
-                                    && test_offset(ivec3(0, -1, 1))
-                                    && test_offset(ivec3(0, 1, 1));
-                            }
-                        }
-                    } else {
-                        // X or Y or Z - Axis
-
-                        if in_block.y {
-                            // X or Z - Axis
-
-                            if in_block.z {
-                                // X - Axis
-
-                                return test_offset(ivec3(-1, 0, 0)) && test_offset(ivec3(1, 0, 0));
-                            } else {
-                                // X and Z - Axis
-
-                                return test_offset(ivec3(-1, 0, -1))
-                                    && test_offset(ivec3(1, 0, -1))
-                                    && test_offset(ivec3(-1, 0, 1))
-                                    && test_offset(ivec3(1, 0, 1));
-                            }
-                        } else {
-                            // X and Y + Z? - Axis
-
-                            if in_block.z {
-                                // X and Y - Axis
-
-                                return test_offset(ivec3(-1, -1, 0))
-                                    && test_offset(ivec3(1, -1, 0))
-                                    && test_offset(ivec3(-1, 1, 0))
-                                    && test_offset(ivec3(1, 1, 0));
-                            } else {
-                                // X and Y and Z - Axis
-
-                                return test_offset(ivec3(-1, -1, -1))
-                                    && test_offset(ivec3(1, -1, -1))
-                                    && test_offset(ivec3(-1, 1, -1))
-                                    && test_offset(ivec3(1, 1, -1))
-                                    && test_offset(ivec3(-1, -1, 1))
-                                    && test_offset(ivec3(1, -1, 1))
-                                    && test_offset(ivec3(-1, 1, 1))
-                                    && test_offset(ivec3(1, 1, 1));
-                            }
-                        }
+                    // TODO Clean up
+                    if !in_block.x && !in_block.y && !in_block.z {
+                        return (test_offset(ivec3(1, 1, 1)) && test_offset(ivec3(-1, -1, -1)))
+                            || (test_offset(ivec3(1, 1, -1)) && test_offset(ivec3(-1, -1, 1)))
+                            || (test_offset(ivec3(1, -1, -1)) && test_offset(ivec3(-1, 1, 1)))
+                            || (test_offset(ivec3(1, -1, 1)) && test_offset(ivec3(-1, 1, -1)));
                     }
 
-                    return false;
+                    if !in_block.x && !in_block.y {
+                        return (test_offset(ivec3(1, 1, 0)) && test_offset(ivec3(-1, -1, 0)))
+                            || (test_offset(ivec3(1, -1, 0)) && test_offset(ivec3(-1, 1, 0)));
+                    }
+
+                    if !in_block.x && !in_block.z {
+                        return (test_offset(ivec3(1, 0, 1)) && test_offset(ivec3(-1, 0, -1)))
+                            || (test_offset(ivec3(1, 0, -1)) && test_offset(ivec3(-1, 0, 1)));
+                    }
+
+                    if !in_block.y && !in_block.z {
+                        return (test_offset(ivec3(0, 1, 1)) && test_offset(ivec3(0, -1, -1)))
+                            || (test_offset(ivec3(0, 1, -1)) && test_offset(ivec3(0, -1, 1)));
+                    }
+
+                    if !in_block.x {
+                        return test_offset(ivec3(1, 0, 0)) && test_offset(ivec3(-1, 0, 0));
+                    }
+
+                    if !in_block.y {
+                        return test_offset(ivec3(0, 1, 0)) && test_offset(ivec3(0, -1, 0));
+                    }
+
+                    if !in_block.z {
+                        return test_offset(ivec3(0, 0, 1)) && test_offset(ivec3(0, 0, -1));
+                    }
+
+                    false
                 }
             });
 
