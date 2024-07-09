@@ -13,7 +13,7 @@ use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::egui_winit::winit::window::Window;
-use octa_force::glam::{vec3, Vec3, Vec4};
+use octa_force::glam::{UVec2, vec3, Vec3, Vec4};
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use octa_force::BaseApp;
@@ -42,6 +42,7 @@ impl DebugController {
         context: &Context,
         images_len: usize,
         format: Format,
+        depth_format: Format,
         window: &Window,
         renderer: &ShipRenderer,
     ) -> Result<Self> {
@@ -54,7 +55,7 @@ impl DebugController {
             &renderer,
         )?;
 
-        let text_renderer = DebugTextRenderer::new(context, format, window, images_len)?;
+        let text_renderer = DebugTextRenderer::new(context, format, depth_format, window, images_len)?;
 
         let wave_renderer = DebugWaveRenderer::new(images_len)?;
 
@@ -133,7 +134,7 @@ impl DebugController {
         buffer: &CommandBuffer,
         image_index: usize,
         camera: &Camera,
-        extent: Extent2D,
+        extent: UVec2,
         renderer: &ShipRenderer,
     ) -> Result<()> {
         if self.mode == DebugMode::OFF {

@@ -166,7 +166,7 @@ impl Builder {
             }
         }
 
-        if controls.left && (self.last_action_time + PLACE_SPEED) < total_time {
+        if controls.mouse_left && (self.last_action_time + PLACE_SPEED) < total_time {
             self.last_action_time = total_time;
             self.build_blocks
                 .insert(self.last_pos, self.possible_blocks[self.block_to_build]);

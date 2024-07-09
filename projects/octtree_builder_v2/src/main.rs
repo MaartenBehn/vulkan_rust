@@ -14,7 +14,7 @@ fn start() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
     log_init("octree_builder.log");
 
-    let depth = 10;
+    let depth = 12;
 
     let template_save_path = "./libs/octtree_v2/assets/template_tree";
     let tmeplate_page_size = 1048576;

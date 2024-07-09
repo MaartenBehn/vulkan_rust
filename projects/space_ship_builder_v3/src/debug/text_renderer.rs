@@ -3,7 +3,7 @@ use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::egui::Ui;
 use octa_force::egui_winit::winit::window::Window;
-use octa_force::glam::Vec3;
+use octa_force::glam::{UVec2, Vec3};
 use octa_force::gui::Gui;
 use octa_force::vulkan::ash::vk::{Extent2D, Format};
 use octa_force::vulkan::{CommandBuffer, Context};
@@ -24,11 +24,12 @@ impl DebugTextRenderer {
     pub fn new(
         context: &Context,
         format: Format,
+        depth_format: Format,
         window: &Window,
         in_flight_frames: usize,
     ) -> Result<Self> {
         Ok(Self {
-            gui: Gui::new(context, format, window, in_flight_frames)?,
+            gui: Gui::new(context, format, depth_format, window, in_flight_frames)?,
             texts: Vec::new(),
             render_texts: Vec::new(),
         })
@@ -64,7 +65,7 @@ impl DebugTextRenderer {
         &mut self,
         buffer: &CommandBuffer,
         camera: &Camera,
-        extent: Extent2D,
+        extent: UVec2,
     ) -> octa_force::anyhow::Result<()> {
         if self.render_texts.is_empty() {
             return Ok(());

@@ -11,3 +11,6 @@ movement.txt
 graph.png
 Cargo.lock
 .direnv
+/libs/octtree/assets/octtree/
+/libs/octtree_v2/assets/template_tree/
+/libs/octtree_v2/assets/tree/

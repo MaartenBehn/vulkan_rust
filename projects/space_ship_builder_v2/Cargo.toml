@@ -1,15 +1,20 @@
 [package]
 name = "space_ship_builder_v2"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
+version = "0.1.0"
+edition = "2021"
+authors = ["Maarten Behn <maarten.behn@gmail.com>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
 
 [dependencies]
-octa-force.workspace = true
+octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", tag = "0.1.4" }
 
-dot_vox.workspace = true
-serde_json.workspace = true
-index_queue.workspace = true
+serde_json = "1.0"
+dot_vox = "5.1.1"
+index_queue = "0.1.0"
+block-mesh = "0.2.0"
 

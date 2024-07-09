@@ -3,7 +3,7 @@ use std::time::Duration;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::{vec2, vec3, Vec3};
+use octa_force::glam::{uvec2, vec2, vec3, Vec3};
 use octa_force::vulkan::ash::vk::{self, Format, ImageUsageFlags};
 use octa_force::vulkan::{gpu_allocator, CommandBuffer};
 use octa_force::{log, App, BaseApp};
@@ -31,7 +31,7 @@ const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Space ship builder";
 
 fn main() -> Result<()> {
-    octa_force::run::<SpaceShipBuilder>(APP_NAME, WIDTH, HEIGHT, false, false)
+    octa_force::run::<SpaceShipBuilder>(APP_NAME, uvec2(WIDTH, HEIGHT), false)
 }
 struct SpaceShipBuilder {
     total_time: Duration,
@@ -44,7 +44,6 @@ struct SpaceShipBuilder {
 }
 
 impl App for SpaceShipBuilder {
-    type Gui = ();
 
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
@@ -87,7 +86,7 @@ impl App for SpaceShipBuilder {
         })
     }
 
-    fn on_recreate_swapchain(&mut self, base: &BaseApp<Self>) -> Result<()> {
+    fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
         self.renderer
             .on_recreate_swapchain(&base.context, base.swapchain.extent)?;
 
@@ -97,14 +96,12 @@ impl App for SpaceShipBuilder {
     fn update(
         &mut self,
         base: &mut BaseApp<Self>,
-        _: &mut <Self as App>::Gui,
         _: usize,
         delta_time: Duration,
-        controls: &Controls,
     ) -> Result<()> {
         self.total_time += delta_time;
 
-        self.camera.update(controls, delta_time);
+        self.camera.update(&base.controls, delta_time);
 
         self.ship.tick(delta_time)?;
 
@@ -112,7 +109,7 @@ impl App for SpaceShipBuilder {
             .on_update(&self.camera, base.swapchain.extent)?;
 
         self.builder.update(
-            controls,
+            &base.controls,
             &self.camera,
             &mut self.ship,
             &self.node_controller,
@@ -121,12 +118,9 @@ impl App for SpaceShipBuilder {
         Ok(())
     }
 
-    fn record_raster_commands(
-        &self,
-        base: &BaseApp<Self>,
-        buffer: &CommandBuffer,
-        image_index: usize,
-    ) -> Result<()> {
+    fn record_render_commands(&mut self, base: &mut BaseApp<Self>, image_index: usize) -> Result<()> {
+        let buffer = &base.command_buffers[image_index];
+        
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
             Some(&self.renderer.depth_image_view),

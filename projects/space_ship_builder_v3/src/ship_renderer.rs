@@ -4,7 +4,7 @@ use crate::{
     ship::Ship,
     ship_mesh::{self, ShipMesh},
 };
-use octa_force::glam::{IVec3, UVec3};
+use octa_force::glam::{IVec3, UVec2, UVec3};
 use octa_force::vulkan::ash::vk::IndexType;
 use octa_force::{
     anyhow::Result,
@@ -77,7 +77,7 @@ impl ShipRenderer {
         images_len: u32,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
-        extent: vk::Extent2D,
+        extent: UVec2,
     ) -> Result<Self> {
         let render_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -211,7 +211,7 @@ impl ShipRenderer {
                         .alpha_blend_op(vk::BlendOp::ADD)
                         .build(),
                 ),
-                depth_attachment_format: Some(depth_attachment_format),
+                depth_attachment_format: depth_attachment_format,
                 dynamic_states: Some(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT]),
             },
         )?;
@@ -220,8 +220,8 @@ impl ShipRenderer {
             ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             MemoryLocation::GpuOnly,
             depth_attachment_format,
-            extent.width,
-            extent.height,
+            extent.x,
+            extent.y,
         )?;
 
         let depth_image_view = depth_image.create_image_view(true)?;
@@ -244,25 +244,25 @@ impl ShipRenderer {
         })
     }
 
-    pub fn update(&mut self, camera: &Camera, extent: vk::Extent2D) -> Result<()> {
+    pub fn update(&mut self, camera: &Camera, extent: UVec2) -> Result<()> {
         self.render_buffer.copy_data_to_buffer(&[RenderBuffer {
             proj_matrix: camera.projection_matrix(),
             view_matrix: camera.view_matrix(),
             dir: camera.direction,
             fill: 0,
-            screen_size: vec2(extent.width as f32, extent.height as f32),
+            screen_size: vec2(extent.x as f32, extent.y as f32),
             fill_1: [0; 10],
         }])?;
         Ok(())
     }
 
-    pub fn on_recreate_swapchain(&mut self, context: &Context, extent: vk::Extent2D) -> Result<()> {
+    pub fn on_recreate_swapchain(&mut self, context: &Context, extent: UVec2) -> Result<()> {
         self.depth_image = context.create_image(
             ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             MemoryLocation::GpuOnly,
             self.depth_attachment_format,
-            extent.width,
-            extent.height,
+            extent.x,
+            extent.y,
         )?;
 
         self.depth_image_view = self.depth_image.create_image_view(true)?;

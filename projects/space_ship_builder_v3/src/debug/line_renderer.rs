@@ -115,7 +115,7 @@ impl DebugLineRenderer {
                         .alpha_blend_op(vk::BlendOp::ADD)
                         .build(),
                 ),
-                depth_attachment_format: Some(depth_attachment_format),
+                depth_attachment_format: depth_attachment_format,
                 dynamic_states: Some(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT]),
             },
         )?;
