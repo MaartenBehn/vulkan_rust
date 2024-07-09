@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use octa_force::anyhow::{ensure, Ok, Result};
+use app::anyhow::{ensure, Ok, Result};
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
 use octa_force::glam::{uvec2, Vec3};
