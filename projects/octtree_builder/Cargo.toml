@@ -11,5 +11,4 @@ opt-level = 0
 opt-level = 3
 
 [dependencies]
-octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", version = "0.1.4" }
 octtree = {path = "../../libs/octtree"}

@@ -6,18 +6,18 @@ A side repo where I try a bunch of different rendering technics and Ideas with v
 ## Examples
 |  |  |
 -------------------------|-------------------------
-**Wave function collapse** | 
-`sh scripts/run.sh space_ship_builder_v3` | 
-![Pic](assets/screenshots/space_ship_builder_v3.png) | 
+**Space Ship Builder V3** | **Space Ship Builder V8**
+`sh scripts/run.sh space_ship_builder_v3` | `sh scripts/run.sh space_ship_builder_v8`
+![Pic](screenshots/space_ship_builder_v3.png) | 
 **Dynamik Voxel loader and raycasting** | **Dynamik Voxel loader and raycasting V2**
 `sh scripts/run_voxel_renderer.sh` | `sh scripts/run_voxel_renderer_v2.sh`
-![Pic](assets/screenshots/voxel_renderer.png) | ![Pic](assets/screenshots/voxel_renderer_v2.png)
+![Pic](screenshots/voxel_renderer.png) | ![Pic](screenshots/voxel_renderer_v2.png)
 **Mirror scene with raytracing** | **Global ilumination scene raytracing**
 `sh scripts/run.sh rt_mirror` | `sh scripts/run.sh rt_global_ilumination`
-![Pic](assets/screenshots/mirror.png)  |  ![Pic](assets/screenshots/global_ilumination.png) 
+![Pic](screenshots/mirror.png)  |  ![Pic](screenshots/global_ilumination.png) 
 **Particle Simulation**  | **Mandelbrot Compute Shader** 
 `sh scripts/run.sh gpu_particles` | `sh scripts/run.sh mandelbrot`
-![Pic](assets/screenshots/particles.png)  |  ![Pic](assets/screenshots/mandelbrot.png)
+![Pic](screenshots/particles.png)  |  ![Pic](screenshots/mandelbrot.png)
 
 ### Other
 - `sh scripts/run.sh space_ship_builder_v2`
