@@ -4,7 +4,7 @@ use std::{
     io::{Read, Write},
 };
 
-use octa_force::{anyhow::Result, glam::IVec3};
+use app::{anyhow::Result, glam::IVec3};
 
 use crate::{aabb::AABB, metadata::Metadata, node::CompressedNode, util, Page, Tree};
 

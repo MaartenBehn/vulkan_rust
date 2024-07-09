@@ -1,13 +1,17 @@
 [package]
 name = "voxel_renderer_v2"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
+version = "0.1.0"
+edition = "2021"
+authors = ["Maarten Behn <maarten.behn@gmail.com>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
 
 [dependencies]
-octa-force.workspace = true
+app = { path = "../../libs/lagecy/app"}
 octtree_v2 = { path = "../../libs/octtree_v2" }
 
-rand.workspace = true
+rand = "0.8"

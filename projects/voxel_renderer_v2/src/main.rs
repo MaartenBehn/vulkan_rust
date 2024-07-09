@@ -1,13 +1,13 @@
 use std::time::Duration;
 
-use octa_force::anyhow::{ensure, Ok, Result};
-use octa_force::camera::Camera;
-use octa_force::controls::Controls;
-use octa_force::glam::Vec3;
-use octa_force::imgui::{Condition, Ui};
-use octa_force::vulkan::ash::vk::{self};
-use octa_force::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
-use octa_force::{log, App, BaseApp};
+use app::anyhow::{ensure, Ok, Result};
+use app::camera::Camera;
+use app::controls::Controls;
+use app::glam::Vec3;
+use app::imgui::{Condition, Ui};
+use app::vulkan::ash::vk::{self};
+use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
+use app::{log, App, BaseApp};
 use octtree_v2::reader::Reader;
 use renderer::Renderer;
 
@@ -22,12 +22,12 @@ pub mod renderer;
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray Caster";
-const SAVE_FOLDER: &str = "./assets/tree";
+const SAVE_FOLDER: &str = "./libs/octtree_v2/assets/tree";
 
 fn start() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
-    octa_force::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
+    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
     Ok(())
 }
 fn main() {
@@ -137,7 +137,7 @@ impl App for RayCaster {
     }
 
     fn record_compute_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -176,7 +176,7 @@ pub struct Gui {
     debug_scale: u32,
 }
 
-impl octa_force::Gui for Gui {
+impl app::gui::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
             frame: 0,

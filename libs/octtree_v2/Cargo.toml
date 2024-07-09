@@ -11,7 +11,8 @@ opt-level = 0
 opt-level = 3
 
 [dependencies]
-octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", version = "0.1.4" }
+app = { path = "../lagecy/app" }
+
 indicatif = "0.17.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

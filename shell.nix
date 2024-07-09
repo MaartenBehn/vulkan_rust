@@ -23,6 +23,7 @@ pkgs.mkShell rec {
     hotspot
     cmake
     fontconfig
+    vulkan-tools
   ];
 
   buildInputs = with pkgs; [
@@ -41,6 +42,7 @@ pkgs.mkShell rec {
     pkgs.vulkan-headers
     pkgs.vulkan-loader
     pkgs.vulkan-validation-layers
+
   ]);
 
   VULKAN_SDK = "${pkgs.vulkan-headers}";

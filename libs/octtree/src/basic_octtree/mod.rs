@@ -1,5 +1,5 @@
-use octa_force::anyhow::Result;
-use octa_force::{anyhow::format_err, log};
+use app::anyhow::Result;
+use app::{anyhow::format_err, log};
 use rand::Rng;
 
 use crate::{

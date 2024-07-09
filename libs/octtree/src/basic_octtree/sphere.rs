@@ -1,4 +1,4 @@
-use octa_force::glam::DVec3;
+use app::glam::DVec3;
 
 use crate::{octtree_node::OcttreeNode, Tree, OCTTREE_CONFIG};
 
