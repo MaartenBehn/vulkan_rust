@@ -1,3 +1,4 @@
+#[cfg(debug_assertions)]
 use crate::debug::hull_node_reqs::HULL_SIZE;
 use crate::ship::data::{ShipData, ShipDataChunk};
 use crate::ship::renderer::Vertex;

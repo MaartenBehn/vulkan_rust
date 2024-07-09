@@ -137,12 +137,7 @@ impl ShipManager {
                     )?;
                 }
             } else {
-                let (full, changed_chunks) = ship.data.tick(
-                    self.actions_per_tick,
-                    rules,
-                    #[cfg(debug_assertions)]
-                    false,
-                );
+                let (full, changed_chunks) = ship.data.tick(self.actions_per_tick, rules, false);
 
                 self.last_full_tick = full;
 

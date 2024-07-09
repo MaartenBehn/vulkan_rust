@@ -131,7 +131,7 @@ impl ShipData {
         &mut self,
         actions_per_tick: usize,
         rules: &Rules,
-        #[cfg(debug_assertions)] debug: bool,
+        debug: bool,
     ) -> (bool, Vec<ChunkIndex>) {
         let mut changed_chunks = Vec::new();
 

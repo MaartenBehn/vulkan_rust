@@ -8,7 +8,7 @@ use octa_force::{
     glam::{uvec3, vec3, vec4, BVec3, IVec3, UVec3, Vec3, Vec4},
     log,
     vulkan::{
-        ash::vk, gpu_allocator::MemoryLocation, utils::create_gpu_only_buffer_from_data, Buffer,
+        ash::vk, gpu_allocator::MemoryLocation,  Buffer,
         CommandBuffer, Context,
     },
 };
@@ -89,8 +89,7 @@ impl ShipMesh {
         let index_size = size_of::<u32>() * indecies.len();
         log::info!("Ship Index Buffer: {:?} MB", index_size as f32 / 1000000.0);
 
-        let index_buffer = create_gpu_only_buffer_from_data(
-            context,
+        let index_buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::INDEX_BUFFER,
             &indecies,
         )?;

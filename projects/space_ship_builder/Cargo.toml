@@ -11,10 +11,11 @@ opt-level = 0
 opt-level = 3
 
 [dependencies]
-octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", version = "0.1.16" }
+octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git", tag = "0.1.4" }
 
 serde_json = "1.0"
 dot_vox = "5.1.1"
 index_queue = "0.1.0"
 block-mesh = "0.2.0"
+fastrand = "2.1.0"
 

@@ -7,7 +7,6 @@ use octa_force::{
     vulkan::{
         ash::vk::{self, Extent2D, Format, ImageUsageFlags},
         gpu_allocator::{self, MemoryLocation},
-        utils::create_gpu_only_buffer_from_data,
         Buffer, Context, DescriptorPool, DescriptorSet, DescriptorSetLayout, GraphicsPipeline,
         GraphicsPipelineCreateInfo, GraphicsShaderCreateInfo, Image, ImageView, PipelineLayout,
         WriteDescriptorSet, WriteDescriptorSetKind,
@@ -74,14 +73,12 @@ impl Renderer {
             node_buffer_size as f32 / 1000000.0
         );
 
-        let node_buffer = create_gpu_only_buffer_from_data(
-            context,
+        let node_buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::STORAGE_BUFFER,
             &node_controller.nodes,
         )?;
 
-        let mat_buffer = create_gpu_only_buffer_from_data(
-            context,
+        let mat_buffer = context.create_gpu_only_buffer_from_data(
             vk::BufferUsageFlags::STORAGE_BUFFER,
             &node_controller.mats,
         )?;

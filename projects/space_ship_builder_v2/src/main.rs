@@ -120,7 +120,8 @@ impl App for SpaceShipBuilder {
 
     fn record_render_commands(&mut self, base: &mut BaseApp<Self>, image_index: usize) -> Result<()> {
         let buffer = &base.command_buffers[image_index];
-        
+
+        buffer.swapchain_image_render_barrier(&base.swapchain.images[image_index])?;
         buffer.begin_rendering(
             &base.swapchain.views[image_index],
             Some(&self.renderer.depth_image_view),

@@ -16,7 +16,6 @@ use octa_force::{
 };
 use octa_force::{log, App, BaseApp};
 
-#[cfg(debug_assertions)]
 //use crate::debug::DebugController;
 
 //use crate::debug::DebugMode::OFF;
@@ -24,7 +23,7 @@ use crate::voxel_loader::VoxelLoader;
 
 pub mod builder;
 mod generator;
-#[cfg(debug_assertions)]
+
 //pub mod debug;
 pub mod math;
 pub mod node;
