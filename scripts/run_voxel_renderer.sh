@@ -2,5 +2,5 @@
 
 sh ./scripts/run.sh octtree_builder
 
-sh ./scripts/build_release.sh voxel_renderer 
-./target/release/voxel_renderer
+sh ./scripts/build_debug.sh voxel_renderer
+./projects/voxel_renderer/target/debug/voxel_renderer

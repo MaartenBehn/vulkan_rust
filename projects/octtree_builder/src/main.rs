@@ -4,7 +4,7 @@ use octtree::{
     Tree,
 };
 
-const SAVE_FOLDER: &str = "./assets/octtree";
+const SAVE_FOLDER: &str = "./libs/octtree/assets/octtree";
 
 fn main() {
     let depth = 8;

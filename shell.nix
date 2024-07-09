@@ -21,6 +21,8 @@ pkgs.mkShell rec {
     glslang
     linuxPackages_latest.perf
     hotspot
+    cmake
+    fontconfig
   ];
 
   buildInputs = with pkgs; [

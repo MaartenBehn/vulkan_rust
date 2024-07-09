@@ -1,14 +1,14 @@
 use std::mem::size_of;
 
-use octa_force::anyhow::{Ok, Result};
-use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::gpu_allocator::MemoryLocation;
-use octa_force::vulkan::{
+use app::anyhow::{Ok, Result};
+use app::vulkan::ash::vk;
+use app::vulkan::gpu_allocator::MemoryLocation;
+use app::vulkan::{
     Buffer, CommandBuffer, ComputePipeline, ComputePipelineCreateInfo, Context, DescriptorPool,
     DescriptorSet, DescriptorSetLayout, MemoryBarrier, PipelineLayout, WriteDescriptorSet,
     WriteDescriptorSetKind,
 };
-use octa_force::BaseApp;
+use app::BaseApp;
 use octtree::octtree_node::OcttreeNode;
 use octtree::Tree;
 

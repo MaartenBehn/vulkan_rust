@@ -1,12 +1,13 @@
 use std::time::Duration;
 
 use app::anyhow::{ensure, Ok, Result};
-use octa_force::camera::Camera;
-use octa_force::controls::Controls;
-use octa_force::glam::{uvec2, Vec3};
-use octa_force::vulkan::ash::vk::{self};
-use octa_force::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
-use octa_force::{log, App, BaseApp, ImageAndView};
+use app::camera::Camera;
+use app::controls::Controls;
+use app::glam::Vec3;
+use app::imgui::{Condition, Ui};
+use app::vulkan::ash::vk::{self};
+use app::vulkan::{CommandBuffer, WriteDescriptorSet, WriteDescriptorSetKind};
+use app::{log, App, BaseApp};
 
 mod octtree_controller;
 use octtree::streamed_octtree::StreamedOcttree;
@@ -29,19 +30,13 @@ const APP_NAME: &str = "Ray Caster";
 
 const PRINT_DEBUG_LOADING: bool = false;
 const MOVEMENT_DEBUG_READ: bool = false;
-const SAVE_FOLDER: &str = "./assets/octtree";
+const SAVE_FOLDER: &str = "./libs/octtree/assets/octtree/";
 
-fn start() -> Result<()> {
+fn main() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
-    octa_force::run::<RayCaster>(APP_NAME, uvec2(WIDTH, HEIGHT), false)?;
+    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
     Ok(())
-}
-fn main() {
-    let result = start();
-    if result.is_err() {
-        log::error!("{}", result.unwrap_err());
-    }
 }
 
 #[allow(dead_code)]
@@ -60,11 +55,11 @@ pub struct RayCaster {
     max_loaded_batches: usize,
 
     camera: Camera,
-
-    stored_images: Vec<ImageAndView>,
 }
 
 impl App for RayCaster {
+    type Gui = Gui;
+
     fn new(base: &mut BaseApp<Self>) -> Result<Self> {
         let context = &mut base.context;
 
@@ -88,17 +83,11 @@ impl App for RayCaster {
             &octtree_controller.octtree_info_buffer,
         )?;
 
-        let stored_images = context.create_storage_images(
-            base.swapchain.format,
-            base.swapchain.extent,
-            images.len(),
-        )?;
-
         log::info!("Creating Renderer");
         let renderer = Renderer::new(
             context,
             images_len,
-            &stored_images,
+            &base.storage_images,
             &octtree_controller.octtree_buffer,
             &octtree_controller.octtree_info_buffer,
             &material_controller.material_buffer,
@@ -134,17 +123,22 @@ impl App for RayCaster {
             max_loaded_batches,
 
             camera,
-
-            stored_images,
         })
     }
 
-    fn update(&mut self, base: &mut BaseApp<Self>, _: usize, delta_time: Duration) -> Result<()> {
+    fn update(
+        &mut self,
+        base: &mut BaseApp<Self>,
+        gui: &mut Self::Gui,
+        _: usize,
+        delta_time: Duration,
+        controls: &Controls,
+    ) -> Result<()> {
         log::info!("Frame: {:?}", &self.frame_counter);
 
         self.total_time += delta_time;
 
-        self.camera.update(&base.controls, delta_time);
+        self.camera.update(controls, delta_time);
 
         self.octtree_controller
             .octtree_info_buffer
@@ -223,7 +217,7 @@ impl App for RayCaster {
     }
 
     fn record_raytracing_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -237,7 +231,7 @@ impl App for RayCaster {
     }
 
     fn record_raster_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -251,7 +245,7 @@ impl App for RayCaster {
     }
 
     fn record_compute_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
@@ -311,7 +305,7 @@ pub struct Gui {
     loaded_batches: u32,
 }
 
-impl octa_force::Gui for Gui {
+impl app::gui::Gui for Gui {
     fn new() -> Result<Self> {
         Ok(Gui {
             frame: 0,

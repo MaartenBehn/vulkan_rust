@@ -1,12 +1,12 @@
 use anyhow::Result;
-use imgui::{Condition, Context, DrawData, FontConfig, FontSource, SuspendedContext, Ui};
+use imgui::{Condition, FontConfig, FontSource, SuspendedContext, Ui};
 use imgui_rs_vulkan_renderer::{DynamicRendering, Options, Renderer};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use vulkan::{ash::vk::{self, Format}, CommandBuffer, CommandPool, Context as VkContext};
+use vulkan::{ash::vk::{Format}, CommandBuffer, CommandPool};
 use winit::{event::Event, window::Window};
 use std::time::Duration;
 use vulkan::ash::vk::Extent2D;
-use crate::{App, BaseApp, FrameStats, gui};
+use crate::{FrameStats};
 
 pub trait Gui: Sized {
     fn new() -> anyhow::Result<Self>;
@@ -64,7 +64,7 @@ impl MainGui {
                 }),
             },
             FontSource::TtfData {
-                data: include_bytes!("../../../../assets/fonts/mplus-1p-regular.ttf"),
+                data: include_bytes!("../../assets/fonts/mplus-1p-regular.ttf"),
                 size_pixels: font_size,
                 config: Some(FontConfig {
                     rasterizer_multiply: 1.75,
@@ -121,7 +121,7 @@ impl MainGui {
 
         self.imgui_platform.prepare_render(&ui, window);
         let draw_data = imgui.render();
-        self.imgui_renderer.cmd_draw(buffer.inner, draw_data, None)?;
+        self.imgui_renderer.cmd_draw(buffer.inner, draw_data)?;
 
         self.imgui_context = Some(imgui.suspend());
         Ok(())

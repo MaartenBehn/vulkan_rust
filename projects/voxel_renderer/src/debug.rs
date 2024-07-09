@@ -1,12 +1,12 @@
-use octa_force::anyhow::Result;
-use octa_force::camera::Camera;
+use app::anyhow::Result;
+use app::camera::Camera;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::str::FromStr;
 
-use octa_force::anyhow::Ok;
-use octa_force::glam::Vec3;
+use app::anyhow::Ok;
+use app::glam::Vec3;
 
 const MOVEMENT_FILE_PATH: &str = "movement.txt";
 
