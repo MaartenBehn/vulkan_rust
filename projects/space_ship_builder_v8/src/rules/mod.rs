@@ -37,7 +37,7 @@ pub struct Rules {
     pub duplicate_node_ids: Vec<Vec<Vec<NodeID>>>,
 
     pub block_names: Vec<String>,
-    pub solvers: Vec<Box<dyn Solver>>,
+    pub solvers: Vec<Solver>,
 }
 
 impl Rules {

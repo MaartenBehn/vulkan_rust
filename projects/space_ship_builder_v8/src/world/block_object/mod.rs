@@ -4,9 +4,9 @@ use crate::rules::{Prio, Rules};
 use order::NodeOrderController;
 use possible_blocks::PossibleBlocks;
 
-use crate::render::mesh::RenderNode;
+use crate::render::parallax::mesh::RenderNode;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
-use crate::rules::solver::SolverCacheIndex;
+use crate::rules::solver::{SolverCacheIndex, SolverFunctions};
 use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::world::data::node::NodeID;
 use crate::world::data::voxel_loader::VoxelLoader;

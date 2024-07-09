@@ -13,7 +13,7 @@ use crate::debug::line_renderer::DebugLineRenderer;
 use crate::debug::nodes::DebugNodesRenderer;
 use crate::debug::rotation_debug::RotationRenderer;
 use crate::debug::text_renderer::DebugTextRenderer;
-use crate::render::mesh_renderer::MeshRenderer;
+use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
 use crate::world::data::node::NodeID;
 use crate::world::ship::ShipManager;
@@ -75,7 +75,7 @@ impl DebugController {
         window: &Window,
         test_node_id: NodeID,
         ship_manager: &ShipManager,
-        renderer: &MeshRenderer,
+        renderer: &ParallaxRenderer,
     ) -> Result<Self> {
         let line_renderer = DebugLineRenderer::new(
             1000000,
@@ -93,7 +93,7 @@ impl DebugController {
         let hull_basic_renderer = DebugHullBasicRenderer::new(images_len);
         let hull_multi_renderer = DebugHullMultiRenderer::new(images_len);
         let collapse_log_renderer =
-            CollapseLogRenderer::new(images_len, &ship_manager.ships[0].block_objects);
+            CollapseLogRenderer::new(images_len, &ship_manager.ships[0].block_object);
 
         let gui = Gui::new(context, format, depth_format, window, images_len)?;
 
@@ -121,7 +121,7 @@ impl DebugController {
         rules: &Rules,
         camera: &Camera,
         res: UVec2,
-        renderer: &MeshRenderer,
+        renderer: &ParallaxRenderer,
     ) -> Result<()> {
         if controls.f2 && (self.last_mode_change + DEBUG_MODE_CHANGE_SPEED) < total_time {
             self.last_mode_change = total_time;
@@ -194,7 +194,7 @@ impl DebugController {
             }
             DebugMode::HullBasic => {
                 self.update_hull_base(
-                    rules.solvers[1].to_hull()?,
+                    rules.solvers[1].as_hull().unwrap(),
                     controls,
                     image_index,
                     &context,
@@ -204,7 +204,7 @@ impl DebugController {
             }
             DebugMode::HullMulti => {
                 self.update_hull_multi(
-                    rules.solvers[1].to_hull()?,
+                    rules.solvers[1].as_hull().unwrap(),
                     controls,
                     image_index,
                     &context,
@@ -214,7 +214,7 @@ impl DebugController {
             }
             DebugMode::CollapseLog => {
                 self.update_collapse_log_debug(
-                    &mut ship_manager.ships[0].block_objects,
+                    &mut ship_manager.ships[0].block_object,
                     controls,
                     rules,
                     camera,
@@ -241,7 +241,7 @@ impl DebugController {
         image_index: usize,
         res: UVec2,
         camera: &Camera,
-        renderer: &MeshRenderer,
+        renderer: &ParallaxRenderer,
     ) -> Result<()> {
         if self.mode == DebugMode::Off {
             return Ok(());

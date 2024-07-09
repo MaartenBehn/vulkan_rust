@@ -3,7 +3,7 @@ use crate::math::rotation::Rot;
 use crate::rules::basic_blocks::BasicBlocks;
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::req_tree::BroadReqTree;
-use crate::rules::solver::{Solver, SolverCacheIndex};
+use crate::rules::solver::{Solver, SolverCacheIndex, SolverFunctions};
 use crate::rules::Prio::Multi;
 use crate::rules::{
     Prio, Rules, BLOCK_MODEL_IDENTIFIER, BLOCK_TYPE_IDENTIFIER, FOLDER_MODEL_IDENTIFIER,
@@ -70,14 +70,14 @@ impl Rules {
 
         hull_solver.add_multi_blocks(self, voxel_loader)?;
 
-        self.solvers.push(Box::new(hull_solver));
+        self.solvers.push(Solver::Hull(hull_solver));
 
         info!("Making Hull Done");
         Ok(())
     }
 }
 
-impl Solver for HullSolver {
+impl SolverFunctions for HullSolver {
     fn block_check_reset(
         &self,
         block_object: &mut BlockObject,

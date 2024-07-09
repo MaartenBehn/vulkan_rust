@@ -1,4 +1,5 @@
-use crate::render::mesh::Mesh;
+use crate::render::parallax::mesh::ParallaxMesh;
+use crate::render::{RenderFunctions, RenderObject};
 use crate::rules::Rules;
 use crate::world::data::node::Node;
 use octa_force::glam::{IVec3, UVec2, UVec3};
@@ -22,7 +23,7 @@ type RenderMode = u32;
 pub const RENDER_MODE_BASE: RenderMode = 0;
 pub const RENDER_MODE_BUILD: RenderMode = 1;
 
-pub struct MeshRenderer {
+pub struct ParallaxRenderer {
     pub render_buffer: Buffer,
     pub node_buffer: Buffer,
     pub mat_buffer: Buffer,
@@ -66,7 +67,7 @@ pub struct PushConstant {
     data: u32,
 }
 
-impl MeshRenderer {
+impl ParallaxRenderer {
     pub fn new(
         context: &Context,
         images_len: u32,
@@ -184,11 +185,11 @@ impl MeshRenderer {
             GraphicsPipelineCreateInfo {
                 shaders: &[
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../shaders/chunk.vert.spv")[..],
+                        source: &include_bytes!("../../../shaders/chunk.vert.spv")[..],
                         stage: vk::ShaderStageFlags::VERTEX,
                     },
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../shaders/chunk.frag.spv")[..],
+                        source: &include_bytes!("../../../shaders/chunk.frag.spv")[..],
                         stage: vk::ShaderStageFlags::FRAGMENT,
                     },
                 ],
@@ -222,7 +223,7 @@ impl MeshRenderer {
 
         let depth_image_view = depth_image.create_image_view(true)?;
 
-        Ok(MeshRenderer {
+        Ok(ParallaxRenderer {
             render_buffer,
             node_buffer,
             mat_buffer,
@@ -240,39 +241,12 @@ impl MeshRenderer {
         })
     }
 
-    pub fn update(&mut self, camera: &Camera, res: UVec2) -> Result<()> {
-        self.render_buffer.copy_data_to_buffer(&[RenderBuffer {
-            proj_matrix: camera.projection_matrix(),
-            view_matrix: camera.view_matrix(),
-            dir: camera.direction,
-            fill: 0,
-            screen_size: res.as_vec2(),
-            fill_1: [0; 10],
-        }])?;
-        Ok(())
-    }
-
-    pub fn on_recreate_swapchain(&mut self, context: &Context, res: UVec2) -> Result<()> {
-        self.depth_image = context.create_image(
-            ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            MemoryLocation::GpuOnly,
-            self.depth_attachment_format,
-            res.x,
-            res.y,
-        )?;
-
-        self.depth_image_view = self.depth_image.create_image_view(true)?;
-
-        Ok(())
-    }
-
-    pub fn render(
+    pub fn render_mesh(
         &self,
         buffer: &CommandBuffer,
         image_index: usize,
-        render_mode: RenderMode,
-        mesh: &Mesh,
-    ) {
+        mesh: &ParallaxMesh,
+    ) -> Result<()> {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,
@@ -303,15 +277,55 @@ impl MeshRenderer {
                     chunk.pos / mesh.render_size,
                     mesh.size.x as u32,
                     (mesh.size.x / mesh.render_size.x) as u32,
-                    render_mode,
+                    RENDER_MODE_BASE,
                 ),
             );
 
             buffer.draw_indexed(chunk.index_count as u32);
         }
+
+        Ok(())
+    }
+}
+
+impl RenderFunctions for ParallaxRenderer {
+    fn update(&mut self, camera: &Camera, res: UVec2) -> Result<()> {
+        self.render_buffer.copy_data_to_buffer(&[RenderBuffer {
+            proj_matrix: camera.projection_matrix(),
+            view_matrix: camera.view_matrix(),
+            dir: camera.direction,
+            fill: 0,
+            screen_size: res.as_vec2(),
+            fill_1: [0; 10],
+        }])?;
+        Ok(())
     }
 
-    pub fn on_rules_changed(
+    fn on_recreate_swapchain(&mut self, context: &Context, res: UVec2) -> Result<()> {
+        self.depth_image = context.create_image(
+            ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            MemoryLocation::GpuOnly,
+            self.depth_attachment_format,
+            res.x,
+            res.y,
+        )?;
+
+        self.depth_image_view = self.depth_image.create_image_view(true)?;
+
+        Ok(())
+    }
+
+    fn render(
+        &self,
+        buffer: &CommandBuffer,
+        image_index: usize,
+        render_object: &RenderObject,
+    ) -> Result<()> {
+        let mesh: &ParallaxMesh = render_object.try_into().unwrap();
+        self.render_mesh(buffer, image_index, mesh)
+    }
+
+    fn on_rules_changed(
         &mut self,
         rules: &Rules,
         context: &Context,

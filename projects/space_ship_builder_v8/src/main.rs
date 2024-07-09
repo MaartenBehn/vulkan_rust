@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use crate::rules::Rules;
-use octa_force::egui_ash_renderer::Renderer;
 use octa_force::egui_winit::winit::event::WindowEvent;
 use octa_force::vulkan::ash::vk::{self, Format};
 use octa_force::{
@@ -14,7 +13,8 @@ use octa_force::{log, App, BaseApp};
 
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode::Off};
-use crate::render::mesh_renderer::MeshRenderer;
+use crate::render::parallax::renderer::ParallaxRenderer;
+use crate::render::{RenderFunctions, Renderer};
 use crate::world::asteroid::AsteroidManager;
 use crate::world::data::voxel_loader::VoxelLoader;
 use crate::world::ship::ShipManager;
@@ -52,7 +52,7 @@ struct SpaceShipBuilder {
     voxel_loader: VoxelLoader,
     rules: Rules,
 
-    renderer: MeshRenderer,
+    renderer: Renderer,
 
     ship_manager: ShipManager,
     asteroid_manager: AsteroidManager,
@@ -69,14 +69,14 @@ impl App for SpaceShipBuilder {
 
         let mut rules = Rules::new(&voxel_loader)?;
 
-        let renderer = MeshRenderer::new(
+        let renderer = Renderer::Parallax(ParallaxRenderer::new(
             &base.context,
             base.num_frames as u32,
             base.swapchain.format,
             Format::D32_SFLOAT,
             base.swapchain.size,
             &rules,
-        )?;
+        )?);
 
         #[cfg(debug_assertions)]
         let test_node_id = rules.load_node("Test", &voxel_loader).unwrap();
@@ -93,7 +93,7 @@ impl App for SpaceShipBuilder {
             &base.window,
             test_node_id,
             &ship_manager,
-            &renderer,
+            renderer.as_parallax().unwrap(),
         )?;
 
         log::info!("Creating Camera");
@@ -181,7 +181,7 @@ impl App for SpaceShipBuilder {
                 &self.rules,
                 &self.camera,
                 base.swapchain.size,
-                &self.renderer,
+                self.renderer.as_parallax().unwrap(),
             )?;
         }
 
@@ -230,7 +230,7 @@ impl App for SpaceShipBuilder {
             .swapchain_image_render_barrier(&base.swapchain.images_and_views[image_index].image)?;
         buffer.begin_rendering(
             &base.swapchain.images_and_views[image_index].view,
-            &self.renderer.depth_image_view,
+            &base.swapchain.depht_images_and_views[image_index].view,
             base.swapchain.size,
             vk::AttachmentLoadOp::CLEAR,
             None,
@@ -255,7 +255,7 @@ impl App for SpaceShipBuilder {
                 image_index,
                 base.swapchain.size,
                 &self.camera,
-                &self.renderer,
+                self.renderer.as_parallax().unwrap(),
             )?;
         }
 

@@ -1,8 +1,8 @@
 use crate::debug::DebugController;
 use crate::math::rotation::Rot;
 use crate::math::to_1d_i;
-use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
-use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
+use crate::render::parallax::mesh::{ParallaxMesh, ParallaxMeshChunk, RenderNode};
+use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
 use crate::world::data::node::NodeID;
 use log::info;
@@ -16,7 +16,7 @@ pub const NODES_DEBUG_SIZE: i32 = 4;
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct DebugNodesRenderer {
-    mesh: Mesh,
+    mesh: ParallaxMesh,
     index: usize,
     last_input: Instant,
 }
@@ -25,7 +25,7 @@ impl DebugNodesRenderer {
     pub fn new(image_len: usize) -> Self {
         let size = IVec3::ONE * NODES_DEBUG_SIZE;
         DebugNodesRenderer {
-            mesh: Mesh::new(image_len, size, size),
+            mesh: ParallaxMesh::new(image_len, size, size),
             index: 1,
             last_input: Instant::now(),
         }
@@ -63,7 +63,7 @@ impl DebugNodesRenderer {
                 &mut self.mesh.to_drop_buffers[image_index],
             )?;
         } else {
-            let new_chunk = MeshChunk::new_from_data(
+            let new_chunk = ParallaxMeshChunk::new_from_data(
                 IVec3::ZERO,
                 self.mesh.size,
                 self.mesh.render_size,
@@ -82,8 +82,15 @@ impl DebugNodesRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &MeshRenderer, image_index: usize) {
-        renderer.render(buffer, image_index, RENDER_MODE_BASE, &self.mesh)
+    pub fn render(
+        &mut self,
+        buffer: &CommandBuffer,
+        renderer: &ParallaxRenderer,
+        image_index: usize,
+    ) {
+        renderer
+            .render_mesh(buffer, image_index, &self.mesh)
+            .unwrap()
     }
 }
 

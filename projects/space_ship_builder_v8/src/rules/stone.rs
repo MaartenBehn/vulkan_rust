@@ -1,5 +1,5 @@
 use crate::rules::marching_cubes::MarchingCubes;
-use crate::rules::solver::{Solver, SolverCacheIndex};
+use crate::rules::solver::{Solver, SolverCacheIndex, SolverFunctions};
 use crate::rules::{Prio, Rules};
 use crate::world::block_object::{BlockObject, ChunkIndex};
 use crate::world::data::block::{Block, BlockIndex, BlockNameIndex};
@@ -36,14 +36,14 @@ impl Rules {
             marching_cubes,
         };
 
-        self.solvers.push(Box::new(stone_solver));
+        self.solvers.push(Solver::Stone(stone_solver));
 
         info!("Making Stone Done");
         Ok(())
     }
 }
 
-impl Solver for StoneSolver {
+impl SolverFunctions for StoneSolver {
     fn block_check_reset(
         &self,
         block_object: &mut BlockObject,

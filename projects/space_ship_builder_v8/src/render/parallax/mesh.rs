@@ -4,6 +4,9 @@ use block_mesh::{
     greedy_quads, Axis, AxisPermutation, GreedyQuadsBuffer, MergeVoxel, OrientedBlockFace,
     QuadCoordinateConfig, Voxel, VoxelVisibility,
 };
+use log::error;
+use octa_force::anyhow::bail;
+use octa_force::egui::emath::Numeric;
 use octa_force::glam::{ivec3, uvec3, IVec3};
 use octa_force::vulkan::ash::vk::{BufferUsageFlags, DeviceSize};
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
@@ -18,28 +21,18 @@ use octa_force::{
 use std::mem::size_of;
 use std::{iter, mem};
 
-const NODE_SIZE_PLUS_PADDING: u32 = (CHUNK_SIZE + 2) as u32;
-
-#[cfg(debug_assertions)]
-use crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
-#[cfg(debug_assertions)]
-use crate::debug::hull_multi::HULL_MULTI_DEBUG_SIZE;
-use crate::render::mesh_renderer::Vertex;
+use crate::render::parallax::renderer::{ParallaxRenderer, Vertex};
+use crate::render::{RenderObject, RenderObjectFunctions, Renderer};
 use crate::world::block_object::{BlockChunk, BlockObject};
 
-#[cfg(debug_assertions)]
-const HULL_BASE_SIZE_PLUS_PADDING: u32 = (HULL_BASE_DEBUG_SIZE + 2) as u32;
-#[cfg(debug_assertions)]
-const HULL_MULTI_SIZE_PLUS_PADDING: u32 = (HULL_MULTI_DEBUG_SIZE + 2) as u32;
-
-pub struct Mesh {
-    pub chunks: Vec<MeshChunk>,
+pub struct ParallaxMesh {
+    pub chunks: Vec<ParallaxMeshChunk>,
     pub to_drop_buffers: Vec<Vec<Buffer>>,
     pub size: IVec3,
     pub render_size: IVec3,
 }
 
-pub struct MeshChunk {
+pub struct ParallaxMeshChunk {
     pub pos: IVec3,
     pub size: IVec3,
     pub render_size: IVec3,
@@ -55,14 +48,14 @@ pub struct MeshChunk {
 #[derive(Copy, Clone, Default, Debug)]
 pub struct RenderNode(pub bool);
 
-impl Mesh {
-    pub fn new(images_len: usize, size: IVec3, render_size: IVec3) -> Mesh {
+impl ParallaxMesh {
+    pub fn new(num_frames: usize, size: IVec3, render_size: IVec3) -> ParallaxMesh {
         let mut to_drop_buffers = Vec::new();
-        for _ in 0..images_len {
+        for _ in 0..num_frames {
             to_drop_buffers.push(vec![])
         }
 
-        Mesh {
+        ParallaxMesh {
             chunks: Vec::new(),
             to_drop_buffers,
             size,
@@ -70,13 +63,21 @@ impl Mesh {
         }
     }
 
+    pub fn new_from_block_object(block_object: &BlockObject, num_frames: usize) -> ParallaxMesh {
+        Self::new(
+            num_frames,
+            block_object.nodes_per_chunk,
+            block_object.nodes_per_chunk,
+        )
+    }
+
     pub fn new_from_mesh(
-        other_mesh: &Mesh,
+        other_mesh: &ParallaxMesh,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
-    ) -> Result<Mesh> {
-        let mut new_mesh = Mesh::new(
+    ) -> Result<ParallaxMesh> {
+        let mut new_mesh = ParallaxMesh::new(
             other_mesh.to_drop_buffers.len(),
             other_mesh.size,
             other_mesh.render_size,
@@ -87,51 +88,9 @@ impl Mesh {
         Ok(new_mesh)
     }
 
-    pub fn update(
-        &mut self,
-        block_object: &BlockObject,
-        changed_chunks: Vec<usize>,
-        image_index: usize,
-        context: &Context,
-        descriptor_layout: &DescriptorSetLayout,
-        descriptor_pool: &DescriptorPool,
-    ) -> Result<()> {
-        // Buffers from the last swapchain iteration are being dropped
-        self.to_drop_buffers[image_index].clear();
-
-        for chunk_index in changed_chunks.iter() {
-            let chunk = &block_object.chunks[*chunk_index];
-
-            let mesh_chunk_index = self.chunks.iter().position(|c| c.pos == chunk.pos);
-            if mesh_chunk_index.is_some() {
-                self.chunks[mesh_chunk_index.unwrap()].update(
-                    chunk,
-                    context,
-                    &mut self.to_drop_buffers[image_index],
-                )?;
-            } else {
-                let new_chunk = MeshChunk::new(
-                    chunk.pos,
-                    self.size,
-                    self.render_size,
-                    chunk,
-                    self.to_drop_buffers.len(),
-                    context,
-                    descriptor_layout,
-                    descriptor_pool,
-                )?;
-                if new_chunk.is_some() {
-                    self.chunks.push(new_chunk.unwrap())
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn update_from_mesh(
         &mut self,
-        other_mesh: &Mesh,
+        other_mesh: &ParallaxMesh,
         image_index: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -142,7 +101,7 @@ impl Mesh {
 
         for (i, other_chunk) in other_mesh.chunks.iter().enumerate() {
             if self.chunks.len() <= i {
-                let new_chunk = MeshChunk::new_from_chunk(
+                let new_chunk = ParallaxMeshChunk::new_from_mesh_chunk(
                     other_chunk,
                     self.to_drop_buffers.len(),
                     context,
@@ -151,7 +110,7 @@ impl Mesh {
                 )?;
                 self.chunks.push(new_chunk);
             } else {
-                self.chunks[i].update_from_chunk(
+                self.chunks[i].update_from_mesh_chunk(
                     other_chunk,
                     context,
                     &mut self.to_drop_buffers[image_index],
@@ -165,23 +124,68 @@ impl Mesh {
     }
 }
 
-impl MeshChunk {
-    pub fn new(
+impl RenderObjectFunctions for ParallaxMesh {
+    fn update_from_block_object(
+        &mut self,
+        block_object: &BlockObject,
+        changed_chunks: Vec<usize>,
+        image_index: usize,
+        context: &Context,
+        renderer: &Renderer,
+    ) -> Result<()> {
+        let paralleax_renderer: &ParallaxRenderer = renderer.try_into().unwrap();
+
+        // Buffers from the last swapchain iteration are being dropped
+        self.to_drop_buffers[image_index].clear();
+
+        for chunk_index in changed_chunks.iter() {
+            let chunk = &block_object.chunks[*chunk_index];
+
+            let mesh_chunk_index = self.chunks.iter().position(|c| c.pos == chunk.pos);
+            if mesh_chunk_index.is_some() {
+                self.chunks[mesh_chunk_index.unwrap()].update_from_block_chunk(
+                    chunk,
+                    context,
+                    &mut self.to_drop_buffers[image_index],
+                )?;
+            } else {
+                let new_chunk = ParallaxMeshChunk::new_from_block_chunk(
+                    chunk.pos,
+                    self.size,
+                    self.render_size,
+                    chunk,
+                    self.to_drop_buffers.len(),
+                    context,
+                    &paralleax_renderer.chunk_descriptor_layout,
+                    &paralleax_renderer.descriptor_pool,
+                )?;
+                if new_chunk.is_some() {
+                    self.chunks.push(new_chunk.unwrap())
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl ParallaxMeshChunk {
+    pub fn new_from_block_chunk(
         pos: IVec3,
         size: IVec3,
         render_size: IVec3,
-        ship_chunk: &BlockChunk,
+        block_chunk: &BlockChunk,
         images_len: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
-    ) -> Result<Option<MeshChunk>> {
+    ) -> Result<Option<ParallaxMeshChunk>> {
         Self::new_from_data(
             pos,
             size,
             render_size,
-            &ship_chunk.node_id_bits,
-            &ship_chunk.render_nodes,
+            &block_chunk.node_id_bits,
+            &block_chunk.render_nodes,
             images_len,
             context,
             descriptor_layout,
@@ -200,8 +204,8 @@ impl MeshChunk {
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
-    ) -> Result<Option<MeshChunk>> {
-        let (vertecies, indecies) = Self::create_mesh(render_size, render_nodes);
+    ) -> Result<Option<ParallaxMeshChunk>> {
+        let (vertecies, indecies) = Self::create_mesh(render_size, render_nodes)?;
         let vertex_size = vertecies.len();
         let index_size = indecies.len();
 
@@ -234,7 +238,7 @@ impl MeshChunk {
             descriptor_pool,
         )?;
 
-        Ok(Some(MeshChunk {
+        Ok(Some(ParallaxMeshChunk {
             pos,
             size,
             render_size,
@@ -249,8 +253,8 @@ impl MeshChunk {
         }))
     }
 
-    pub fn new_from_chunk(
-        chunk: &MeshChunk,
+    pub fn new_from_mesh_chunk(
+        chunk: &ParallaxMeshChunk,
         images_len: usize,
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
@@ -285,7 +289,7 @@ impl MeshChunk {
             descriptor_pool,
         )?;
 
-        Ok(MeshChunk {
+        Ok(ParallaxMeshChunk {
             pos: chunk.pos,
             size: chunk.size,
             render_size: chunk.render_size,
@@ -298,16 +302,15 @@ impl MeshChunk {
         })
     }
 
-    pub fn update(
+    pub fn update_from_block_chunk(
         &mut self,
-
-        ship_chunk: &BlockChunk,
+        block_chunk: &BlockChunk,
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {
         self.update_from_data(
-            &ship_chunk.node_id_bits,
-            &ship_chunk.render_nodes,
+            &block_chunk.node_id_bits,
+            &block_chunk.render_nodes,
             context,
             to_drop_buffers,
         )
@@ -322,7 +325,7 @@ impl MeshChunk {
     ) -> Result<()> {
         self.chunk_buffer.copy_data_to_buffer(node_id_bits)?;
 
-        let (vertecies, indecies) = Self::create_mesh(self.render_size, render_nodes);
+        let (vertecies, indecies) = Self::create_mesh(self.render_size, render_nodes)?;
         let vertex_size = (vertecies.len() * size_of::<Vertex>()) as DeviceSize;
         let index_size = (indecies.len() * size_of::<u16>()) as DeviceSize;
 
@@ -362,9 +365,9 @@ impl MeshChunk {
         Ok(())
     }
 
-    pub fn update_from_chunk(
+    pub fn update_from_mesh_chunk(
         &mut self,
-        chunk: &MeshChunk,
+        chunk: &ParallaxMeshChunk,
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {
@@ -415,65 +418,42 @@ impl MeshChunk {
         u_flip_face: Axis::X,
     };
 
-    fn create_mesh(render_size: IVec3, render_nodes: &[RenderNode]) -> (Vec<Vertex>, Vec<u16>) {
+    fn run_greedy<const SIZE: u32>(render_nodes: &[RenderNode], buffer: &mut GreedyQuadsBuffer) {
+        let shape: ConstShape3u32<SIZE, SIZE, SIZE> = ConstShape3u32 {};
+
+        greedy_quads(
+            render_nodes,
+            &shape,
+            [0; 3],
+            [SIZE - 1; 3],
+            &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
+            buffer,
+        );
+    }
+
+    fn create_mesh(
+        render_size: IVec3,
+        render_nodes: &[RenderNode],
+    ) -> Result<(Vec<Vertex>, Vec<u16>)> {
         let mut buffer = GreedyQuadsBuffer::new(render_nodes.len());
 
-        if render_size == (IVec3::ONE * CHUNK_SIZE) {
-            let shape: ConstShape3u32<
-                NODE_SIZE_PLUS_PADDING,
-                NODE_SIZE_PLUS_PADDING,
-                NODE_SIZE_PLUS_PADDING,
-            > = ConstShape3u32 {};
-
-            greedy_quads(
-                render_nodes,
-                &shape,
-                [0; 3],
-                [NODE_SIZE_PLUS_PADDING - 1; 3],
-                &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
-                &mut buffer,
-            );
-        }
-
-        #[cfg(debug_assertions)]
-        if render_size == (IVec3::ONE * HULL_BASE_DEBUG_SIZE) {
-            let shape: ConstShape3u32<
-                HULL_BASE_SIZE_PLUS_PADDING,
-                HULL_BASE_SIZE_PLUS_PADDING,
-                HULL_BASE_SIZE_PLUS_PADDING,
-            > = ConstShape3u32 {};
-
-            greedy_quads(
-                render_nodes,
-                &shape,
-                [0; 3],
-                [HULL_BASE_SIZE_PLUS_PADDING - 1; 3],
-                &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
-                &mut buffer,
-            );
-        }
-
-        #[cfg(debug_assertions)]
-        if render_size == (IVec3::ONE * HULL_MULTI_DEBUG_SIZE) {
-            let shape: ConstShape3u32<
-                HULL_MULTI_SIZE_PLUS_PADDING,
-                HULL_MULTI_SIZE_PLUS_PADDING,
-                HULL_MULTI_SIZE_PLUS_PADDING,
-            > = ConstShape3u32 {};
-
-            greedy_quads(
-                render_nodes,
-                &shape,
-                [0; 3],
-                [HULL_MULTI_SIZE_PLUS_PADDING - 1; 3],
-                &Self::RIGHT_HANDED_Z_UP_CONFIG.faces,
-                &mut buffer,
-            );
+        if render_size == (IVec3::ONE * 16) {
+            Self::run_greedy::<18>(render_nodes, &mut buffer);
+        } else if render_size == (IVec3::ONE * 32) {
+            Self::run_greedy::<34>(render_nodes, &mut buffer);
+        } else if render_size == (IVec3::ONE * 4) {
+            Self::run_greedy::<6>(render_nodes, &mut buffer);
+        } else if render_size == (IVec3::ONE * 8) {
+            Self::run_greedy::<10>(render_nodes, &mut buffer);
+        } else if render_size == (IVec3::ONE * 64) {
+            Self::run_greedy::<66>(render_nodes, &mut buffer);
+        } else {
+            bail!("Chunk Size {render_size} not implemented!")
         }
 
         let num_quads = buffer.quads.num_quads();
         if num_quads == 0 {
-            return (Vec::new(), Vec::new());
+            return Ok((Vec::new(), Vec::new()));
         }
 
         let num_vertecies = num_quads * 4;
@@ -511,7 +491,7 @@ impl MeshChunk {
                 });
             });
 
-        (vertecies, indecies)
+        Ok((vertecies, indecies))
     }
 
     fn create_buffer_from_data<T: Copy>(

@@ -1,8 +1,10 @@
 use crate::debug::DebugController;
 use crate::math::oct_positions;
-use crate::render::mesh::{Mesh, MeshChunk, RenderNode};
-use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
-use crate::rules::solver::Solver;
+use crate::render::parallax::mesh::{ParallaxMesh, ParallaxMeshChunk, RenderNode};
+use crate::render::parallax::renderer::ParallaxRenderer;
+use crate::render::{RenderFunctions, RenderObject};
+use crate::rules::hull::HullSolver;
+use crate::rules::solver::{Solver, SolverFunctions};
 use crate::rules::Rules;
 use crate::world::block_object::collapse::Collapser;
 use crate::world::block_object::possible_blocks::PossibleBlocks;
@@ -36,7 +38,7 @@ pub struct LogEntry {
 }
 
 pub struct CollapseLogRenderer {
-    mesh: Mesh,
+    mesh: ParallaxMesh,
 
     last_blocks_names: Vec<BlockNameIndex>,
     block_log: Vec<LogEntry>,
@@ -55,13 +57,9 @@ pub struct CollapseLogRenderer {
 }
 
 impl CollapseLogRenderer {
-    pub fn new(image_len: usize, ship_data: &BlockObject) -> Self {
+    pub fn new(image_len: usize, block_object: &BlockObject) -> Self {
         CollapseLogRenderer {
-            mesh: Mesh::new(
-                image_len,
-                ship_data.nodes_per_chunk,
-                ship_data.nodes_per_chunk,
-            ),
+            mesh: ParallaxMesh::new_from_block_object(block_object, image_len),
             last_input: Instant::now(),
             last_blocks_names: vec![],
             block_log: vec![],
@@ -100,7 +98,7 @@ impl CollapseLogRenderer {
             info!("Log Index: {}", self.log_index);
         }
 
-        let hull_solver = rules.solvers[1].to_hull().unwrap();
+        let hull_solver = &rules.solvers[1].as_hull().unwrap();
         if self.last_input.elapsed() > INPUT_INTERVAL && controls.t {
             self.preview_index = (self.preview_index + 1) % hull_solver.multi_blocks.len();
             self.last_input = Instant::now();
@@ -273,7 +271,7 @@ impl CollapseLogRenderer {
                 &mut self.mesh.to_drop_buffers[image_index],
             )?;
         } else {
-            let new_chunk = MeshChunk::new_from_data(
+            let new_chunk = ParallaxMeshChunk::new_from_data(
                 IVec3::ZERO,
                 self.mesh.size,
                 self.mesh.render_size,
@@ -292,8 +290,15 @@ impl CollapseLogRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, buffer: &CommandBuffer, renderer: &MeshRenderer, image_index: usize) {
-        renderer.render(buffer, image_index, RENDER_MODE_BASE, &self.mesh)
+    pub fn render(
+        &mut self,
+        buffer: &CommandBuffer,
+        renderer: &ParallaxRenderer,
+        image_index: usize,
+    ) {
+        renderer
+            .render_mesh(buffer, image_index, &self.mesh)
+            .unwrap()
     }
 }
 
@@ -678,12 +683,9 @@ impl DebugController {
                     let (block_name_index, cache_index) =
                         caches[self.collapse_log_renderer.cache_index % caches.len()];
 
-                    let mut block = None;
+                    let hull_solver = rules.solvers[block_name_index as usize].as_hull().unwrap();
 
-                    let hull_solver = rules.solvers[block_name_index as usize].to_hull();
-                    if hull_solver.is_ok() {
-                        block = Some(hull_solver.unwrap().get_block_from_cache_index(cache_index));
-                    }
+                    let mut block = hull_solver.get_block_from_cache_index(cache_index);
 
                     let indices: Vec<_> = oct_positions()
                         .into_iter()
@@ -696,15 +698,11 @@ impl DebugController {
                         })
                         .collect();
 
-                    if block.is_some() {
-                        let block = block.unwrap();
-
-                        for (node_id, (index, index_with_padding)) in
-                            block.node_ids.into_iter().zip(indices.into_iter())
-                        {
-                            node_id_bits[index] = node_id.into();
-                            render_nodes[index_with_padding] = RenderNode(node_id.is_some());
-                        }
+                    for (node_id, (index, index_with_padding)) in
+                        block.node_ids.into_iter().zip(indices.into_iter())
+                    {
+                        node_id_bits[index] = node_id.into();
+                        render_nodes[index_with_padding] = RenderNode(node_id.is_some());
                     }
                 }
             }

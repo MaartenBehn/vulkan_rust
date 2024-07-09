@@ -1,4 +1,4 @@
-use crate::rules::solver::{Solver, SolverCacheIndex};
+use crate::rules::solver::{Solver, SolverCacheIndex, SolverFunctions};
 use crate::rules::Prio::Empty;
 use crate::rules::{Prio, Rules};
 use crate::world::block_object::BlockObject;
@@ -13,12 +13,12 @@ pub struct EmptySolver {}
 impl Rules {
     pub fn make_empty(&mut self) {
         self.block_names.push("Empty".to_owned());
-        self.solvers.push(Box::new(EmptySolver {}));
+        self.solvers.push(Solver::Empty(EmptySolver {}));
         self.nodes.push(Node::default());
     }
 }
 
-impl Solver for EmptySolver {
+impl SolverFunctions for EmptySolver {
     fn block_check_reset(
         &self,
         _: &mut BlockObject,

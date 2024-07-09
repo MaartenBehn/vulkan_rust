@@ -1,5 +1,6 @@
-use crate::render::mesh::Mesh;
-use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
+use crate::render::parallax::mesh::ParallaxMesh;
+use crate::render::parallax::renderer::{ParallaxRenderer, RENDER_MODE_BASE};
+use crate::render::{RenderFunctions, RenderObject, RenderObjectFunctions, Renderer};
 use crate::rules::Rules;
 use crate::world::block_object::BlockObject;
 use crate::world::ship::builder::ShipBuilder;
@@ -9,7 +10,6 @@ use log::info;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::egui_ash_renderer::Renderer;
 use octa_force::glam::UVec2;
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{CommandBuffer, Context};
@@ -40,8 +40,8 @@ pub struct ShipManager {
 }
 
 pub struct Ship {
-    pub block_objects: BlockObject,
-    pub mesh: Mesh,
+    pub block_object: BlockObject,
+    pub render_object: RenderObject,
     pub builder: Option<ShipBuilder>,
 }
 
@@ -74,7 +74,7 @@ impl ShipManager {
 
         controls: &Controls,
         camera: &Camera,
-        renderer: &MeshRenderer,
+        renderer: &Renderer,
     ) -> Result<()> {
         if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
@@ -87,7 +87,7 @@ impl ShipManager {
                 let mut builder = ship.builder.take().unwrap();
 
                 builder.update(
-                    &mut ship.block_objects,
+                    &mut ship.block_object,
                     controls,
                     camera,
                     rules,
@@ -103,7 +103,7 @@ impl ShipManager {
                     .ship_computing_start(self.actions_per_tick);
             }
 
-            let (full, changed_chunks) = ship.block_objects.tick(self.actions_per_tick, rules);
+            let (full, changed_chunks) = ship.block_object.tick(self.actions_per_tick, rules);
             if full {
                 info!("Full Tick: {}", self.actions_per_tick);
             }
@@ -118,13 +118,12 @@ impl ShipManager {
 
             self.last_full_tick = full;
 
-            ship.mesh.update(
-                &ship.block_objects,
+            ship.render_object.update_from_block_object(
+                &ship.block_object,
                 changed_chunks,
                 image_index,
                 context,
-                &renderer.chunk_descriptor_layout,
-                &renderer.descriptor_pool,
+                renderer,
             )?;
         }
 
@@ -139,16 +138,23 @@ impl ShipManager {
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer, image_index: usize, renderer: &MeshRenderer) {
+    pub fn render(
+        &self,
+        buffer: &CommandBuffer,
+        image_index: usize,
+        renderer: &Renderer,
+    ) -> Result<()> {
         for ship in self.ships.iter() {
-            renderer.render(buffer, image_index, RENDER_MODE_BASE, &ship.mesh);
+            renderer.render(buffer, image_index, &ship.render_object)?;
         }
+
+        Ok(())
     }
 
     pub fn on_voxel_change(&mut self, rules: &mut Rules) -> Result<()> {
         for ship in self.ships.iter_mut() {
-            let save = ship.block_objects.get_save();
-            ship.block_objects = BlockObject::new_from_save(save, rules);
+            let save = ship.block_object.get_save();
+            ship.block_object = BlockObject::new_from_save(save, rules);
 
             if ship.has_builder() {
                 let mut builder = ship.builder.take().unwrap();
@@ -165,36 +171,41 @@ impl ShipManager {
 
 impl Ship {
     pub fn new(num_frames: usize, rules: &Rules) -> Ship {
-        let data = BlockObject::new(CHUNK_SIZE, rules.block_names.len());
-
-        let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
+        let block_object = BlockObject::new(CHUNK_SIZE, rules.block_names.len());
+        let render_object = RenderObject::Parallax(ParallaxMesh::new_from_block_object(
+            &block_object,
+            num_frames,
+        ));
 
         Ship {
-            block_objects: data,
-            mesh,
+            block_object,
+            render_object,
             builder: None,
         }
     }
 
     pub fn try_load_save(path: &str, num_frames: usize, rules: &Rules) -> Ship {
         let r = BlockObject::load(path, rules);
-        let data = if r.is_ok() {
+        let block_object = if r.is_ok() {
             r.unwrap()
         } else {
             BlockObject::new(CHUNK_SIZE, rules.block_names.len())
         };
 
-        let mesh = Mesh::new(num_frames, data.nodes_per_chunk, data.nodes_per_chunk);
+        let render_object = RenderObject::Parallax(ParallaxMesh::new_from_block_object(
+            &block_object,
+            num_frames,
+        ));
 
         Ship {
-            block_objects: data,
-            mesh,
+            block_object,
+            render_object,
             builder: None,
         }
     }
 
     pub fn save(&self, path: &str) -> Result<()> {
-        self.block_objects.save(path)?;
+        self.block_object.save(path)?;
         Ok(())
     }
 

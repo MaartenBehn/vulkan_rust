@@ -1,7 +1,8 @@
 mod metaball;
 
-use crate::render::mesh::Mesh;
-use crate::render::mesh_renderer::{MeshRenderer, RENDER_MODE_BASE};
+use crate::render::parallax::mesh::ParallaxMesh;
+use crate::render::parallax::renderer::{ParallaxRenderer, RENDER_MODE_BASE};
+use crate::render::{RenderFunctions, RenderObject, RenderObjectFunctions, Renderer};
 use crate::rules::Rules;
 use crate::world::asteroid::metaball::Metaball;
 use crate::world::block_object::BlockObject;
@@ -32,8 +33,8 @@ pub struct AsteroidManager {
 }
 
 pub struct Asteroid {
-    pub mesh: Mesh,
     pub block_object: BlockObject,
+    pub render_object: RenderObject,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -64,7 +65,7 @@ impl AsteroidManager {
         image_index: usize,
         delta_time: Duration,
         rules: &Rules,
-        renderer: &MeshRenderer,
+        renderer: &Renderer,
     ) -> Result<()> {
         if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
             self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
@@ -79,23 +80,29 @@ impl AsteroidManager {
             }
             self.last_full_tick = full;
 
-            asteroid.mesh.update(
+            asteroid.render_object.update_from_block_object(
                 &asteroid.block_object,
                 changed_chunks,
                 image_index,
                 context,
-                &renderer.chunk_descriptor_layout,
-                &renderer.descriptor_pool,
+                renderer,
             )?;
         }
 
         Ok(())
     }
 
-    pub fn render(&self, buffer: &CommandBuffer, image_index: usize, renderer: &MeshRenderer) {
+    pub fn render(
+        &self,
+        buffer: &CommandBuffer,
+        image_index: usize,
+        renderer: &Renderer,
+    ) -> Result<()> {
         for asteroid in self.asteroids.iter() {
-            renderer.render(buffer, image_index, RENDER_MODE_BASE, &asteroid.mesh);
+            renderer.render(buffer, image_index, &asteroid.render_object)?;
         }
+
+        Ok(())
     }
 }
 
@@ -105,10 +112,16 @@ impl Asteroid {
         num_frames: usize,
         rules: &Rules,
     ) -> Self {
-        let mesh = Mesh::new(num_frames, ASTEROID_CHUNK_SIZE, ASTEROID_CHUNK_SIZE);
         let block_object = BlockObject::new(ASTEROID_CHUNK_SIZE.x, rules.block_names.len());
+        let render_object = RenderObject::Parallax(ParallaxMesh::new_from_block_object(
+            &block_object,
+            num_frames,
+        ));
 
-        let mut asteroid = Asteroid { mesh, block_object };
+        let mut asteroid = Asteroid {
+            render_object,
+            block_object,
+        };
 
         let config = get_config_from_size(11).unwrap();
         info!("Asteroid Config: {:?}", config);
