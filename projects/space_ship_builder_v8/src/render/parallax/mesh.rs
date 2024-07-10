@@ -22,7 +22,7 @@ use std::mem::size_of;
 use std::{iter, mem};
 
 use crate::render::parallax::renderer::{ParallaxRenderer, Vertex};
-use crate::render::{RenderObject, RenderObjectFunctions, Renderer};
+use crate::render::{RenderObjectFunctions, Renderer};
 use crate::world::block_object::{BlockChunk, BlockObject};
 
 pub struct ParallaxMesh {

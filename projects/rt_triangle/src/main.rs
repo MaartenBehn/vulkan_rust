@@ -1,9 +1,9 @@
-use octa_force::anyhow::Result;
-use octa_force::controls::Controls;
-use octa_force::vulkan::ash::vk::{self, Packed24_8};
-use octa_force::vulkan::utils::*;
-use octa_force::{vulkan::*, BaseApp};
-use octa_force::{App, ImageAndView};
+use app::anyhow::Result;
+use app::controls::Controls;
+use app::vulkan::ash::vk::{self, Packed24_8};
+use app::vulkan::utils::*;
+use app::{vulkan::*, BaseApp};
+use app::{App, ImageAndView};
 use std::mem::size_of;
 use std::time::Duration;
 
@@ -12,7 +12,7 @@ const HEIGHT: u32 = 576;
 const APP_NAME: &str = "Ray traced triangle";
 
 fn main() -> Result<()> {
-    octa_force::run::<Triangle>(APP_NAME, WIDTH, HEIGHT, true, false)
+    app::run::<Triangle>(APP_NAME, WIDTH, HEIGHT, true, false)
 }
 
 struct Triangle {
@@ -65,7 +65,7 @@ impl App for Triangle {
     }
 
     fn record_raytracing_commands(
-        &self,
+        &mut self,
         base: &BaseApp<Self>,
         buffer: &CommandBuffer,
         image_index: usize,
