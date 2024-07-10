@@ -30,12 +30,12 @@ const APP_NAME: &str = "Ray Caster";
 
 const PRINT_DEBUG_LOADING: bool = false;
 const MOVEMENT_DEBUG_READ: bool = false;
-const SAVE_FOLDER: &str = "./libs/octtree/assets/octtree/";
+const SAVE_FOLDER: &str = "../../libs/octtree/assets/octtree/";
 
 fn main() -> Result<()> {
     ensure!(cfg!(target_pointer_width = "64"), "Target not 64 bit");
 
-    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, false, true)?;
+    app::run::<RayCaster>(APP_NAME, WIDTH, HEIGHT, true, true)?;
     Ok(())
 }
 

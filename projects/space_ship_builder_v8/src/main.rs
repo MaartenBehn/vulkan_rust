@@ -33,7 +33,7 @@ const INPUT_INTERVALL: Duration = Duration::from_secs(1);
 
 const VOX_FILE_PATH: &str = "./assets/space_ship.vox";
 
-const SHOW_ASTEROID: bool = true;
+const SHOW_ASTEROID: bool = false;
 
 fn main() -> Result<()> {
     octa_force::run::<SpaceShipBuilder>(EngineConfig {

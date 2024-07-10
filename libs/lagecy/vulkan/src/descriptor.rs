@@ -98,10 +98,10 @@ impl DescriptorSet {
 
         // these Vec are here to keep structure internal to WriteDescriptorSet (DescriptorImageInfo, DescriptorBufferInfo, ...) alive
         let mut img_infos = vec![];
-        let mut buffer_infos = vec![];
+        let mut buffer_infos = Vec::with_capacity(writes.len());
         let mut as_infos = vec![];
 
-        let descriptor_writes = writes
+        let mut descriptor_writes = writes
             .iter()
             .map(|write| match write.kind {
                 StorageImage { view, layout } => {
@@ -159,12 +159,14 @@ impl DescriptorSet {
 
                     buffer_infos.push(buffer_info);
 
-                    vk::WriteDescriptorSet::builder()
+                    let write = vk::WriteDescriptorSet::builder()
                         .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
                         .dst_binding(write.binding)
                         .dst_set(self.inner)
                         .buffer_info(std::slice::from_ref(buffer_infos.last().unwrap()))
-                        .build()
+                        .build();
+
+                    write
                 }
                 CombinedImageSampler {
                     view,
