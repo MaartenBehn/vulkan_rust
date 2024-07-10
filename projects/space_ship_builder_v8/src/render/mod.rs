@@ -7,13 +7,16 @@ use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::glam::UVec2;
 use octa_force::vulkan::{CommandBuffer, Context};
+use crate::render::raytracer::RaytraceRenderer;
 
 pub mod parallax;
+pub mod raytracer;
 
 #[enum_delegate::implement(RenderFunctions)]
 #[derive(EnumAsInner)]
 pub enum Renderer {
     Parallax(ParallaxRenderer),
+    Raytracing(RaytraceRenderer)
 }
 
 #[enum_delegate::register]
