@@ -1,7 +1,7 @@
 use log::info;
 use std::time::{Duration, Instant};
 
-pub struct ShipProfile {
+pub struct TickProfile {
     last_block_placement: Instant,
     time_spent_computing: Duration,
     tick_counter: usize,
@@ -9,9 +9,9 @@ pub struct ShipProfile {
     start_ship_computing: Instant,
 }
 
-impl ShipProfile {
+impl TickProfile {
     pub fn new() -> Self {
-        ShipProfile {
+        TickProfile {
             last_block_placement: Instant::now(),
             time_spent_computing: Duration::ZERO,
             tick_counter: 0,

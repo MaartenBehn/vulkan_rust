@@ -2,16 +2,15 @@ use crate::rules::Rules;
 use octa_force::glam::{vec3, IVec3};
 use octa_force::{anyhow::Result, camera::Camera, controls::Controls};
 use std::time::Duration;
-
 use crate::world::block_object::BlockObject;
 use crate::world::data::block::BlockNameIndex;
-use crate::world::ship::profile::ShipProfile;
+use crate::world::profile::TickProfile;
 use crate::world::ship::ENABLE_SHIP_PROFILING;
 
 const SCROLL_SPEED: f32 = 0.01;
 const PLACE_SPEED: Duration = Duration::from_millis(100);
 
-pub struct ShipBuilder {
+pub struct BlockBuilder {
     possible_blocks: Vec<BlockNameIndex>,
     block_to_build: BlockNameIndex,
     distance: f32,
@@ -23,14 +22,14 @@ pub struct ShipBuilder {
     last_block_index: Option<BlockNameIndex>,
 }
 
-impl ShipBuilder {
-    pub fn new(rules: &Rules) -> ShipBuilder {
+impl BlockBuilder {
+    pub fn new(rules: &Rules) -> BlockBuilder {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(rules.get_block_name_index("Empty"));
         possible_blocks.push(rules.get_block_name_index("Hull"));
         possible_blocks.push(rules.get_block_name_index("Stone"));
 
-        ShipBuilder {
+        BlockBuilder {
             block_to_build: 2,
             possible_blocks,
             distance: 3.0,
@@ -51,7 +50,7 @@ impl ShipBuilder {
         _: &Rules,
         total_time: Duration,
 
-        ship_profile: &mut ShipProfile,
+        tick_profile: &mut TickProfile,
     ) -> Result<()> {
         if controls.e && (self.last_action_time + PLACE_SPEED) < total_time {
             self.last_action_time = total_time;
@@ -81,7 +80,7 @@ impl ShipBuilder {
             block_object.place_block(pos, block_index);
 
             if ENABLE_SHIP_PROFILING {
-                ship_profile.reset();
+                tick_profile.reset();
             }
         }
 

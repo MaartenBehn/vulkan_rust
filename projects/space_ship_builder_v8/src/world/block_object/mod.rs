@@ -4,12 +4,11 @@ use crate::rules::{Prio, Rules};
 use order::NodeOrderController;
 use possible_blocks::PossibleBlocks;
 
-use crate::render::parallax::mesh::RenderNode;
+use crate::render::parallax::chunk::{ParallaxData, RenderNode};
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::{SolverCacheIndex, SolverFunctions};
 use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::world::data::node::NodeID;
-use crate::world::data::voxel_loader::VoxelLoader;
 use collapse::Collapser;
 use index_queue::IndexQueue;
 use log::debug;
@@ -23,39 +22,36 @@ pub mod possible_blocks;
 pub type ChunkIndex = usize;
 pub type CacheIndex = usize;
 
-#[derive(Clone)]
 pub struct BlockObject {
     pub chunks: Vec<BlockChunk>,
-
+    
     pub blocks_per_chunk: IVec3,
     pub block_length: usize,
-
     pub nodes_per_chunk: IVec3,
     pub nodes_length: usize,
-
     pub nodes_per_chunk_with_padding: IVec3,
     pub nodes_length_with_padding: usize,
-
     pub chunk_block_pos_mask: IVec3,
     pub in_chunk_block_pos_mask: IVec3,
 
     pub order_controller: NodeOrderController,
-
     pub to_reset: IndexQueue,
     pub was_reset: IndexQueue,
     pub to_propergate: IndexQueue,
-
     pub collapser: Collapser,
     pub is_collapsed: IndexQueue,
+    
+    pub builder_active: bool,
 }
 
-#[derive(Clone)]
 pub struct BlockChunk {
     pub pos: IVec3,
     pub block_names: Vec<BlockNameIndex>,
     pub blocks: Vec<PossibleBlocks>,
     pub node_id_bits: Vec<u32>,
+
     pub render_nodes: Vec<RenderNode>,
+    pub parallax_data: Option<ParallaxData>,
 }
 
 impl BlockObject {
@@ -75,7 +71,7 @@ impl BlockObject {
 
         let node_order_controller = NodeOrderController::new(num_block_names, nodes_length);
 
-        let ship = BlockObject {
+        BlockObject {
             chunks: Vec::new(),
 
             blocks_per_chunk,
@@ -97,11 +93,9 @@ impl BlockObject {
             to_propergate: IndexQueue::default(),
             collapser: Collapser::new(),
             is_collapsed: IndexQueue::default(),
-        };
-
-        //ship.place_block(IVec3::ZERO, 1, rules);
-
-        ship
+            
+            builder_active: false,
+        }
     }
 
     pub fn place_block(&mut self, world_block_pos: IVec3, new_block_name_index: BlockNameIndex) {
@@ -175,13 +169,13 @@ impl BlockObject {
         self.chunks[chunk_index].blocks[in_chunk_block_index].get_cache(block_name_index)
     }
 
-    pub fn tick(&mut self, actions_per_tick: usize, rules: &Rules) -> (bool, Vec<ChunkIndex>) {
+    pub fn tick(&mut self, ticks: usize, rules: &Rules) -> (usize, Vec<ChunkIndex>) {
         #[cfg(debug_assertions)]
         puffin::profile_function!();
 
         let mut changed_chunks = Vec::new();
 
-        for _ in 0..actions_per_tick {
+        for i in 0..ticks {
             if !self.to_reset.is_empty() {
                 self.reset(rules);
             } else if !self.to_propergate.is_empty() {
@@ -193,11 +187,11 @@ impl BlockObject {
                     changed_chunks.push(changed_chunk)
                 }
             } else {
-                return (false, changed_chunks);
+                return (ticks - i, changed_chunks);
             }
         }
-
-        (true, changed_chunks)
+        
+        (0, changed_chunks)
     }
 
     fn reset(&mut self, rules: &Rules) {
@@ -364,12 +358,13 @@ impl BlockObject {
                 block.node_ids.into_iter().zip(indices.into_iter())
             {
                 self.chunks[chunk_index].node_id_bits[index] = node_id.into();
-                self.chunks[chunk_index].render_nodes[index_with_padding] =
-                    RenderNode(node_id.is_some());
+                
+                self.chunks[chunk_index].render_nodes[index_with_padding] = RenderNode(node_id.is_some());
             }
         } else {
             for (index, index_with_padding) in indices.into_iter() {
                 self.chunks[chunk_index].node_id_bits[index] = NodeID::empty().into();
+                
                 self.chunks[chunk_index].render_nodes[index_with_padding] = RenderNode(false);
             }
         }
@@ -422,7 +417,9 @@ impl BlockObject {
             block_names: vec![BLOCK_INDEX_EMPTY; self.block_length],
             blocks: vec![PossibleBlocks::default(); self.block_length],
             node_id_bits: vec![0; self.nodes_length],
-            render_nodes: vec![RenderNode(false); self.nodes_length_with_padding],
+
+            render_nodes: vec![RenderNode::default(); self.nodes_length_with_padding],
+            parallax_data: None,
         };
 
         self.chunks.push(chunk)

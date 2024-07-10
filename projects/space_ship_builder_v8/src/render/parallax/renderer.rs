@@ -1,4 +1,4 @@
-use crate::render::parallax::mesh::ParallaxMesh;
+use crate::render::parallax::chunk::{ParallaxData, ParallaxMesh};
 use crate::render::{RenderFunctions, RenderObject};
 use crate::rules::Rules;
 use crate::world::data::node::Node;
@@ -18,6 +18,7 @@ use octa_force::{
     },
 };
 use std::mem::size_of;
+use crate::world::block_object::BlockChunk;
 
 type RenderMode = u32;
 pub const RENDER_MODE_BASE: RenderMode = 0;
@@ -36,9 +37,7 @@ pub struct ParallaxRenderer {
     pub pipeline_layout: PipelineLayout,
     pub pipeline: GraphicsPipeline,
 
-    pub depth_attachment_format: vk::Format,
-    pub depth_image: Image,
-    pub depth_image_view: ImageView,
+    pub to_drop_buffers: Vec<Vec<Buffer>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -70,10 +69,9 @@ pub struct PushConstant {
 impl ParallaxRenderer {
     pub fn new(
         context: &Context,
-        images_len: u32,
+        num_frames: usize,
         color_attachment_format: vk::Format,
         depth_attachment_format: vk::Format,
-        res: UVec2,
         rules: &Rules,
     ) -> Result<Self> {
         let render_buffer = context.create_buffer(
@@ -97,15 +95,15 @@ impl ParallaxRenderer {
         )?;
 
         let descriptor_pool = context.create_descriptor_pool(
-            images_len * 1000,
+            (num_frames * 1000) as u32,
             &[
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
-                    descriptor_count: images_len,
+                    descriptor_count: num_frames as u32,
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,
-                    descriptor_count: images_len * 4,
+                    descriptor_count: (num_frames * 4) as u32,
                 },
             ],
         )?;
@@ -144,7 +142,7 @@ impl ParallaxRenderer {
             }])?;
 
         let mut descriptor_sets = Vec::new();
-        for _ in 0..images_len {
+        for _ in 0..num_frames {
             let render_descriptor_set = descriptor_pool.allocate_set(&static_descriptor_layout)?;
 
             render_descriptor_set.update(&[
@@ -213,15 +211,11 @@ impl ParallaxRenderer {
             },
         )?;
 
-        let depth_image = context.create_image(
-            ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            MemoryLocation::GpuOnly,
-            depth_attachment_format,
-            res.x,
-            res.y,
-        )?;
-
-        let depth_image_view = depth_image.create_image_view(true)?;
+        
+        let mut to_drop_buffers = Vec::new();
+        for _ in 0..num_frames {
+            to_drop_buffers.push(vec![])
+        }
 
         Ok(ParallaxRenderer {
             render_buffer,
@@ -235,61 +229,12 @@ impl ParallaxRenderer {
 
             pipeline_layout,
             pipeline,
-            depth_attachment_format,
-            depth_image,
-            depth_image_view,
+            
+            to_drop_buffers
         })
     }
 
-    pub fn render_mesh(
-        &self,
-        buffer: &CommandBuffer,
-        image_index: usize,
-        mesh: &ParallaxMesh,
-    ) -> Result<()> {
-        buffer.bind_graphics_pipeline(&self.pipeline);
-        buffer.bind_descriptor_sets(
-            vk::PipelineBindPoint::GRAPHICS,
-            &self.pipeline_layout,
-            0,
-            &[&self.static_descriptor_sets[image_index]],
-        );
-
-        for chunk in mesh.chunks.iter() {
-            if chunk.index_count == 0 {
-                continue;
-            }
-
-            buffer.bind_descriptor_sets(
-                vk::PipelineBindPoint::GRAPHICS,
-                &self.pipeline_layout,
-                1,
-                &[&chunk.descriptor_sets[image_index]],
-            );
-
-            buffer.bind_vertex_buffer(&chunk.vertex_buffer);
-            buffer.bind_index_buffer_complex(&chunk.index_buffer, 0, IndexType::UINT16);
-
-            buffer.push_constant(
-                &self.pipeline_layout,
-                ShaderStageFlags::FRAGMENT | ShaderStageFlags::VERTEX,
-                &PushConstant::new(
-                    chunk.pos / mesh.render_size,
-                    mesh.size.x as u32,
-                    (mesh.size.x / mesh.render_size.x) as u32,
-                    RENDER_MODE_BASE,
-                ),
-            );
-
-            buffer.draw_indexed(chunk.index_count as u32);
-        }
-
-        Ok(())
-    }
-}
-
-impl RenderFunctions for ParallaxRenderer {
-    fn update(&mut self, camera: &Camera, res: UVec2) -> Result<()> {
+    fn update(&mut self, camera: &Camera, res: UVec2, frame_index: usize) -> Result<()> {
         self.render_buffer.copy_data_to_buffer(&[RenderBuffer {
             proj_matrix: camera.projection_matrix(),
             view_matrix: camera.view_matrix(),
@@ -298,31 +243,61 @@ impl RenderFunctions for ParallaxRenderer {
             screen_size: res.as_vec2(),
             fill_1: [0; 10],
         }])?;
+
+        self.to_drop_buffers[frame_index].clear();
         Ok(())
     }
 
-    fn on_recreate_swapchain(&mut self, context: &Context, res: UVec2) -> Result<()> {
-        self.depth_image = context.create_image(
-            ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            MemoryLocation::GpuOnly,
-            self.depth_attachment_format,
-            res.x,
-            res.y,
-        )?;
-
-        self.depth_image_view = self.depth_image.create_image_view(true)?;
-
-        Ok(())
-    }
-
-    fn render(
+    pub fn begin_render(
         &self,
         buffer: &CommandBuffer,
         image_index: usize,
-        render_object: &RenderObject,
     ) -> Result<()> {
-        let mesh: &ParallaxMesh = render_object.try_into().unwrap();
-        self.render_mesh(buffer, image_index, mesh)
+        buffer.bind_graphics_pipeline(&self.pipeline);
+        buffer.bind_descriptor_sets(
+            vk::PipelineBindPoint::GRAPHICS,
+            &self.pipeline_layout,
+            0,
+            &[&self.static_descriptor_sets[image_index]],
+        );
+        
+        Ok(())
+    }
+
+    pub fn render_data(
+        &self,
+        buffer: &CommandBuffer,
+        image_index: usize,
+        data: &ParallaxData,
+        pos: IVec3,
+        size: u32
+    ) {
+        if data.index_count == 0 {
+            return;
+        }
+
+        buffer.bind_descriptor_sets(
+            vk::PipelineBindPoint::GRAPHICS,
+            &self.pipeline_layout,
+            1,
+            &[&data.descriptor_sets[image_index]],
+        );
+
+        buffer.bind_vertex_buffer(&data.vertex_buffer);
+        buffer.bind_index_buffer_complex(&data.index_buffer, 0, IndexType::UINT16);
+
+        buffer.push_constant(
+            &self.pipeline_layout,
+            ShaderStageFlags::FRAGMENT | ShaderStageFlags::VERTEX,
+            &PushConstant::new(
+                pos,
+                size,
+                1,
+                RENDER_MODE_BASE,
+            ),
+        );
+
+        buffer.draw_indexed(data.index_count as u32);
     }
 
     fn on_rules_changed(

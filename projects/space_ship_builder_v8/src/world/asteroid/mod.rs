@@ -1,6 +1,6 @@
 mod metaball;
 
-use crate::render::parallax::mesh::ParallaxMesh;
+use crate::render::parallax::chunk::ParallaxMesh;
 use crate::render::parallax::renderer::{ParallaxRenderer, RENDER_MODE_BASE};
 use crate::render::{RenderFunctions, RenderObject, RenderObjectFunctions, Renderer};
 use crate::rules::Rules;

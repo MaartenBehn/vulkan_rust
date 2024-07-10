@@ -1,6 +1,6 @@
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
-use crate::render::parallax::mesh::{ParallaxMesh, ParallaxMeshChunk, RenderNode};
+use crate::render::parallax::chunk::{ParallaxMesh, ParallaxData, RenderNode};
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::hull::HullSolver;
 use crate::world::data::block::Block;
@@ -87,7 +87,7 @@ impl DebugHullMultiRenderer {
                 &mut self.mesh.to_drop_buffers[image_index],
             )?;
         } else {
-            let new_chunk = ParallaxMeshChunk::new_from_data(
+            let new_chunk = ParallaxData::new_from_data(
                 IVec3::ZERO,
                 self.mesh.size,
                 self.mesh.render_size,
