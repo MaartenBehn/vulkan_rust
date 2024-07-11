@@ -1,7 +1,7 @@
 use crate::debug::DebugController;
 use crate::math::rotation::Rot;
 use crate::math::to_1d_i;
-use crate::render::parallax::chunk::{ParallaxMesh, ParallaxData, RenderNode};
+use crate::render::parallax::chunk::{ParallaxData, RenderNode};
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
 use crate::world::data::node::NodeID;

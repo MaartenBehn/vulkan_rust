@@ -1,9 +1,7 @@
 use crate::render::parallax::renderer::{ParallaxRenderer, RENDER_MODE_BASE};
-use crate::render::{Renderer, RenderFunctions, RenderObjectFunctions};
+use crate::render::{Renderer};
 use crate::rules::Rules;
 use crate::world::block_object::BlockObject;
-use crate::world::ship::builder::ShipBuilder;
-use crate::world::ship::profile::ShipProfile;
 use crate::INPUT_INTERVALL;
 use log::info;
 use octa_force::anyhow::Result;
@@ -18,10 +16,7 @@ use std::time::Duration;
 pub const CHUNK_SIZE: i32 = 32;
 const SHIP_SAVE_FILE_PATH: &str = "./assets/ship.bin";
 
-pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
-pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 
-pub const ENABLE_SHIP_PROFILING: bool = true;
 
 
 

@@ -1,5 +1,6 @@
 use log::info;
 use std::time::{Duration, Instant};
+pub const ENABLE_SHIP_PROFILING: bool = true;
 
 pub struct TickProfile {
     last_block_placement: Instant,

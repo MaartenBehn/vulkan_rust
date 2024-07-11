@@ -1,6 +1,6 @@
 use crate::debug::DebugController;
 use crate::math::{oct_positions, to_1d_i};
-use crate::render::parallax::chunk::{ParallaxMesh, ParallaxData, RenderNode};
+use crate::render::parallax::chunk::{ParallaxData, RenderNode};
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::hull::HullSolver;
 use crate::world::data::block::Block;

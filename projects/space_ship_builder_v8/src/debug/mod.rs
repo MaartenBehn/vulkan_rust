@@ -16,7 +16,6 @@ use crate::debug::text_renderer::DebugTextRenderer;
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
 use crate::world::data::node::NodeID;
-use crate::world::ship::ShipManager;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;

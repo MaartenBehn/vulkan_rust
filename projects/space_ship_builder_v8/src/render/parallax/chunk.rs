@@ -26,6 +26,9 @@ pub const MIN_VERTICES: usize = 8;
 pub const MIN_INDICES: usize = 20;
 
 pub struct ParallaxData {
+    pub pos: IVec3,
+    pub size: IVec3,
+    
     pub chunk_buffer: Buffer,
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
@@ -40,6 +43,8 @@ pub struct RenderNode(pub bool);
 impl ParallaxData {
     
     pub fn new(
+        pos: IVec3,
+        size: IVec3,
         num_nodes: usize,
         images_len: usize,
         context: &Context,
@@ -70,6 +75,8 @@ impl ParallaxData {
         )?;
 
         Ok(ParallaxData {
+            pos, 
+            size,
             chunk_buffer,
             vertex_buffer,
             index_buffer,

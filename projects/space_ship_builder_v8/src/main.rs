@@ -14,10 +14,8 @@ use octa_force::{log, App, BaseApp};
 #[cfg(debug_assertions)]
 use crate::debug::{DebugController, DebugMode::Off};
 use crate::render::parallax::renderer::ParallaxRenderer;
-use crate::render::{RenderFunctions, Renderer};
-use crate::world::asteroid::AsteroidManager;
+use crate::render::Renderer;
 use crate::world::data::voxel_loader::VoxelLoader;
-use crate::world::ship::ShipManager;
 
 #[cfg(debug_assertions)]
 pub mod debug;
@@ -54,9 +52,6 @@ struct SpaceShipBuilder {
 
     renderer: Renderer,
 
-    ship_manager: ShipManager,
-    asteroid_manager: AsteroidManager,
-
     camera: Camera,
 
     #[cfg(debug_assertions)]
@@ -81,9 +76,6 @@ impl App for SpaceShipBuilder {
         #[cfg(debug_assertions)]
         let test_node_id = rules.load_node("Test", &voxel_loader).unwrap();
 
-        let ship_manager = ShipManager::new(base.num_frames, &rules)?;
-        let asteroid_manager = AsteroidManager::new(base.num_frames, &rules);
-
         #[cfg(debug_assertions)]
         let debug_controller = DebugController::new(
             &base.context,
@@ -92,7 +84,6 @@ impl App for SpaceShipBuilder {
             base.swapchain.depth_format,
             &base.window,
             test_node_id,
-            &ship_manager,
             renderer.as_parallax().unwrap(),
         )?;
 
@@ -113,8 +104,6 @@ impl App for SpaceShipBuilder {
             voxel_loader,
             rules,
             renderer,
-            ship_manager,
-            asteroid_manager,
             camera,
 
             #[cfg(debug_assertions)]

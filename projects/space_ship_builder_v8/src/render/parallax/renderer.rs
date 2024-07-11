@@ -1,5 +1,4 @@
-use crate::render::parallax::chunk::{ParallaxData, ParallaxMesh};
-use crate::render::{RenderFunctions, RenderObject};
+use crate::render::parallax::chunk::{ParallaxData};
 use crate::rules::Rules;
 use crate::world::data::node::Node;
 use octa_force::glam::{IVec3, UVec2, UVec3};
@@ -18,7 +17,7 @@ use octa_force::{
     },
 };
 use std::mem::size_of;
-use crate::world::block_object::BlockChunk;
+use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
 
 type RenderMode = u32;
 pub const RENDER_MODE_BASE: RenderMode = 0;
@@ -251,26 +250,22 @@ impl ParallaxRenderer {
     pub fn begin_render(
         &self,
         buffer: &CommandBuffer,
-        image_index: usize,
-    ) -> Result<()> {
+        frame_index: usize,
+    ) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,
             &self.pipeline_layout,
             0,
-            &[&self.static_descriptor_sets[image_index]],
+            &[&self.static_descriptor_sets[frame_index]],
         );
-        
-        Ok(())
     }
 
     pub fn render_data(
         &self,
         buffer: &CommandBuffer,
-        image_index: usize,
+        frame_index: usize,
         data: &ParallaxData,
-        pos: IVec3,
-        size: u32
     ) {
         if data.index_count == 0 {
             return;
@@ -280,7 +275,7 @@ impl ParallaxRenderer {
             vk::PipelineBindPoint::GRAPHICS,
             &self.pipeline_layout,
             1,
-            &[&data.descriptor_sets[image_index]],
+            &[&data.descriptor_sets[frame_index]],
         );
 
         buffer.bind_vertex_buffer(&data.vertex_buffer);
@@ -290,8 +285,8 @@ impl ParallaxRenderer {
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT | ShaderStageFlags::VERTEX,
             &PushConstant::new(
-                pos,
-                size,
+                data.pos,
+                data.size.x as u32,
                 1,
                 RENDER_MODE_BASE,
             ),

@@ -3,7 +3,6 @@ use octa_force::camera::Camera;
 use octa_force::glam::UVec2;
 use octa_force::anyhow::Result;
 use octa_force::vulkan::{CommandBuffer, Context};
-use crate::render::{RenderFunctions, RenderObject};
 use crate::rules::Rules;
 
 pub struct RaytraceRenderer {

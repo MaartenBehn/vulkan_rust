@@ -1,10 +1,8 @@
 use crate::debug::DebugController;
 use crate::math::oct_positions;
-use crate::render::parallax::chunk::{ParallaxMesh, ParallaxData, RenderNode};
+use crate::render::parallax::chunk::{ParallaxData, RenderNode};
 use crate::render::parallax::renderer::ParallaxRenderer;
-use crate::render::{RenderFunctions, RenderObject};
-use crate::rules::hull::HullSolver;
-use crate::rules::solver::{Solver, SolverFunctions};
+use crate::rules::solver::{SolverFunctions};
 use crate::rules::Rules;
 use crate::world::block_object::collapse::Collapser;
 use crate::world::block_object::possible_blocks::PossibleBlocks;
@@ -38,7 +36,7 @@ pub struct LogEntry {
 }
 
 pub struct CollapseLogRenderer {
-    mesh: ParallaxMesh,
+    mesh: ParallaxData,
 
     last_blocks_names: Vec<BlockNameIndex>,
     block_log: Vec<LogEntry>,
@@ -59,7 +57,7 @@ pub struct CollapseLogRenderer {
 impl CollapseLogRenderer {
     pub fn new(image_len: usize, block_object: &BlockObject) -> Self {
         CollapseLogRenderer {
-            mesh: ParallaxMesh::new_from_block_object(block_object, image_len),
+            mesh: ParallaxData::new_from_block_object(block_object, image_len),
             last_input: Instant::now(),
             last_blocks_names: vec![],
             block_log: vec![],

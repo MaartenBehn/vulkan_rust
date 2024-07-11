@@ -1,17 +1,18 @@
 use std::cmp::{max, min};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use log::info;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::vulkan::Context;
+use octa_force::vulkan::{CommandBuffer, Context};
 use crate::INPUT_INTERVALL;
-use crate::render::parallax::chunk::ParallaxData;
 use crate::render::Renderer;
 use crate::rules::Rules;
 use crate::world::builder::BlockBuilder;
-use crate::world::profile::TickProfile;
+use crate::world::profile::{ENABLE_SHIP_PROFILING, TickProfile};
 use crate::world::region::Region;
-use crate::world::ship::{ENABLE_SHIP_PROFILING, MAX_TICK_LENGTH, MIN_TICK_LENGTH};
+
+pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
+pub const MAX_TICK_LENGTH: Duration = Duration::from_millis(25);
 
 pub struct WorldManager {
     pub loaded_regions: Vec<Region>,
@@ -20,7 +21,9 @@ pub struct WorldManager {
     pub ticks: usize,
     pub last_ticks: usize,
     pub tick_profile: TickProfile,
-    pub builder: BlockBuilder
+    pub builder: BlockBuilder,
+    
+    pub last_input: Instant,
 }
 
 impl WorldManager {
@@ -33,6 +36,8 @@ impl WorldManager {
             last_ticks: 0,
             tick_profile: TickProfile::new(),
             builder: BlockBuilder::new(rules),
+            
+            last_input: Instant::now(),
         }
     }
 
@@ -43,7 +48,7 @@ impl WorldManager {
         delta_time: Duration,
 
         num_frames: usize,
-        image_index: usize,
+        frame_index: usize,
         context: &Context,
 
         controls: &Controls,
@@ -87,33 +92,34 @@ impl WorldManager {
                     }
                 }
 
-
-                for chunk_index in changed_chunks {
-                    
-                }
-                
-                renderer.update_from_block_object(
-                    &ship.block_object,
-                    changed_chunks,
-                    image_index,
-                    context,
-                    renderer,
-                )?;
+                renderer.update_object(object, changed_chunks, context, frame_index, num_frames);
             }
         }
         self.last_ticks = ticks;
-
         
-
-        if controls.f12 && self.last_input + INPUT_INTERVALL < total_time {
-            self.last_input = total_time;
-
-            log::info!("Saving Ship");
-            self.ships[0].save(crate::world::ship::SHIP_SAVE_FILE_PATH)?;
-            log::info!("Saved Ship");
+        if controls.f12 && self.last_input.elapsed() > INPUT_INTERVALL {
+            self.last_input = Instant::now();
+            
+            // TODO
+            info!("Saving");
         }
 
         Ok(())
+    }
+    
+    pub fn render(
+        &mut self,
+        renderer: &Renderer,
+        buffer: &CommandBuffer,
+        frame_index: usize,
+    ) {
+        let chunks_to_render = self.loaded_regions.iter().map(|region| {
+                region.loaded_objects.iter().map(|object| {
+                    object.chunks.iter()
+                })
+            }).flatten();
+        
+        renderer.render(buffer, frame_index, chunks_to_render);
     }
 }
 

@@ -1,14 +1,14 @@
 use octa_force::glam::UVec2;
 use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::Context;
+use octa_force::vulkan::{CommandBuffer, Context};
 use octa_force::anyhow::Result;
 use crate::render::parallax::chunk::ParallaxData;
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
-use crate::world::block_object::{BlockObject, ChunkIndex};
+use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
 
 pub mod parallax;
-pub mod raytracer;
+// pub mod raytracer;
 
 pub enum ActiveRenderer {
     None,
@@ -46,14 +46,14 @@ impl Renderer {
         Ok(())
     }
     
-    pub fn render_object(
+    pub fn update_object(
         &self,
         object: &mut BlockObject,
         changed_chunks: Vec<ChunkIndex>,
         context: &Context,
         frame_index: usize,
         num_frames: usize,
-    ) {
+    ) -> Result<()>{
         match self.active_renderer {
             ActiveRenderer::None => {}
             ActiveRenderer::Parallax => {
@@ -64,6 +64,8 @@ impl Renderer {
 
                     if chunk.parallax_data.is_none() {
                         chunk.parallax_data = Some(ParallaxData::new(
+                            chunk.pos,
+                            object.nodes_per_chunk,
                             object.nodes_length, 
                             num_frames, 
                             context,
@@ -79,6 +81,35 @@ impl Renderer {
                         context,
                         &mut renderer.to_drop_buffers[frame_index],
                     ).unwrap();
+                }
+            }
+            ActiveRenderer::Compute => {}
+            ActiveRenderer::Raytracing => {}
+        }
+        
+        Ok(())
+    }
+
+    pub fn render<'a, I>(&self, buffer: &CommandBuffer, frame_index: usize, chunks_to_render: I)
+        where I: Iterator<Item = &'a BlockChunk>, 
+    {
+        match self.active_renderer {
+            ActiveRenderer::None => {}
+            ActiveRenderer::Parallax => {
+                let renderer = self.parallax_renderer.as_ref().unwrap();
+                renderer.begin_render(buffer, frame_index);
+
+                for chunk in chunks_to_render {
+                    if chunk.parallax_data.is_none() {
+                        continue
+                    }
+                    
+                    renderer.render_data(
+                        buffer, 
+                        frame_index, 
+                        chunk.parallax_data.as_ref().unwrap()
+                    
+                    );
                 }
             }
             ActiveRenderer::Compute => {}
