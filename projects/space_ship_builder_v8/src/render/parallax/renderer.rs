@@ -2,6 +2,7 @@ use crate::render::parallax::chunk::ParallaxData;
 use crate::rules::Rules;
 use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
 use crate::world::data::node::Node;
+use block_mesh::ilattice::glam::{vec4, Vec4};
 use octa_force::glam::{IVec3, UVec2, UVec3};
 use octa_force::vulkan::ash::vk::IndexType;
 use octa_force::{
@@ -62,6 +63,7 @@ pub struct RenderBuffer {
 #[allow(dead_code)]
 #[repr(C)]
 pub struct PushConstant {
+    transform: Mat4,
     data: u32,
 }
 
@@ -259,8 +261,8 @@ impl ParallaxRenderer {
 
             if chunk.parallax_data.is_none() {
                 chunk.parallax_data = Some(ParallaxData::new(
-                    chunk.pos / object.nodes_per_chunk,
-                    object.nodes_per_chunk,
+                    chunk.pos,
+                    object.nodes_per_chunk.x as u32,
                     object.nodes_length,
                     num_frames,
                     context,
@@ -296,7 +298,13 @@ impl ParallaxRenderer {
         );
     }
 
-    pub fn render_data(&self, buffer: &CommandBuffer, frame_index: usize, data: &ParallaxData) {
+    pub fn render_data(
+        &self,
+        buffer: &CommandBuffer,
+        frame_index: usize,
+        data: &ParallaxData,
+        base_transform: &Mat4,
+    ) {
         if data.index_count == 0 {
             return;
         }
@@ -314,7 +322,7 @@ impl ParallaxRenderer {
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT | ShaderStageFlags::VERTEX,
-            &PushConstant::new(data.pos, data.size.x as u32, 1, RENDER_MODE_BASE),
+            &PushConstant::new(base_transform, data.pos, data.size),
         );
 
         buffer.draw_indexed(data.index_count as u32);
@@ -399,32 +407,13 @@ impl octa_force::vulkan::Vertex for Vertex {
 }
 
 impl PushConstant {
-    pub fn new(
-        chunk_pos: IVec3,
-        chunk_size: u32,
-        chunk_scale_down: u32,
-        render_mode: RenderMode,
-    ) -> Self {
-        // 8 Bit Chunk Pos X
-        // 8 Bit Chunk Pos Y
-        // 8 Bit Chunk Pos Z
-        // 4 Bit Chunk Size
-        // 3 Bit Chunk Scale Down
-        // 1 Bit Render Mode
-
-        let chunk_pos_x_bits = (chunk_pos.x + 128) as u32;
-        let chunk_pos_y_bits = (chunk_pos.y + 128) as u32;
-        let chunk_pos_z_bits = (chunk_pos.z + 128) as u32;
+    pub fn new(transform: &Mat4, offset: IVec3, chunk_size: u32) -> Self {
         let chunk_size_bits = chunk_size.trailing_zeros();
-        let chunk_scale_bits = chunk_scale_down.trailing_zeros();
+        let data = chunk_size_bits;
 
-        let data = chunk_pos_x_bits
-            + (chunk_pos_y_bits << 8)
-            + (chunk_pos_z_bits << 16)
-            + (chunk_size_bits << 24)
-            + (chunk_scale_bits << 28)
-            + (render_mode << 31);
-
-        PushConstant { data }
+        PushConstant {
+            transform: transform.mul_mat4(&Mat4::from_translation(offset.as_vec3())),
+            data,
+        }
     }
 }

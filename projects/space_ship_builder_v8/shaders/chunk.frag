@@ -38,6 +38,7 @@ layout(set = 0, binding = 2) buffer Mats {
 
 // Ship type (Push constant)
 layout(push_constant, std430) uniform PushConstant {
+    mat4 transform;
     uint data;
 } push_constant;
 
@@ -48,20 +49,13 @@ layout(set = 1, binding = 0) buffer Chunk {
 
 
 /*
-let data = chunk_pos_x_bits
-            + (chunk_pos_y_bits << 8)
-            + (chunk_pos_z_bits << 16)
-            + (chunk_size_bits  << 24)
-            + (chunk_scale_bits << 28)
-            + (render_mode << 31);
+let data = chunk_size_bits
 */
-#define CHUNK_POS        ivec3(int(push_constant.data & 255) - 128, int((push_constant.data >> 8) & 255) - 128, int((push_constant.data >> 16) & 255) - 128)
-#define CHUNK_SIZE       uint(1 << ((push_constant.data >> 24) & 15))  // 4 Bit
-#define CHUNK_SCALE_DOWN uint(1 << ((push_constant.data >> 28) & 7))   // 3 Bit
-#define RENDER_MODE      uint((push_constant.data >> 31))              // 1 Bit Render Mode
+#define CHUNK_TRANSFORM push_constant.transform
+#define CHUNK_SIZE      uint(1 << ((push_constant.data) & 15))  // 4 Bit
 
 
-#define POSITION vec3(oPos * float(NODE_SIZE * CHUNK_SCALE_DOWN))
+#define POSITION vec3(oPos * float(NODE_SIZE))
 #define DIRECTION renderbuffer.dir
 #define NORMAL oNormal
 
@@ -257,10 +251,6 @@ void main() {
     Ray ray = Ray(ro, rd, vec3(1) / rd);
     float tMin, tMax;
     vec4 color = raycaster(ray);
-
-    if (RENDER_MODE == 1) {
-        color.w *= 0.5;
-    }
 
     finalColor = color;
 

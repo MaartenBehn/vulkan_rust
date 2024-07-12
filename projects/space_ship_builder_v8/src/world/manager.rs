@@ -9,9 +9,10 @@ use crate::INPUT_INTERVALL;
 use log::info;
 use octa_force::camera::Camera;
 use octa_force::controls::Controls;
-use octa_force::glam::IVec3;
+use octa_force::glam::{vec3, IVec3, Mat4};
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::cmp::{max, min};
+use std::iter::repeat;
 use std::time::{Duration, Instant};
 
 pub const MIN_TICK_LENGTH: Duration = Duration::from_millis(20);
@@ -49,13 +50,16 @@ impl WorldManager {
         }
     }
 
-    pub fn add_start_data(&mut self) {
+    pub fn add_start_data(&mut self, rules: &Rules) {
         let mut region = Region::new(IVec3::ZERO);
 
-        //let ship = BlockObject::new(CHUNK_SIZE, rules.block_names.len());
-        //region.loaded_objects.push(ship);
+        let mut ship = BlockObject::new(Mat4::IDENTITY, CHUNK_SIZE, rules.block_names.len());
+        ship.builder_active = true;
+        region.loaded_objects.push(ship);
 
-        let asteroid = self.asteroid_generator.generate(11);
+        let asteroid = self
+            .asteroid_generator
+            .generate(Mat4::from_translation(vec3(50.0, 0.0, 0.0)), 11);
         region.loaded_objects.push(asteroid);
 
         self.loaded_regions.push(region);
@@ -109,6 +113,8 @@ impl WorldManager {
                     self.tick_profile.ship_computing_done();
                 }
 
+                //object.transform = Mat4::from_rotation_x(self.last_input.elapsed().as_secs_f32());
+
                 renderer.update_object(object, changed_chunks, context, frame_index, num_frames)?;
             }
         }
@@ -136,7 +142,7 @@ impl WorldManager {
                 region
                     .loaded_objects
                     .iter()
-                    .map(|object| object.chunks.iter())
+                    .map(|object| object.chunks.iter().zip(repeat(&object.transform)))
                     .flatten()
             })
             .flatten();

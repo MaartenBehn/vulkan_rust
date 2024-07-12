@@ -10,7 +10,7 @@ use crate::world::data::node::VOXEL_PER_NODE_SIDE;
 use fastnoise_lite::NoiseType;
 use log::{debug, info};
 use octa_force::anyhow::{bail, Result};
-use octa_force::glam::{ivec3, IVec3, Vec3};
+use octa_force::glam::{ivec3, IVec3, Mat4, Vec3};
 use octa_force::vulkan::{CommandBuffer, Context};
 use std::cmp::{max, min};
 use std::time::Duration;
@@ -45,15 +45,20 @@ impl AsteroidGenerator {
         }
     }
 
-    pub fn generate(&self, size: i32) -> BlockObject {
+    pub fn generate(&self, transform: Mat4, size: i32) -> BlockObject {
         let config = get_config_from_size(size).unwrap();
         info!("Asteroid Config: {:?}", config);
 
-        self.generate_from_config(config)
+        self.generate_from_config(transform, config)
     }
 
-    pub fn generate_from_config(&self, config: AsteroidGenerationConfig) -> BlockObject {
-        let mut block_object = BlockObject::new(ASTEROID_CHUNK_SIZE.x, self.num_block_names);
+    pub fn generate_from_config(
+        &self,
+        transform: Mat4,
+        config: AsteroidGenerationConfig,
+    ) -> BlockObject {
+        let mut block_object =
+            BlockObject::new(transform, ASTEROID_CHUNK_SIZE.x, self.num_block_names);
 
         let mut metaball = Metaball::new();
         metaball.add_random_points_in_area(

@@ -23,6 +23,8 @@ pub type ChunkIndex = usize;
 pub type CacheIndex = usize;
 
 pub struct BlockObject {
+    pub transform: Mat4,
+
     pub chunks: Vec<BlockChunk>,
 
     pub blocks_per_chunk: IVec3,
@@ -55,7 +57,7 @@ pub struct BlockChunk {
 }
 
 impl BlockObject {
-    pub fn new(nodes_per_chunk_side: i32, num_block_names: usize) -> BlockObject {
+    pub fn new(transform: Mat4, nodes_per_chunk_side: i32, num_block_names: usize) -> BlockObject {
         let block_size = nodes_per_chunk_side / 2;
         let blocks_per_chunk = IVec3::ONE * block_size;
         let block_length = blocks_per_chunk.element_product() as usize;
@@ -72,6 +74,8 @@ impl BlockObject {
         let node_order_controller = NodeOrderController::new(num_block_names, nodes_length);
 
         BlockObject {
+            transform,
+
             chunks: Vec::new(),
 
             blocks_per_chunk,

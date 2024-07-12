@@ -29,7 +29,7 @@ impl BlockBuilder {
         possible_blocks.push(rules.get_block_name_index("Stone"));
 
         BlockBuilder {
-            block_to_build: 2,
+            block_to_build: 1,
             possible_blocks,
             distance: 3.0,
 

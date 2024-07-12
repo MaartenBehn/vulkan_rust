@@ -1,10 +1,9 @@
-use crate::render::parallax::chunk::ParallaxData;
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
 use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
-use octa_force::glam::UVec2;
+use octa_force::glam::{Mat4, UVec2};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::{CommandBuffer, Context};
 
@@ -90,7 +89,7 @@ impl Renderer {
 
     pub fn render<'a, I>(&self, buffer: &CommandBuffer, frame_index: usize, chunks_to_render: I)
     where
-        I: IntoIterator<Item = &'a BlockChunk>,
+        I: IntoIterator<Item = (&'a BlockChunk, &'a Mat4)>,
     {
         match self.active_renderer {
             ActiveRenderer::None => {}
@@ -98,7 +97,7 @@ impl Renderer {
                 let renderer = self.parallax_renderer.as_ref().unwrap();
                 renderer.begin_render(buffer, frame_index);
 
-                for chunk in chunks_to_render {
+                for (chunk, base_transform) in chunks_to_render {
                     if chunk.parallax_data.is_none() {
                         continue;
                     }
@@ -107,6 +106,7 @@ impl Renderer {
                         buffer,
                         frame_index,
                         chunk.parallax_data.as_ref().unwrap(),
+                        base_transform,
                     );
                 }
             }

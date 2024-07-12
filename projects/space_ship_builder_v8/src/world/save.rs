@@ -3,6 +3,7 @@ use crate::world::block_object::BlockObject;
 use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use bitcode::{Decode, Encode};
 use octa_force::anyhow::Result;
+use octa_force::glam::Mat4;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -58,7 +59,11 @@ impl BlockObject {
     }
 
     pub fn new_from_save(save: ShipSave, rules: &Rules) -> Self {
-        let mut ship = BlockObject::new(save.nodes_per_chunk[0], rules.block_names.len());
+        let mut ship = BlockObject::new(
+            Mat4::IDENTITY,
+            save.nodes_per_chunk[0],
+            rules.block_names.len(),
+        );
 
         for (pos, block) in save.blocks {
             ship.place_block(pos.into(), block);

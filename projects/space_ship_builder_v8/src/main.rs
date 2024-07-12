@@ -77,7 +77,7 @@ impl App for SpaceShipBuilder {
         )?;
 
         let mut world_manager = WorldManager::new(16, &mut rules);
-        world_manager.add_start_data();
+        world_manager.add_start_data(&rules);
 
         #[cfg(debug_assertions)]
         let test_node_id = rules.load_node("Test", &voxel_loader).unwrap();
