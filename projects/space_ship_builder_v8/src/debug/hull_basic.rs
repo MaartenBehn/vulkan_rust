@@ -6,7 +6,7 @@ use crate::rules::hull::HullSolver;
 use log::info;
 use octa_force::anyhow::Result;
 use octa_force::controls::Controls;
-use octa_force::glam::{vec4, IVec3};
+use octa_force::glam::{ivec3, vec4, IVec3};
 use octa_force::vulkan::{CommandBuffer, Context, DescriptorPool, DescriptorSetLayout};
 use std::time::{Duration, Instant};
 
@@ -14,19 +14,32 @@ pub const HULL_BASE_DEBUG_SIZE: i32 = 4;
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct DebugHullBasicRenderer {
-    mesh: ParallaxMesh,
+    data: ParallaxData,
     index: usize,
     last_input: Instant,
 }
 
 impl DebugHullBasicRenderer {
-    pub fn new(image_len: usize) -> Self {
+    pub fn new(
+        context: &Context,
+        descriptor_layout: &DescriptorSetLayout,
+        descriptor_pool: &DescriptorPool,
+        num_frames: usize,
+    ) -> Result<Self> {
         let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
-        DebugHullBasicRenderer {
-            mesh: ParallaxMesh::new(image_len, size, size),
+        Ok(DebugHullBasicRenderer {
+            data: ParallaxData::new(
+                IVec3::ZERO,
+                size,
+                size.element_product() as usize,
+                num_frames,
+                context,
+                descriptor_layout,
+                descriptor_pool,
+            )?,
             index: 0,
             last_input: Instant::now(),
-        }
+        })
     }
 
     pub fn update_controls(&mut self, controls: &Controls, hull_solver: &HullSolver) {
@@ -42,40 +55,21 @@ impl DebugHullBasicRenderer {
     fn update_renderer(
         &mut self,
 
-        node_id_bits: &Vec<u32>,
-        render_nodes: &Vec<RenderNode>,
+        node_id_bits: &[u32],
+        render_nodes: &[RenderNode],
 
         image_index: usize,
         context: &Context,
-        descriptor_layout: &DescriptorSetLayout,
-        descriptor_pool: &DescriptorPool,
+        renderer: &mut ParallaxRenderer,
     ) -> Result<()> {
-        // Buffers from the last swapchain iteration are being dropped
-        self.mesh.to_drop_buffers[image_index].clear();
-
-        if !self.mesh.chunks.is_empty() {
-            self.mesh.chunks[0].update_from_data(
-                node_id_bits,
-                &render_nodes,
-                context,
-                &mut self.mesh.to_drop_buffers[image_index],
-            )?;
-        } else {
-            let new_chunk = ParallaxData::new_from_data(
-                IVec3::ZERO,
-                self.mesh.size,
-                self.mesh.render_size,
-                node_id_bits,
-                render_nodes,
-                self.mesh.to_drop_buffers.len(),
-                context,
-                descriptor_layout,
-                descriptor_pool,
-            )?;
-            if new_chunk.is_some() {
-                self.mesh.chunks.push(new_chunk.unwrap())
-            }
-        }
+        let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
+        self.data.update(
+            size,
+            node_id_bits,
+            render_nodes,
+            context,
+            &mut renderer.to_drop_buffers[image_index],
+        )?;
 
         Ok(())
     }
@@ -86,9 +80,7 @@ impl DebugHullBasicRenderer {
         renderer: &ParallaxRenderer,
         image_index: usize,
     ) {
-        renderer
-            .render_mesh(buffer, image_index, &self.mesh)
-            .unwrap()
+        renderer.render_data(buffer, image_index, &self.data)
     }
 }
 
@@ -108,7 +100,7 @@ impl DebugController {
             .update_controls(controls, hull_solver);
 
         let (node_id_bits, render_nodes) =
-            self.get_hull_base_node_id_bits(self.hull_basic_renderer.mesh.size, hull_solver);
+            self.get_hull_base_node_id_bits(self.hull_basic_renderer.data.size, hull_solver);
 
         self.hull_basic_renderer.update_renderer(
             &node_id_bits,

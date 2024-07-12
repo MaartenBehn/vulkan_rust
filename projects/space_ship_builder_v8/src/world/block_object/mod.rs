@@ -24,7 +24,7 @@ pub type CacheIndex = usize;
 
 pub struct BlockObject {
     pub chunks: Vec<BlockChunk>,
-    
+
     pub blocks_per_chunk: IVec3,
     pub block_length: usize,
     pub nodes_per_chunk: IVec3,
@@ -40,7 +40,7 @@ pub struct BlockObject {
     pub to_propergate: IndexQueue,
     pub collapser: Collapser,
     pub is_collapsed: IndexQueue,
-    
+
     pub builder_active: bool,
 }
 
@@ -93,7 +93,7 @@ impl BlockObject {
             to_propergate: IndexQueue::default(),
             collapser: Collapser::new(),
             is_collapsed: IndexQueue::default(),
-            
+
             builder_active: false,
         }
     }
@@ -190,7 +190,7 @@ impl BlockObject {
                 return (ticks - i, changed_chunks);
             }
         }
-        
+
         (0, changed_chunks)
     }
 
@@ -358,13 +358,14 @@ impl BlockObject {
                 block.node_ids.into_iter().zip(indices.into_iter())
             {
                 self.chunks[chunk_index].node_id_bits[index] = node_id.into();
-                
-                self.chunks[chunk_index].render_nodes[index_with_padding] = RenderNode(node_id.is_some());
+
+                self.chunks[chunk_index].render_nodes[index_with_padding] =
+                    RenderNode(node_id.is_some());
             }
         } else {
             for (index, index_with_padding) in indices.into_iter() {
                 self.chunks[chunk_index].node_id_bits[index] = NodeID::empty().into();
-                
+
                 self.chunks[chunk_index].render_nodes[index_with_padding] = RenderNode(false);
             }
         }

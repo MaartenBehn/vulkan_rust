@@ -122,7 +122,7 @@ impl MarchingCubes {
     }
 
     pub fn get_block(&self, block_object: &mut BlockObject, world_block_pos: IVec3) -> Block {
-        debug!("World Block Pos: {world_block_pos:?}");
+        //debug!("World Block Pos: {world_block_pos:?}");
 
         let node_pos = block_object.get_node_pos_from_block_pos(world_block_pos);
 

@@ -1,3 +1,4 @@
+use crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
 use crate::debug::line_renderer::DebugLine;
 use crate::debug::DebugController;
 use crate::math::rotation::Rot;
@@ -17,20 +18,20 @@ pub const ROTATION_DEBUG_SIZE: i32 = 1;
 const INPUT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct RotationRenderer {
-    mesh: ParallaxMesh,
+    data: ParallaxData,
     node_id: NodeID,
     last_input: Instant,
 }
 
 impl RotationRenderer {
-    pub fn new(image_len: usize, test_node_id: NodeID) -> Self {
-        let size = IVec3::ONE * crate::debug::hull_basic::HULL_BASE_DEBUG_SIZE;
+    pub fn new(image_len: usize, test_node_id: NodeID) -> Result<Self> {
+        let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
 
-        RotationRenderer {
-            mesh: ParallaxMesh::new(image_len, size, size),
+        Ok(RotationRenderer {
+            data: ParallaxMesh::new(image_len, size, size),
             node_id: test_node_id,
             last_input: Instant::now(),
-        }
+        })
     }
 
     pub fn update_controls(&mut self, controls: &Controls) {
@@ -55,44 +56,21 @@ impl RotationRenderer {
     fn update_renderer(
         &mut self,
 
-        controls: &Controls,
-
-        node_id_bits: &Vec<u32>,
-        render_nodes: &Vec<RenderNode>,
+        node_id_bits: &[u32],
+        render_nodes: &[RenderNode],
 
         image_index: usize,
         context: &Context,
-        descriptor_layout: &DescriptorSetLayout,
-        descriptor_pool: &DescriptorPool,
+        renderer: &mut ParallaxRenderer,
     ) -> Result<()> {
-        self.update_controls(controls);
-
-        // Buffers from the last swapchain iteration are being dropped
-        self.mesh.to_drop_buffers[image_index].clear();
-
-        if !self.mesh.chunks.is_empty() {
-            self.mesh.chunks[0].update_from_data(
-                node_id_bits,
-                &render_nodes,
-                context,
-                &mut self.mesh.to_drop_buffers[image_index],
-            )?;
-        } else {
-            let new_chunk = ParallaxData::new_from_data(
-                IVec3::ZERO,
-                self.mesh.size,
-                self.mesh.render_size,
-                node_id_bits,
-                render_nodes,
-                self.mesh.to_drop_buffers.len(),
-                context,
-                descriptor_layout,
-                descriptor_pool,
-            )?;
-            if new_chunk.is_some() {
-                self.mesh.chunks.push(new_chunk.unwrap())
-            }
-        }
+        let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
+        self.data.update(
+            size,
+            node_id_bits,
+            render_nodes,
+            context,
+            &mut renderer.to_drop_buffers[image_index],
+        )?;
 
         Ok(())
     }
@@ -103,9 +81,7 @@ impl RotationRenderer {
         renderer: &ParallaxRenderer,
         image_index: usize,
     ) {
-        renderer
-            .render_mesh(buffer, image_index, &self.mesh)
-            .unwrap()
+        renderer.render_data(buffer, image_index, &self.data)
     }
 }
 
@@ -124,7 +100,7 @@ impl DebugController {
         debug!("{:?}", num);
 
         let (node_id_bits, render_nodes) =
-            self.get_rotation_debug_node_id_bits(self.rotation_renderer.mesh.size);
+            self.get_rotation_debug_node_id_bits(self.rotation_renderer.data.size);
 
         self.rotation_renderer.update_renderer(
             controls,

@@ -1,8 +1,9 @@
+use crate::debug::hull_basic::{DebugHullBasicRenderer, HULL_BASE_DEBUG_SIZE};
 use crate::debug::DebugController;
 use crate::math::oct_positions;
 use crate::render::parallax::chunk::{ParallaxData, RenderNode};
 use crate::render::parallax::renderer::ParallaxRenderer;
-use crate::rules::solver::{SolverFunctions};
+use crate::rules::solver::SolverFunctions;
 use crate::rules::Rules;
 use crate::world::block_object::collapse::Collapser;
 use crate::world::block_object::possible_blocks::PossibleBlocks;
@@ -36,7 +37,7 @@ pub struct LogEntry {
 }
 
 pub struct CollapseLogRenderer {
-    mesh: ParallaxData,
+    data: ParallaxData,
 
     last_blocks_names: Vec<BlockNameIndex>,
     block_log: Vec<LogEntry>,
@@ -57,7 +58,7 @@ pub struct CollapseLogRenderer {
 impl CollapseLogRenderer {
     pub fn new(image_len: usize, block_object: &BlockObject) -> Self {
         CollapseLogRenderer {
-            mesh: ParallaxData::new_from_block_object(block_object, image_len),
+            data: ParallaxData::new_from_block_object(block_object, image_len),
             last_input: Instant::now(),
             last_blocks_names: vec![],
             block_log: vec![],
@@ -250,40 +251,21 @@ impl CollapseLogRenderer {
     fn update_renderer(
         &mut self,
 
-        node_id_bits: &Vec<u32>,
-        render_nodes: &Vec<RenderNode>,
+        node_id_bits: &[u32],
+        render_nodes: &[RenderNode],
 
         image_index: usize,
         context: &Context,
-        descriptor_layout: &DescriptorSetLayout,
-        descriptor_pool: &DescriptorPool,
+        renderer: &mut ParallaxRenderer,
     ) -> Result<()> {
-        // Buffers from the last swapchain iteration are being dropped
-        self.mesh.to_drop_buffers[image_index].clear();
-
-        if !self.mesh.chunks.is_empty() {
-            self.mesh.chunks[0].update_from_data(
-                node_id_bits,
-                &render_nodes,
-                context,
-                &mut self.mesh.to_drop_buffers[image_index],
-            )?;
-        } else {
-            let new_chunk = ParallaxData::new_from_data(
-                IVec3::ZERO,
-                self.mesh.size,
-                self.mesh.render_size,
-                node_id_bits,
-                render_nodes,
-                self.mesh.to_drop_buffers.len(),
-                context,
-                descriptor_layout,
-                descriptor_pool,
-            )?;
-            if new_chunk.is_some() {
-                self.mesh.chunks.push(new_chunk.unwrap())
-            }
-        }
+        let size = IVec3::ONE * HULL_BASE_DEBUG_SIZE;
+        self.data.update(
+            size,
+            node_id_bits,
+            render_nodes,
+            context,
+            &mut renderer.to_drop_buffers[image_index],
+        )?;
 
         Ok(())
     }
@@ -294,9 +276,7 @@ impl CollapseLogRenderer {
         renderer: &ParallaxRenderer,
         image_index: usize,
     ) {
-        renderer
-            .render_mesh(buffer, image_index, &self.mesh)
-            .unwrap()
+        renderer.render_data(buffer, image_index, &self.data)
     }
 }
 
@@ -324,7 +304,7 @@ impl DebugController {
         }
 
         let (mut node_id_bits, mut render_nodes) = self.get_collapse_log_node_id_bits(
-            self.collapse_log_renderer.mesh.size,
+            self.collapse_log_renderer.data.size,
             ship_data,
             rules,
         );

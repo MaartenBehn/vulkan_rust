@@ -1,5 +1,6 @@
-use crate::render::parallax::chunk::{ParallaxData};
+use crate::render::parallax::chunk::ParallaxData;
 use crate::rules::Rules;
+use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
 use crate::world::data::node::Node;
 use octa_force::glam::{IVec3, UVec2, UVec3};
 use octa_force::vulkan::ash::vk::IndexType;
@@ -17,7 +18,6 @@ use octa_force::{
     },
 };
 use std::mem::size_of;
-use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
 
 type RenderMode = u32;
 pub const RENDER_MODE_BASE: RenderMode = 0;
@@ -210,7 +210,6 @@ impl ParallaxRenderer {
             },
         )?;
 
-        
         let mut to_drop_buffers = Vec::new();
         for _ in 0..num_frames {
             to_drop_buffers.push(vec![])
@@ -228,12 +227,12 @@ impl ParallaxRenderer {
 
             pipeline_layout,
             pipeline,
-            
-            to_drop_buffers
+
+            to_drop_buffers,
         })
     }
 
-    fn update(&mut self, camera: &Camera, res: UVec2, frame_index: usize) -> Result<()> {
+    pub fn update(&mut self, camera: &Camera, res: UVec2, frame_index: usize) -> Result<()> {
         self.render_buffer.copy_data_to_buffer(&[RenderBuffer {
             proj_matrix: camera.projection_matrix(),
             view_matrix: camera.view_matrix(),
@@ -247,11 +246,47 @@ impl ParallaxRenderer {
         Ok(())
     }
 
-    pub fn begin_render(
-        &self,
-        buffer: &CommandBuffer,
+    pub fn update_object(
+        &mut self,
+        object: &mut BlockObject,
+        changed_chunks: Vec<ChunkIndex>,
+        context: &Context,
         frame_index: usize,
-    ) {
+        num_frames: usize,
+    ) -> Result<()> {
+        for chunk_index in changed_chunks {
+            let chunk = &mut object.chunks[chunk_index];
+
+            if chunk.parallax_data.is_none() {
+                chunk.parallax_data = Some(ParallaxData::new(
+                    chunk.pos / object.nodes_per_chunk,
+                    object.nodes_per_chunk,
+                    object.nodes_length,
+                    num_frames,
+                    context,
+                    &self.chunk_descriptor_layout,
+                    &self.descriptor_pool,
+                )?);
+            }
+
+            chunk
+                .parallax_data
+                .as_mut()
+                .unwrap()
+                .update(
+                    object.nodes_per_chunk,
+                    &chunk.node_id_bits,
+                    &chunk.render_nodes,
+                    context,
+                    &mut self.to_drop_buffers[frame_index],
+                )
+                .unwrap();
+        }
+
+        Ok(())
+    }
+
+    pub fn begin_render(&self, buffer: &CommandBuffer, frame_index: usize) {
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,
@@ -261,12 +296,7 @@ impl ParallaxRenderer {
         );
     }
 
-    pub fn render_data(
-        &self,
-        buffer: &CommandBuffer,
-        frame_index: usize,
-        data: &ParallaxData,
-    ) {
+    pub fn render_data(&self, buffer: &CommandBuffer, frame_index: usize, data: &ParallaxData) {
         if data.index_count == 0 {
             return;
         }
@@ -284,18 +314,13 @@ impl ParallaxRenderer {
         buffer.push_constant(
             &self.pipeline_layout,
             ShaderStageFlags::FRAGMENT | ShaderStageFlags::VERTEX,
-            &PushConstant::new(
-                data.pos,
-                data.size.x as u32,
-                1,
-                RENDER_MODE_BASE,
-            ),
+            &PushConstant::new(data.pos, data.size.x as u32, 1, RENDER_MODE_BASE),
         );
 
         buffer.draw_indexed(data.index_count as u32);
     }
 
-    fn on_rules_changed(
+    pub fn on_rules_changed(
         &mut self,
         rules: &Rules,
         context: &Context,

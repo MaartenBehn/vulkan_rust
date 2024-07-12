@@ -1,10 +1,10 @@
 use crate::rules::Rules;
+use crate::world::block_object::BlockObject;
+use crate::world::data::block::BlockNameIndex;
+use crate::world::profile::{TickProfile, ENABLE_SHIP_PROFILING};
 use octa_force::glam::{vec3, IVec3};
 use octa_force::{anyhow::Result, camera::Camera, controls::Controls};
 use std::time::Duration;
-use crate::world::block_object::BlockObject;
-use crate::world::data::block::BlockNameIndex;
-use crate::world::profile::{ENABLE_SHIP_PROFILING, TickProfile};
 
 const SCROLL_SPEED: f32 = 0.01;
 const PLACE_SPEED: Duration = Duration::from_millis(100);

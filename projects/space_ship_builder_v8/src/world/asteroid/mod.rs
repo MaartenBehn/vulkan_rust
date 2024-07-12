@@ -1,15 +1,13 @@
 mod metaball;
 
-
 use crate::render::parallax::renderer::{ParallaxRenderer, RENDER_MODE_BASE};
-use crate::render::{Renderer};
+use crate::render::Renderer;
 use crate::rules::Rules;
 use crate::world::asteroid::metaball::Metaball;
 use crate::world::block_object::BlockObject;
 use crate::world::data::block::BlockNameIndex;
 use crate::world::data::node::VOXEL_PER_NODE_SIDE;
-use crate::world::ship::{MAX_TICK_LENGTH, MIN_TICK_LENGTH};
-use fastnoise_lite::{FastNoiseLite, NoiseType};
+use fastnoise_lite::NoiseType;
 use log::{debug, info};
 use octa_force::anyhow::{bail, Result};
 use octa_force::glam::{ivec3, IVec3, Vec3};
@@ -24,17 +22,9 @@ const ASTEROID_CHUNK_VOXEL_SIZE: IVec3 = ivec3(
     ASTEROID_CHUNK_SIZE.z * VOXEL_PER_NODE_SIDE,
 );
 
-pub struct AsteroidManager {
-    pub asteroids: Vec<Asteroid>,
+pub struct AsteroidGenerator {
     pub asteroid_block_name_index: BlockNameIndex,
-
-    pub actions_per_tick: usize,
-    last_full_tick: bool,
-}
-
-pub struct Asteroid {
-    pub block_object: BlockObject,
-    pub render_object: RenderObject,
+    pub num_block_names: usize,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -45,97 +35,26 @@ pub struct AsteroidGenerationConfig {
     cut_off_dist: f32,
 }
 
-impl AsteroidManager {
-    pub fn new(num_frames: usize, rules: &Rules) -> Self {
+impl AsteroidGenerator {
+    pub fn new(rules: &Rules) -> Self {
         let asteroid_block_name_index = rules.get_block_name_index("Stone");
 
-        let asteroid = Asteroid::new(asteroid_block_name_index, num_frames, rules);
-
-        AsteroidManager {
-            asteroids: vec![asteroid],
+        AsteroidGenerator {
             asteroid_block_name_index,
-            actions_per_tick: 4,
-            last_full_tick: false,
+            num_block_names: rules.block_names.len(),
         }
     }
 
-    pub fn update(
-        &mut self,
-        context: &Context,
-        image_index: usize,
-        delta_time: Duration,
-        rules: &Rules,
-        renderer: &Renderer,
-    ) -> Result<()> {
-        if delta_time < MIN_TICK_LENGTH && self.last_full_tick {
-            self.actions_per_tick = min(self.actions_per_tick * 2, usize::MAX / 2);
-        } else if delta_time > MAX_TICK_LENGTH {
-            self.actions_per_tick = max(self.actions_per_tick / 2, 4);
-        }
-
-        for asteroid in self.asteroids.iter_mut() {
-            let (full, changed_chunks) = asteroid.block_object.tick(self.actions_per_tick, rules);
-            if full {
-                info!("Asteroid Full Tick: {}", self.actions_per_tick);
-            }
-            self.last_full_tick = full;
-
-            asteroid.render_object.update_from_block_object(
-                &asteroid.block_object,
-                changed_chunks,
-                image_index,
-                context,
-                renderer,
-            )?;
-        }
-
-        Ok(())
-    }
-
-    pub fn render(
-        &self,
-        buffer: &CommandBuffer,
-        image_index: usize,
-        renderer: &Renderer,
-    ) -> Result<()> {
-        for asteroid in self.asteroids.iter() {
-            renderer.render(buffer, image_index, &asteroid.render_object)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Asteroid {
-    pub fn new(
-        asteroid_block_name_index: BlockNameIndex,
-        num_frames: usize,
-        rules: &Rules,
-    ) -> Self {
-        let block_object = BlockObject::new(ASTEROID_CHUNK_SIZE.x, rules.block_names.len());
-        let render_object = RenderObject::Parallax(ParallaxMesh::new_from_block_object(
-            &block_object,
-            num_frames,
-        ));
-
-        let mut asteroid = Asteroid {
-            render_object,
-            block_object,
-        };
-
-        let config = get_config_from_size(11).unwrap();
+    pub fn generate(&self, size: i32) -> BlockObject {
+        let config = get_config_from_size(size).unwrap();
         info!("Asteroid Config: {:?}", config);
 
-        asteroid.generate_from_config(asteroid_block_name_index, config);
-
-        asteroid
+        self.generate_from_config(config)
     }
 
-    fn generate_from_config(
-        &mut self,
-        asteroid_block_name_index: BlockNameIndex,
-        config: AsteroidGenerationConfig,
-    ) {
+    pub fn generate_from_config(&self, config: AsteroidGenerationConfig) -> BlockObject {
+        let mut block_object = BlockObject::new(ASTEROID_CHUNK_SIZE.x, self.num_block_names);
+
         let mut metaball = Metaball::new();
         metaball.add_random_points_in_area(
             Vec3::NEG_ONE * config.size as f32,
@@ -166,12 +85,13 @@ impl Asteroid {
                     let world_block_pos = ivec3(x, y, z);
 
                     if metaball.get_field(world_block_pos.as_vec3()) > 0.5 {
-                        self.block_object
-                            .place_block(world_block_pos, asteroid_block_name_index)
+                        block_object.place_block(world_block_pos, self.asteroid_block_name_index)
                     }
                 }
             }
         }
+
+        block_object
     }
 }
 

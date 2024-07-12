@@ -28,7 +28,7 @@ pub const MIN_INDICES: usize = 20;
 pub struct ParallaxData {
     pub pos: IVec3,
     pub size: IVec3,
-    
+
     pub chunk_buffer: Buffer,
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
@@ -41,7 +41,6 @@ pub struct ParallaxData {
 pub struct RenderNode(pub bool);
 
 impl ParallaxData {
-    
     pub fn new(
         pos: IVec3,
         size: IVec3,
@@ -51,7 +50,6 @@ impl ParallaxData {
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
     ) -> Result<ParallaxData> {
-        
         let chunk_buffer = Self::create_buffer(
             context,
             BufferUsageFlags::STORAGE_BUFFER,
@@ -75,7 +73,7 @@ impl ParallaxData {
         )?;
 
         Ok(ParallaxData {
-            pos, 
+            pos,
             size,
             chunk_buffer,
             vertex_buffer,
@@ -85,7 +83,7 @@ impl ParallaxData {
             descriptor_sets,
         })
     }
-    
+
     pub fn update(
         &mut self,
         size: IVec3,
@@ -126,13 +124,12 @@ impl ParallaxData {
             log::trace!("Chunk Index Buffer increased.");
         }
         self.index_buffer.copy_data_to_buffer(&indecies)?;
-        
 
         self.index_count = indecies.len();
 
         Ok(())
     }
-    
+
     pub const RIGHT_HANDED_Z_UP_CONFIG: QuadCoordinateConfig = QuadCoordinateConfig {
         // Y is always in the V direction when it's not the normal. When Y is the
         // normal, right-handedness determines that we must use Yzx permutations.
@@ -160,10 +157,7 @@ impl ParallaxData {
         );
     }
 
-    fn create_mesh(
-        size: IVec3,
-        render_nodes: &[RenderNode],
-    ) -> Result<(Vec<Vertex>, Vec<u16>)> {
+    fn create_mesh(size: IVec3, render_nodes: &[RenderNode]) -> Result<(Vec<Vertex>, Vec<u16>)> {
         let mut buffer = GreedyQuadsBuffer::new(render_nodes.len());
 
         if size == (IVec3::ONE * 16) {
@@ -236,7 +230,7 @@ impl ParallaxData {
 
         Ok(buffer)
     }
-    
+
     fn create_descriptor_sets(
         chunk_buffer: &Buffer,
         images_len: usize,

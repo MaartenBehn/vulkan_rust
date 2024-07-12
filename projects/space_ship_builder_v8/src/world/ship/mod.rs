@@ -1,5 +1,5 @@
 use crate::render::parallax::renderer::{ParallaxRenderer, RENDER_MODE_BASE};
-use crate::render::{Renderer};
+use crate::render::Renderer;
 use crate::rules::Rules;
 use crate::world::block_object::BlockObject;
 use crate::INPUT_INTERVALL;
@@ -13,12 +13,7 @@ use octa_force::vulkan::{CommandBuffer, Context};
 use std::cmp::{max, min};
 use std::time::Duration;
 
-pub const CHUNK_SIZE: i32 = 32;
 const SHIP_SAVE_FILE_PATH: &str = "./assets/ship.bin";
-
-
-
-
 
 pub struct Ship {
     pub block_object: BlockObject,

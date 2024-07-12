@@ -16,6 +16,7 @@ use crate::debug::{DebugController, DebugMode::Off};
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::render::Renderer;
 use crate::world::data::voxel_loader::VoxelLoader;
+use crate::world::manager::WorldManager;
 
 #[cfg(debug_assertions)]
 pub mod debug;
@@ -52,6 +53,8 @@ struct SpaceShipBuilder {
 
     renderer: Renderer,
 
+    world_manager: WorldManager,
+
     camera: Camera,
 
     #[cfg(debug_assertions)]
@@ -64,14 +67,17 @@ impl App for SpaceShipBuilder {
 
         let mut rules = Rules::new(&voxel_loader)?;
 
-        let renderer = Renderer::Parallax(ParallaxRenderer::new(
+        let mut renderer = Renderer::new();
+        renderer.enable_parallax(
             &base.context,
-            base.num_frames as u32,
+            base.num_frames,
             base.swapchain.format,
-            Format::D32_SFLOAT,
-            base.swapchain.size,
+            base.swapchain.depth_format,
             &rules,
-        )?);
+        )?;
+
+        let mut world_manager = WorldManager::new(16, &mut rules);
+        world_manager.add_start_data();
 
         #[cfg(debug_assertions)]
         let test_node_id = rules.load_node("Test", &voxel_loader).unwrap();
@@ -84,7 +90,8 @@ impl App for SpaceShipBuilder {
             base.swapchain.depth_format,
             &base.window,
             test_node_id,
-            renderer.as_parallax().unwrap(),
+            &world_manager,
+            renderer.parallax_renderer.as_ref().unwrap(),
         )?;
 
         log::info!("Creating Camera");
@@ -104,6 +111,7 @@ impl App for SpaceShipBuilder {
             voxel_loader,
             rules,
             renderer,
+            world_manager,
             camera,
 
             #[cfg(debug_assertions)]
@@ -114,13 +122,14 @@ impl App for SpaceShipBuilder {
     fn update(
         &mut self,
         base: &mut BaseApp<Self>,
-        image_index: usize,
+        frame_index: usize,
         delta_time: Duration,
     ) -> Result<()> {
         self.total_time += delta_time;
 
         self.camera.update(&base.controls, delta_time);
-        self.renderer.update(&self.camera, base.swapchain.size)?;
+        self.renderer
+            .update(&self.camera, base.swapchain.size, frame_index)?;
 
         if base.controls.q && self.last_input + INPUT_INTERVALL < self.total_time {
             self.last_input = self.total_time;
@@ -131,7 +140,6 @@ impl App for SpaceShipBuilder {
 
             self.renderer
                 .on_rules_changed(&mut self.rules, &base.context, base.num_frames)?;
-            self.ship_manager.on_voxel_change(&mut self.rules)?;
 
             log::info!(".vox File loaded");
         }
@@ -139,64 +147,44 @@ impl App for SpaceShipBuilder {
         #[cfg(debug_assertions)]
         {
             if self.debug_controller.mode == Off {
-                if !SHOW_ASTEROID {
-                    self.ship_manager.update(
-                        &mut self.rules,
-                        self.total_time,
-                        delta_time,
-                        image_index,
-                        &base.context,
-                        &base.controls,
-                        &self.camera,
-                        &self.renderer,
-                    )?;
-                } else {
-                    self.asteroid_manager.update(
-                        &base.context,
-                        image_index,
-                        delta_time,
-                        &self.rules,
-                        &self.renderer,
-                    )?;
-                }
+                self.world_manager.update(
+                    &mut self.rules,
+                    self.total_time,
+                    delta_time,
+                    base.num_frames,
+                    frame_index,
+                    &base.context,
+                    &base.controls,
+                    &self.camera,
+                    &mut self.renderer,
+                )?;
             }
 
             self.debug_controller.update(
                 &base.context,
                 &base.controls,
                 self.total_time,
-                &mut self.ship_manager,
-                image_index,
+                &mut self.world_manager,
+                frame_index,
                 &self.rules,
                 &self.camera,
                 base.swapchain.size,
-                self.renderer.as_parallax().unwrap(),
+                self.renderer.parallax_renderer.as_ref().unwrap(),
             )?;
         }
 
         #[cfg(not(debug_assertions))]
-        {
-            if !SHOW_ASTEROID {
-                self.ship_manager.update(
-                    &mut self.rules,
-                    self.total_time,
-                    delta_time,
-                    image_index,
-                    &base.context,
-                    &base.controls,
-                    &self.camera,
-                    &self.renderer,
-                )?;
-            } else {
-                self.asteroid_manager.update(
-                    &base.context,
-                    image_index,
-                    delta_time,
-                    &self.rules,
-                    &self.renderer,
-                )?;
-            }
-        }
+        self.world_manager.update(
+            &mut self.rules,
+            self.total_time,
+            delta_time,
+            base.num_frames,
+            frame_index,
+            &base.context,
+            &base.controls,
+            &self.camera,
+            &mut self.renderer,
+        )?;
 
         Ok(())
     }
@@ -211,15 +199,15 @@ impl App for SpaceShipBuilder {
     fn record_render_commands(
         &mut self,
         base: &mut BaseApp<Self>,
-        image_index: usize,
+        frame_index: usize,
     ) -> Result<()> {
-        let buffer = &base.command_buffers[image_index];
+        let buffer = &base.command_buffers[frame_index];
 
         buffer
-            .swapchain_image_render_barrier(&base.swapchain.images_and_views[image_index].image)?;
+            .swapchain_image_render_barrier(&base.swapchain.images_and_views[frame_index].image)?;
         buffer.begin_rendering(
-            &base.swapchain.images_and_views[image_index].view,
-            &base.swapchain.depht_images_and_views[image_index].view,
+            &base.swapchain.images_and_views[frame_index].view,
+            &base.swapchain.depht_images_and_views[frame_index].view,
             base.swapchain.size,
             vk::AttachmentLoadOp::CLEAR,
             None,
@@ -231,30 +219,24 @@ impl App for SpaceShipBuilder {
         #[cfg(debug_assertions)]
         {
             if self.debug_controller.mode == Off {
-                self.ship_manager
-                    .render(buffer, image_index, &self.renderer);
-                self.asteroid_manager
-                    .render(buffer, image_index, &self.renderer);
+                self.world_manager
+                    .render(&self.renderer, buffer, frame_index);
             }
 
             self.debug_controller.render(
                 &base.context,
                 &base.window,
                 buffer,
-                image_index,
+                frame_index,
                 base.swapchain.size,
                 &self.camera,
-                self.renderer.as_parallax().unwrap(),
+                self.renderer.parallax_renderer.as_mut().unwrap(),
             )?;
         }
 
         #[cfg(not(debug_assertions))]
-        {
-            self.ship_manager
-                .render(buffer, image_index, &mut self.renderer);
-            self.asteroid_manager
-                .render(buffer, image_index, &self.renderer);
-        }
+        self.world_manager
+            .render(&self.renderer, buffer, frame_index);
 
         buffer.end_rendering();
 
@@ -262,9 +244,6 @@ impl App for SpaceShipBuilder {
     }
 
     fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
-        self.renderer
-            .on_recreate_swapchain(&base.context, base.swapchain.size)?;
-
         Ok(())
     }
 }
