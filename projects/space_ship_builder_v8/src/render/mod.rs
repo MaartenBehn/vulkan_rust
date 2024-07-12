@@ -1,12 +1,17 @@
+use crate::render::compute::renderer::ComputeRenderer;
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
 use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
+use crate::world::manager::WorldManager;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
 use octa_force::glam::{Mat4, UVec2};
+use octa_force::run;
 use octa_force::vulkan::ash::vk;
-use octa_force::vulkan::{CommandBuffer, Context};
+use octa_force::vulkan::ash::vk::Format;
+use octa_force::vulkan::{CommandBuffer, Context, Swapchain};
 
+pub mod compute;
 pub mod parallax;
 // pub mod raytracer;
 
@@ -19,6 +24,7 @@ pub enum ActiveRenderer {
 
 pub struct Renderer {
     pub parallax_renderer: Option<ParallaxRenderer>,
+    pub compute_renderer: Option<ComputeRenderer>,
     pub active_renderer: ActiveRenderer,
 }
 
@@ -26,6 +32,7 @@ impl Renderer {
     pub fn new() -> Renderer {
         Renderer {
             parallax_renderer: None,
+            compute_renderer: None,
             active_renderer: ActiveRenderer::None,
         }
     }
@@ -52,6 +59,24 @@ impl Renderer {
         Ok(())
     }
 
+    pub fn enable_compute(
+        &mut self,
+        context: &Context,
+        format: Format,
+        res: UVec2,
+        num_frames: usize,
+        rules: &Rules,
+    ) -> Result<()> {
+        if self.compute_renderer.is_none() {
+            self.compute_renderer = Some(ComputeRenderer::new(
+                context, format, res, num_frames, rules,
+            )?);
+        }
+        self.active_renderer = ActiveRenderer::Compute;
+
+        Ok(())
+    }
+
     pub fn update(&mut self, camera: &Camera, res: UVec2, frame_index: usize) -> Result<()> {
         match self.active_renderer {
             ActiveRenderer::None => {}
@@ -59,7 +84,10 @@ impl Renderer {
                 let renderer = self.parallax_renderer.as_mut().unwrap();
                 renderer.update(camera, res, frame_index)?;
             }
-            ActiveRenderer::Compute => {}
+            ActiveRenderer::Compute => {
+                let renderer = self.compute_renderer.as_ref().unwrap();
+                renderer.update(camera, res)?;
+            }
             ActiveRenderer::Raytracing => {}
         }
 
@@ -87,32 +115,46 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn render<'a, I>(&self, buffer: &CommandBuffer, frame_index: usize, chunks_to_render: I)
-    where
-        I: IntoIterator<Item = (&'a BlockChunk, &'a Mat4)>,
-    {
+    pub fn render(
+        &self,
+        buffer: &CommandBuffer,
+        frame_index: usize,
+        world_manager: &WorldManager,
+        swapchain: &Swapchain,
+    ) -> Result<()> {
         match self.active_renderer {
             ActiveRenderer::None => {}
             ActiveRenderer::Parallax => {
                 let renderer = self.parallax_renderer.as_ref().unwrap();
-                renderer.begin_render(buffer, frame_index);
+                renderer.begin_render(buffer, frame_index, swapchain)?;
 
-                for (chunk, base_transform) in chunks_to_render {
-                    if chunk.parallax_data.is_none() {
-                        continue;
+                for region in world_manager.loaded_regions.iter() {
+                    for object in region.loaded_objects.iter() {
+                        for chunk in object.chunks.iter() {
+                            if chunk.parallax_data.is_none() {
+                                continue;
+                            }
+
+                            renderer.render_data(
+                                buffer,
+                                frame_index,
+                                chunk.parallax_data.as_ref().unwrap(),
+                                &object.transform,
+                            );
+                        }
                     }
-
-                    renderer.render_data(
-                        buffer,
-                        frame_index,
-                        chunk.parallax_data.as_ref().unwrap(),
-                        base_transform,
-                    );
                 }
+
+                renderer.end_rendering(buffer);
             }
-            ActiveRenderer::Compute => {}
+            ActiveRenderer::Compute => {
+                let renderer = self.compute_renderer.as_ref().unwrap();
+                renderer.render(buffer, frame_index, swapchain)?;
+            }
             ActiveRenderer::Raytracing => {}
         }
+
+        Ok(())
     }
 
     pub fn on_rules_changed(
@@ -128,6 +170,26 @@ impl Renderer {
                 renderer.on_rules_changed(rules, context, num_frames)?;
             }
             ActiveRenderer::Compute => {}
+            ActiveRenderer::Raytracing => {}
+        }
+
+        Ok(())
+    }
+
+    pub fn on_recreate_swapchain(
+        &mut self,
+        context: &Context,
+        format: Format,
+        num_frames: usize,
+        res: UVec2,
+    ) -> Result<()> {
+        match self.active_renderer {
+            ActiveRenderer::None => {}
+            ActiveRenderer::Parallax => {}
+            ActiveRenderer::Compute => {
+                let renderer = self.compute_renderer.as_mut().unwrap();
+                renderer.on_recreate_swapchain(context, format, num_frames, res)?;
+            }
             ActiveRenderer::Raytracing => {}
         }
 

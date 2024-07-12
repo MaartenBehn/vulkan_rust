@@ -11,8 +11,8 @@ opt-level = 0
 opt-level = 3
 
 [dependencies]
-octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git" }
-# octa-force = { path="../../../octa-force-rs" }
+# octa-force = { git="https://github.com/MaartenBehn/octa-force-rs.git" }
+octa-force = { path="../../../octa-force-rs" }
 
 dot_vox = "5.1.1"
 block-mesh = "0.2.0"

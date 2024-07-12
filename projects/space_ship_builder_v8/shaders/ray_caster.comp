@@ -1,0 +1,111 @@
+#version 450
+#extension GL_EXT_debug_printf : enable
+
+#define NODE_SIZE 4
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(binding = 0, rgba8) uniform writeonly image2D img;
+
+/*
+pub struct RenderBuffer {
+    pub pos: Vec3,
+    pub screen_size_x: f32,
+    pub dir: Vec3,
+    pub screen_size_y: f32,
+}
+*/
+layout(binding = 1) uniform UniformBufferObject {
+    vec4 pos; // w is screen_size_x
+    vec4 dir; // w is screen_size_y
+} render_buffer;
+
+#define POS render_buffer.pos.xyz
+#define DIR render_buffer.dir.xyz
+#define RES_X render_buffer.pos.w
+#define RES_Y render_buffer.dir.w
+#define RES vec2(RES_X, RES_Y)
+
+struct ChunkData {
+    mat4 transform;
+    vec4 aabb;
+    uint chunk_size;
+};
+
+layout(binding = 2) uniform ChunkDatas {
+    ChunkData chunks;
+} chunk_datas;
+
+layout(binding = 3) uniform ChunkNodes {
+    uint node_ids;
+} chunk_nodes;
+
+// Voxels
+struct Node {
+    uint voxels[(NODE_SIZE * NODE_SIZE * NODE_SIZE) / 4];
+};
+
+layout(binding = 4) uniform Nodes {
+    Node nodes[];
+} nodes;
+
+// Materials 
+layout(binding = 5) uniform Mats {
+    uint mats[];
+} mats;
+
+
+
+struct Ray{
+    vec3 pos;
+    vec3 dir;
+    vec3 odir; // = 1 / dir
+};
+
+Ray initRay(){
+    vec2 uv = ((gl_GlobalInvocationID.xy * 2 - RES) / RES_Y) * vec2(-1);
+
+    vec3 ro = POS;
+    vec3 fwd = DIR;
+    vec3 up = vec3(0.,0.,1.);
+    vec3 right = normalize(cross(up,fwd));
+    up = cross(fwd,right);
+    vec3 rd = right * uv.x + up * uv.y + fwd;
+    rd = normalize(rd);
+
+    Ray ray = Ray(ro, rd, vec3(1) / rd);
+    return ray;
+}
+
+bool checkHit(in Ray ray, in vec3 nodePos, in uint size, out float tMin, out float tMax)
+{
+    vec3 minSize = nodePos;
+    vec3 maxSize = nodePos + vec3(size);
+
+    vec3 isPositive = vec3(ray.odir.x > 0, ray.odir.y > 0, ray.odir.z >= 0); // ray.odir = 1.0 / ray.dir
+    vec3 isNegative = 1.0f - isPositive;
+
+    vec3 leftSide  = isPositive * minSize + isNegative * maxSize;
+    vec3 rightSide = isPositive * maxSize + isNegative * minSize;
+
+    vec3 leftSideTimesOneOverDir  = (leftSide  - ray.pos) * ray.odir;
+    vec3 rightSideTimesOneOverDir = (rightSide - ray.pos) * ray.odir;
+
+    tMin = max(leftSideTimesOneOverDir.x, max(leftSideTimesOneOverDir.y, leftSideTimesOneOverDir.z));
+    tMax = min(rightSideTimesOneOverDir.x, min(rightSideTimesOneOverDir.y, rightSideTimesOneOverDir.z));
+
+    // vec3 directionSign = sign(odir);
+    // sideMin = vec3(leftSideTimesOneOverDir.x == tMin, leftSideTimesOneOverDir.y == tMin, leftSideTimesOneOverDir.z == tMin) * directionSign;
+    // sideMax = vec3(rightSideTimesOneOverDir.x == tMax, rightSideTimesOneOverDir.y == tMax, rightSideTimesOneOverDir.z == tMax) * directionSign;
+
+    return tMax > tMin;
+}
+
+
+
+void main () { 
+    Ray ray = initRay();
+
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(ray.dir, 0));
+}
+

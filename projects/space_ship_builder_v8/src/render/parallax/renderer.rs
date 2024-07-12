@@ -5,6 +5,7 @@ use crate::world::data::node::Node;
 use block_mesh::ilattice::glam::{vec4, Vec4};
 use octa_force::glam::{IVec3, UVec2, UVec3};
 use octa_force::vulkan::ash::vk::IndexType;
+use octa_force::vulkan::Swapchain;
 use octa_force::{
     anyhow::Result,
     camera::Camera,
@@ -184,11 +185,11 @@ impl ParallaxRenderer {
             GraphicsPipelineCreateInfo {
                 shaders: &[
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../../shaders/chunk.vert.spv")[..],
+                        source: &include_bytes!("../../../shaders/parallax.vert.spv")[..],
                         stage: vk::ShaderStageFlags::VERTEX,
                     },
                     GraphicsShaderCreateInfo {
-                        source: &include_bytes!("../../../shaders/chunk.frag.spv")[..],
+                        source: &include_bytes!("../../../shaders/parallax.frag.spv")[..],
                         stage: vk::ShaderStageFlags::FRAGMENT,
                     },
                 ],
@@ -288,7 +289,24 @@ impl ParallaxRenderer {
         Ok(())
     }
 
-    pub fn begin_render(&self, buffer: &CommandBuffer, frame_index: usize) {
+    pub fn begin_render(
+        &self,
+        buffer: &CommandBuffer,
+        frame_index: usize,
+        swapchain: &Swapchain,
+    ) -> Result<()> {
+        buffer.swapchain_image_render_barrier(&swapchain.images_and_views[frame_index].image)?;
+        buffer.begin_rendering(
+            &swapchain.images_and_views[frame_index].view,
+            &swapchain.depht_images_and_views[frame_index].view,
+            swapchain.size,
+            vk::AttachmentLoadOp::CLEAR,
+            None,
+        );
+
+        buffer.set_viewport_size(swapchain.size.as_vec2());
+        buffer.set_scissor_size(swapchain.size.as_vec2());
+
         buffer.bind_graphics_pipeline(&self.pipeline);
         buffer.bind_descriptor_sets(
             vk::PipelineBindPoint::GRAPHICS,
@@ -296,6 +314,8 @@ impl ParallaxRenderer {
             0,
             &[&self.static_descriptor_sets[frame_index]],
         );
+
+        Ok(())
     }
 
     pub fn render_data(
@@ -326,6 +346,10 @@ impl ParallaxRenderer {
         );
 
         buffer.draw_indexed(data.index_count as u32);
+    }
+
+    pub fn end_rendering(&self, buffer: &CommandBuffer) {
+        buffer.end_rendering()
     }
 
     pub fn on_rules_changed(

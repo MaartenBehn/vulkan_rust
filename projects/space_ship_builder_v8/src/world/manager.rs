@@ -133,20 +133,4 @@ impl WorldManager {
 
         Ok(())
     }
-
-    pub fn render(&mut self, renderer: &Renderer, buffer: &CommandBuffer, frame_index: usize) {
-        let chunks_to_render = self
-            .loaded_regions
-            .iter()
-            .map(|region| {
-                region
-                    .loaded_objects
-                    .iter()
-                    .map(|object| object.chunks.iter().zip(repeat(&object.transform)))
-                    .flatten()
-            })
-            .flatten();
-
-        renderer.render(buffer, frame_index, chunks_to_render);
-    }
 }

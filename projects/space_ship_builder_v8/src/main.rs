@@ -25,8 +25,8 @@ pub mod render;
 pub mod rules;
 pub mod world;
 
-const WIDTH: u32 = 2200;
-const HEIGHT: u32 = 1250;
+const WIDTH: u32 = 1280; // 2200;
+const HEIGHT: u32 = 720; // 1250;
 const APP_NAME: &str = "Space ship builder";
 const INPUT_INTERVALL: Duration = Duration::from_secs(1);
 
@@ -73,6 +73,14 @@ impl App for SpaceShipBuilder {
             base.num_frames,
             base.swapchain.format,
             base.swapchain.depth_format,
+            &rules,
+        )?;
+
+        renderer.enable_compute(
+            &base.context,
+            base.swapchain.format,
+            base.swapchain.size,
+            base.num_frames,
             &rules,
         )?;
 
@@ -203,24 +211,11 @@ impl App for SpaceShipBuilder {
     ) -> Result<()> {
         let buffer = &base.command_buffers[frame_index];
 
-        buffer
-            .swapchain_image_render_barrier(&base.swapchain.images_and_views[frame_index].image)?;
-        buffer.begin_rendering(
-            &base.swapchain.images_and_views[frame_index].view,
-            &base.swapchain.depht_images_and_views[frame_index].view,
-            base.swapchain.size,
-            vk::AttachmentLoadOp::CLEAR,
-            None,
-        );
-
-        buffer.set_viewport_size(base.swapchain.size.as_vec2());
-        buffer.set_scissor_size(base.swapchain.size.as_vec2());
-
         #[cfg(debug_assertions)]
         {
             if self.debug_controller.mode == Off {
-                self.world_manager
-                    .render(&self.renderer, buffer, frame_index);
+                self.renderer
+                    .render(buffer, frame_index, &self.world_manager, &base.swapchain)?;
             }
 
             self.debug_controller.render(
@@ -235,15 +230,20 @@ impl App for SpaceShipBuilder {
         }
 
         #[cfg(not(debug_assertions))]
-        self.world_manager
-            .render(&self.renderer, buffer, frame_index);
-
-        buffer.end_rendering();
+        self.renderer
+            .render(buffer, frame_index, &self.world_manager, &base.swapchain)?;
 
         Ok(())
     }
 
     fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
+        self.renderer.on_recreate_swapchain(
+            &base.context,
+            base.swapchain.format,
+            base.num_frames,
+            base.swapchain.size,
+        )?;
+
         Ok(())
     }
 }
