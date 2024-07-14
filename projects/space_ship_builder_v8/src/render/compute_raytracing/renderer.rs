@@ -1,9 +1,15 @@
+use crate::math::aabb::get_aabb_of_transformed_cube;
+use crate::render::compute_raytracing::compute_raytracing_data::ComputeRaytracingData;
+use crate::render::parallax::node_parallax_mesh::NodeParallaxMesh;
 use crate::rules::Rules;
+use crate::world::block_object::{BlockObject, ChunkIndex};
 use crate::world::data::node::{Material, Node};
 use crate::world::manager::CHUNK_SIZE;
+use log::error;
 use octa_force::anyhow::Result;
 use octa_force::camera::Camera;
-use octa_force::glam::{IVec2, Mat4, UVec2, Vec2, Vec3, Vec4};
+use octa_force::egui::UserAttentionType;
+use octa_force::glam::{IVec2, IVec3, Mat4, UVec2, Vec2, Vec3, Vec4};
 use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::ash::vk::Format;
 use octa_force::vulkan::gpu_allocator::MemoryLocation;
@@ -13,14 +19,14 @@ use octa_force::vulkan::{
     WriteDescriptorSetKind,
 };
 use octa_force::ImageAndView;
-use std::mem::size_of;
+use std::mem::{align_of, size_of};
 
 const RENDER_DISPATCH_GROUP_SIZE_X: u32 = 32;
 const RENDER_DISPATCH_GROUP_SIZE_Y: u32 = 32;
 
-const NUM_LOADED_CHUNKS: usize = 10;
+const NUM_LOADED_CHUNKS: usize = 100;
 
-pub struct ComputeRenderer {
+pub struct ComputeRaytracingRenderer {
     storage_images: Vec<ImageAndView>,
     render_buffer: Buffer,
     chunk_data_buffer: Buffer,
@@ -33,6 +39,8 @@ pub struct ComputeRenderer {
     descriptor_sets: Vec<DescriptorSet>,
     pipeline_layout: PipelineLayout,
     pipeline: ComputePipeline,
+
+    free_chunks: Vec<usize>,
 }
 
 #[derive(Clone, Copy)]
@@ -43,6 +51,8 @@ pub struct RenderBuffer {
     pub screen_size_x: f32,
     pub dir: Vec3,
     pub screen_size_y: f32,
+    pub num_chunks: u32,
+    pub fill: [u32; 3],
 }
 
 #[derive(Clone, Copy)]
@@ -50,19 +60,20 @@ pub struct RenderBuffer {
 #[repr(C)]
 pub struct ChunkData {
     pub transform: Mat4,
-    pub aabb: Vec4,
+    pub aabb_min: Vec3,
     pub chunk_size: u32,
-    pub fill: [u32; 3],
+    pub aabb_max: Vec3,
+    pub fill: u32,
 }
 
-impl ComputeRenderer {
+impl ComputeRaytracingRenderer {
     pub fn new(
         context: &Context,
         format: Format,
         res: UVec2,
         num_frames: usize,
         rules: &Rules,
-    ) -> Result<ComputeRenderer> {
+    ) -> Result<ComputeRaytracingRenderer> {
         let storage_images = context.create_storage_images(format, res, num_frames)?;
 
         let render_buffer = context.create_buffer(
@@ -77,7 +88,7 @@ impl ComputeRenderer {
             chunk_data_buffer_size as f32 / 1000000.0
         );
         let chunk_data_buffer = context.create_buffer(
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
             MemoryLocation::CpuToGpu,
             chunk_data_buffer_size as _,
         )?;
@@ -88,7 +99,7 @@ impl ComputeRenderer {
             chunk_node_ids_buffer_size as f32 / 1000000.0
         );
         let chunk_node_ids_buffer = context.create_buffer(
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
             MemoryLocation::CpuToGpu,
             chunk_node_ids_buffer_size as _,
         )?;
@@ -122,6 +133,10 @@ impl ComputeRenderer {
                     ty: vk::DescriptorType::UNIFORM_BUFFER,
                     descriptor_count: num_frames as u32 * 5,
                 },
+                vk::DescriptorPoolSize {
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: num_frames as u32 * 2,
+                },
             ],
         )?;
 
@@ -143,14 +158,14 @@ impl ComputeRenderer {
             vk::DescriptorSetLayoutBinding {
                 binding: 2,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
             vk::DescriptorSetLayoutBinding {
                 binding: 3,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -190,13 +205,13 @@ impl ComputeRenderer {
                 },
                 WriteDescriptorSet {
                     binding: 2,
-                    kind: WriteDescriptorSetKind::UniformBuffer {
+                    kind: WriteDescriptorSetKind::StorageBuffer {
                         buffer: &chunk_data_buffer,
                     },
                 },
                 WriteDescriptorSet {
                     binding: 3,
-                    kind: WriteDescriptorSetKind::UniformBuffer {
+                    kind: WriteDescriptorSetKind::StorageBuffer {
                         buffer: &chunk_node_ids_buffer,
                     },
                 },
@@ -225,7 +240,9 @@ impl ComputeRenderer {
             },
         )?;
 
-        Ok(ComputeRenderer {
+        let free_chunks = (0..NUM_LOADED_CHUNKS).rev().into_iter().collect();
+
+        Ok(ComputeRaytracingRenderer {
             storage_images,
             render_buffer,
             chunk_data_buffer,
@@ -239,6 +256,8 @@ impl ComputeRenderer {
 
             pipeline_layout,
             pipeline,
+
+            free_chunks,
         })
     }
 
@@ -248,6 +267,47 @@ impl ComputeRenderer {
             camera.direction,
             res,
         )])?;
+        Ok(())
+    }
+
+    pub fn update_object(
+        &mut self,
+        object: &mut BlockObject,
+        changed_chunks: Vec<ChunkIndex>,
+    ) -> Result<()> {
+        for chunk_index in changed_chunks {
+            let chunk = &mut object.chunks[chunk_index];
+
+            if chunk.compute_raytracing_data.is_none() {
+                if self.free_chunks.is_empty() {
+                    error!("Compute Raytracer has no free chunk slot.");
+                    return Ok(());
+                }
+
+                chunk.compute_raytracing_data =
+                    Some(ComputeRaytracingData::new(self.free_chunks.pop().unwrap()))
+            }
+
+            let index = chunk.compute_raytracing_data.as_ref().unwrap().index;
+
+            if index != 0 {
+                continue;
+            }
+
+            let chunk_data =
+                ChunkData::new(object.transform, chunk.pos, object.nodes_per_chunk.x as u32);
+            let align = align_of::<ChunkData>();
+            self.chunk_data_buffer
+                .copy_data_to_buffer_complex(&[chunk_data], index, align)?;
+
+            let nodes_align = align_of::<u32>();
+            self.chunk_node_ids_buffer.copy_data_to_buffer_complex(
+                &chunk.node_id_bits,
+                index,
+                nodes_align,
+            )?;
+        }
+
         Ok(())
     }
 
@@ -310,6 +370,24 @@ impl RenderBuffer {
             dir,
             screen_size_x: res.x as f32,
             screen_size_y: res.y as f32,
+            num_chunks: NUM_LOADED_CHUNKS as u32,
+            fill: [0; 3],
+        }
+    }
+}
+
+impl ChunkData {
+    pub fn new(object_transform: Mat4, chunk_pos: IVec3, nodes_per_chunk: u32) -> ChunkData {
+        let transform = object_transform.mul_mat4(&Mat4::from_translation(chunk_pos.as_vec3()));
+        let (aabb_min, aabb_max) =
+            get_aabb_of_transformed_cube(transform, Vec3::ONE * nodes_per_chunk as f32);
+
+        ChunkData {
+            transform,
+            aabb_min,
+            aabb_max,
+            chunk_size: nodes_per_chunk,
+            fill: 0,
         }
     }
 }

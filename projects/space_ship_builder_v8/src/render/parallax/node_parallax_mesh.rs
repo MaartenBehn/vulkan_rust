@@ -25,11 +25,11 @@ use crate::render::parallax::renderer::Vertex;
 pub const MIN_VERTICES: usize = 8;
 pub const MIN_INDICES: usize = 20;
 
-pub struct ParallaxData {
+pub struct NodeParallaxMesh {
     pub pos: IVec3,
     pub size: u32,
 
-    pub chunk_buffer: Buffer,
+    pub nodes_buffer: Buffer,
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
     pub index_count: usize,
@@ -40,7 +40,7 @@ pub struct ParallaxData {
 #[derive(Copy, Clone, Default, Debug)]
 pub struct RenderNode(pub bool);
 
-impl ParallaxData {
+impl NodeParallaxMesh {
     pub fn new(
         pos: IVec3,
         size: u32,
@@ -49,8 +49,8 @@ impl ParallaxData {
         context: &Context,
         descriptor_layout: &DescriptorSetLayout,
         descriptor_pool: &DescriptorPool,
-    ) -> Result<ParallaxData> {
-        let chunk_buffer = Self::create_buffer(
+    ) -> Result<NodeParallaxMesh> {
+        let nodes_buffer = Self::create_buffer(
             context,
             BufferUsageFlags::STORAGE_BUFFER,
             (num_nodes * size_of::<Vertex>()) as _,
@@ -66,16 +66,16 @@ impl ParallaxData {
             (MIN_INDICES * size_of::<u16>()) as _,
         )?;
         let descriptor_sets = Self::create_descriptor_sets(
-            &chunk_buffer,
+            &nodes_buffer,
             images_len,
             descriptor_layout,
             descriptor_pool,
         )?;
 
-        Ok(ParallaxData {
+        Ok(NodeParallaxMesh {
             pos,
             size,
-            chunk_buffer,
+            nodes_buffer,
             vertex_buffer,
             index_buffer,
             index_count: 0,
@@ -92,7 +92,7 @@ impl ParallaxData {
         context: &Context,
         to_drop_buffers: &mut Vec<Buffer>,
     ) -> Result<()> {
-        self.chunk_buffer.copy_data_to_buffer(node_id_bits)?;
+        self.nodes_buffer.copy_data_to_buffer(node_id_bits)?;
 
         let (vertecies, indecies) = Self::create_mesh(size, render_nodes)?;
         let vertex_size = (vertecies.len() * size_of::<Vertex>()) as DeviceSize;

@@ -1,4 +1,4 @@
-use crate::render::compute::renderer::ComputeRenderer;
+use crate::render::compute_raytracing::renderer::ComputeRaytracingRenderer;
 use crate::render::parallax::renderer::ParallaxRenderer;
 use crate::rules::Rules;
 use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
@@ -11,20 +11,20 @@ use octa_force::vulkan::ash::vk;
 use octa_force::vulkan::ash::vk::Format;
 use octa_force::vulkan::{CommandBuffer, Context, Swapchain};
 
-pub mod compute;
+pub mod compute_raytracing;
 pub mod parallax;
-// pub mod raytracer;
+// pub mod native_raytracer;
 
 pub enum ActiveRenderer {
     None,
     Parallax,
-    Compute,
+    ComputeRaytracer,
     Raytracing,
 }
 
 pub struct Renderer {
     pub parallax_renderer: Option<ParallaxRenderer>,
-    pub compute_renderer: Option<ComputeRenderer>,
+    pub compute_raytracing_renderer: Option<ComputeRaytracingRenderer>,
     pub active_renderer: ActiveRenderer,
 }
 
@@ -32,7 +32,7 @@ impl Renderer {
     pub fn new() -> Renderer {
         Renderer {
             parallax_renderer: None,
-            compute_renderer: None,
+            compute_raytracing_renderer: None,
             active_renderer: ActiveRenderer::None,
         }
     }
@@ -41,8 +41,8 @@ impl Renderer {
         &mut self,
         context: &Context,
         num_frames: usize,
-        color_attachment_format: vk::Format,
-        depth_attachment_format: vk::Format,
+        color_attachment_format: Format,
+        depth_attachment_format: Format,
         rules: &Rules,
     ) -> Result<()> {
         if self.parallax_renderer.is_none() {
@@ -59,7 +59,7 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn enable_compute(
+    pub fn enable_compute_raytracer(
         &mut self,
         context: &Context,
         format: Format,
@@ -67,12 +67,12 @@ impl Renderer {
         num_frames: usize,
         rules: &Rules,
     ) -> Result<()> {
-        if self.compute_renderer.is_none() {
-            self.compute_renderer = Some(ComputeRenderer::new(
+        if self.compute_raytracing_renderer.is_none() {
+            self.compute_raytracing_renderer = Some(ComputeRaytracingRenderer::new(
                 context, format, res, num_frames, rules,
             )?);
         }
-        self.active_renderer = ActiveRenderer::Compute;
+        self.active_renderer = ActiveRenderer::ComputeRaytracer;
 
         Ok(())
     }
@@ -84,8 +84,8 @@ impl Renderer {
                 let renderer = self.parallax_renderer.as_mut().unwrap();
                 renderer.update(camera, res, frame_index)?;
             }
-            ActiveRenderer::Compute => {
-                let renderer = self.compute_renderer.as_ref().unwrap();
+            ActiveRenderer::ComputeRaytracer => {
+                let renderer = self.compute_raytracing_renderer.as_ref().unwrap();
                 renderer.update(camera, res)?;
             }
             ActiveRenderer::Raytracing => {}
@@ -108,7 +108,10 @@ impl Renderer {
                 let renderer = self.parallax_renderer.as_mut().unwrap();
                 renderer.update_object(object, changed_chunks, context, frame_index, num_frames)?;
             }
-            ActiveRenderer::Compute => {}
+            ActiveRenderer::ComputeRaytracer => {
+                let renderer = self.compute_raytracing_renderer.as_mut().unwrap();
+                renderer.update_object(object, changed_chunks)?;
+            }
             ActiveRenderer::Raytracing => {}
         }
 
@@ -147,8 +150,8 @@ impl Renderer {
 
                 renderer.end_rendering(buffer);
             }
-            ActiveRenderer::Compute => {
-                let renderer = self.compute_renderer.as_ref().unwrap();
+            ActiveRenderer::ComputeRaytracer => {
+                let renderer = self.compute_raytracing_renderer.as_ref().unwrap();
                 renderer.render(buffer, frame_index, swapchain)?;
             }
             ActiveRenderer::Raytracing => {}
@@ -169,7 +172,7 @@ impl Renderer {
                 let renderer = self.parallax_renderer.as_mut().unwrap();
                 renderer.on_rules_changed(rules, context, num_frames)?;
             }
-            ActiveRenderer::Compute => {}
+            ActiveRenderer::ComputeRaytracer => {}
             ActiveRenderer::Raytracing => {}
         }
 
@@ -186,8 +189,8 @@ impl Renderer {
         match self.active_renderer {
             ActiveRenderer::None => {}
             ActiveRenderer::Parallax => {}
-            ActiveRenderer::Compute => {
-                let renderer = self.compute_renderer.as_mut().unwrap();
+            ActiveRenderer::ComputeRaytracer => {
+                let renderer = self.compute_raytracing_renderer.as_mut().unwrap();
                 renderer.on_recreate_swapchain(context, format, num_frames, res)?;
             }
             ActiveRenderer::Raytracing => {}

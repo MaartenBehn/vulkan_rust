@@ -1,6 +1,7 @@
 use octa_force::glam::{ivec3, uvec3, BVec3, IVec3, UVec3};
 use std::iter;
 
+pub mod aabb;
 pub mod random;
 pub mod rotation;
 

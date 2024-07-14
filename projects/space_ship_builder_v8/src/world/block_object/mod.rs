@@ -4,7 +4,8 @@ use crate::rules::{Prio, Rules};
 use order::NodeOrderController;
 use possible_blocks::PossibleBlocks;
 
-use crate::render::parallax::chunk::{ParallaxData, RenderNode};
+use crate::render::compute_raytracing::compute_raytracing_data::ComputeRaytracingData;
+use crate::render::parallax::node_parallax_mesh::{NodeParallaxMesh, RenderNode};
 use crate::rules::empty::EMPTY_BLOCK_NAME_INDEX;
 use crate::rules::solver::{SolverCacheIndex, SolverFunctions};
 use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
@@ -53,7 +54,8 @@ pub struct BlockChunk {
     pub node_id_bits: Vec<u32>,
 
     pub render_nodes: Vec<RenderNode>,
-    pub parallax_data: Option<ParallaxData>,
+    pub parallax_data: Option<NodeParallaxMesh>,
+    pub compute_raytracing_data: Option<ComputeRaytracingData>,
 }
 
 impl BlockObject {
@@ -425,6 +427,7 @@ impl BlockObject {
 
             render_nodes: vec![RenderNode::default(); self.nodes_length_with_padding],
             parallax_data: None,
+            compute_raytracing_data: None,
         };
 
         self.chunks.push(chunk)
@@ -593,7 +596,7 @@ impl BlockObject {
 
 #[test]
 pub fn test_math() {
-    let block_object = BlockObject::new(16, 3);
+    let block_object = BlockObject::new(Mat4::IDENTITY, 16, 3);
 
     assert_eq!(
         block_object.get_chunk_node_pos_from_world_block_pos(ivec3(17, 17, 17)),

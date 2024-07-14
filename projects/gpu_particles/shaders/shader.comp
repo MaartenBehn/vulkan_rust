@@ -39,7 +39,7 @@ void main() {
 
     const vec3 MAX_SPEED = vec3(100.0);
 
-    // compute velocity
+    // compute_raytracing velocity
     float distanceToMass = length(ubo.attractorCenter - position);
     float speedFactor = rand(gl_GlobalInvocationID.xx) * 0.2 + 0.8;
     vec3 toMass = normalize(ubo.attractorCenter - position) * distanceToMass * ubo.elasped * ubo.attractorStrength * speedFactor;

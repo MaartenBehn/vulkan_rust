@@ -1,4 +1,4 @@
-use crate::render::parallax::chunk::ParallaxData;
+use crate::render::parallax::node_parallax_mesh::NodeParallaxMesh;
 use crate::rules::Rules;
 use crate::world::block_object::{BlockChunk, BlockObject, ChunkIndex};
 use crate::world::data::node::Node;
@@ -261,7 +261,7 @@ impl ParallaxRenderer {
             let chunk = &mut object.chunks[chunk_index];
 
             if chunk.parallax_data.is_none() {
-                chunk.parallax_data = Some(ParallaxData::new(
+                chunk.parallax_data = Some(NodeParallaxMesh::new(
                     chunk.pos,
                     object.nodes_per_chunk.x as u32,
                     object.nodes_length,
@@ -322,7 +322,7 @@ impl ParallaxRenderer {
         &self,
         buffer: &CommandBuffer,
         frame_index: usize,
-        data: &ParallaxData,
+        data: &NodeParallaxMesh,
         base_transform: &Mat4,
     ) {
         if data.index_count == 0 {

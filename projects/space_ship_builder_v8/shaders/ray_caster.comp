@@ -2,6 +2,7 @@
 #extension GL_EXT_debug_printf : enable
 
 #define NODE_SIZE 4
+#define EPSILON 0.001
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
@@ -18,6 +19,7 @@ pub struct RenderBuffer {
 layout(binding = 1) uniform UniformBufferObject {
     vec4 pos; // w is screen_size_x
     vec4 dir; // w is screen_size_y
+    uint num_chunks;
 } render_buffer;
 
 #define POS render_buffer.pos.xyz
@@ -25,19 +27,25 @@ layout(binding = 1) uniform UniformBufferObject {
 #define RES_X render_buffer.pos.w
 #define RES_Y render_buffer.dir.w
 #define RES vec2(RES_X, RES_Y)
+#define NUM_CHUNKS render_buffer.num_chunks
 
 struct ChunkData {
     mat4 transform;
-    vec4 aabb;
-    uint chunk_size;
+    vec4 aabb_min; // w ist chunk size as u32
+    vec4 aabb_max;
 };
 
-layout(binding = 2) uniform ChunkDatas {
-    ChunkData chunks;
+#define CHUNK_TRANSFORM(chunk_data) chunk_data.transform
+#define AABB_MIN(chunk_data) chunk_data.aabb_min.xyz
+#define AABB_MAX(chunk_data) chunk_data.aabb_max.xyz
+#define CHUNK_SIZE(chunk_data) floatBitsToUint(chunk_data.aabb_min.w)
+
+layout(binding = 2) buffer ChunkDatas {
+    ChunkData chunks[];
 } chunk_datas;
 
-layout(binding = 3) uniform ChunkNodes {
-    uint node_ids;
+layout(binding = 3) buffer ChunkNodes {
+    uint node_ids[];
 } chunk_nodes;
 
 // Voxels
@@ -55,14 +63,13 @@ layout(binding = 5) uniform Mats {
 } mats;
 
 
-
 struct Ray{
     vec3 pos;
     vec3 dir;
     vec3 odir; // = 1 / dir
 };
 
-Ray initRay(){
+Ray init_ray(){
     vec2 uv = ((gl_GlobalInvocationID.xy * 2 - RES) / RES_Y) * vec2(-1);
 
     vec3 ro = POS;
@@ -77,16 +84,13 @@ Ray initRay(){
     return ray;
 }
 
-bool checkHit(in Ray ray, in vec3 nodePos, in uint size, out float tMin, out float tMax)
+bool check_aabb_hit(in Ray ray, in vec3 minPos, in vec3 maxPos, out float tMin, out float tMax)
 {
-    vec3 minSize = nodePos;
-    vec3 maxSize = nodePos + vec3(size);
-
     vec3 isPositive = vec3(ray.odir.x > 0, ray.odir.y > 0, ray.odir.z >= 0); // ray.odir = 1.0 / ray.dir
     vec3 isNegative = 1.0f - isPositive;
 
-    vec3 leftSide  = isPositive * minSize + isNegative * maxSize;
-    vec3 rightSide = isPositive * maxSize + isNegative * minSize;
+    vec3 leftSide  = isPositive * minPos + isNegative * maxPos;
+    vec3 rightSide = isPositive * maxPos + isNegative * minPos;
 
     vec3 leftSideTimesOneOverDir  = (leftSide  - ray.pos) * ray.odir;
     vec3 rightSideTimesOneOverDir = (rightSide - ray.pos) * ray.odir;
@@ -101,11 +105,109 @@ bool checkHit(in Ray ray, in vec3 nodePos, in uint size, out float tMin, out flo
     return tMax > tMin;
 }
 
+int next_chunk(in Ray ray, out float t) {
+    float best_dist = 1000000;
+    int best_index = -1;
+    for (int i = 0; i < NUM_CHUNKS; i++) {
+
+        ChunkData chunk_data = chunk_datas.chunks[i];
+
+        float t_max;
+        if (check_aabb_hit(ray, AABB_MIN(chunk_data), AABB_MAX(chunk_data), t, t_max) && t > 0 && t < best_dist) {
+            best_dist = t;
+            best_index = i;
+        }
+    }
+
+    return best_index;
+}
+
+bool dda(in Ray ray, in int chunk_index, in float t) {
+    ChunkData chunk_data = chunk_datas.chunks[chunk_index];
+    vec3 chunk_pos = (chunk_data.transform * vec4(0, 0, 0, 1)).xyz;
+    vec3 ray_enter = ray.pos + ray.dir * t;
+
+    vec3 pos = ray_enter - chunk_pos;
+    vec3 cell = floor(pos);
+    vec3 step_sign = sign(ray.dir);
+    vec3 t_delta = min(ray.dir * step_sign, 1.0);
+    vec3 t_max = abs((cell + max(step_sign, vec3(0))) - pos * ray.odir);
+
+    if (gl_GlobalInvocationID.xy == vec2(0, 0)) {
+        debugPrintfEXT("%f %f %f", t_max.x,  t_max.y, t_max.z);
+    }
+
+    float chunk_size = CHUNK_SIZE(chunk_data);
+    vec3 low_bound = vec3(-EPSILON, -EPSILON, EPSILON);
+    vec3 high_bound = vec3(chunk_size + EPSILON, chunk_size + EPSILON, chunk_size + EPSILON);
+
+    for(int i = 0; i < 1000; i++) {
+
+        float dist = abs(distance(pos, high_bound / 2));
+        if (dist < chunk_size / 2) {
+            return true;
+        }
+
+        // 3D-DDA
+        if(t_max.x < t_max.y)
+        {
+            if(t_max.x < t_max.z)
+            {
+                pos.x += step_sign.x;
+                if (pos.x < low_bound.x || pos.x > high_bound.x) {
+                    break;
+                }
+                t_max.x += t_delta.x;
+            }
+            else
+            {
+                pos.z += step_sign.z;
+                if (pos.z < low_bound.z || pos.z > high_bound.z) {
+                    break;
+                }
+                t_max.z += t_delta.z;
+            }
+        }
+        else
+        {
+            if(t_max.y < t_max.z)
+            {
+                pos.y += step_sign.y;
+                if (pos.y < low_bound.y || pos.y > high_bound.y) {
+                    break;
+                }
+                t_max.y += t_delta.y;
+            }
+            else
+            {
+                pos.z += step_sign.z;
+                if (pos.z < low_bound.z || pos.z > high_bound.z) {
+                    break;
+                }
+                t_max.z += t_delta.z;
+            }
+        }
+    }
+
+    return false;
+}
 
 
-void main () { 
-    Ray ray = initRay();
+void main () {
+    Ray ray = init_ray();
 
-    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(ray.dir, 0));
+    float t;
+    int next_chunk = next_chunk(ray, t);
+
+    vec3 color = ray.dir;
+    if (next_chunk != -1) {
+        color *= 0.9;
+
+        if (dda(ray, next_chunk, t)) {
+            color *= 0.7;
+        }
+    }
+
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
 }
 

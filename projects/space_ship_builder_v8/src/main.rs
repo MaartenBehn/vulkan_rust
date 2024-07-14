@@ -76,7 +76,7 @@ impl App for SpaceShipBuilder {
             &rules,
         )?;
 
-        renderer.enable_compute(
+        renderer.enable_compute_raytracer(
             &base.context,
             base.swapchain.format,
             base.swapchain.size,
