@@ -2,7 +2,9 @@
 #extension GL_EXT_debug_printf : enable
 
 #define NODE_SIZE 4
-#define EPSILON 0.001
+#define USE_BRANCHLESS_DDA true
+#define MAX_RAY_STEPS 100
+#define EPSILON 0.0001
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
@@ -64,7 +66,7 @@ layout(binding = 5) uniform Mats {
 
 
 struct Ray{
-    vec3 pos;
+    vec3 origen;
     vec3 dir;
     vec3 odir; // = 1 / dir
 };
@@ -92,8 +94,8 @@ bool check_aabb_hit(in Ray ray, in vec3 minPos, in vec3 maxPos, out float tMin, 
     vec3 leftSide  = isPositive * minPos + isNegative * maxPos;
     vec3 rightSide = isPositive * maxPos + isNegative * minPos;
 
-    vec3 leftSideTimesOneOverDir  = (leftSide  - ray.pos) * ray.odir;
-    vec3 rightSideTimesOneOverDir = (rightSide - ray.pos) * ray.odir;
+    vec3 leftSideTimesOneOverDir  = (leftSide  - ray.origen) * ray.odir;
+    vec3 rightSideTimesOneOverDir = (rightSide - ray.origen) * ray.odir;
 
     tMin = max(leftSideTimesOneOverDir.x, max(leftSideTimesOneOverDir.y, leftSideTimesOneOverDir.z));
     tMax = min(rightSideTimesOneOverDir.x, min(rightSideTimesOneOverDir.y, rightSideTimesOneOverDir.z));
@@ -106,92 +108,102 @@ bool check_aabb_hit(in Ray ray, in vec3 minPos, in vec3 maxPos, out float tMin, 
 }
 
 int next_chunk(in Ray ray, out float t) {
-    float best_dist = 1000000;
+    float best_t = 1000000;
     int best_index = -1;
     for (int i = 0; i < NUM_CHUNKS; i++) {
 
         ChunkData chunk_data = chunk_datas.chunks[i];
 
         float t_max;
-        if (check_aabb_hit(ray, AABB_MIN(chunk_data), AABB_MAX(chunk_data), t, t_max) && t > 0 && t < best_dist) {
-            best_dist = t;
+        if (check_aabb_hit(ray, AABB_MIN(chunk_data), AABB_MAX(chunk_data), t, t_max) && t > 0 && t < best_t) {
+            best_t = t;
             best_index = i;
         }
     }
 
+    t = best_t;
     return best_index;
 }
 
-bool dda(in Ray ray, in int chunk_index, in float t) {
+
+// Implementaion inspirend by: https://www.shadertoy.com/view/4dX3zl
+bool dda(in Ray ray, in int chunk_index, in float t, out uint step_count) {
     ChunkData chunk_data = chunk_datas.chunks[chunk_index];
     vec3 chunk_pos = (chunk_data.transform * vec4(0, 0, 0, 1)).xyz;
-    vec3 ray_enter = ray.pos + ray.dir * t;
+    vec3 global_ray_enter = ray.origen + ray.dir * (t + EPSILON);
 
-    vec3 pos = ray_enter - chunk_pos;
-    vec3 cell = floor(pos);
-    vec3 step_sign = sign(ray.dir);
-    vec3 t_delta = min(ray.dir * step_sign, 1.0);
-    vec3 t_max = abs((cell + max(step_sign, vec3(0))) - pos * ray.odir);
+    // DDA init
+    vec3 local_pos = global_ray_enter - chunk_pos;
+    ivec3 cell = ivec3(local_pos);
+    vec3 delta_dist = abs(vec3(length(ray.dir)) / ray.dir);
+    ivec3 step = ivec3(sign(ray.dir));
+    vec3 side_dist = (step * (vec3(cell) - local_pos) + (step * 0.5) + 0.5) * delta_dist;
+    bvec3 mask;
 
-    if (gl_GlobalInvocationID.xy == vec2(0, 0)) {
-        debugPrintfEXT("%f %f %f", t_max.x,  t_max.y, t_max.z);
+    /*
+    if (gl_GlobalInvocationID.xy == vec2(640, 360)) {
+        debugPrintfEXT("Pos: %f %f %f", local_pos);
     }
+    */
 
-    float chunk_size = CHUNK_SIZE(chunk_data);
-    vec3 low_bound = vec3(-EPSILON, -EPSILON, EPSILON);
-    vec3 high_bound = vec3(chunk_size + EPSILON, chunk_size + EPSILON, chunk_size + EPSILON);
+    float chunk_size = float(CHUNK_SIZE(chunk_data));
+    ivec3 middle = ivec3(chunk_size) / 2;
 
-    for(int i = 0; i < 1000; i++) {
+    ivec3 upper_bound = ivec3(chunk_size);
+    step_count = 0;
+    while (step_count < MAX_RAY_STEPS) {
+        step_count++;
 
-        float dist = abs(distance(pos, high_bound / 2));
-        if (dist < chunk_size / 2) {
+        float dist = distance(cell, middle);
+        if (dist < (chunk_size / 4)) {
             return true;
+        };
+
+        if (USE_BRANCHLESS_DDA) {
+            mask = lessThanEqual(side_dist.xyz, min(side_dist.yzx, side_dist.zxy));
+            side_dist += vec3(mask) * delta_dist;
+            cell += ivec3(mask) * step;
+        }
+        else {
+            if (side_dist.x < side_dist.y) {
+                if (side_dist.x < side_dist.z) {
+                    side_dist.x += delta_dist.x;
+                    cell.x += step.x;
+                    mask = bvec3(true, false, false);
+                }
+                else {
+                    side_dist.z += delta_dist.z;
+                    cell.z += step.z;
+                    mask = bvec3(false, false, true);
+                }
+            }
+            else {
+                if (side_dist.y < side_dist.z) {
+                    side_dist.y += delta_dist.y;
+                    cell.y += step.y;
+                    mask = bvec3(false, true, false);
+                }
+                else {
+                    side_dist.z += delta_dist.z;
+                    cell.z += step.z;
+                    mask = bvec3(false, false, true);
+                }
+            }
         }
 
-        // 3D-DDA
-        if(t_max.x < t_max.y)
-        {
-            if(t_max.x < t_max.z)
-            {
-                pos.x += step_sign.x;
-                if (pos.x < low_bound.x || pos.x > high_bound.x) {
-                    break;
-                }
-                t_max.x += t_delta.x;
-            }
-            else
-            {
-                pos.z += step_sign.z;
-                if (pos.z < low_bound.z || pos.z > high_bound.z) {
-                    break;
-                }
-                t_max.z += t_delta.z;
-            }
-        }
-        else
-        {
-            if(t_max.y < t_max.z)
-            {
-                pos.y += step_sign.y;
-                if (pos.y < low_bound.y || pos.y > high_bound.y) {
-                    break;
-                }
-                t_max.y += t_delta.y;
-            }
-            else
-            {
-                pos.z += step_sign.z;
-                if (pos.z < low_bound.z || pos.z > high_bound.z) {
-                    break;
-                }
-                t_max.z += t_delta.z;
-            }
+        if (mask.x && (cell.x <= -1 || cell.x >= upper_bound.x)
+            || mask.y && (cell.y <= -1 || cell.y >= upper_bound.x)
+            || mask.z && (cell.z <= -1 || cell.z >= upper_bound.x)) {
+            return false;
         }
     }
 
     return false;
 }
 
+vec3 step_count_color(in uint step_count) {
+    return vec3(1) * (float(step_count) / float(MAX_RAY_STEPS));
+}
 
 void main () {
     Ray ray = init_ray();
@@ -201,11 +213,14 @@ void main () {
 
     vec3 color = ray.dir;
     if (next_chunk != -1) {
-        color *= 0.9;
+        color *= 0.7;
 
-        if (dda(ray, next_chunk, t)) {
-            color *= 0.7;
+        uint step_count;
+        if (dda(ray, next_chunk, t, step_count)) {
+
         }
+
+        color = step_count_color(step_count);
     }
 
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
