@@ -5,8 +5,8 @@
 #include "../shader_includes/ray.glsl"
 #include "../shader_includes/dda.glsl"
 #include "../shader_includes/debug.glsl"
+#include "../shader_includes/node.glsl"
 
-#define NODE_SIZE 4
 #define MAX_RAY_STEPS 100
 #define EPSILON 0.0001
 #define TO_1D(pos, size) ((pos.z * size * size) + (pos.y * size) + pos.x)
@@ -56,41 +56,17 @@ layout(binding = 3) buffer ChunkNodes {
 } chunk_nodes;
 
 #define GET_NODE_ID(pos, chunk_size, offset) chunk_nodes.node_ids[TO_1D(pos, chunk_size) + offset]
-struct Rot {
-    mat4 mat;
-    ivec3 offset;
-};
-Rot GET_ROT_FROM_NODE_ID(uint nodeID) {
-    uint index_nz1 = nodeID & 3;
-    uint index_nz2 = (nodeID >> 2) & 3;
-    uint index_nz3 = 3 - index_nz1 - index_nz2;
-
-    int row_1_sign = (nodeID & (1 << 4)) == 0 ? 1 : -1;
-    int row_2_sign = (nodeID & (1 << 5)) == 0 ? 1 : -1;
-    int row_3_sign = (nodeID & (1 << 6)) == 0 ? 1 : -1;
-
-    mat4 mat = mat4(0);
-    mat[index_nz1][0] = row_1_sign;
-    mat[index_nz2][1] = row_2_sign;
-    mat[index_nz3][2] = row_3_sign;
-    mat[3][3] = 1;
-
-    Rot rot = Rot(mat, ivec3(row_1_sign == -1, row_2_sign == -1, row_3_sign == -1));
-    return rot;
-}
-#define GET_NODE_INDEX_FROM_NODE_ID(nodeID) nodeID >> 7
 
 // Voxels
-struct Node {
-    uint voxels[(NODE_SIZE * NODE_SIZE * NODE_SIZE) / 4];
-};
 
-layout(binding = 4) uniform Nodes {
+
+layout(binding = 4) buffer Nodes {
     Node nodes[];
 } nodes;
+#define GET_NODE(index) nodes.nodes[index]
 
 // Materials 
-layout(binding = 5) uniform Mats {
+layout(binding = 5) buffer Mats {
     uint mats[];
 } mats;
 
@@ -112,7 +88,7 @@ int next_chunk(in Ray ray, out float t) {
     return best_index;
 }
 
-bool ray_trace(in Ray ray, in float t, in uint chunk_index, out uint step_count) {
+bool traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_count) {
     ChunkData chunk_data = chunk_datas.chunks[chunk_index];
     uint chunk_size = CHUNK_SIZE(chunk_data);
     uint chunk_node_id_offset = 0;
@@ -120,30 +96,49 @@ bool ray_trace(in Ray ray, in float t, in uint chunk_index, out uint step_count)
     vec3 chunk_pos = (chunk_data.transform * vec4(0, 0, 0, 1)).xyz;
     vec3 global_ray_enter = ray.origen + ray.dir * (t + EPSILON);
 
-    // DDA init
-    vec3 local_pos = global_ray_enter - chunk_pos;
-    DDA dda = init_DDA(ray, local_pos, ivec3(chunk_size));
-
     /*
     if (gl_GlobalInvocationID.xy == vec2(640, 360)) {
         debugPrintfEXT("Pos: %f %f %f", local_pos);
     }
     */
+    vec3 in_chunk_pos = global_ray_enter - chunk_pos;
+    DDA chunk_dda = init_DDA(ray, in_chunk_pos, ivec3(chunk_size));
+    DDA node_dda;
 
     step_count = 0;
     while (step_count < MAX_RAY_STEPS) {
-        uint node_id = GET_NODE_ID(dda.cell, chunk_size, chunk_node_id_offset);
+        ivec3 node_pos = ivec3(chunk_dda.pos);
+        uint node_id = GET_NODE_ID(node_pos, chunk_size, chunk_node_id_offset);
         uint node_index = GET_NODE_INDEX_FROM_NODE_ID(node_id);
-        if (node_index > 0) {
-            return true;
+
+        if (node_index != 0) {
+            Node node = GET_NODE(node_index);
+            Rot rot = GET_ROT_FROM_NODE_ID(node_id);
+
+            vec3 in_node_pos = fract(chunk_dda.pos) * NODE_SIZE;
+            node_dda = init_DDA(ray, in_node_pos, ivec3(NODE_SIZE));
+
+            while (step_count < MAX_RAY_STEPS) {
+                ivec3 voxel_pos = ivec3(node_dda.pos);
+                ivec3 rotated_voxel_pos = ROTATE_VOXEL_POS(voxel_pos, rot);
+                uint voxel_index = GET_VOXEL_INDEX_FROM_VOXEL_POS(rotated_voxel_pos);
+                uint voxel = GET_VOXEL(node, voxel_index);
+
+                if (voxel != 0) {
+                    return true;
+                }
+
+                node_dda = step_DDA(node_dda);
+                if (node_dda.out_of_bounds) {
+                    break;
+                }
+
+                step_count++;
+            }
         }
 
-        if (gl_GlobalInvocationID.xy == vec2(640, 360)) {
-            debugPrintfEXT("Cell: %d %d %d", dda.cell.x, dda.cell.y, dda.cell.z);
-        }
-
-        dda = step_DDA(dda);
-        if (dda.out_of_bounds) {
+        chunk_dda = step_DDA(chunk_dda);
+        if (chunk_dda.out_of_bounds) {
             break;
         }
 
@@ -164,7 +159,7 @@ void main () {
         color *= 0.7;
 
         uint step_count;
-        if (ray_trace(ray, t, next_chunk, step_count)) {
+        if (traverse_chunk(ray, t, next_chunk, step_count)) {
 
         }
 

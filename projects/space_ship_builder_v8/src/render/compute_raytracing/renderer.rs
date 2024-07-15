@@ -110,7 +110,7 @@ impl ComputeRaytracingRenderer {
             node_buffer_size as f32 / 1000000.0
         );
         let node_buffer = context
-            .create_gpu_only_buffer_from_data(vk::BufferUsageFlags::UNIFORM_BUFFER, &rules.nodes)?;
+            .create_gpu_only_buffer_from_data(vk::BufferUsageFlags::STORAGE_BUFFER, &rules.nodes)?;
 
         let material_buffer_size = rules.materials.len() * size_of::<Material>();
         log::info!(
@@ -118,7 +118,7 @@ impl ComputeRaytracingRenderer {
             material_buffer_size as f32 / 1000000.0
         );
         let material_buffer = context.create_gpu_only_buffer_from_data(
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
             &rules.materials,
         )?;
 
@@ -130,12 +130,12 @@ impl ComputeRaytracingRenderer {
                     descriptor_count: num_frames as u32,
                 },
                 vk::DescriptorPoolSize {
-                    ty: vk::DescriptorType::UNIFORM_BUFFER,
-                    descriptor_count: num_frames as u32 * 5,
+                    ty: vk::DescriptorType::STORAGE_BUFFER,
+                    descriptor_count: num_frames as u32 * 1,
                 },
                 vk::DescriptorPoolSize {
                     ty: vk::DescriptorType::STORAGE_BUFFER,
-                    descriptor_count: num_frames as u32 * 2,
+                    descriptor_count: num_frames as u32 * 4,
                 },
             ],
         )?;
@@ -172,14 +172,14 @@ impl ComputeRaytracingRenderer {
             vk::DescriptorSetLayoutBinding {
                 binding: 4,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
             vk::DescriptorSetLayoutBinding {
                 binding: 5,
                 descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 stage_flags: vk::ShaderStageFlags::COMPUTE,
                 ..Default::default()
             },
@@ -217,13 +217,13 @@ impl ComputeRaytracingRenderer {
                 },
                 WriteDescriptorSet {
                     binding: 4,
-                    kind: WriteDescriptorSetKind::UniformBuffer {
+                    kind: WriteDescriptorSetKind::StorageBuffer {
                         buffer: &node_buffer,
                     },
                 },
                 WriteDescriptorSet {
                     binding: 5,
-                    kind: WriteDescriptorSetKind::UniformBuffer {
+                    kind: WriteDescriptorSetKind::StorageBuffer {
                         buffer: &material_buffer,
                     },
                 },
