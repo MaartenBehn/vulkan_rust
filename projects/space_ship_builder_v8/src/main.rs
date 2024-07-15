@@ -39,6 +39,7 @@ fn main() -> Result<()> {
         name: APP_NAME.to_string(),
         start_size: uvec2(WIDTH, HEIGHT),
         ray_tracing: EngineFeatureValue::NotUsed,
+        compute_rendering: EngineFeatureValue::Needed,
         validation_layers: EngineFeatureValue::Needed,
         shader_debug_printing: EngineFeatureValue::Needed,
     })
@@ -78,7 +79,6 @@ impl App for SpaceShipBuilder {
 
         renderer.enable_compute_raytracer(
             &base.context,
-            base.swapchain.format,
             base.swapchain.size,
             base.num_frames,
             &rules,
@@ -237,12 +237,8 @@ impl App for SpaceShipBuilder {
     }
 
     fn on_recreate_swapchain(&mut self, base: &mut BaseApp<Self>) -> Result<()> {
-        self.renderer.on_recreate_swapchain(
-            &base.context,
-            base.swapchain.format,
-            base.num_frames,
-            base.swapchain.size,
-        )?;
+        self.renderer
+            .on_recreate_swapchain(&base.context, base.num_frames, base.swapchain.size)?;
 
         Ok(())
     }

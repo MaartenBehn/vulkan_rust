@@ -69,12 +69,11 @@ pub struct ChunkData {
 impl ComputeRaytracingRenderer {
     pub fn new(
         context: &Context,
-        format: Format,
         res: UVec2,
         num_frames: usize,
         rules: &Rules,
     ) -> Result<ComputeRaytracingRenderer> {
-        let storage_images = context.create_storage_images(format, res, num_frames)?;
+        let storage_images = context.create_storage_images(res, num_frames)?;
 
         let render_buffer = context.create_buffer(
             vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -93,7 +92,8 @@ impl ComputeRaytracingRenderer {
             chunk_data_buffer_size as _,
         )?;
 
-        let chunk_node_ids_buffer_size = size_of::<u32>() * NUM_LOADED_CHUNKS * CHUNK_SIZE as usize;
+        let chunk_node_ids_buffer_size =
+            size_of::<u32>() * NUM_LOADED_CHUNKS * (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
         log::info!(
             "Chunk Node ID Buffer Size: {:?} MB",
             chunk_node_ids_buffer_size as f32 / 1000000.0
@@ -343,11 +343,10 @@ impl ComputeRaytracingRenderer {
     pub fn on_recreate_swapchain(
         &mut self,
         context: &Context,
-        format: Format,
         num_frames: usize,
         res: UVec2,
     ) -> Result<()> {
-        self.storage_images = context.create_storage_images(format, res, num_frames)?;
+        self.storage_images = context.create_storage_images(res, num_frames)?;
 
         for (i, descriotor_set) in self.descriptor_sets.iter().enumerate() {
             descriotor_set.update(&[WriteDescriptorSet {

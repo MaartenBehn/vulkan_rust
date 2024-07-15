@@ -12,7 +12,7 @@ use crate::world::data::block::{BlockNameIndex, BLOCK_INDEX_EMPTY};
 use crate::world::data::node::NodeID;
 use collapse::Collapser;
 use index_queue::IndexQueue;
-use log::debug;
+use log::{debug, trace};
 use octa_force::puffin_egui::puffin;
 use octa_force::{glam::*, log};
 
@@ -117,7 +117,7 @@ impl BlockObject {
             return;
         }
 
-        debug!("Place: {world_block_pos:?}");
+        trace!("Place: {world_block_pos:?}");
         chunk.block_names[block_index] = new_block_name_index;
 
         let old_order = self.order_controller.pack_propergate_order(

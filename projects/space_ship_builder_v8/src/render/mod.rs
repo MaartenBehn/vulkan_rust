@@ -62,14 +62,13 @@ impl Renderer {
     pub fn enable_compute_raytracer(
         &mut self,
         context: &Context,
-        format: Format,
         res: UVec2,
         num_frames: usize,
         rules: &Rules,
     ) -> Result<()> {
         if self.compute_raytracing_renderer.is_none() {
             self.compute_raytracing_renderer = Some(ComputeRaytracingRenderer::new(
-                context, format, res, num_frames, rules,
+                context, res, num_frames, rules,
             )?);
         }
         self.active_renderer = ActiveRenderer::ComputeRaytracer;
@@ -182,7 +181,6 @@ impl Renderer {
     pub fn on_recreate_swapchain(
         &mut self,
         context: &Context,
-        format: Format,
         num_frames: usize,
         res: UVec2,
     ) -> Result<()> {
@@ -191,7 +189,7 @@ impl Renderer {
             ActiveRenderer::Parallax => {}
             ActiveRenderer::ComputeRaytracer => {
                 let renderer = self.compute_raytracing_renderer.as_mut().unwrap();
-                renderer.on_recreate_swapchain(context, format, num_frames, res)?;
+                renderer.on_recreate_swapchain(context, num_frames, res)?;
             }
             ActiveRenderer::Raytracing => {}
         }
