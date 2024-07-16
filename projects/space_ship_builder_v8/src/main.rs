@@ -32,7 +32,7 @@ const INPUT_INTERVALL: Duration = Duration::from_secs(1);
 
 const VOX_FILE_PATH: &str = "./assets/space_ship.vox";
 
-const SHOW_ASTEROID: bool = false;
+const COMPUTE_RENDERER: bool = false;
 
 fn main() -> Result<()> {
     octa_force::run::<SpaceShipBuilder>(EngineConfig {
@@ -77,12 +77,14 @@ impl App for SpaceShipBuilder {
             &rules,
         )?;
 
-        renderer.enable_compute_raytracer(
-            &base.context,
-            base.swapchain.size,
-            base.num_frames,
-            &rules,
-        )?;
+        if COMPUTE_RENDERER {
+            renderer.enable_compute_raytracer(
+                &base.context,
+                base.swapchain.size,
+                base.num_frames,
+                &rules,
+            )?;
+        }
 
         let mut world_manager = WorldManager::new(16, &mut rules);
         world_manager.add_start_data(&rules);

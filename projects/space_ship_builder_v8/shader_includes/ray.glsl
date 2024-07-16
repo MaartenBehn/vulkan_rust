@@ -2,13 +2,13 @@
 #define _RAY_GLSL_
 
 struct Ray{
-    vec3 origen;
+    vec3 pos;
     vec3 dir;
     vec3 odir; // = 1 / dir
 };
 
-Ray init_ray(vec3 pos, vec3 dir, vec2 res){
-    vec2 uv = ((gl_GlobalInvocationID.xy * 2 - res) / res.y) * vec2(-1);
+Ray init_ray(vec3 pos, vec3 dir, vec2 coord, vec2 res){
+    vec2 uv = ((coord * 2 - res) / res.y) * vec2(-1);
 
     vec3 ro = pos;
     vec3 fwd = dir;
@@ -29,8 +29,8 @@ bool aabb_ray_test(in Ray ray, in vec3 minPos, in vec3 maxPos, out float tMin, o
     vec3 leftSide  = isPositive * minPos + isNegative * maxPos;
     vec3 rightSide = isPositive * maxPos + isNegative * minPos;
 
-    vec3 leftSideTimesOneOverDir  = (leftSide  - ray.origen) * ray.odir;
-    vec3 rightSideTimesOneOverDir = (rightSide - ray.origen) * ray.odir;
+    vec3 leftSideTimesOneOverDir  = (leftSide  - ray.pos) * ray.odir;
+    vec3 rightSideTimesOneOverDir = (rightSide - ray.pos) * ray.odir;
 
     tMin = max(leftSideTimesOneOverDir.x, max(leftSideTimesOneOverDir.y, leftSideTimesOneOverDir.z));
     tMax = min(rightSideTimesOneOverDir.x, min(rightSideTimesOneOverDir.y, rightSideTimesOneOverDir.z));

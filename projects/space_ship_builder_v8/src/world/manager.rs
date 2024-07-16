@@ -113,7 +113,7 @@ impl WorldManager {
                     self.tick_profile.ship_computing_done();
                 }
 
-                //object.transform = Mat4::from_rotation_x(self.last_input.elapsed().as_secs_f32());
+                object.transform = Mat4::from_rotation_x(self.last_input.elapsed().as_secs_f32());
 
                 renderer.update_object(object, changed_chunks, context, frame_index, num_frames)?;
             }
