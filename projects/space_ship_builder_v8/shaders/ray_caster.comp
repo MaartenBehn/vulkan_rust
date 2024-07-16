@@ -125,8 +125,8 @@ bool traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_c
 
             while (step_count < MAX_RAY_STEPS) {
                 ivec3 voxel_pos = ivec3(node_dda.pos);
-                //ivec3 rotated_voxel_pos = ROTATE_VOXEL_POS(voxel_pos, rot);
-                uint voxel_index = GET_VOXEL_INDEX_FROM_VOXEL_POS(voxel_pos);
+                ivec3 rotated_voxel_pos = ROTATE_VOXEL_POS(voxel_pos, rot);
+                uint voxel_index = GET_VOXEL_INDEX_FROM_VOXEL_POS(rotated_voxel_pos);
                 uint voxel = GET_VOXEL(node, voxel_index);
 
                 if (voxel != 0) {

@@ -57,9 +57,9 @@ DDA step_DDA(in DDA dda) {
         }
     #endif
 
-    dda.out_of_bounds = (dda.mask.x != 0 && (dda.pos.x <= -1 || dda.pos.x >= dda.upper_bound.x)
-    || dda.mask.y != 0 && (dda.pos.y <= -1 || dda.pos.y >= dda.upper_bound.y)
-    || dda.mask.z != 0 && (dda.pos.z <= -1 || dda.pos.z >= dda.upper_bound.z));
+    dda.out_of_bounds = (dda.mask.x != 0 && (dda.pos.x < 0 || dda.pos.x > dda.upper_bound.x)
+    || dda.mask.y != 0 && (dda.pos.y < 0 || dda.pos.y > dda.upper_bound.y)
+    || dda.mask.z != 0 && (dda.pos.z < 0 || dda.pos.z > dda.upper_bound.z));
 
     return dda;
 }
