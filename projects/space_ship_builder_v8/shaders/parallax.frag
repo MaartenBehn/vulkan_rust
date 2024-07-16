@@ -53,7 +53,7 @@ layout(set = 1, binding = 0) buffer Chunk {
 let data = chunk_size_bits
 */
 #define CHUNK_TRANSFORM push_constant.transform
-#define CHUNK_SIZE      uint(1 << ((push_constant.data) & 15))  // 4 Bit
+#define CHUNK_SIZE uint(1 << ((push_constant.data) & 15))  // 4 Bit
 
 
 #define POSITION vec3(oPos * float(NODE_SIZE))
@@ -164,6 +164,14 @@ vec4 raycaster(in Ray ray){
 
 void main() {
     Ray ray = init_ray(POSITION, DIRECTION, gl_FragCoord.xy, renderbuffer.size.xy);
+
+/*
+    mat4 inverse_mat = inverse(CHUNK_TRANSFORM);
+    ray.pos = (inverse_mat * ivec4(ray.pos, 1)).xyz;
+    ray.dir = (inverse_mat * ivec4(ray.dir, 0)).xyz;
+    ray.odir = 1 / ray.dir;
+ */
+
     float tMin, tMax;
     vec4 color = raycaster(ray);
 
