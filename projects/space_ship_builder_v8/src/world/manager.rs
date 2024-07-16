@@ -53,9 +53,9 @@ impl WorldManager {
     pub fn add_start_data(&mut self, rules: &Rules) {
         let mut region = Region::new(IVec3::ZERO);
 
-        let mut ship = BlockObject::new(Mat4::IDENTITY, CHUNK_SIZE, rules.block_names.len());
-        ship.builder_active = true;
-        region.loaded_objects.push(ship);
+        // let mut ship = BlockObject::new(Mat4::IDENTITY, CHUNK_SIZE, rules.block_names.len());
+        // ship.builder_active = true;
+        // region.loaded_objects.push(ship);
 
         let asteroid = self
             .asteroid_generator

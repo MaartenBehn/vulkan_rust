@@ -79,7 +79,7 @@ int next_chunk(in Ray ray, out float t) {
         ChunkData chunk_data = chunk_datas.chunks[i];
 
         float t_max;
-        if (aabb_ray_test(ray, AABB_MIN(chunk_data), AABB_MAX(chunk_data), t, t_max) && t > 0 && t < best_t) {
+        if (aabb_ray_test(ray, AABB_MIN(chunk_data), AABB_MAX(chunk_data), t, t_max) && t_max > 0 && t < best_t) {
             best_t = t;
             best_index = i;
         }
@@ -95,7 +95,10 @@ vec4 traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_c
     uint chunk_node_id_offset = 0;
 
     vec3 chunk_pos = (chunk_data.transform * vec4(0, 0, 0, 1)).xyz;
-    vec3 global_ray_enter = ray.origen + ray.dir * (t + EPSILON);
+    vec3 global_ray_enter = ray.origen;
+    if (t > 0) {
+        global_ray_enter += ray.dir * (t + EPSILON);
+    }
 
     /*
     if (gl_GlobalInvocationID.xy == vec2(640, 360)) {

@@ -290,10 +290,6 @@ impl ComputeRaytracingRenderer {
 
             let index = chunk.compute_raytracing_data.as_ref().unwrap().index;
 
-            if index != 0 {
-                continue;
-            }
-
             let chunk_data =
                 ChunkData::new(object.transform, chunk.pos, object.nodes_per_chunk.x as u32);
             let align = align_of::<ChunkData>();
