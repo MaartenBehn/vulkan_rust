@@ -37,6 +37,6 @@ struct Node {
 #define APPLY_ROT(rot, v) ivec3(rot.mat * vec4(v, 1.0))
 #define ROTATE_VOXEL_POS(voxel_pos, rot) (APPLY_ROT(rot, (voxel_pos % NODE_SIZE) - HALF_NODE_SIZE) + HALF_NODE_SIZE - rot.offset)
 
-#define GET_MAT_VECTOR_FROM_MAT_INT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
+#define GET_MAT_VECTOR_FROM_MAT(mat) (vec4(float(mat & 255) / 255.0, float((mat >> 8) & 255) / 255.0, float((mat >> 16) & 255) / 255.0, float((mat >> 24) & 255) / 255.0))
 
 #endif // _NODE_ID_GLSL_

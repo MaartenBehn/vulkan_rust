@@ -69,6 +69,7 @@ layout(binding = 4) buffer Nodes {
 layout(binding = 5) buffer Mats {
     uint mats[];
 } mats;
+#define GET_MAT(index) mats.mats[index]
 
 int next_chunk(in Ray ray, out float t) {
     float best_t = 1000000;
@@ -88,7 +89,7 @@ int next_chunk(in Ray ray, out float t) {
     return best_index;
 }
 
-bool traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_count) {
+vec4 traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_count) {
     ChunkData chunk_data = chunk_datas.chunks[chunk_index];
     uint chunk_size = CHUNK_SIZE(chunk_data);
     uint chunk_node_id_offset = 0;
@@ -130,7 +131,9 @@ bool traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_c
                 uint voxel = GET_VOXEL(node, voxel_index);
 
                 if (voxel != 0) {
-                    return true;
+                    uint mat = GET_MAT(voxel);
+                    vec4 color = GET_MAT_VECTOR_FROM_MAT(mat);
+                    return color;
                 }
 
                 node_dda = step_DDA(node_dda);
@@ -151,7 +154,7 @@ bool traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_c
 
     }
 
-    return false;
+    return vec4(0, 0, 0, 0);
 }
 
 void main () {
@@ -160,22 +163,23 @@ void main () {
     float t;
     int next_chunk = next_chunk(ray, t);
 
-    vec3 color = ray.dir;
+    vec4 color = vec4(ray.dir, 1);
     if (next_chunk != -1) {
         color *= 0.7;
 
         uint step_count;
-        if (traverse_chunk(ray, t, next_chunk, step_count)) {
-
+        vec4 c = traverse_chunk(ray, t, next_chunk, step_count);
+        if (c.a != 0) {
+            color = c;
         }
 
-        color = step_count_color(step_count, MAX_RAY_STEPS);
+        color += step_count_color(step_count, MAX_RAY_STEPS);
     }
 
     if (gl_GlobalInvocationID.xy == vec2(640, 360)) {
-        color = vec3(1, 0, 0);
+        color = vec4(1, 0, 0, 1);
     }
 
-    imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), color);
 }
 
