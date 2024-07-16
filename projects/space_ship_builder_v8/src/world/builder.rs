@@ -26,7 +26,7 @@ impl BlockBuilder {
         let mut possible_blocks = Vec::new();
         possible_blocks.push(rules.get_block_name_index("Empty"));
         possible_blocks.push(rules.get_block_name_index("Hull"));
-        possible_blocks.push(rules.get_block_name_index("Stone"));
+        //possible_blocks.push(rules.get_block_name_index("Stone"));
 
         BlockBuilder {
             block_to_build: 1,

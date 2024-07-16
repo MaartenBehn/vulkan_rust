@@ -64,4 +64,9 @@ DDA step_DDA(in DDA dda) {
     return dda;
 }
 
+float get_DDA_t(in DDA dda) {
+    vec3 side_dist = dda.mask * dda.side_dist;
+    return side_dist.x + side_dist.y + side_dist.z;
+}
+
 #endif // __DDA_GLSL__

@@ -7,7 +7,7 @@
 #include "../shader_includes/debug.glsl"
 #include "../shader_includes/node.glsl"
 
-#define MAX_RAY_STEPS 100
+#define MAX_RAY_STEPS 50
 #define EPSILON 0.0001
 #define TO_1D(pos, size) ((pos.z * size * size) + (pos.y * size) + pos.x)
 
@@ -107,21 +107,26 @@ bool traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_c
 
     step_count = 0;
     while (step_count < MAX_RAY_STEPS) {
-        ivec3 node_pos = ivec3(chunk_dda.pos);
-        uint node_id = GET_NODE_ID(node_pos, chunk_size, chunk_node_id_offset);
+        vec3 node_pos = floor(chunk_dda.pos);
+        uint node_id = GET_NODE_ID(ivec3(node_pos), chunk_size, chunk_node_id_offset);
         uint node_index = GET_NODE_INDEX_FROM_NODE_ID(node_id);
 
         if (node_index != 0) {
             Node node = GET_NODE(node_index);
             Rot rot = GET_ROT_FROM_NODE_ID(node_id);
 
-            vec3 in_node_pos = fract(chunk_dda.pos) * NODE_SIZE;
+            float t_min;
+            float t_max;
+            aabb_ray_test(ray, node_pos, node_pos + 1, t_min, t_max);
+            vec3 ray_pos = ray.origen + ray.dir * (t_min + EPSILON);
+
+            vec3 in_node_pos = (ray_pos - node_pos) * NODE_SIZE;
             node_dda = init_DDA(ray, in_node_pos, ivec3(NODE_SIZE));
 
             while (step_count < MAX_RAY_STEPS) {
                 ivec3 voxel_pos = ivec3(node_dda.pos);
-                ivec3 rotated_voxel_pos = ROTATE_VOXEL_POS(voxel_pos, rot);
-                uint voxel_index = GET_VOXEL_INDEX_FROM_VOXEL_POS(rotated_voxel_pos);
+                //ivec3 rotated_voxel_pos = ROTATE_VOXEL_POS(voxel_pos, rot);
+                uint voxel_index = GET_VOXEL_INDEX_FROM_VOXEL_POS(voxel_pos);
                 uint voxel = GET_VOXEL(node, voxel_index);
 
                 if (voxel != 0) {
@@ -139,10 +144,11 @@ bool traverse_chunk(in Ray ray, in float t, in uint chunk_index, out uint step_c
 
         chunk_dda = step_DDA(chunk_dda);
         if (chunk_dda.out_of_bounds) {
-            break;
-        }
+                break;
+            }
 
-        step_count++;
+            step_count++;
+
     }
 
     return false;
@@ -164,6 +170,10 @@ void main () {
         }
 
         color = step_count_color(step_count, MAX_RAY_STEPS);
+    }
+
+    if (gl_GlobalInvocationID.xy == vec2(640, 360)) {
+        color = vec3(1, 0, 0);
     }
 
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color, 0));
